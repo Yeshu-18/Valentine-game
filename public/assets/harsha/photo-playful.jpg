@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="600" height="800" viewBox="0 0 600 800">
+  <defs>
+    <linearGradient id="bg2" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#113333"/>
+      <stop offset="50%" stop-color="#2e7775"/>
+      <stop offset="100%" stop-color="#0d2222"/>
+    </linearGradient>
+    <radialGradient id="glow2" cx="50%" cy="40%" r="50%">
+      <stop offset="0%" stop-color="#a8f0e6" stop-opacity="0.9"/>
+      <stop offset="60%" stop-color="#ffe194" stop-opacity="0.5"/>
+      <stop offset="100%" stop-color="#113333" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <rect width="600" height="800" fill="url(#bg2)"/>
+  <circle cx="300" cy="320" r="260" fill="url(#glow2)"/>
+
+  <rect x="25" y="25" width="550" height="750" rx="16" fill="none" stroke="#2e7775" stroke-width="4"/>
+  <rect x="35" y="35" width="530" height="730" rx="12" fill="none" stroke="#ffe194" stroke-width="2"/>
+
+  <!-- Playful Doodles & Stickers -->
+  <g fill="#ffe194" opacity="0.9">
+    <!-- Starbursts & Sparkles -->
+    <path d="M 100 120 L 110 100 L 120 120 L 140 130 L 120 140 L 110 160 L 100 140 L 80 130 Z"/>
+    <path d="M 480 160 L 490 140 L 500 160 L 520 170 L 500 180 L 490 200 L 480 180 L 460 170 Z"/>
+    <!-- Cute Smiley Heart -->
+    <circle cx="150" cy="420" r="24" fill="#ff94b1"/>
+    <circle cx="142" cy="415" r="3" fill="#2e0f19"/>
+    <circle cx="158" cy="415" r="3" fill="#2e0f19"/>
+    <path d="M 142 425 Q 150 432 158 425" stroke="#2e0f19" stroke-width="2" fill="none"/>
+  </g>
+
+  <!-- Playful Silly Faces Silhouette -->
+  <g>
+    <circle cx="250" cy="300" r="48" fill="#faf1e4"/>
+    <circle cx="350" cy="310" r="44" fill="#faf1e4"/>
+    <!-- Crown on Harsha -->
+    <path d="M 325 255 L 340 235 L 350 250 L 360 235 L 375 255 Z" fill="#ffe194"/>
+    <path d="M 200 420 Q 250 340 300 420 Z" fill="#2e7775"/>
+    <path d="M 300 420 Q 350 350 400 420 Z" fill="#f5c6d1"/>
+  </g>
+
+  <!-- Playful Banner -->
+  <rect x="120" y="550" width="360" height="50" rx="10" fill="#2e0f19" stroke="#ffe194" stroke-width="2"/>
+  <text x="300" y="582" text-anchor="middle" font-family="Georgia, serif" font-size="24" font-weight="bold" fill="#ffe194">THE WAY WE LAUGH ✦</text>
+
+  <text x="300" y="640" text-anchor="middle" font-family="Georgia, serif" font-size="20" font-style="italic" fill="#a8f0e6">HARSHA &amp; YESHWANTH</text>
+  <text x="300" y="690" text-anchor="middle" font-family="Georgia, serif" font-size="16" font-style="italic" fill="#ffffff" opacity="0.9">For all the goofy faces, laughing fits, and moments</text>
+  <text x="300" y="715" text-anchor="middle" font-family="Georgia, serif" font-size="16" font-style="italic" fill="#ffffff" opacity="0.9">nobody else would understand.</text>
+</svg>

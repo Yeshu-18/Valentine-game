@@ -1,0 +1,2153 @@
+# HEART ISLAND: VALENTINE'S DREAM WORLD
+## ROMANTIC AURORA UNDERGROUND CINEMATIC
+### COMPLETE IMPLEMENTATION SYSTEM PROMPT
+
+You are working on my existing **Heart Island: Valentine’s Dream World** project.
+
+This is an existing handcrafted 3D romantic exploration game.
+
+Your job is to implement a complete, polished, cinematic experience at the existing **Aurora Lake Vista** location.
+
+This is NOT a request to redesign the world.
+
+This is NOT a request to rewrite existing systems.
+
+This is NOT a generic "add an elevator" task.
+
+This is a carefully authored romantic cinematic that must integrate into the existing game without damaging existing regions or systems.
+
+---
+
+# 1. PROJECT CONTEXT
+
+Technology:
+
+- TypeScript
+- React
+- Vite
+- Three.js 0.186.1
+- Existing procedural terrain
+- Existing player controller
+- Existing camera system
+- Existing interaction system
+- Existing atmosphere/lighting
+- Existing Aurora implementation
+- Existing character system
+- Existing audio architecture where available
+
+Project philosophy:
+
+Heart Island is a handcrafted romantic fantasy exploration world.
+
+It should feel:
+
+- magical
+- beautiful
+- playful
+- peaceful
+- romantic
+- exploratory
+- personal
+
+It should NOT feel like a conventional RPG.
+
+Avoid:
+
+- quest markers
+- objective trackers
+- minimaps
+- waypoint arrows
+- unnecessary UI
+- repetitive quest structures
+- heavy physics
+- generic game mechanics
+
+The world itself is the main gift.
+
+This Aurora sequence is a smaller intimate romantic experience inside that larger world.
+
+---
+
+# 2. ABSOLUTELY IMPORTANT: INSPECT FIRST
+
+Before changing anything, inspect the existing repository.
+
+Do NOT immediately start creating files.
+
+Identify the current implementation of:
+
+1. Aurora Lake Vista
+2. The exact stone at Aurora Lake Vista
+3. PlayerController
+4. Camera system
+5. E-key interaction system
+6. Existing cinematic/scripted animation systems
+7. Character system
+8. Aurora system
+9. Lighting/atmosphere system
+10. Audio system
+11. Terrain/collision system
+12. Existing UI/dialogue components
+13. Existing animation architecture
+
+Determine the smallest clean integration point.
+
+Reuse existing systems wherever practical.
+
+Do not duplicate functionality that already exists.
+
+If the project already contains an equivalent cinematic controller, interaction manager, dialogue component, or animation system, extend it instead of creating a competing system.
+
+---
+
+# 3. EXISTING LOCATION IS LOCKED
+
+The existing Aurora Lake Vista location is authoritative.
+
+Do NOT move it.
+
+Do NOT redesign the surrounding region unnecessarily.
+
+Do NOT replace the existing Aurora system unless absolutely necessary.
+
+Do NOT modify:
+
+- Central Plaza
+- Ancient Enchanted Realm
+- Castle
+- Forest
+- Carnival
+- Special Gate
+
+unless a tiny integration change is strictly required.
+
+The exact stone already present at Aurora Lake Vista is the elevator.
+
+THE STONE ITSELF IS THE ELEVATOR.
+
+Do not create another elevator.
+
+Do not place an elevator beside it.
+
+Do not create a conventional elevator cabin.
+
+Do not create elevator doors.
+
+Do not create a mechanical shaft visible from the surface.
+
+Do not teleport the player.
+
+---
+
+# 4. CORE EXPERIENCE
+
+The complete experience is:
+
+NORMAL EXPLORATION
+
+↓
+
+Player discovers the existing stone at Aurora Lake Vista
+
+↓
+
+Minimal interaction prompt appears
+
+"E Enter"
+
+↓
+
+Player presses E
+
+↓
+
+Player control locks
+
+↓
+
+Cinematic begins
+
+↓
+
+Stone itself slowly descends underground
+
+↓
+
+Surface Aurora Lake Vista gradually disappears
+
+↓
+
+Underground darkness
+
+↓
+
+Quiet pause
+
+↓
+
+Yeshwanth approaches from behind
+
+↓
+
+He gently invites Harsha to sit
+
+↓
+
+They sit together
+
+↓
+
+They look upward
+
+↓
+
+A tiny light appears
+
+↓
+
+Hidden underground sky slowly reveals itself
+
+↓
+
+Aurora gradually appears
+
+↓
+
+Nearby underground pond becomes visible
+
+↓
+
+Colorful fish gradually appear
+
+↓
+
+They watch the Aurora together
+
+↓
+
+Quiet romantic dialogue
+
+↓
+
+Yeshwanth expresses his love
+
+↓
+
+Proposal
+
+↓
+
+Long emotional hold
+
+↓
+
+Aurora slowly fades
+
+↓
+
+Fish disappear into darker water
+
+↓
+
+Yeshwanth stands
+
+↓
+
+He gently asks her to come back
+
+↓
+
+He offers his hand
+
+↓
+
+They return to the stone
+
+↓
+
+Stone slowly rises
+
+↓
+
+Darkness transitions into surface light
+
+↓
+
+Aurora Lake Vista returns
+
+↓
+
+They emerge at the EXACT original location
+
+↓
+
+Short peaceful moment
+
+↓
+
+Normal gameplay resumes
+
+↓
+
+Player continues exploring Heart Island
+
+---
+
+# 5. EMOTIONAL DIRECTION
+
+This is extremely important.
+
+The scene must be:
+
+CUTE
+ROMANTIC
+WARM
+MAGICAL
+PEACEFUL
+INTIMATE
+HEARTFELT
+
+It must NOT feel:
+
+- scary
+- horror-like
+- ominous
+- threatening
+- depressing
+- like a dungeon
+- like a boss encounter
+- like a quest
+- like a thriller
+- like a generic RPG cutscene
+
+The emotional progression should be:
+
+CURIOUS
+→
+COZY
+→
+MAGICAL
+→
+BEAUTIFUL
+→
+ROMANTIC
+→
+HEARTFELT
+→
+PEACEFUL
+
+The darkness is a surprise, not a threat.
+
+The underground environment is a secret romantic place.
+
+The feeling should be:
+
+"Wait... where are we?"
+
+then:
+
+"Wow..."
+
+then:
+
+"He brought me somewhere beautiful."
+
+then:
+
+"This little place is just for us."
+
+---
+
+# 6. INITIAL DISCOVERY
+
+The player should explore normally.
+
+The stone should NOT look like an obvious elevator.
+
+It should appear to be a mysterious natural stone formation.
+
+Only when the player is sufficiently close should the existing interaction system display:
+
+"E Enter"
+
+Keep this prompt minimal.
+
+No marker.
+
+No arrow.
+
+No glow beam.
+
+No objective.
+
+No floating icon above the stone.
+
+The player discovers it naturally.
+
+---
+
+# 7. E INTERACTION
+
+When E is pressed:
+
+Immediately:
+
+- capture exact player position
+- capture exact player rotation
+- capture camera state
+- capture camera mode
+- capture relevant movement state
+- capture relevant interaction state
+
+Then:
+
+- lock player movement
+- disable normal interaction input
+- hide the E prompt
+- prevent accidental interaction
+- enter cinematic mode
+- transfer camera authority to cinematic controller
+
+The player remains physically standing on the stone.
+
+Do not teleport.
+
+Do not fade immediately to black.
+
+---
+
+# 8. CINEMATIC STATE MACHINE
+
+Use a dedicated cinematic state machine.
+
+Suggested states:
+
+IDLE
+
+ENTERING
+
+DESCENDING
+
+UNDERGROUND_DARKNESS
+
+MAN_APPROACH
+
+SITTING
+
+SKY_REVEAL
+
+AURORA_REVEAL
+
+POND_REVEAL
+
+QUIET_AURORA
+
+ROMANTIC_DIALOGUE
+
+PROPOSAL
+
+EMOTIONAL_HOLD
+
+RETURN_PREP
+
+ASCENDING
+
+SURFACE_REVEAL
+
+RESTORING
+
+COMPLETE
+
+Use an equivalent architecture if the existing project already has a better cinematic state system.
+
+The important requirement is that the entire sequence is deterministic and synchronized.
+
+---
+
+# 9. DESCENT
+
+The stone itself slowly descends into the earth.
+
+The player descends with it.
+
+The movement should be slow.
+
+Dreamlike.
+
+Smooth.
+
+No mechanical elevator behavior.
+
+No sudden movement.
+
+No teleport.
+
+No loading screen.
+
+No hard cut.
+
+The surface gradually disappears above.
+
+During descent:
+
+- Aurora becomes dimmer
+- sky visibility decreases
+- surface ambience becomes quieter
+- distant world sound becomes muffled
+- subtle underground ambience begins
+- environmental particles may appear subtly
+- darkness gradually increases
+
+The audience must understand:
+
+"We are physically going underground."
+
+---
+
+# 10. UNDERGROUND DARKNESS
+
+Once underground:
+
+hold near-darkness for several seconds.
+
+Do not rush.
+
+But do NOT make it horror-dark.
+
+Keep extremely subtle environmental readability:
+
+- faint particles
+- very subtle blue light
+- distant water sound
+- barely visible rock silhouettes
+
+The darkness should create anticipation.
+
+It should feel like:
+
+"Something beautiful is about to happen."
+
+Not:
+
+"Something dangerous is here."
+
+No gameplay.
+
+No UI.
+
+No interaction.
+
+---
+
+# 11. Yeshwanth APPROACH
+
+After the darkness settles:
+
+Yeshwanth slowly approaches from behind.
+
+He must NOT appear threatening.
+
+No horror silhouette.
+
+No jump scare.
+
+No ominous music.
+
+No aggressive footsteps.
+
+Use:
+
+- gentle movement
+- subtle warm rim lighting
+- calm body language
+- soft expression
+
+Initially he can remain partially silhouetted.
+
+His identity can become clearer as the Aurora begins to illuminate him.
+
+This should feel like a romantic surprise.
+
+---
+
+# 12. FIRST DIALOGUE
+
+When he reaches her, he gently says:
+
+"Come. Sit with me."
+
+This line should be delivered softly.
+
+Do not make it dramatic.
+
+He then sits beside her.
+
+Harsha sits beside him.
+
+They are close enough to feel like a couple, but do not force exaggerated physical contact.
+
+Allow a quiet pause.
+
+They look upward together.
+
+---
+
+# 13. SITTING TOGETHER
+
+This should be one of the cutest moments.
+
+Both characters are simply sitting together in darkness.
+
+No gameplay.
+
+No choices.
+
+No UI except dialogue when needed.
+
+Use subtle character animation:
+
+- breathing
+- slight posture adjustment
+- natural head movement
+- gentle upward gaze
+
+Do not overanimate.
+
+Silence is important.
+
+---
+
+# 14. HIDDEN SKY REVEAL
+
+After they sit:
+
+Hold for a few seconds.
+
+Then:
+
+1. Tiny point of light appears above.
+2. Second point appears.
+3. More subtle lights appear.
+4. Darkness above begins to open.
+5. Hidden sky becomes visible.
+6. Very faint blue glow appears.
+7. Green/teal Aurora begins.
+8. Violet/pink tones slowly emerge.
+9. Aurora gradually fills the hidden sky.
+
+Do NOT suddenly turn on the Aurora.
+
+The reveal must be slow.
+
+The audience should experience:
+
+darkness
+
+→ tiny light
+
+→ wonder
+
+→ Aurora
+
+---
+
+# 15. AURORA
+
+Reuse the existing Aurora system if possible.
+
+Do not replace working Aurora technology unnecessarily.
+
+Expose the Aurora system to cinematic control if required.
+
+The Aurora should progress through:
+
+1. almost invisible
+2. faint glow
+3. subtle ribbons
+4. recognizable Aurora
+5. beautiful full Aurora
+
+Aurora light should gradually illuminate:
+
+- characters
+- stone
+- rock
+- pond
+- nearby vegetation
+- environment
+
+Avoid overexposure.
+
+Avoid excessive bloom.
+
+The existing screenshot's Aurora should NOT simply remain permanently bright during the cinematic.
+
+The reveal must have progression.
+
+---
+
+# 16. CUTE ENVIRONMENTAL RESPONSE
+
+As the Aurora becomes brighter:
+
+small natural magical details respond.
+
+Examples:
+
+- tiny flowers open
+- small glowing particles appear
+- subtle luminous plants awaken
+- water reflects the Aurora
+- a few tiny lights drift over the pond
+- nearby foliage catches colored light
+
+Do NOT cover the environment in hearts.
+
+Do NOT create giant Valentine graphics.
+
+Do NOT add excessive pink particles.
+
+Romance must come from the environment.
+
+---
+
+# 17. UNDERGROUND POND
+
+A nearby underground pond should gradually reveal itself.
+
+First:
+
+- faint water sound
+- dark reflective surface
+- subtle rock silhouettes
+
+Then:
+
+- water becomes visible
+- Aurora reflection appears
+- subtle ripples appear
+- colorful fish become visible
+
+The pond should feel like a secret magical ecosystem.
+
+It should be beautiful and believable.
+
+---
+
+# 18. FISH
+
+The fish should be:
+
+- colorful
+- small to medium
+- graceful
+- playful
+- peaceful
+
+They should NOT behave like game collectibles.
+
+Do not give them UI labels.
+
+Do not make them interactable.
+
+Do not create a fishing mechanic.
+
+Their purpose is purely environmental and emotional.
+
+A few cute behaviors are allowed:
+
+- two fish swimming together
+- one fish approaching the pond edge
+- small groups changing direction
+- fish briefly catching Aurora colors
+
+Keep animation slow and peaceful.
+
+---
+
+# 19. ROMANTIC SILENT MOMENT
+
+After the Aurora and pond are fully revealed:
+
+DO NOT immediately show dialogue.
+
+Let the couple simply watch.
+
+Hold the moment.
+
+Use:
+
+- slow camera movement
+- Aurora animation
+- water reflections
+- fish movement
+- subtle particles
+- gentle ambience
+- soft music
+
+No UI.
+
+This silence is important.
+
+The player should have time to appreciate the scene.
+
+---
+
+# 20. ROMANTIC DIALOGUE
+
+Dialogue should be sparse.
+
+Do NOT turn the cinematic into a visual novel.
+
+Suggested structure:
+
+Yeshwanth:
+
+"Beautiful, isn't it?"
+
+Pause.
+
+Yeshwanth:
+
+"I wanted you to see this."
+
+Pause.
+
+Yeshwanth:
+
+"There's something I've wanted to tell you."
+
+Pause.
+
+Then the personal love confession/proposal.
+
+IMPORTANT:
+
+Keep the final proposal dialogue centralized in a dialogue configuration/data file.
+
+Do NOT scatter dialogue strings throughout cinematic logic.
+
+The exact final wording should be easy to edit later.
+
+Do not invent a long generic movie-style proposal.
+
+The proposal should feel personal, sincere, and short.
+
+---
+
+# 21. PROPOSAL PRESENTATION
+
+When Yeshwanth turns toward Harsha:
+
+Slow camera transition.
+
+Aurora remains visible behind them.
+
+Pond remains visible.
+
+Fish continue moving.
+
+He looks at her.
+
+Pause.
+
+Then delivers the love confession/proposal.
+
+Do NOT immediately move the camera away.
+
+Hold on the moment.
+
+Allow:
+
+- Aurora movement
+- water movement
+- fish movement
+- subtle character breathing
+- gentle lighting
+
+The environment should continue living around them.
+
+---
+
+# 22. CUTE DIALOGUE UI
+
+The dialogue box must be custom-designed for Heart Island.
+
+Do NOT use a generic RPG dialogue box.
+
+Do NOT use a large opaque rectangle.
+
+Do NOT use a quest UI.
+
+The dialogue panel should feel like a tiny romantic story card floating over the cinematic.
+
+Visual direction:
+
+- soft rounded corners
+- organic shape
+- translucent glass effect
+- subtle Aurora blue/lavender/pink tint
+- gentle glow
+- soft shadow
+- subtle inner highlight
+- elegant typography
+- small heart or flower detail
+
+It should be cute and lovable.
+
+Not childish.
+
+Not overly pink.
+
+Not overloaded with hearts.
+
+---
+
+# 23. SPEAKER NAMEPLATE
+
+For Yeshwanth:
+
+"Yeshwanth ♡"
+
+For Harsha:
+
+"Harsha ♡"
+
+Use a small elegant speaker badge.
+
+Possible decorative elements:
+
+- tiny heart
+- tiny flower
+- tiny sparkle
+
+Keep it subtle.
+
+---
+
+# 24. DIALOGUE TYPEWRITER
+
+Dialogue should appear with a gentle typewriter effect.
+
+Example:
+
+Yeshwanth ♡
+
+"Come. Sit with me."
+
+The text should reveal gradually.
+
+Use a relaxed speed.
+
+Important emotional lines may use slightly slower reveal.
+
+Do not make it painfully slow.
+
+---
+
+# 25. DIALOGUE ADVANCEMENT
+
+The player should NOT have to press a button between dialogue lines.
+
+After the initial E interaction:
+
+THERE IS ZERO PLAYER INTERACTION UNTIL THE CINEMATIC ENDS.
+
+Dialogue advances automatically according to the cinematic timeline.
+
+Do NOT show:
+
+"Press E"
+
+"Click to continue"
+
+"Next"
+
+"Skip"
+
+No dialogue choices.
+
+No branching.
+
+No relationship meter.
+
+No quest system.
+
+---
+
+# 26. DIALOGUE ANIMATION
+
+When dialogue begins:
+
+1. panel softly fades in
+2. speaker name appears
+3. text types in
+4. tiny heart/sparkle appears
+5. line completes
+6. emotional hold
+7. panel fades away
+
+Use gentle movement.
+
+No bouncing.
+
+No large scaling.
+
+No flashy transitions.
+
+---
+
+# 27. PROPOSAL UI EMPHASIS
+
+The proposal line may receive slightly stronger treatment.
+
+For the proposal:
+
+- slightly warmer panel tint
+- subtle Aurora glow increase
+- tiny shimmer along panel edge
+- slightly slower text reveal
+- tiny heart/flower detail
+
+But:
+
+NO giant heart explosion.
+
+NO screen full of hearts.
+
+NO cheesy Valentine's animation.
+
+The words and environment should remain the focus.
+
+---
+
+# 28. IMPORTANT DIALOGUE SILENCE
+
+Alternate between:
+
+DIALOGUE
+→
+SILENCE
+→
+VISUAL WONDER
+→
+DIALOGUE
+→
+SILENCE
+
+Examples:
+
+During Aurora reveal:
+
+NO dialogue.
+
+During first full Aurora view:
+
+NO dialogue.
+
+During pond reveal:
+
+NO dialogue.
+
+During emotional Aurora hold:
+
+NO dialogue.
+
+Then Yeshwanth speaks.
+
+Then silence.
+
+Then proposal.
+
+Then silence.
+
+This rhythm is essential.
+
+---
+
+# 29. RETURN FROM THE UNDERGROUND
+
+After the proposal:
+
+Do NOT immediately end the cinematic.
+
+Allow a long emotional hold.
+
+Then Yeshwanth gently stands.
+
+He says:
+
+"Come. Let's go back."
+
+He offers his hand.
+
+Harsha stands.
+
+They return to the stone.
+
+This should feel warm and cute.
+
+Not abrupt.
+
+---
+
+# 30. AURORA FADE
+
+As they prepare to leave:
+
+- Aurora gradually becomes softer
+- pond reflection dims
+- fish become less visible
+- glowing flowers gently close
+- floating particles fade
+- hidden sky becomes darker
+
+Do NOT suddenly shut everything off.
+
+The beauty should slowly recede.
+
+---
+
+# 31. ASCENDING
+
+The SAME STONE elevator rises.
+
+Both characters remain on it.
+
+No conventional elevator cabin.
+
+No elevator doors.
+
+No teleport.
+
+No loading screen.
+
+The stone physically rises.
+
+The underground environment gradually passes downward around them.
+
+The lighting transitions:
+
+darkness
+→ faint blue
+→ surface glow
+→ vegetation silhouettes
+→ trees
+→ Aurora Lake Vista
+
+---
+
+# 32. SURFACE RETURN
+
+The player must return to the EXACT original location.
+
+Capture before descent:
+
+- X
+- Y
+- Z
+- rotation
+- relevant player state
+- camera state
+
+Restore safely.
+
+Do not use an approximate coordinate.
+
+Do not spawn the player somewhere else.
+
+The stone must return to its original position.
+
+---
+
+# 33. SURFACE EMERGENCE
+
+As they emerge:
+
+- normal Aurora Lake Vista lighting returns
+- lake becomes visible
+- trees become visible
+- grass becomes visible
+- normal ambient sound returns
+- normal world particles return
+- existing atmosphere returns
+
+The transition should feel like:
+
+"We just came back from a hidden dream beneath the world."
+
+Not:
+
+"The cutscene ended."
+
+---
+
+# 34. FINAL MOMENT
+
+When the stone reaches the surface:
+
+Do not immediately restore control.
+
+Give a brief peaceful pause.
+
+Both characters stand together.
+
+Let the world breathe.
+
+Then:
+
+- cinematic camera releases
+- player controller restores
+- normal movement resumes
+- interaction system restores
+- normal audio resumes
+
+No objective.
+
+No quest.
+
+No reward popup.
+
+No achievement.
+
+No forced next destination.
+
+The player simply continues exploring.
+
+---
+
+# 35. ROMANTIC CAMERA DESIGN
+
+Use cinematic camera control.
+
+Preferred shots:
+
+1. Wide Aurora reveal
+2. Couple sitting together
+3. Over-the-shoulder Aurora view
+4. Silhouette against Aurora
+5. Pond reflection
+6. Fish close view
+7. Couple watching Aurora
+8. Slow camera push toward Yeshwanth
+9. Proposal medium shot
+10. Wide emotional hold
+11. Ascending shot
+12. Surface emergence
+
+Avoid:
+
+- rapid cuts
+- camera shake
+- horror framing
+- excessive close-ups
+- unnecessary lens effects
+- overly dramatic trailer shots
+
+Camera movement should be:
+
+slow
+smooth
+gentle
+intimate
+
+---
+
+# 36. SLOW DREAM-TIME
+
+This is a slow-motion cinematic experience.
+
+Do NOT globally slow the entire game.
+
+The cinematic should have its own timing.
+
+If animated models use Three.js AnimationMixer/AnimationAction:
+
+- use mixer/action time scaling appropriately
+- use controlled interpolation
+- use crossfading where useful
+- avoid modifying unrelated world animation timing
+
+Three.js supports global mixer time scaling and per-action time scaling, which can be used for this type of controlled cinematic pacing.
+
+The cinematic controller should own the timeline.
+
+Do not freeze unrelated systems unnecessarily.
+
+---
+
+# 37. AUDIO DESIGN
+
+Use the existing audio system if available.
+
+Audio progression:
+
+NORMAL WORLD
+
+↓
+
+softened descent
+
+↓
+
+near silence
+
+↓
+
+subtle underground ambience
+
+↓
+
+gentle footsteps
+
+↓
+
+quiet sitting moment
+
+↓
+
+Aurora reveal soundscape
+
+↓
+
+soft water
+
+↓
+
+subtle fish/pond ambience
+
+↓
+
+romantic music layer
+
+↓
+
+proposal
+
+↓
+
+quiet emotional hold
+
+↓
+
+music slowly fades
+
+↓
+
+return journey
+
+↓
+
+normal world ambience
+
+The music should be:
+
+- soft
+- warm
+- romantic
+- magical
+- intimate
+
+Avoid:
+
+- horror drones
+- dramatic impacts
+- loud orchestral hits
+- excessive cinematic booms
+
+Silence is part of the soundtrack.
+
+---
+
+# 38. LIGHTING DESIGN
+
+Surface:
+
+existing Aurora Lake Vista lighting.
+
+Descent:
+
+gradually reduce surface influence.
+
+Underground:
+
+near darkness.
+
+Man approach:
+
+very subtle rim light.
+
+Sky reveal:
+
+tiny light source.
+
+Aurora reveal:
+
+slow environmental illumination.
+
+Full Aurora:
+
+beautiful colored lighting.
+
+Proposal:
+
+slightly warmer emotional lighting.
+
+Return:
+
+Aurora fades.
+
+Ascent:
+
+surface lighting gradually returns.
+
+Final:
+
+restore original lighting state.
+
+Do not permanently modify global lighting.
+
+---
+
+# 39. ENVIRONMENTAL ROMANCE
+
+The environment should create the romance.
+
+Use:
+
+- Aurora
+- water
+- reflections
+- fish
+- subtle flowers
+- glowing particles
+- natural rock
+- soft vegetation
+- quiet ambience
+
+Avoid decorating the underground area with:
+
+- giant hearts
+- Valentine banners
+- excessive pink lights
+- text signs
+- balloons
+- gift boxes
+- artificial romantic props
+
+The environment should feel like a secret natural place.
+
+---
+
+# 40. NO GAMEPLAY AFTER E
+
+This is critical.
+
+The player presses E once.
+
+After that:
+
+NO movement.
+
+NO jumping.
+
+NO attacks.
+
+NO interaction.
+
+NO dialogue choices.
+
+NO menu interaction.
+
+NO skipping.
+
+NO additional E prompts.
+
+NO gameplay mechanics.
+
+The entire sequence is authored.
+
+Control returns only after the final surface restoration.
+
+---
+
+# 41. REPLAY SAFETY
+
+The feature must not break if the player visits the stone again.
+
+Choose a safe replay architecture.
+
+Preferred:
+
+The cinematic can be replayed.
+
+However:
+
+- no duplicate Yeshwanth
+- no duplicate fish
+- no duplicate pond
+- no duplicate lights
+- no duplicate audio
+- no duplicate dialogue UI
+- no duplicate cinematic controller
+
+Reuse existing objects where possible.
+
+Clean temporary objects properly.
+
+---
+
+# 42. PLAYER SAFETY
+
+Before cinematic:
+
+save:
+
+- player position
+- player rotation
+- camera position
+- camera rotation
+- camera mode
+- movement state
+- interaction state
+
+During:
+
+- disable normal controller
+- disable normal interaction
+- cinematic owns camera
+- prevent physics/collision conflicts
+- prevent falling
+- prevent duplicate trigger
+
+After:
+
+- restore player
+- restore camera
+- restore interaction
+- restore movement
+- prevent camera snapping
+- prevent terrain clipping
+
+---
+
+# 43. UNDERGROUND IMPLEMENTATION
+
+The underground environment should preferably exist as part of the same scene.
+
+Do not create a completely separate level unless the current architecture makes that genuinely necessary.
+
+The transition should feel physical.
+
+If the underground geometry needs to be generated:
+
+Use:
+
+- modular rocks
+- shared geometry
+- shared materials
+- instancing
+- deterministic placement
+- subtle vegetation
+- controlled water surface
+- minimal lighting
+
+Do not build a massive new biome.
+
+The underground environment exists only to support this intimate cinematic.
+
+---
+
+# 44. PERFORMANCE
+
+Respect the project's performance targets.
+
+Target approximately:
+
+- ≤400 draw calls
+- ≤1.5M triangles
+- ≤600 particles
+- ≤12 dynamic PointLights
+
+Prefer:
+
+- InstancedMesh
+- shared geometry
+- shared materials
+- reusable particles
+- deterministic animation
+- existing atmosphere systems
+- existing Aurora system
+- existing character system
+
+Do not introduce a heavy physics engine.
+
+Do not add unnecessary dependencies.
+
+Do not create hundreds of individual animated objects.
+
+---
+
+# 45. UI PERFORMANCE
+
+Dialogue UI should preferably use the existing React/DOM UI infrastructure.
+
+If a suitable system does not exist:
+
+Create a small dedicated reusable cinematic dialogue component.
+
+It must:
+
+- render above the Three.js canvas
+- synchronize with cinematic timeline
+- support responsive layouts
+- mount/unmount cleanly
+- not intercept gameplay input unnecessarily
+- clean up after cinematic
+- avoid stale state
+- avoid excessive React re-renders
+
+Keep dialogue content in centralized data.
+
+---
+
+# 46. DIALOGUE DATA
+
+Use a structure conceptually similar to:
+
+AuroraDialogue = [
+  {
+    speaker: "Yeshwanth",
+    text: "Come. Sit with me.",
+    timing: ...
+  },
+  ...
+]
+
+Do not hard-code dialogue directly inside animation logic.
+
+The final proposal wording must be easy to change.
+
+---
+
+# 47. STORYBOARD
+
+Implement the cinematic approximately as follows.
+
+## BEAT 01
+Player reaches stone.
+
+Normal gameplay.
+
+Minimal:
+
+"E Enter"
+
+---
+
+## BEAT 02
+Player presses E.
+
+Camera slowly takes control.
+
+Player stops.
+
+Prompt disappears.
+
+---
+
+## BEAT 03
+Stone begins descending.
+
+Surface world remains visible above.
+
+Aurora gradually fades.
+
+---
+
+## BEAT 04
+Underground.
+
+Darkness.
+
+Quiet.
+
+Hold.
+
+---
+
+## BEAT 05
+Yeshwanth approaches.
+
+Soft footsteps.
+
+Gentle silhouette.
+
+He says:
+
+"Come. Sit with me."
+
+---
+
+## BEAT 06
+He sits.
+
+Harsha sits.
+
+Both look upward.
+
+Silence.
+
+---
+
+## BEAT 07
+Tiny light appears.
+
+More lights.
+
+Hidden sky opens.
+
+---
+
+## BEAT 08
+Aurora slowly appears.
+
+No dialogue.
+
+Allow the player to appreciate it.
+
+---
+
+## BEAT 09
+Pond reveals itself.
+
+Aurora reflection appears.
+
+Fish gradually appear.
+
+No dialogue.
+
+---
+
+## BEAT 10
+They watch together.
+
+Soft music.
+
+Silence.
+
+---
+
+## BEAT 11
+Yeshwanth says:
+
+"Beautiful, isn't it?"
+
+Pause.
+
+---
+
+## BEAT 12
+Yeshwanth says:
+
+"I wanted you to see this."
+
+Pause.
+
+---
+
+## BEAT 13
+Yeshwanth says:
+
+"There's something I've wanted to tell you."
+
+Pause.
+
+---
+
+## BEAT 14
+Yeshwanth turns toward Harsha.
+
+Proposal.
+
+Exact personal wording must be centralized and editable.
+
+---
+
+## BEAT 15
+Long emotional hold.
+
+No dialogue UI.
+
+Aurora.
+
+Water.
+
+Fish.
+
+Characters.
+
+---
+
+## BEAT 16
+Yeshwanth stands.
+
+"Come. Let's go back."
+
+He offers his hand.
+
+---
+
+## BEAT 17
+They return to the stone.
+
+Aurora fades.
+
+Fish disappear.
+
+Sky darkens.
+
+---
+
+## BEAT 18
+Stone rises.
+
+---
+
+## BEAT 19
+Surface gradually returns.
+
+---
+
+## BEAT 20
+Stone reaches original location.
+
+Both remain together briefly.
+
+---
+
+## BEAT 21
+Camera releases.
+
+Player control returns.
+
+Free exploration continues.
+
+---
+
+# 48. EMOTIONAL PACING
+
+Do not make the cinematic too fast.
+
+Important moments require breathing room.
+
+Approximate pacing can be:
+
+ENTER:
+2–4 seconds
+
+DESCENT:
+10–15 seconds
+
+DARKNESS:
+3–6 seconds
+
+MAN APPROACH:
+5–8 seconds
+
+SITTING:
+4–6 seconds
+
+SKY REVEAL:
+8–12 seconds
+
+AURORA REVEAL:
+10–15 seconds
+
+POND REVEAL:
+6–10 seconds
+
+QUIET AURORA:
+8–15 seconds
+
+DIALOGUE:
+variable
+
+PROPOSAL:
+variable
+
+EMOTIONAL HOLD:
+10–20 seconds
+
+RETURN:
+15–25 seconds
+
+SURFACE RESTORATION:
+5–10 seconds
+
+These are guidelines, not rigid requirements.
+
+Prioritize emotional pacing over exact duration.
+
+---
+
+# 49. DO NOT OVERDO THE CUTE ELEMENTS
+
+Cute does NOT mean:
+
+- giant hearts everywhere
+- pink fog
+- constant sparkles
+- cartoon UI
+- excessive flowers
+- floating love text
+- cheesy effects
+
+Cute means:
+
+- small fish
+- tiny flowers opening
+- subtle glowing particles
+- gentle smiles
+- sitting together
+- offering a hand
+- soft dialogue
+- little heart in the dialogue nameplate
+- warm UI
+- peaceful Aurora
+
+Keep it tasteful.
+
+---
+
+# 50. DO NOT OVERDO THE ROMANCE
+
+The strongest romantic elements should be:
+
+Aurora.
+
+Silence.
+
+Two people sitting together.
+
+The pond.
+
+Fish.
+
+A few words.
+
+A genuine confession.
+
+The environment continuing around them.
+
+The romance should feel personal rather than theatrical.
+
+---
+
+# 51. ORIGINALITY
+
+Do not copy copyrighted environments, characters, maps, dialogue, textures, or assets from existing films or games.
+
+The scene should remain original to Heart Island.
+
+The Aurora can be inspired by real natural Aurora phenomena.
+
+The underground romantic ecosystem should be original.
+
+---
+
+# 52. ERROR HANDLING
+
+If something fails during the cinematic:
+
+- never leave player controls permanently disabled
+- never leave camera locked
+- never leave UI stuck
+- never leave temporary lights active
+- never duplicate the man
+- never duplicate fish
+- never break Aurora Lake Vista
+
+The cinematic controller must have a safe cleanup/finalization path.
+
+---
+
+# 53. TESTING
+
+After implementation:
+
+Run:
+
+- development server
+- TypeScript checks
+- production build
+
+Fix:
+
+- TypeScript errors
+- runtime errors
+- console errors
+- import errors
+- undefined references
+- state bugs
+- cleanup bugs
+
+Then test:
+
+1. approach stone
+2. E prompt appears
+3. press E
+4. player locks
+5. descent starts
+6. stone moves with player
+7. surface disappears
+8. darkness occurs
+9. Yeshwanth appears
+10. dialogue appears
+11. sitting works
+12. sky reveal works
+13. Aurora reveal works
+14. pond reveal works
+15. fish work
+16. dialogue timing works
+17. proposal works
+18. dialogue UI disappears correctly
+19. return sequence works
+20. stone rises
+21. surface returns
+22. player returns to exact location
+23. camera restores
+24. player movement restores
+25. E interaction restores
+26. no duplicate objects
+27. no stuck UI
+28. no stuck audio
+29. replay works
+30. no console errors
+
+---
+
+# 54. FINAL QUALITY BAR
+
+Do not consider the feature complete merely because:
+
+"the elevator works."
+
+The complete experience must feel like:
+
+A hidden romantic little world beneath Aurora Lake.
+
+The player discovers it naturally.
+
+The stone becomes the elevator.
+
+The descent creates curiosity.
+
+The darkness creates anticipation.
+
+Yeshwanth arrives gently.
+
+They sit together.
+
+The hidden sky opens.
+
+The Aurora slowly appears.
+
+The pond comes alive.
+
+Colorful fish appear.
+
+They watch the Aurora.
+
+They talk.
+
+He confesses his love.
+
+He proposes.
+
+They share a quiet moment.
+
+He offers his hand.
+
+They rise back into the world together.
+
+Then they continue exploring Heart Island.
+
+The player should finish thinking:
+
+"That was our little secret place."
+
+Not:
+
+"I completed a mission."
+
+Not:
+
+"I watched a cutscene."
+
+Not:
+
+"I entered a dungeon."
+
+Not:
+
+"I unlocked an achievement."
+
+It should feel like a small romantic memory that exists naturally inside the Dream World.
+
+---
+
+# 55. FINAL IMPLEMENTATION RULE
+
+Before modifying code:
+
+INSPECT.
+
+Then:
+
+DESIGN THE INTEGRATION.
+
+Then:
+
+IMPLEMENT.
+
+Then:
+
+TEST.
+
+Then:
+
+POLISH.
+
+Do not rewrite working systems.
+
+Do not create duplicate architecture.
+
+Do not modify locked regions.
+
+Do not move the existing Aurora location.
+
+Do not move the existing stone.
+
+Do not teleport the player.
+
+Do not introduce unnecessary dependencies.
+
+Do not add gameplay after E.
+
+Do not make the sequence scary.
+
+Do not make the romance cheesy.
+
+Do not make the UI generic.
+
+Make it:
+
+CUTE.
+ROMANTIC.
+MAGICAL.
+SLOW.
+INTIMATE.
+BEAUTIFUL.
+
+The final result should feel like Yeshwanth created one tiny secret place inside the Dream World that exists only for him and Harsha.

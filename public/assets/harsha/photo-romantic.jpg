@@ -1,0 +1,55 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="600" height="800" viewBox="0 0 600 800">
+  <defs>
+    <linearGradient id="bg1" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#2a0e19"/>
+      <stop offset="50%" stop-color="#581f30"/>
+      <stop offset="100%" stop-color="#18070d"/>
+    </linearGradient>
+    <radialGradient id="glow1" cx="50%" cy="40%" r="50%">
+      <stop offset="0%" stop-color="#ffdfa8" stop-opacity="0.9"/>
+      <stop offset="60%" stop-color="#ff94b1" stop-opacity="0.5"/>
+      <stop offset="100%" stop-color="#2a0e19" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="shadow">
+      <feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="#000" flood-opacity="0.4"/>
+    </filter>
+  </defs>
+
+  <!-- Photo Background -->
+  <rect width="600" height="800" fill="url(#bg1)"/>
+  <circle cx="300" cy="320" r="260" fill="url(#glow1)"/>
+
+  <!-- Romantic Frame -->
+  <rect x="25" y="25" width="550" height="750" rx="16" fill="none" stroke="#d4af37" stroke-width="4"/>
+  <rect x="35" y="35" width="530" height="730" rx="12" fill="none" stroke="#ffb3c6" stroke-width="1.5" stroke-dasharray="8,4"/>
+
+  <!-- Starry Sky Effect -->
+  <g fill="#ffe8a3">
+    <circle cx="120" cy="100" r="3" opacity="0.8"/>
+    <circle cx="480" cy="140" r="2.5" opacity="0.9"/>
+    <circle cx="200" cy="220" r="2" opacity="0.7"/>
+    <circle cx="420" cy="280" r="3.5" opacity="0.85"/>
+    <circle cx="150" cy="400" r="2" opacity="0.6"/>
+    <circle cx="470" cy="450" r="2.5" opacity="0.8"/>
+  </g>
+
+  <!-- Silhouette / Stylized Portrait of Harsha & Yeshwanth -->
+  <g filter="url(#shadow)">
+    <!-- Heart Motif behind heads -->
+    <path d="M 300 360 C 240 280, 160 330, 300 450 C 440 330, 360 280, 300 360 Z" fill="#ff4d79" opacity="0.35"/>
+    <!-- Couple Silhouette -->
+    <circle cx="260" cy="310" r="42" fill="#faf1e4"/>
+    <circle cx="340" cy="300" r="46" fill="#faf1e4"/>
+    <path d="M 210 430 Q 260 350 310 430 Z" fill="#e5b564"/>
+    <path d="M 290 430 Q 340 340 390 430 Z" fill="#c23b57"/>
+  </g>
+
+  <!-- Golden Foil Typography -->
+  <text x="300" y="580" text-anchor="middle" font-family="Georgia, serif" font-size="28" font-weight="bold" fill="#ffe194" letter-spacing="2">HARSHA &amp; YESHWANTH</text>
+  <text x="300" y="620" text-anchor="middle" font-family="Georgia, serif" font-size="20" font-style="italic" fill="#f5c6d1">"When I Look at You"</text>
+  
+  <line x1="180" y1="650" x2="420" y2="650" stroke="#d4af37" stroke-width="1.5"/>
+  <text x="300" y="655" text-anchor="middle" font-family="serif" font-size="20" fill="#d4af37">♡</text>
+
+  <text x="300" y="700" text-anchor="middle" font-family="Georgia, serif" font-size="18" font-style="italic" fill="#ffffff" opacity="0.9">My favorite place in the whole world is right beside you.</text>
+</svg>

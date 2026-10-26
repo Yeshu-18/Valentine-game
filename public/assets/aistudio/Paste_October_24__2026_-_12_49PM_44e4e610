@@ -1,0 +1,1704 @@
+# HEART ISLAND: VALENTINE'S DREAM WORLD
+# F5/F6 MASTER IMPLEMENTATION PROMPT
+## THE HIDDEN NORTHERN FOREST + THE UNEXPECTED LAKE REVEAL + HEARTWOOD SANCTUARY
+
+---
+
+# 0. MISSION
+
+You are the lead world architect, gameplay engineer, technical artist, environmental storyteller, lighting designer, procedural-generation engineer, and performance engineer for the existing Heart Island project.
+
+Implement the combined:
+
+> **F5/F6: The Hidden Northern Forest**
+
+This phase combines:
+
+1. Expansion beyond the Giant Ancient Tree
+2. Deeper northern/northwestern woodland
+3. Natural exploration space
+4. The unexpected romantic reveal of the EXISTING forest lake
+5. Optional lake-shore exploration
+6. A deeper hidden pool/spring
+7. The Heartwood Sanctuary
+8. The Heartwood Tree
+9. Future gameplay space
+10. Environmental storytelling and magical atmosphere
+
+This is NOT a new standalone scene.
+
+This is a continuation of the existing world.
+
+---
+
+# 1. ABSOLUTE FIRST STEP: INSPECT THE EXISTING PROJECT
+
+Before modifying anything:
+
+Inspect the complete current project architecture.
+
+Specifically inspect:
+
+- `src/App.tsx`
+- `src/main.tsx`
+- `src/index.css`
+- terrain systems
+- `terrainMath.ts`
+- `IslandTerrain.ts`
+- `VegetationSystem.ts`
+- player systems
+- camera systems
+- atmosphere systems
+- forest systems
+- Central Plaza
+- Ancient Enchanted Realm
+- Castle
+- Greenhouse
+- F1 forest systems
+- F2 forest systems
+- F3 forest systems
+- F4 forest systems
+- Giant Ancient Tree
+- existing lake
+- stream
+- ruins
+- rune stone
+- neon magical plant
+- broken wooden sign
+- wildlife
+- particles
+- lighting
+- interaction system
+- dialogue system
+- audio
+- world seed
+- collision
+- resource disposal.
+
+Determine how the current implementation works before changing it.
+
+Reuse existing systems.
+
+Do not duplicate systems that already exist.
+
+Do not perform unnecessary architectural rewrites.
+
+Do not rebuild working F1-F4 systems.
+
+---
+
+# 2. LOCKED EXISTING CONTENT
+
+The following are LOCKED.
+
+Do not redesign or relocate them unless required to fix an actual bug:
+
+- Central Plaza
+- Ancient Enchanted Realm
+- Castle
+- Great Hall
+- Greenhouse
+- F1 garden/forest transition
+- F2 forest foundation
+- F3 landmarks
+- F4 wildlife and lighting
+- Giant Ancient Tree
+- Ancient ruins
+- stream
+- rune stone
+- neon plant
+- broken wood sign.
+
+The existing Forest Lake is especially important.
+
+---
+
+# 3. EXISTING FOREST LAKE: HARD LOCK
+
+The existing forest lake must remain:
+
+> **LEFT of the primary walkway when traveling toward the Giant Ancient Tree.**
+
+Its current relationship with the main route must be preserved.
+
+Do NOT:
+
+- move it behind the Giant Tree
+- move it to the right
+- rotate it unnecessarily
+- delete it
+- replace it
+- merge it with another water feature
+- make it terminate the main route
+- turn it into a theme-park attraction.
+
+The main walkway continues:
+
+Forest
+→ Lake on LEFT
+→ Rune Stone area
+→ Giant Ancient Tree
+→ beyond Giant Tree
+→ Northern Forest.
+
+The lake is a parallel environmental landmark, NOT the endpoint of the journey.
+
+---
+
+# 4. THE BIG DESIGN CHANGE: LAND MAY EXPAND
+
+There is NO hard maximum size for F5/F6.
+
+If the current terrain is too cramped, expand the island.
+
+Do not squeeze the entire experience into the existing footprint simply because previous coordinates existed.
+
+Expand naturally toward:
+
+- north
+- northwest
+- west where useful.
+
+Expansion is encouraged when needed to create:
+
+- genuine exploration space
+- natural sightlines
+- hidden areas
+- meaningful landmark spacing
+- future gameplay capacity
+- a believable forest journey.
+
+Do not create empty artificial land.
+
+Every expansion must have environmental purpose.
+
+The player should feel they are entering a genuinely larger region of the island.
+
+---
+
+# 5. TERRAIN EXPANSION RULE
+
+If necessary, increase:
+
+- northern mountain surface
+- northern forest
+- northwestern woodland
+- coastline
+- elevated plateau
+- natural highland terrain.
+
+The existing island heart silhouette must remain coherent.
+
+Do not create a rectangular extension.
+
+Do not create a flat artificial platform.
+
+Do not expose terrain seams.
+
+Do not create sudden procedural boundaries.
+
+Use:
+
+- smooth height transitions
+- existing noise systems
+- mountain shoulders
+- natural slopes
+- rocks
+- fallen trees
+- vegetation
+- cliffs
+- forest density.
+
+From elevated views, the expansion should look like it was always part of the island.
+
+---
+
+# 6. STORY: "THE PLACE THAT WAS WAITING"
+
+The player has already explored the forest.
+
+They have encountered:
+
+- the lake
+- the rune stone
+- the stream
+- the ruins
+- the Giant Ancient Tree.
+
+The player may believe the Giant Tree marks the end of the forest.
+
+It does not.
+
+The Giant Tree is a threshold.
+
+Beyond it, the forest becomes:
+
+- older
+- quieter
+- more spacious
+- more mysterious
+- more intimate.
+
+The deeper forest should feel as though it has been deliberately hidden by nature.
+
+Not dangerous.
+
+Not horror.
+
+Not dark fantasy.
+
+Instead:
+
+> ancient, peaceful, secretive, beautiful and quietly magical.
+
+---
+
+# 7. EXPERIENCE FLOW
+
+The intended progression is:
+
+```text
+GREENHOUSE
+    ↓
+MAGICAL GARDEN
+    ↓
+FOREST
+    ↓
+EXISTING LAKE
+    ↓
+RUNE STONE
+    ↓
+GIANT ANCIENT TREE
+    ↓
+FOREST CONTINUES
+    ↓
+SUN-DAPPLED NORTHERN WOODLAND
+    ↓
+UNEXPECTED LAKE REVEAL / SHORE EXPLORATION
+    ↓
+DEEPER WOODLAND
+    ↓
+HIDDEN POOL / SPRING
+    ↓
+HEARTWOOD SANCTUARY
+    ↓
+HEARTWOOD TREE
+    ↓
+FUTURE DEEP WILDERNESS
+```
+
+Important:
+
+The lake reveal and Heartwood Sanctuary are separate experiences.
+
+The lake is the first unexpected emotional discovery.
+
+The sanctuary is the deeper climax.
+
+---
+
+# 8. GIANT ANCIENT TREE
+
+The Giant Ancient Tree remains the primary forward landmark before entering F5/F6.
+
+Do not move it.
+
+Do not make another landmark visually overpower it.
+
+Do not place the Heartwood Tree directly behind it.
+
+From the existing main walkway:
+
+The Giant Tree should still dominate.
+
+But once the player reaches it, they should notice:
+
+> the forest continues.
+
+Use:
+
+- tree gaps
+- distant sunlight
+- terrain openings
+- subtle vegetation movement
+- distant birds
+- a faint sense of open woodland.
+
+No sign.
+
+No arrow.
+
+No quest marker.
+
+---
+
+# 9. PATH BEYOND THE GIANT TREE
+
+The existing path must continue beyond the Giant Tree.
+
+It should gradually become less formal.
+
+Transition:
+
+```text
+maintained trail
+→ weathered path
+→ compacted earth
+→ roots
+→ moss
+→ natural woodland floor.
+```
+
+Do not create a hard trail corridor.
+
+The player should have freedom to explore.
+
+The path is a gentle environmental suggestion, not a quest route.
+
+---
+
+# 10. NORTHERN FOREST SCALE
+
+The northern forest must feel like a real region.
+
+Do NOT make it:
+
+- a 30-second corridor
+- a tiny clearing
+- a decorative patch
+- a dead end.
+
+The player should have room to wander.
+
+The player should NOT be able to see:
+
+- the entire forest
+- the lake
+- the hidden pool
+- the sanctuary
+
+from one location.
+
+Use terrain and vegetation to control sightlines naturally.
+
+---
+
+# 11. FOREST COMPOSITION
+
+Use:
+
+- large irregular woodland pockets
+- scattered ancient trees
+- fern glades
+- mossy stones
+- fallen trunks
+- natural clearings
+- roots
+- layered vegetation
+- occasional open meadow-like woodland.
+
+Avoid:
+
+- grid patterns
+- evenly spaced trees
+- repetitive procedural clusters
+- perfect circles
+- rectangular empty areas
+- symmetrical layouts.
+
+The forest should feel generated by nature, not a level editor.
+
+---
+
+# 12. SUN-DAPPLED NORTHERN WOODLAND
+
+The forest should become slightly more spacious after the Giant Tree.
+
+Create:
+
+- large irregular negative-space pockets
+- scattered ancient trees
+- fern glades
+- mossy rocks
+- fallen logs
+- low vegetation
+- occasional flowers.
+
+Then gradually allow the forest to become slightly denser deeper inside.
+
+Do not immediately make it dark.
+
+---
+
+# 13. LIGHTING
+
+The forest must remain readable.
+
+Do NOT solve atmosphere by making everything dark.
+
+Use:
+
+- soft directional light
+- canopy gaps
+- dappled sunlight
+- brighter fern glades
+- subtle reflected light
+- controlled atmospheric haze.
+
+The player must clearly see:
+
+- terrain
+- paths
+- lake
+- wildlife
+- landmarks
+- interactive objects.
+
+No artificial spotlight everywhere.
+
+---
+
+# 14. THE EXISTING LAKE: NEW ROLE
+
+The existing lake is now an important emotional environmental landmark.
+
+Do not rebuild its fundamental geometry unless necessary.
+
+Instead improve its:
+
+- visibility choreography
+- shoreline access
+- surrounding vegetation
+- reflection quality
+- sound
+- subtle lighting
+- environmental framing.
+
+The lake should feel like something the player discovers.
+
+Not something the game announces.
+
+---
+
+# 15. LAKE REVEAL PHILOSOPHY
+
+The lake should feel:
+
+> natural + unexpected + quietly romantic.
+
+The player should NOT think:
+
+"Here is the romantic lake attraction."
+
+They should think:
+
+> "Wait... is there water over there?"
+
+Then:
+
+> "Oh."
+
+Then:
+
+> "That's beautiful."
+
+That emotional sequence is the goal.
+
+---
+
+# 16. THREE-STAGE LAKE REVEAL
+
+Implement three stages.
+
+## STAGE 1: SUGGESTION
+
+From the main walkway:
+
+Only tiny clues.
+
+Examples:
+
+- small blue reflection between trunks
+- brief glimpse of moving water
+- distant water sound
+- wet rocks
+- reeds
+- butterflies moving toward shoreline
+- subtle breeze coming from lake
+- reflected sky visible through foliage.
+
+Do NOT reveal the entire lake.
+
+---
+
+## STAGE 2: PARTIAL REVEAL
+
+Create a natural opening in vegetation.
+
+The path should bend or open slightly.
+
+The player suddenly sees:
+
+- part of the lake
+- a section of shoreline
+- reflections
+- trees mirrored in water.
+
+Do NOT use a cinematic camera.
+
+Do NOT stop player control.
+
+Do NOT force the player to look.
+
+The player discovers it during normal exploration.
+
+---
+
+## STAGE 3: FULL APPRECIATION
+
+Create a natural optional side route:
+
+```text
+MAIN WALKWAY
+      ↓
+small opening
+      ↓
+flattened grass/soil
+      ↓
+small stones
+      ↓
+LAKE SHORE
+```
+
+This is NOT a constructed path.
+
+It should look naturally formed.
+
+From the shoreline, the player gets the strongest lake composition.
+
+---
+
+# 17. LAKE VISUAL COMPOSITION
+
+The lake should be framed by nature.
+
+Use:
+
+- old tree leaning slightly toward water
+- ferns
+- moss
+- shoreline stones
+- roots
+- wild flowers
+- reeds
+- low grasses.
+
+Avoid:
+
+- symmetrical landscaping
+- decorative benches facing the lake like a park
+- excessive flowers
+- heart shapes
+- artificial decorations.
+
+---
+
+# 18. THE LAKE REFLECTION
+
+The reflection is more important than making the lake itself flashy.
+
+Show:
+
+- sky
+- clouds
+- tree silhouettes
+- sunlight
+- subtle magical glow
+- occasional fireflies.
+
+Water should have:
+
+- gentle ripples
+- slight movement
+- natural variation.
+
+No exaggerated mirror effect.
+
+---
+
+# 19. ROMANTIC ELEMENT
+
+The lake's romance should come from nature.
+
+Do NOT use:
+
+- giant hearts
+- Valentine's decorations
+- heart particles
+- romantic text floating over water
+- giant glowing flowers
+- obvious attraction signage
+- giant moon props.
+
+Instead:
+
+- quiet water
+- soft light
+- one beautiful tree
+- fireflies
+- flowers
+- reflection
+- natural silence
+- a hidden viewpoint.
+
+This should feel intimate rather than theatrical.
+
+---
+
+# 20. OPTIONAL MAGICAL LAKE RESPONSE
+
+Add one subtle magical event.
+
+Prefer a small cluster of aquatic/moon flowers.
+
+Initially:
+
+flowers closed.
+
+When player approaches:
+
+1. one flower slowly opens
+2. subtle glow appears
+3. small ripple moves across nearby water
+4. a few fireflies become visible
+5. reflection catches the glow
+6. effect settles back to normal.
+
+No explosion.
+
+No fireworks.
+
+No reward.
+
+No quest.
+
+No giant magical effect.
+
+The player should be able to wonder:
+
+> "Did the lake just respond?"
+
+Use lightweight animation/shader logic.
+
+Do not create expensive physics.
+
+---
+
+# 21. LAKE AUDIO
+
+Use subtle environmental audio:
+
+- soft water
+- distant birds
+- insects
+- occasional frog
+- leaves
+- gentle wind.
+
+When approaching the lake:
+
+water audio may become slightly clearer.
+
+Do not make it obvious from far away.
+
+No dramatic music sting.
+
+Silence and natural sound are part of the reveal.
+
+---
+
+# 22. LAKE WILDLIFE
+
+Reuse F4 wildlife systems.
+
+Potentially:
+
+- frogs
+- butterflies
+- birds
+- sparse fireflies.
+
+Do not spawn large groups.
+
+Wildlife should make the lake feel inhabited by nature.
+
+---
+
+# 23. LAKE LIGHTING
+
+The lake should not require many dynamic lights.
+
+Use:
+
+- existing directional light
+- reflection/shader
+- emissive flowers
+- controlled environmental illumination.
+
+If a dynamic light is genuinely required:
+
+reuse the existing lighting budget.
+
+Never attach a PointLight to each flower/firefly.
+
+---
+
+# 24. LAKE SHORE INTERACTION
+
+The lake should be walkable.
+
+The player should be able to:
+
+- approach the shoreline
+- walk along part of it
+- inspect the water
+- stand near flowers
+- observe wildlife
+- return to the main route.
+
+No swimming.
+
+No water physics.
+
+No invisible walls in obvious locations.
+
+---
+
+# 25. THE HIDDEN POOL
+
+F5/F6 should ALSO contain a separate hidden water feature deeper in the northern forest.
+
+This is NOT the existing lake.
+
+It should be:
+
+- smaller
+- more secluded
+- quieter
+- harder to discover.
+
+The existing lake is the unexpected environmental reveal.
+
+The hidden pool is the deeper exploration reward.
+
+---
+
+# 26. HIDDEN POOL DESIGN
+
+Use:
+
+- irregular shoreline
+- shallow edge
+- rocks
+- roots
+- moss
+- ferns
+- reeds
+- subtle reflections
+- sparse magical flora.
+
+No circular pool.
+
+No fountain.
+
+No artificial construction.
+
+---
+
+# 27. DISCOVERY OF HIDDEN POOL
+
+The pool should not be visible from the main walkway.
+
+Use:
+
+- terrain
+- vegetation
+- trees
+- elevation
+- winding natural route.
+
+Environmental clues may include:
+
+- water sound
+- damp rocks
+- frogs
+- denser ferns
+- small flowers
+- brighter clearing.
+
+---
+
+# 28. HEARTWOOD SANCTUARY
+
+The deepest major discovery is:
+
+> HEARTWOOD SANCTUARY
+
+This is the F6 emotional and visual climax.
+
+It should feel like:
+
+> a secret place protected by the forest itself.
+
+Not:
+
+> a fantasy theme park attraction.
+
+---
+
+# 29. SANCTUARY SCALE
+
+Give the sanctuary enough surrounding space.
+
+It must not sit immediately beside:
+
+- Giant Ancient Tree
+- lake
+- map boundary
+- coastline.
+
+The player must feel that they traveled deeper into the forest.
+
+The sanctuary should be large enough to walk around comfortably.
+
+---
+
+# 30. SANCTUARY COMPOSITION
+
+Use an irregular natural clearing.
+
+Possible elements:
+
+- ancient trees around perimeter
+- low vegetation
+- moss
+- exposed roots
+- weathered stones
+- small water feature
+- soft magical light
+- central Heartwood Tree.
+
+Do not make a perfect circle.
+
+Do not make a perfect amphitheater.
+
+---
+
+# 31. HEARTWOOD TREE
+
+Create:
+
+> THE HEARTWOOD TREE
+
+It must NOT replace the Giant Ancient Tree.
+
+Giant Ancient Tree:
+
+- enormous
+- monumental
+- ancient
+- forest landmark.
+
+Heartwood Tree:
+
+- smaller
+- intimate
+- magical
+- sanctuary centerpiece.
+
+---
+
+# 32. HEARTWOOD TREE DESIGN
+
+Use:
+
+- elegant organic trunk
+- visible roots
+- naturally twisted branches
+- moss
+- restrained magical glow
+- cyan/blue-green/violet emissive accents
+- subtle magical leaves/blossoms.
+
+Avoid excessive neon.
+
+Avoid artificial-looking geometry.
+
+It should look like a natural tree with magic inside it.
+
+---
+
+# 33. HEARTWOOD MAGIC
+
+The glow should appear to originate inside the tree.
+
+Use:
+
+- emissive bark
+- shader animation
+- subtle root glow
+- limited dynamic illumination
+- floating magical motes.
+
+Do not create dozens of PointLights.
+
+Nearby moss and stones may receive subtle illumination.
+
+---
+
+# 34. SANCTUARY FLOWERS
+
+Add:
+
+- luminous flowers
+- magical ferns
+- small moon flowers
+- subtle blue-green blossoms
+- restrained violet accents.
+
+Do not cover the ground with glowing objects.
+
+Magic must remain rare enough to feel special.
+
+---
+
+# 35. ANCIENT STONES
+
+Add several original weathered stones.
+
+Characteristics:
+
+- irregular
+- cracked
+- moss-covered
+- partially buried
+- roots crossing them
+- faded original carvings.
+
+Do NOT recreate recognizable copyrighted magical-school props.
+
+---
+
+# 36. CASTLE CONNECTION
+
+Subtly connect the sanctuary to the Ancient Enchanted Realm.
+
+Use recurring visual language:
+
+- similar rune geometry
+- related magical plant behavior
+- related color accents
+- similar ancient craftsmanship
+- similar magical energy.
+
+Do not build another castle.
+
+Do not reproduce any copyrighted location.
+
+---
+
+# 37. NATURAL ROMANCE
+
+The sanctuary should feel romantic without looking like a Valentine's decoration set.
+
+The romance comes from:
+
+- quiet
+- intimacy
+- warm/cool light balance
+- water
+- trees
+- fireflies
+- flowers
+- a beautiful place to sit
+- a sense of discovery.
+
+The environment should feel like:
+
+> a place Yeshwanth and Harsha would want to stop and stay together.
+
+---
+
+# 38. SEATING
+
+Create one subtle natural seating point.
+
+Options:
+
+- weathered wood bench
+- smooth ancient stone
+- naturally fallen tree.
+
+It should not look like modern park furniture.
+
+Position it to create a strong view of:
+
+- Heartwood Tree
+- water
+- forest opening.
+
+This becomes a future personalized interaction point.
+
+---
+
+# 39. FUTURE PERSONAL INTERACTION
+
+Prepare an interaction anchor for a future:
+
+> Yeshwanth → Harsha
+
+moment.
+
+Do not fill it with generic fantasy dialogue yet.
+
+The eventual dialogue should be:
+
+- personal
+- affectionate
+- playful
+- appreciative
+- specific.
+
+The location itself should work even without dialogue.
+
+---
+
+# 40. ENVIRONMENTAL STORYTELLING
+
+The player should gradually understand:
+
+This forest is older than the visible garden.
+
+The deeper region was not abandoned.
+
+It was protected.
+
+The Heartwood Sanctuary is the reason the deeper forest feels different.
+
+Do NOT explain this with exposition.
+
+Use:
+
+- vegetation
+- stones
+- light
+- wildlife
+- ancient markings
+- environmental composition.
+
+---
+
+# 41. NO QUEST SYSTEM
+
+F5/F6 remains exploration-based.
+
+Do NOT add:
+
+- quests
+- quest markers
+- objective UI
+- minimap
+- navigation arrows
+- waypoint beams
+- objective text.
+
+The environment itself guides the player.
+
+---
+
+# 42. CAMERA
+
+Maintain the existing third-person camera.
+
+Do not force cinematic camera movement during normal exploration.
+
+The player must remain in control.
+
+Use natural sightlines.
+
+Do not reveal the Heartwood Sanctuary from too far away.
+
+---
+
+# 43. PLAYER EXPERIENCE
+
+The intended emotional sequence is:
+
+### At Giant Tree
+
+"Is this the end?"
+
+### Beyond Tree
+
+"Oh, the forest continues."
+
+### Lake clues
+
+"Wait, is there water here?"
+
+### Lake reveal
+
+"Whoa."
+
+### Shore
+
+"This is beautiful."
+
+### Deeper woodland
+
+"What else is hidden here?"
+
+### Hidden pool
+
+"How did I miss this?"
+
+### Heartwood Sanctuary
+
+"Why does this place feel so special?"
+
+### Heartwood Tree
+
+"This is the heart of the forest."
+
+That is the desired emotional progression.
+
+---
+
+# 44. EXPANSION BEYOND SANCTUARY
+
+Do not make the Heartwood Sanctuary the hard northern boundary.
+
+Leave additional natural wilderness beyond it.
+
+This space does not need detailed gameplay now.
+
+It should simply be believable forest terrain that future phases can expand into.
+
+This prevents another terrain rebuild later.
+
+---
+
+# 45. FUTURE GAMEPLAY CAPACITY
+
+The expanded northern region should leave room for future:
+
+- secret paths
+- magical plants
+- clearings
+- viewpoints
+- romantic interactions
+- environmental storytelling
+- small discoveries
+- additional wildlife
+- future narrative content.
+
+Do not pre-build all future content.
+
+Build the terrain and biome foundation correctly.
+
+---
+
+# 46. WILDLIFE
+
+Reuse F4 systems.
+
+Do not duplicate wildlife architecture.
+
+Northern woodland:
+
+- sparse birds
+- butterflies near flowers
+- occasional tiny ambient creatures
+- sparse fireflies.
+
+Lake:
+
+- frogs
+- butterflies
+- birds
+- fireflies.
+
+Sanctuary:
+
+- sparse fireflies
+- occasional butterfly
+- very limited bird activity.
+
+The sanctuary should feel calmer.
+
+---
+
+# 47. PARTICLES
+
+Global budget:
+
+≤ 600 particles.
+
+Use:
+
+- fireflies
+- magical motes
+- pollen
+- subtle petals
+- dust in sunbeams.
+
+Avoid particle-heavy spectacle.
+
+---
+
+# 48. PERFORMANCE
+
+Hard targets:
+
+≤ 400 draw calls
+
+≤ 1.5M triangles
+
+≤ 600 particles
+
+≤ 12 dynamic PointLights
+
+Target 60 FPS where practical.
+
+Use:
+
+- InstancedMesh
+- shared geometry
+- shared materials
+- deterministic generation
+- lightweight shaders
+- LOD
+- frustum culling
+- resource reuse.
+
+Do not create:
+
+- PointLight per firefly
+- PointLight per flower
+- individual mesh per fern
+- expensive water simulation
+- complex physics
+- complex AI.
+
+---
+
+# 49. PROCEDURAL DETERMINISM
+
+Use the existing world seed.
+
+Do not introduce uncontrolled random placement.
+
+Same seed should produce the same world.
+
+---
+
+# 50. COLLISION
+
+Meaningful collision only.
+
+Player must be able to:
+
+- walk beyond Giant Tree
+- explore woodland
+- approach lake
+- walk shoreline
+- leave lake
+- continue north
+- reach hidden pool
+- reach sanctuary
+- walk around Heartwood Tree
+- approach seating.
+
+Use natural objects for boundaries.
+
+Avoid invisible walls.
+
+---
+
+# 51. AUDIO
+
+Use existing audio architecture.
+
+Forest:
+
+- wind
+- birds
+- insects
+- leaves.
+
+Lake:
+
+- water
+- frogs
+- insects.
+
+Sanctuary:
+
+- quieter forest
+- soft water
+- subtle magical tonal ambience
+- occasional natural chimes.
+
+No continuous dramatic soundtrack.
+
+---
+
+# 52. COLOR PROGRESSION
+
+Existing forest:
+
+cool green / blue-green.
+
+Northern forest:
+
+natural green with more sunlight.
+
+Lake:
+
+cool blue-green reflective tones.
+
+Hidden pool:
+
+slightly cooler and quieter.
+
+Sanctuary:
+
+deep natural greens
++
+cyan/blue-green magical accents
++
+restrained violet
++
+soft moonlight/warm reflected light.
+
+Avoid oversaturation.
+
+---
+
+# 53. ORIGINALITY
+
+This world can contain magical-school fantasy inspiration.
+
+But all new content must be original.
+
+Do not copy:
+
+- movie sets
+- game maps
+- characters
+- recognizable locations
+- exact props
+- exact architectural layouts
+- copyrighted textures.
+
+Create original interpretations.
+
+---
+
+# 54. CODE QUALITY
+
+Extend existing architecture.
+
+Prefer modular systems.
+
+Possible file:
+
+`HeartwoodSanctuary.ts`
+
+or the existing project's equivalent architecture.
+
+Do not force a new folder structure if the current architecture has a better pattern.
+
+Clean up resources.
+
+Avoid monolithic code.
+
+---
+
+# 55. TESTING
+
+Run:
+
+```bash
+npx tsc --noEmit
+```
+
+Then:
+
+```bash
+npm run build
+```
+
+Fix all errors.
+
+Then manually test:
+
+1. Greenhouse.
+2. Garden.
+3. Forest entrance.
+4. Existing lake.
+5. Rune stone.
+6. Giant Ancient Tree.
+7. Path beyond Giant Tree.
+8. Northern woodland.
+9. Lake reveal.
+10. Lake shoreline.
+11. Return to main path.
+12. Hidden pool.
+13. Heartwood Sanctuary.
+14. Heartwood Tree.
+15. Seating.
+16. Wildlife.
+17. Lighting.
+18. Collision.
+19. Camera.
+20. Interaction.
+21. Esc behavior.
+22. Enter behavior.
+23. No quest UI.
+24. No broken F1-F4 content.
+25. No duplicated systems.
+26. No terrain seams.
+27. No visible world boundary.
+28. Forest continues beyond Giant Tree.
+29. Lake remains LEFT of primary path.
+30. Lake does not terminate the route.
+
+---
+
+# 56. LAKE-SPECIFIC ACCEPTANCE TEST
+
+Walk toward the Giant Ancient Tree.
+
+The lake must remain on the LEFT.
+
+Do not immediately reveal the whole lake.
+
+The player should first encounter:
+
+1. subtle water clue
+2. partial reflection
+3. natural opening
+4. partial lake view
+5. optional shoreline route
+6. full lake appreciation.
+
+The lake should feel:
+
+- unexpected
+- peaceful
+- naturally romantic
+- believable
+- visually memorable.
+
+It must NOT feel:
+
+- scripted
+- artificial
+- theme-park-like
+- Valentine's-themed in an obvious way.
+
+---
+
+# 57. SANCTUARY ACCEPTANCE TEST
+
+The player should NOT see the complete sanctuary from the main route.
+
+The player must naturally explore to discover it.
+
+The sanctuary should feel:
+
+- secluded
+- beautiful
+- ancient
+- peaceful
+- magical
+- intimate.
+
+The Heartwood Tree should become the final visual focal point.
+
+---
+
+# 58. FAILURE CONDITIONS
+
+Do NOT consider F5/F6 complete if:
+
+- Giant Tree remains the end of the forest
+- northern region is too cramped
+- lake is relocated
+- lake is moved behind Giant Tree
+- lake becomes the end of the route
+- lake is revealed too abruptly
+- lake looks like a Valentine's attraction
+- sanctuary is tiny
+- sanctuary is visible immediately
+- northern terrain has an artificial edge
+- forest becomes too dark
+- excessive neon is used
+- excessive dynamic lights are added
+- wildlife duplicates F4 systems
+- quest UI appears
+- F1-F4 is unnecessarily rebuilt
+- performance significantly degrades
+- TypeScript errors remain
+- build fails.
+
+---
+
+# 59. FINAL EXPERIENCE TARGET
+
+The finished sequence should feel like:
+
+> Yeshwanth and Harsha are exploring a beautiful magical forest.
+
+They reach the Giant Ancient Tree.
+
+They think they have reached the end.
+
+They discover the forest continues.
+
+They notice tiny clues of water.
+
+They accidentally discover the lake.
+
+They can step off the path and sit beside it.
+
+They continue deeper.
+
+They discover a hidden pool.
+
+They eventually find a secluded sanctuary.
+
+At its center stands the Heartwood Tree.
+
+The forest becomes quiet.
+
+The water reflects the magical light.
+
+Fireflies drift through the clearing.
+
+Nothing tells them what to do.
+
+They simply found it.
+
+That is the point.
+
+---
+
+# 60. FINAL PHILOSOPHY
+
+The F5/F6 chapter should move through:
+
+> **Curiosity → Discovery → Wonder → Exploration → Intimacy**
+
+The lake is the unexpected romantic discovery.
+
+The hidden pool is the deeper exploration reward.
+
+The Heartwood Sanctuary is the emotional climax.
+
+The Heartwood Tree is the symbol of the forest's hidden heart.
+
+Do not make the player feel like they completed a quest.
+
+Make them feel like they found something that was always there.
+
+---
+
+# 61. FINAL REPORT
+
+After implementation report:
+
+## IMPLEMENTED
+
+All new systems and content.
+
+## TERRAIN
+
+Report whether terrain was expanded.
+
+If expanded:
+
+- direction
+- approximate additional area
+- major new terrain regions.
+
+## LAKE
+
+Explain:
+
+- reveal progression
+- shoreline access
+- reflection
+- lighting
+- audio
+- magical response.
+
+## SANCTUARY
+
+Explain:
+
+- layout
+- Heartwood Tree
+- pool
+- ancient stones
+- seating
+- magical flora.
+
+## PRESERVED
+
+Confirm:
+
+- Central Plaza
+- Castle
+- F1
+- F2
+- F3
+- F4
+- Giant Ancient Tree
+- existing lake position
+- rune stone
+- stream
+- ruins.
+
+## PERFORMANCE
+
+Report:
+
+- draw calls
+- triangles
+- particles
+- dynamic lights
+- FPS observations.
+
+## TESTING
+
+Report:
+
+- TypeScript check
+- production build
+- traversal
+- lake reveal
+- sanctuary discovery
+- collision
+- interactions.
+
+## ISSUES
+
+Report any remaining problems honestly.
+
+Do not claim completion if an acceptance criterion failed.
+
+STOP.
+
+Do NOT implement F7.

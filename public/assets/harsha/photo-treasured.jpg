@@ -1,0 +1,53 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="600" height="800" viewBox="0 0 600 800">
+  <defs>
+    <linearGradient id="bg3" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#3d2616"/>
+      <stop offset="50%" stop-color="#6e4224"/>
+      <stop offset="100%" stop-color="#24150b"/>
+    </linearGradient>
+    <radialGradient id="glow3" cx="50%" cy="40%" r="50%">
+      <stop offset="0%" stop-color="#ffe194" stop-opacity="0.85"/>
+      <stop offset="60%" stop-color="#c89646" stop-opacity="0.4"/>
+      <stop offset="100%" stop-color="#3d2616" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <rect width="600" height="800" fill="url(#bg3)"/>
+  <circle cx="300" cy="320" r="260" fill="url(#glow3)"/>
+
+  <!-- Ornate Filigree Frame -->
+  <rect x="25" y="25" width="550" height="750" rx="16" fill="none" stroke="#c89646" stroke-width="5"/>
+  <rect x="36" y="36" width="528" height="728" rx="12" fill="none" stroke="#ffe194" stroke-width="1.5"/>
+
+  <!-- Filigree Corner Ornaments -->
+  <g fill="#c89646">
+    <path d="M 45 45 L 90 45 L 45 90 Z"/>
+    <path d="M 555 45 L 510 45 L 555 90 Z"/>
+    <path d="M 45 755 L 90 755 L 45 710 Z"/>
+    <path d="M 555 755 L 510 755 L 555 710 Z"/>
+  </g>
+
+  <!-- Fountain & Starry Sky Backdrop -->
+  <g>
+    <!-- Fountain outline -->
+    <path d="M 220 420 Q 300 370 380 420" stroke="#ffe194" stroke-width="3" fill="none" opacity="0.6"/>
+    <circle cx="300" cy="380" r="16" fill="#c89646" opacity="0.8"/>
+  </g>
+
+  <!-- Couple Silhouette by Fountain -->
+  <g>
+    <circle cx="270" cy="310" r="42" fill="#faf1e4"/>
+    <circle cx="330" cy="315" r="40" fill="#faf1e4"/>
+    <path d="M 220 420 Q 270 350 320 420 Z" fill="#6e4224"/>
+    <path d="M 280 420 Q 330 350 380 420 Z" fill="#c89646"/>
+  </g>
+
+  <text x="300" y="570" text-anchor="middle" font-family="Georgia, serif" font-size="26" font-weight="bold" fill="#ffe194" letter-spacing="2">OUR UNFORGETTABLE DAYS</text>
+  <text x="300" y="610" text-anchor="middle" font-family="Georgia, serif" font-size="20" font-style="italic" fill="#c89646">HARSHA &amp; YESHWANTH</text>
+
+  <line x1="160" y1="640" x2="440" y2="640" stroke="#c89646" stroke-width="1.5"/>
+  <text x="300" y="645" text-anchor="middle" font-family="serif" font-size="18" fill="#ffe194">♡</text>
+
+  <text x="300" y="690" text-anchor="middle" font-family="Georgia, serif" font-size="18" font-style="italic" fill="#ffffff" opacity="0.9">Every chapter of our story is something</text>
+  <text x="300" y="718" text-anchor="middle" font-family="Georgia, serif" font-size="18" font-style="italic" fill="#ffffff" opacity="0.9">I will keep forever. ♡</text>
+</svg>

@@ -1,0 +1,6 @@
+{
+  "name": "Heart Island — Dream World (Phase 1)",
+  "description": "An interactive 3D fantasy island world built with Three.js featuring a natural heart-shaped terrain, procedural vegetation, and smooth third-person exploration.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
