@@ -1290,22 +1290,14 @@ export function createDistantLandmarks(): DistantLandmarksBundle {
   // ============================================================================
   // 4. EAST (+80, +5): PASTEL DREAMSCAPE / DOLL WORLD (PAGE 4 OF PDF)
   // Upgraded: The interactive 5-Level Dream Castle at (88, 18) now anchors this zone.
-  // We keep the high-altitude whimsical hot-air balloon and distant decorative accents.
+  // We keep only the high-altitude whimsical hot-air balloon so castle interiors remain 100% clear.
   // ============================================================================
   const dollGroup = new THREE.Group();
   const dollBaseY = getTerrainHeight(80, 5);
   dollGroup.position.set(80, dollBaseY, 5);
   dollGroup.rotation.y = -Math.PI / 2;
   group.add(dollGroup);
-  // Replaced large 13m collider with open clearance for Dream Castle grounds
 
-  const blushLacquerMat = tracker.trackMat(
-    new THREE.MeshPhysicalMaterial({
-      color: new THREE.Color('#fbcfe8'),
-      roughness: 0.32,
-      clearcoat: 0.2,
-    }),
-  );
   const coralPinkMat = tracker.trackMat(
     new THREE.MeshPhysicalMaterial({
       color: new THREE.Color('#f472b6'),
@@ -1313,64 +1305,6 @@ export function createDistantLandmarks(): DistantLandmarksBundle {
       clearcoat: 0.2,
     }),
   );
-  const lavenderSilkMat = tracker.trackMat(
-    new THREE.MeshPhysicalMaterial({
-      color: new THREE.Color('#d8b4fe'),
-      roughness: 0.36,
-      clearcoat: 0.18,
-    }),
-  );
-  const turquoisePoolMat = tracker.trackMat(
-    new THREE.MeshPhysicalMaterial({
-      color: new THREE.Color('#38bdf8'),
-      emissive: new THREE.Color('#0284c7'),
-      emissiveIntensity: 0.35,
-      roughness: 0.22,
-      clearcoat: 0.45,
-    }),
-  );
-
-  // Landmark 4C: Ribbon-Bow Dress Boutique Dome on the Left (Page 4!)
-  const domeBaseGeo = tracker.trackGeo(
-    new THREE.CylinderGeometry(4.6, 5.0, 8.0, 20),
-  );
-  domeBaseGeo.translate(0, 4.0, 0);
-  const domeCupolaGeo = tracker.trackGeo(
-    new THREE.SphereGeometry(4.6, 20, 16, 0, Math.PI * 2, 0, Math.PI * 0.5),
-  );
-  domeCupolaGeo.translate(0, 8.0, 0);
-  const giantBowLoopGeo = tracker.trackGeo(
-    new THREE.TorusGeometry(1.7, 0.48, 10, 20),
-  );
-
-  const pGroup = new THREE.Group();
-  pGroup.position.set(12.2, 0, 4.5);
-  const dBase = new THREE.Mesh(domeBaseGeo, blushLacquerMat);
-  const dCupola = new THREE.Mesh(domeCupolaGeo, lavenderSilkMat);
-  const bowL = new THREE.Mesh(giantBowLoopGeo, coralPinkMat);
-  bowL.position.set(-1.35, 8.4, 3.9);
-  bowL.rotation.z = 0.25;
-  const bowR = new THREE.Mesh(giantBowLoopGeo, coralPinkMat);
-  bowR.position.set(1.35, 8.4, 3.9);
-  bowR.rotation.z = -0.25;
-  pGroup.add(dBase, dCupola, bowL, bowR);
-  dollGroup.add(pGroup);
-
-  // Landmark 4D: Sparkling Turquoise Pool Courtyard with Glowing Crystal Lotus Fountain (Page 4!)
-  const poolDiscGeo = tracker.trackGeo(new THREE.CircleGeometry(7.5, 32));
-  poolDiscGeo.rotateX(-Math.PI / 2);
-  const poolRimGeo = tracker.trackGeo(
-    new THREE.TorusGeometry(7.65, 0.36, 10, 36),
-  );
-  poolRimGeo.rotateX(Math.PI / 2);
-  const poolDisc = new THREE.Mesh(poolDiscGeo, turquoisePoolMat);
-  poolDisc.position.set(0, 0.22, 14.0);
-  const poolRim = new THREE.Mesh(poolRimGeo, blushLacquerMat);
-  poolRim.position.set(0, 0.28, 14.0);
-  const lotusFountain = new THREE.Mesh(heartEmblemGeo, cyanGlowMat);
-  lotusFountain.scale.setScalar(1.05);
-  lotusFountain.position.set(0, 2.3, 14.0);
-  dollGroup.add(poolDisc, poolRim, lotusFountain);
 
   // Landmark 4E: Pastel Hot-Air Balloon floating above Fashion World (Page 4!)
   const balloonGroup = new THREE.Group();

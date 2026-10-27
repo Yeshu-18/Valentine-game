@@ -99,6 +99,26 @@ export interface PlayerControllerBundle {
   triggerAuroraAction: () => void;
   triggerCarnivalAction: () => void;
   triggerCastleAction: () => boolean;
+  selectElevatorFloor: (floorNum: number) => boolean;
+  selectDanceSong: (songIndex: number) => void;
+  performManualDance: (key: string) => void;
+  performPredefinedDance: (stepIndex: number) => void;
+  setGalleryFrameImage: (frameIndex: number, imageSource: string) => void;
+  getGalleryFrames: () => readonly {
+    index: number;
+    title: string;
+    sub: string;
+    hasCustomImage: boolean;
+    customImageSrc?: string;
+  }[];
+  getDanceStudioState: () => {
+    active: boolean;
+    activeSongIndex: number;
+    songTitle: string;
+    genre: string;
+    activeDanceName: string;
+    songs: readonly { title: string; genre: string }[];
+  } | null;
   performCarnivalGameAction: () => void;
   advanceDialogue: () => void;
   skipDialogueOrCinematic: () => void;
@@ -126,6 +146,10 @@ const _desiredLookAt = new THREE.Vector3();
 const _broomWorldPos = new THREE.Vector3();
 const _rightHandWorldPos = new THREE.Vector3();
 const _shakeOffset = new THREE.Vector3();
+const _cameraRaycaster = new THREE.Raycaster();
+const _camRayDir = new THREE.Vector3();
+const _camRayIntersects: THREE.Intersection[] = [];
+const MIN_CAMERA_DISTANCE = 1.2;
 
 function wrapAnglePi(a: number): number {
   let r = (a + Math.PI) % (2.0 * Math.PI);
@@ -146,6 +170,20 @@ export function createPlayerController(
   onTelemetryChange?: (telemetry: PlayerTelemetry) => void,
   dreamCastle?: DreamCastleBundle,
 ): PlayerControllerBundle {
+  if (dreamCastle) {
+    dreamCastle.floor2Rooms.setAvatarCallbacks({
+      setOutfitPalette: (idx) => avatar.setOutfitPalette(idx),
+      cycleHairColor: () => avatar.cycleHairColor(),
+      toggleTiara: () => avatar.toggleTiara(),
+      setActivityPose: (pose) => avatar.setActivityPose(pose),
+      getAppearanceSummary: () => avatar.getAppearanceSummary(),
+    });
+    dreamCastle.floor3Rooms.setAvatarCallbacks({
+      setActivityPose: (pose) => avatar.setActivityPose(pose),
+      resetNeutralPose: () => avatar.resetNeutralPose?.(),
+    });
+  }
+
   // Spawn at the NW edge of Central Plaza (-16, +16), facing the NW Ancient Realm Gateway,
   // Ancient Realm Signboard, Broom Travel Stand (-28.5, +26.0), and Castle (-85, +75) on the mountain crag!
   const spawnX = -16.5;
@@ -170,6 +208,7 @@ export function createPlayerController(
   let cameraMode: CameraMode = 'third-person';
   let targetCameraDistance = 6.2;
   let currentCameraDistance = 6.2;
+  let obstructedCameraDistance = 6.2;
 
   const currentCamPos = new THREE.Vector3(
     spawnX - Math.sin(initialYaw) * 6.2,
@@ -704,7 +743,31 @@ export function createPlayerController(
 
   function triggerCastleAction(): boolean {
     if (locomotionState !== 'walk' || !dreamCastle) return false;
+    const wasInElevatorFpv = dreamCastle.nav.isElevatorFpvActive;
     if (dreamCastle.interact(playerPos)) {
+      if (!wasInElevatorFpv && dreamCastle.nav.isElevatorFpvActive) {
+        // Entering Royal Crystal Elevator FPV: face toward the front crystal doors & control panel (-Z / Grand Hall)
+        cameraYaw = Math.PI;
+        facingYaw = Math.PI;
+        cameraPitch = 0.04;
+        playerVelocity.set(0, 0, 0);
+        verticalVel = 0;
+        isGrounded = true;
+        avatar.setFirstPersonVisibility(true);
+      } else if (wasInElevatorFpv && !dreamCastle.nav.isElevatorFpvActive) {
+        // Stepping out of Royal Crystal Elevator: restore third-person/current camera visibility on solid floor slab
+        cameraYaw = Math.PI;
+        facingYaw = Math.PI;
+        cameraPitch = 0.14;
+        playerVelocity.set(0, 0, 0);
+        verticalVel = 0;
+        isGrounded = true;
+        avatar.setFirstPersonVisibility(cameraMode === 'first-person');
+      } else {
+        playerVelocity.set(0, 0, 0);
+        verticalVel = 0;
+        isGrounded = true;
+      }
       onTelemetryChange?.(buildTelemetry());
       return true;
     }
@@ -779,15 +842,66 @@ export function createPlayerController(
     // - Esc immediately skips the active dialogue/cinematic sequence and restores gameplay
     if (e.code === 'Enter' || e.code === 'NumpadEnter') {
       e.preventDefault();
+      if (dreamCastle?.nav.activeCameraFocus) {
+        dreamCastle.nav.skipCameraFocus();
+        return;
+      }
+      if (
+        dreamCastle &&
+        (dreamCastle.floor3Rooms.handleKeyAction(e.code) ||
+          dreamCastle.floor2Rooms.handleKeyAction(e.code) ||
+          dreamCastle.floor1Rooms.handleKeyAction(e.code))
+      ) {
+        onTelemetryChange?.(buildTelemetry());
+        return;
+      }
       handleAdvanceDialogue();
       return;
     }
 
     if (e.code === 'Escape') {
       if (!e.repeat) {
+        if (dreamCastle?.nav.isElevatorFpvActive) {
+          e.preventDefault();
+          dreamCastle.nav.exitElevatorFpv(playerPos);
+          playerVelocity.set(0, 0, 0);
+          verticalVel = 0;
+          isGrounded = true;
+          avatar.setFirstPersonVisibility(cameraMode === 'first-person');
+          onTelemetryChange?.(buildTelemetry());
+          return;
+        }
         if (dreamCastle?.nav.activeCameraFocus) {
           e.preventDefault();
           dreamCastle.nav.skipCameraFocus();
+          onTelemetryChange?.(buildTelemetry());
+          return;
+        }
+        if (dreamCastle?.floor3Rooms.getCameraState().active) {
+          e.preventDefault();
+          dreamCastle.floor3Rooms.exitActiveCameraMode(playerPos);
+          playerVelocity.set(0, 0, 0);
+          verticalVel = 0;
+          isGrounded = true;
+          onTelemetryChange?.(buildTelemetry());
+          return;
+        }
+        if (dreamCastle?.floor2Rooms.getCameraState().active) {
+          e.preventDefault();
+          dreamCastle.floor2Rooms.exitActiveCameraMode(playerPos);
+          playerVelocity.set(0, 0, 0);
+          verticalVel = 0;
+          isGrounded = true;
+          onTelemetryChange?.(buildTelemetry());
+          return;
+        }
+        if (dreamCastle?.floor1Rooms.getCameraState().active) {
+          e.preventDefault();
+          dreamCastle.floor1Rooms.exitActiveCameraMode(playerPos);
+          playerVelocity.set(0, 0, 0);
+          verticalVel = 0;
+          isGrounded = true;
+          onTelemetryChange?.(buildTelemetry());
           return;
         }
         if (auroraCinematic.isActive() || carnivalDistrict.isActive()) {
@@ -826,8 +940,12 @@ export function createPlayerController(
       return;
     }
 
-    // Elevator Floor Selection inside Dream Castle Cabin
-    if (dreamCastle && dreamCastle.nav.isInsideElevatorCabin(playerPos) && !e.repeat) {
+    // Elevator Floor Selection inside Dream Castle Cabin (FPV or standing in cabin)
+    if (
+      dreamCastle &&
+      (dreamCastle.nav.isElevatorFpvActive || dreamCastle.nav.isInsideElevatorCabin(playerPos)) &&
+      !e.repeat
+    ) {
       if (e.code === 'Digit1' || e.code === 'Numpad1') {
         e.preventDefault();
         dreamCastle.handleElevatorFloorSelect(1);
@@ -876,6 +994,17 @@ export function createPlayerController(
     } else if (e.code === 'KeyF' && !e.repeat && locomotionState === 'flight') {
       // Pressing F while flying dismounts the broom and sends it home
       dismountBroomAndReturnToStand();
+    } else if (e.code === 'Space' && dreamCastle?.nav.activeCameraFocus) {
+      e.preventDefault();
+      dreamCastle.nav.skipCameraFocus();
+    } else if (
+      dreamCastle &&
+      (dreamCastle.floor3Rooms.handleKeyAction(e.code) ||
+        dreamCastle.floor2Rooms.handleKeyAction(e.code) ||
+        dreamCastle.floor1Rooms.handleKeyAction(e.code))
+    ) {
+      e.preventDefault();
+      onTelemetryChange?.(buildTelemetry());
     } else if (e.code === 'Space' && locomotionState === 'walk' && isGrounded) {
       e.preventDefault();
       verticalVel = 7.2;
@@ -949,6 +1078,12 @@ export function createPlayerController(
       return;
     }
 
+    const rawFreeDx =
+      lastFreeMouseX !== null ? e.clientX - lastFreeMouseX : e.movementX || 0;
+    const rawFreeDy =
+      lastFreeMouseY !== null ? e.clientY - lastFreeMouseY : e.movementY || 0;
+    const freeDx = THREE.MathUtils.clamp(rawFreeDx, -65, 65);
+    const freeDy = THREE.MathUtils.clamp(rawFreeDy, -65, 65);
     lastFreeMouseX = e.clientX;
     lastFreeMouseY = e.clientY;
 
@@ -957,26 +1092,71 @@ export function createPlayerController(
       wizardingSchool.isLakeMemoryActive()
     )
       return;
+    const isCastleFocusActive = Boolean(dreamCastle?.nav.activeCameraFocus);
+    const floor1Cam = dreamCastle?.floor1Rooms.getCameraState();
+    const isFloor1CamActive = Boolean(floor1Cam?.active);
+    const floor2Cam = dreamCastle?.floor2Rooms.getCameraState();
+    const isFloor2CamActive = Boolean(floor2Cam?.active);
+    const floor3Cam = dreamCastle?.floor3Rooms.getCameraState();
+    const isFloor3CamActive = Boolean(floor3Cam?.active);
+
+    let lookDx = 0;
+    let lookDy = 0;
+    let yawSensitivity = 0.0034;
+    let pitchSensitivity = 0.0028;
+
     if (isPointerLocked) {
-      cameraYaw = wrapAnglePi(cameraYaw - e.movementX * 0.0028);
-      cameraPitch = THREE.MathUtils.clamp(
-        cameraPitch + e.movementY * 0.0022,
-        -0.58,
-        1.15,
-      );
-      lastMouseMoveElapsed = currentElapsedTime;
+      lookDx = e.movementX || 0;
+      lookDy = e.movementY || 0;
+      yawSensitivity = 0.003;
+      pitchSensitivity = 0.0024;
+    } else if (isDragging) {
+      lookDx = e.clientX - lastPointerX;
+      lookDy = e.clientY - lastPointerY;
+      lastPointerX = e.clientX;
+      lastPointerY = e.clientY;
+      yawSensitivity = 0.0052;
+      pitchSensitivity = 0.0044;
+    } else if (e.target === domElement) {
+      lookDx = freeDx;
+      lookDy = freeDy;
+      yawSensitivity = 0.0036;
+      pitchSensitivity = 0.003;
+    } else {
       return;
     }
-    if (!isDragging) return;
-    const dx = e.clientX - lastPointerX;
-    const dy = e.clientY - lastPointerY;
-    lastPointerX = e.clientX;
-    lastPointerY = e.clientY;
 
-    cameraYaw = wrapAnglePi(cameraYaw - dx * 0.0055);
+    if (Math.abs(lookDx) < 0.0001 && Math.abs(lookDy) < 0.0001) return;
+
+    if (isFloor1CamActive) {
+      dreamCastle?.floor1Rooms.applySeatedLookDelta(
+        lookDx * 0.0044,
+        lookDy * 0.0036,
+      );
+    }
+    if (isFloor2CamActive) {
+      dreamCastle?.floor2Rooms.applyLookDelta(
+        lookDx * 0.0044,
+        lookDy * 0.0036,
+      );
+    }
+    if (isFloor3CamActive) {
+      dreamCastle?.floor3Rooms.applyLookDelta(
+        lookDx * 0.0044,
+        lookDy * 0.0036,
+      );
+    }
+    if (isCastleFocusActive) {
+      dreamCastle?.nav.applyFocusLookDelta(
+        lookDx * 0.0042,
+        lookDy * 0.0034,
+      );
+    }
+
+    cameraYaw = wrapAnglePi(cameraYaw - lookDx * yawSensitivity);
     cameraPitch = THREE.MathUtils.clamp(
-      cameraPitch + dy * 0.0045,
-      -0.58,
+      cameraPitch + lookDy * pitchSensitivity,
+      -0.68,
       1.15,
     );
     lastMouseMoveElapsed = currentElapsedTime;
@@ -1125,12 +1305,14 @@ export function createPlayerController(
 
     const distToDreamCastle = Math.hypot(playerPos.x - 88.0, playerPos.z - 18.0);
     const castlePrompt =
-      isWalk && dreamCastle && distToDreamCastle <= 32.0
+      isWalk && dreamCastle && distToDreamCastle <= 48.0
         ? dreamCastle.getProximityPrompt(playerPos)?.prompt ?? null
         : null;
     const castleFountainCaption =
       isWalk && dreamCastle && distToDreamCastle <= 25.0
-        ? dreamCastle.nav.getActiveFountainCaption()
+        ? dreamCastle.nav.getActiveFountainCaption() ??
+          dreamCastle.floor2Rooms.getActiveRoomCaption() ??
+          dreamCastle.floor1Rooms.getActiveRoomCaption()
         : null;
 
     const horizSpeed =
@@ -1287,6 +1469,32 @@ export function createPlayerController(
     triggerAuroraAction,
     triggerCarnivalAction,
     triggerCastleAction,
+    selectElevatorFloor: (floorNum: number) => {
+      if (locomotionState !== 'walk' || !dreamCastle) return false;
+      if (dreamCastle.handleElevatorFloorSelect(floorNum)) {
+        onTelemetryChange?.(buildTelemetry());
+        return true;
+      }
+      return false;
+    },
+    selectDanceSong: (songIndex: number) => {
+      dreamCastle?.floor2Rooms.selectDanceSong(songIndex);
+      onTelemetryChange?.(buildTelemetry());
+    },
+    performManualDance: (key: string) => {
+      dreamCastle?.floor2Rooms.performManualDance(key);
+      onTelemetryChange?.(buildTelemetry());
+    },
+    performPredefinedDance: (stepIndex: number) => {
+      dreamCastle?.performPredefinedDance(stepIndex);
+      onTelemetryChange?.(buildTelemetry());
+    },
+    setGalleryFrameImage: (frameIndex: number, imageSource: string) => {
+      dreamCastle?.setGalleryFrameImage(frameIndex, imageSource);
+      onTelemetryChange?.(buildTelemetry());
+    },
+    getGalleryFrames: () => dreamCastle?.getGalleryFrames() ?? [],
+    getDanceStudioState: () => dreamCastle?.floor2Rooms.getDanceStudioState() ?? null,
     performCarnivalGameAction,
     advanceDialogue: handleAdvanceDialogue,
     skipDialogueOrCinematic: handleSkipDialogueOrCinematic,
@@ -1735,21 +1943,69 @@ export function createPlayerController(
         }
 
         const lakeMemoryActive = wizardingSchool.isLakeMemoryActive();
-        const rotLeft = !lakeMemoryActive && keys.has('KeyQ');
-        const rotRight = !lakeMemoryActive && keys.has('KeyR');
-        if (rotLeft) cameraYaw = wrapAnglePi(cameraYaw + 1.85 * dt);
-        if (rotRight) cameraYaw = wrapAnglePi(cameraYaw - 1.85 * dt);
+        const isElevatorFpv = Boolean(dreamCastle?.nav.isElevatorFpvActive);
+        const isCastleFocusActive = Boolean(dreamCastle?.nav.activeCameraFocus);
+        const rotLeft =
+          !lakeMemoryActive &&
+          (keys.has('KeyQ') ||
+            ((isElevatorFpv || isCastleFocusActive) &&
+              (keys.has('KeyA') || keys.has('ArrowLeft'))));
+        const rotRight =
+          !lakeMemoryActive &&
+          (keys.has('KeyR') ||
+            ((isElevatorFpv || isCastleFocusActive) &&
+              (keys.has('KeyD') || keys.has('ArrowRight'))));
+        if (rotLeft) {
+          cameraYaw = wrapAnglePi(cameraYaw + 1.85 * dt);
+          if (isCastleFocusActive) dreamCastle?.nav.applyFocusLookDelta(-1.35 * dt, 0);
+        }
+        if (rotRight) {
+          cameraYaw = wrapAnglePi(cameraYaw - 1.85 * dt);
+          if (isCastleFocusActive) dreamCastle?.nav.applyFocusLookDelta(1.35 * dt, 0);
+        }
+
+        if (isElevatorFpv || isCastleFocusActive) {
+          if (keys.has('KeyW') || keys.has('ArrowUp')) {
+            cameraPitch = THREE.MathUtils.clamp(cameraPitch - 1.15 * dt, -0.58, 0.58);
+            if (isCastleFocusActive) dreamCastle?.nav.applyFocusLookDelta(0, -1.05 * dt);
+          }
+          if (keys.has('KeyS') || keys.has('ArrowDown')) {
+            cameraPitch = THREE.MathUtils.clamp(cameraPitch + 1.15 * dt, -0.58, 0.58);
+            if (isCastleFocusActive) dreamCastle?.nav.applyFocusLookDelta(0, 1.05 * dt);
+          }
+        }
+
+        const floor1Mode = dreamCastle?.floor1Rooms.getCameraState().mode ?? 'none';
+        const floor2Active = Boolean(dreamCastle?.floor2Rooms.getCameraState().active);
+        const floor3Active = Boolean(dreamCastle?.floor3Rooms.getCameraState().active);
+        const isInstrumentOrInspectLocked =
+          isElevatorFpv ||
+          floor2Active ||
+          floor3Active ||
+          floor1Mode === 'sofa_sit' ||
+          floor1Mode === 'piano_play' ||
+          floor1Mode === 'guitar_play' ||
+          floor1Mode === 'couture_inspect';
 
         const moveForward =
-          !lakeMemoryActive && (keys.has('KeyW') || keys.has('ArrowUp'));
+          !lakeMemoryActive &&
+          !isInstrumentOrInspectLocked &&
+          (keys.has('KeyW') || keys.has('ArrowUp'));
         const moveBackward =
-          !lakeMemoryActive && (keys.has('KeyS') || keys.has('ArrowDown'));
+          !lakeMemoryActive &&
+          !isInstrumentOrInspectLocked &&
+          (keys.has('KeyS') || keys.has('ArrowDown'));
         const moveLeft =
-          !lakeMemoryActive && (keys.has('KeyA') || keys.has('ArrowLeft'));
+          !lakeMemoryActive &&
+          !isInstrumentOrInspectLocked &&
+          (keys.has('KeyA') || keys.has('ArrowLeft'));
         const moveRight =
-          !lakeMemoryActive && (keys.has('KeyD') || keys.has('ArrowRight'));
+          !lakeMemoryActive &&
+          !isInstrumentOrInspectLocked &&
+          (keys.has('KeyD') || keys.has('ArrowRight'));
         const isSprinting =
           !lakeMemoryActive &&
+          !isInstrumentOrInspectLocked &&
           (keys.has('ShiftLeft') || keys.has('ShiftRight'));
 
         _forward.set(Math.sin(cameraYaw), 0, Math.cos(cameraYaw)).normalize();
@@ -1782,48 +2038,73 @@ export function createPlayerController(
           playerVelocity.set(0, 0, 0);
         }
 
-        const nextX = playerPos.x + playerVelocity.x * dt;
-        const nextZ = playerPos.z + playerVelocity.z * dt;
+        // Sub-stepped movement & collision resolution (4 sub-steps per tick) so fast sprinting never tunnels through walls
+        const COLLISION_SUB_STEPS = 4;
+        const subDt = dt / COLLISION_SUB_STEPS;
+        for (let step = 0; step < COLLISION_SUB_STEPS; step++) {
+          const nextX = playerPos.x + playerVelocity.x * subDt;
+          const nextZ = playerPos.z + playerVelocity.z * subDt;
 
-        const isNextCastle = dreamCastle?.isInsideCastle(nextX, nextZ);
-        if (isNextCastle || isWalkablePosition(nextX, nextZ)) {
-          playerPos.x = nextX;
-          playerPos.z = nextZ;
-        } else if (dreamCastle?.isInsideCastle(nextX, playerPos.z) || isWalkablePosition(nextX, playerPos.z)) {
-          playerPos.x = nextX;
-          playerVelocity.z *= 0.2;
-        } else if (dreamCastle?.isInsideCastle(playerPos.x, nextZ) || isWalkablePosition(playerPos.x, nextZ)) {
-          playerPos.z = nextZ;
-          playerVelocity.x *= 0.2;
-        } else {
-          playerVelocity.x = 0;
-          playerVelocity.z = 0;
-        }
-
-        const walkNearby = queryNearbyColliders(playerPos.x, playerPos.z);
-        for (let i = 0; i < walkNearby.length; i++) {
-          const c = walkNearby[i];
-          const dx = playerPos.x - c.x;
-          const dz = playerPos.z - c.z;
-          const dist = Math.hypot(dx, dz);
-          const minDist = c.radius + PLAYER_RADIUS;
-          if (dist < minDist && dist > 0.0001) {
-            const push = minDist - dist;
-            playerPos.x += (dx / dist) * push;
-            playerPos.z += (dz / dist) * push;
+          const isNextCastle = dreamCastle?.isInsideCastle(nextX, nextZ);
+          if (isNextCastle || isWalkablePosition(nextX, nextZ)) {
+            playerPos.x = nextX;
+            playerPos.z = nextZ;
+          } else if (dreamCastle?.isInsideCastle(nextX, playerPos.z) || isWalkablePosition(nextX, playerPos.z)) {
+            playerPos.x = nextX;
+            playerVelocity.z *= 0.2;
+          } else if (dreamCastle?.isInsideCastle(playerPos.x, nextZ) || isWalkablePosition(playerPos.x, nextZ)) {
+            playerPos.z = nextZ;
+            playerVelocity.x *= 0.2;
+          } else {
+            playerVelocity.x = 0;
+            playerVelocity.z = 0;
           }
-        }
 
-        // Enforce solid temporary box collision barrier across closed Castle Entrance Doors
-        if (dreamCastle) {
-          dreamCastle.nav.resolveEntranceDoorBarrier(playerPos, PLAYER_RADIUS);
+          const walkNearby = queryNearbyColliders(playerPos.x, playerPos.z);
+          for (let i = 0; i < walkNearby.length; i++) {
+            const c = walkNearby[i];
+            // Vertical elevation filtering: ignore obstacles located on other floors or levels
+            if (c.y !== undefined) {
+              const ch = c.height ?? 3.8;
+              if (playerPos.y < c.y - 0.5 || playerPos.y > c.y + ch + 0.3) {
+                continue;
+              }
+            } else if (dreamCastle && dreamCastle.isInsideCastle(playerPos.x, playerPos.z)) {
+              // Terrain/Ground colliders without explicit y: skip if player is on upper floors or basement
+              const relY = playerPos.y - dreamCastle.nav.baseY;
+              if ((relY > 2.8 || relY < -2.0) && c.radius < 3.5) {
+                continue;
+              }
+            }
+
+            const dx = playerPos.x - c.x;
+            const dz = playerPos.z - c.z;
+            const dist = Math.hypot(dx, dz);
+            const minDist = c.radius + PLAYER_RADIUS;
+            if (dist < minDist && dist > 0.0001) {
+              const push = minDist - dist;
+              playerPos.x += (dx / dist) * push;
+              playerPos.z += (dz / dist) * push;
+            }
+          }
+
+          // Enforce solid temporary box collision barrier across closed Castle Entrance Doors
+          // plus 0.88m-1.2m thick exterior/interior castle walls, elevator shaft, and stair railings
+          if (dreamCastle) {
+            dreamCastle.nav.resolveEntranceDoorBarrier(playerPos, PLAYER_RADIUS);
+            dreamCastle.nav.resolveCastleWallCollisions(playerPos, PLAYER_RADIUS);
+          }
         }
 
         const groundY = getTerrainHeight(playerPos.x, playerPos.z);
         const surfaceY = dreamCastle
           ? dreamCastle.getSurfaceHeight(playerPos.x, playerPos.z, playerPos.y, groundY)
           : groundY;
-        if (!isGrounded) {
+        if (isElevatorFpv && dreamCastle) {
+          playerPos.y = dreamCastle.nav.elevatorCabinY;
+          verticalVel = 0;
+          isGrounded = true;
+        } else if (!isGrounded) {
           verticalVel -= 19.6 * dt;
           playerPos.y += verticalVel * dt;
           if (playerPos.y <= surfaceY) {
@@ -1846,28 +2127,49 @@ export function createPlayerController(
         const embraceAlpha = activeFocus?.embraceAlpha ?? 0;
         const kissAlpha = activeFocus?.kissAlpha ?? 0;
 
-        avatar.group.position.copy(playerPos);
-        avatar.group.rotation.set(0, facingYaw, 0);
+        const castleFocusNow = dreamCastle?.getCameraFocus();
+        const isCastleSitting = Boolean(castleFocusNow?.isSitting);
+        const isCastlePosed = Boolean(castleFocusNow?.seatWorldPos);
+        if (isCastlePosed && castleFocusNow?.seatWorldPos) {
+          avatar.group.position.copy(castleFocusNow.seatWorldPos);
+          if (castleFocusNow.seatYaw !== undefined) {
+            facingYaw = castleFocusNow.seatYaw;
+          }
+          avatar.group.rotation.set(0, facingYaw, 0);
+        } else {
+          avatar.group.position.copy(playerPos);
+          avatar.group.rotation.set(0, facingYaw, 0);
+        }
+        avatar.setFirstPersonVisibility(
+          cameraMode === 'first-person' ||
+            isElevatorFpv ||
+            Boolean(castleFocusNow?.isFirstPersonSeated),
+        );
         avatar.updateAnimation(
           dt,
-          horizSpeed,
-          isSprinting && hasInput,
+          isCastlePosed ? 0 : horizSpeed,
+          isSprinting && hasInput && !isCastlePosed,
           elapsedTime,
           false,
           false,
           embraceAlpha,
           kissAlpha,
+          isCastleSitting,
         );
 
         const isCastleEntranceFraming =
           dreamCastle?.nav.isWithinEntranceFramingZone(playerPos) ?? false;
+        const isCastleGazeboVista =
+          dreamCastle?.rearGarden.isWithinGazeboVista(playerPos) ?? false;
         const isRidingCastleElevator =
           dreamCastle?.nav.isInsideElevatorCabin(playerPos) ?? false;
         const framingDistanceBonus = isCastleEntranceFraming
           ? 1.35
           : isRidingCastleElevator
             ? 0.85
-            : 0.0;
+            : isCastleGazeboVista
+              ? 0.75
+              : 0.0;
 
         currentCameraDistance = THREE.MathUtils.lerp(
           currentCameraDistance,
@@ -1875,10 +2177,14 @@ export function createPlayerController(
           1 - Math.exp(-10 * dt),
         );
 
-        if (cameraMode === 'first-person' && !lakeMemoryActive) {
+        if ((cameraMode === 'first-person' || isElevatorFpv) && !lakeMemoryActive) {
+          const fpvEyeHeight =
+            isElevatorFpv && dreamCastle
+              ? dreamCastle.nav.elevatorCabinY - playerPos.y + 1.55
+              : EYE_HEIGHT;
           const eyePos = _desiredCamPos.set(
             playerPos.x,
-            playerPos.y + EYE_HEIGHT,
+            playerPos.y + fpvEyeHeight,
             playerPos.z,
           );
           camera.position.copy(eyePos);
@@ -1890,6 +2196,12 @@ export function createPlayerController(
           );
           camera.lookAt(_desiredLookAt);
         } else {
+          _desiredLookAt.set(
+            playerPos.x,
+            playerPos.y + (isCastleEntranceFraming ? 1.85 : 1.38),
+            playerPos.z,
+          );
+
           const horizDist =
             Math.cos(cameraPitch) * currentCameraDistance;
           const vertOffset =
@@ -1906,20 +2218,102 @@ export function createPlayerController(
             _desiredCamPos.z,
           );
           const camSurface = dreamCastle
-            ? Math.max(camGround, dreamCastle.getSurfaceHeight(_desiredCamPos.x, _desiredCamPos.z, _desiredCamPos.y, camGround))
+            ? Math.max(
+                camGround,
+                dreamCastle.getSurfaceHeight(_desiredCamPos.x, _desiredCamPos.z, playerPos.y, camGround),
+              )
             : camGround;
           if (_desiredCamPos.y < camSurface + 0.75) {
             _desiredCamPos.y = camSurface + 0.75;
           }
+          if (dreamCastle) {
+            const ceilY = dreamCastle.nav.getCeilingHeight(
+              _desiredCamPos.x,
+              _desiredCamPos.z,
+              playerPos.y,
+            );
+            if (ceilY !== null && _desiredCamPos.y > ceilY - 0.42) {
+              _desiredCamPos.y = Math.max(camSurface + 0.75, ceilY - 0.42);
+            }
+          }
 
-          _desiredLookAt.set(
-            playerPos.x,
-            playerPos.y + (isCastleEntranceFraming ? 1.85 : 1.38),
-            playerPos.z,
+          // Dynamic Raycast Camera Obstruction Resolver (cast ray from player head/look target back toward ideal camera orbit position)
+          let effectiveTargetDist = _desiredCamPos.distanceTo(_desiredLookAt);
+          if (effectiveTargetDist > 0.001) {
+            _camRayDir.subVectors(_desiredCamPos, _desiredLookAt).divideScalar(effectiveTargetDist);
+          } else {
+            _camRayDir.set(-Math.sin(cameraYaw), 0, -Math.cos(cameraYaw));
+          }
+
+          if (dreamCastle) {
+            const partMeshes = dreamCastle.interiorPartitionMeshes;
+            for (let i = 0; i < partMeshes.length; i++) {
+              const mat = partMeshes[i].material as THREE.MeshStandardMaterial;
+              if (mat && mat.opacity < 0.99) {
+                mat.opacity = THREE.MathUtils.lerp(mat.opacity, 1.0, 1 - Math.exp(-10 * dt));
+                if (mat.opacity >= 0.98) {
+                  mat.opacity = 1.0;
+                  mat.transparent = false;
+                }
+              }
+            }
+
+            if (
+              Math.abs(playerPos.x - dreamCastle.nav.originX) <= 26.0 &&
+              Math.abs(playerPos.z - dreamCastle.nav.originZ) <= 26.0
+            ) {
+              _cameraRaycaster.set(_desiredLookAt, _camRayDir);
+              _cameraRaycaster.near = 0.2;
+              _cameraRaycaster.far = effectiveTargetDist + 0.35;
+              _camRayIntersects.length = 0;
+              _cameraRaycaster.intersectObjects(
+                dreamCastle.cameraOccluders,
+                false,
+                _camRayIntersects,
+              );
+
+              for (let i = 0; i < _camRayIntersects.length; i++) {
+                const hit = _camRayIntersects[i];
+                const hitMesh = hit.object as THREE.Mesh;
+                if (partMeshes.includes(hitMesh)) {
+                  // Interior partition wall: fade opacity to 0.2 and smoothly pull camera in
+                  const mat = hitMesh.material as THREE.MeshStandardMaterial;
+                  if (mat) {
+                    mat.transparent = true;
+                    mat.opacity = THREE.MathUtils.lerp(mat.opacity, 0.2, 1 - Math.exp(-16 * dt));
+                  }
+                  if (hit.distance < effectiveTargetDist) {
+                    effectiveTargetDist = Math.max(
+                      MIN_CAMERA_DISTANCE,
+                      Math.min(effectiveTargetDist, hit.distance - 0.25),
+                    );
+                  }
+                } else if (hit.distance < effectiveTargetDist) {
+                  // Exterior wall, tower, or ceiling slab: clamp camera forward toward player
+                  effectiveTargetDist = Math.max(MIN_CAMERA_DISTANCE, hit.distance - 0.35);
+                  break;
+                }
+              }
+            }
+          }
+
+          effectiveTargetDist = Math.max(MIN_CAMERA_DISTANCE, effectiveTargetDist);
+          const distLerpRate = effectiveTargetDist < obstructedCameraDistance ? 18.0 : 9.0;
+          obstructedCameraDistance = THREE.MathUtils.lerp(
+            obstructedCameraDistance,
+            effectiveTargetDist,
+            1 - Math.exp(-distLerpRate * dt),
           );
+          obstructedCameraDistance = Math.max(MIN_CAMERA_DISTANCE, obstructedCameraDistance);
+
+          _desiredCamPos.copy(_desiredLookAt).addScaledVector(_camRayDir, obstructedCameraDistance);
+          if (_desiredCamPos.y < camSurface + 0.72) {
+            _desiredCamPos.y = camSurface + 0.72;
+          }
 
           // Gentle non-locking camera focus when watching Sorting Hat, Compendium 3D pages, Mirror of Desire, or Lake Memory
-          if (lakeMemoryActive || (!hasInput && !isDragging)) {
+          const recentlyMovedMouse = currentElapsedTime - lastMouseMoveElapsed <= 0.65;
+          if (lakeMemoryActive || (!hasInput && !isDragging && !recentlyMovedMouse)) {
             const schoolFocus = wizardingSchool.getCameraFocus();
             if (schoolFocus && schoolFocus.active && schoolFocus.blendAlpha > 0.01) {
               if (lakeMemoryActive) {
@@ -1975,10 +2369,23 @@ export function createPlayerController(
           if (dreamCastle) {
             const castleFocus = dreamCastle.getCameraFocus();
             if (castleFocus) {
-              _desiredCamPos.lerp(castleFocus.position, 0.85);
-              _desiredLookAt.lerp(castleFocus.target, 0.85);
+              if (dreamCastle.nav.activeCameraFocus?.mode === 'entrance') {
+                // Smoothly align underlying follow camera yaw/pitch toward the Grand Hall fountain
+                // so the 0.4s exit lerp returns to gameplay with zero camera pop
+                cameraYaw = wrapAnglePi(
+                  cameraYaw + wrapAnglePi(0 - cameraYaw) * (1 - Math.exp(-5.0 * dt)),
+                );
+                cameraPitch = THREE.MathUtils.lerp(
+                  cameraPitch,
+                  0.14,
+                  1 - Math.exp(-5.0 * dt),
+                );
+              }
+              _desiredCamPos.lerp(castleFocus.position, castleFocus.blendAlpha);
+              _desiredLookAt.lerp(castleFocus.target, castleFocus.blendAlpha);
               if (castleFocus.fov) {
-                camera.fov = dampValue(camera.fov, castleFocus.fov, 6.0, dt);
+                const targetFov = THREE.MathUtils.lerp(60.0, castleFocus.fov, castleFocus.blendAlpha);
+                camera.fov = dampValue(camera.fov, targetFov, 6.0, dt);
                 camera.updateProjectionMatrix();
               }
             }
@@ -1997,7 +2404,7 @@ export function createPlayerController(
       mysteryBox.update(dt, elapsedTime);
       wizardingSchool.update(dt, elapsedTime, playerPos);
       if (dreamCastle) {
-        dreamCastle.update(dt, playerPos);
+        dreamCastle.update(dt, playerPos, elapsedTime, keys);
       }
 
       // Apply Castle Gate physical camera shake (Stage 2 seal break shudder & Stage 3 heavy inertia rumble/thud)

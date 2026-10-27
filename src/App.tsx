@@ -17,10 +17,12 @@ import {
   Compass,
   Footprints,
   KeyRound,
+  Link as LinkIcon,
   Lock,
   MapPin,
   MousePointerClick,
   Sparkles,
+  Upload,
   Wand2,
   Wind,
 } from 'lucide-react';
@@ -181,6 +183,25 @@ export default function App() {
 
   const [auroraDialogue, setAuroraDialogue] = useState<AuroraDialogueLine | null>(null);
   const lastAuroraDialogueRef = useRef<AuroraDialogueLine | null>(null);
+
+  const [selectedGalleryFrame, setSelectedGalleryFrame] = useState(0);
+  const [showGalleryUrlModal, setShowGalleryUrlModal] = useState(false);
+  const [galleryUrlInput, setGalleryUrlInput] = useState('');
+  const galleryFileInputRef = useRef<HTMLInputElement | null>(null);
+
+  const handleGalleryFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const dataUrl = event.target?.result as string;
+      if (dataUrl) {
+        controllerRef.current?.setGalleryFrameImage(selectedGalleryFrame, dataUrl);
+      }
+    };
+    reader.readAsDataURL(file);
+    e.target.value = '';
+  };
 
   useEffect(() => {
     const container = canvasMountRef.current;
@@ -367,6 +388,7 @@ export default function App() {
 
     const handleKeyHud = (e: KeyboardEvent) => {
       if (
+        e.defaultPrevented ||
         e.target instanceof HTMLInputElement ||
         e.target instanceof HTMLTextAreaElement
       ) {
@@ -532,10 +554,43 @@ export default function App() {
     setTelemetry((prev) => ({ ...prev, cameraDistance: dist }));
   };
 
+  const lastPointerLockExitTimeRef = useRef<number>(0);
+
+  useEffect(() => {
+    const onPointerLockChange = () => {
+      if (!document.pointerLockElement) {
+        lastPointerLockExitTimeRef.current = performance.now();
+      }
+    };
+    const onPointerLockError = (e: Event) => {
+      e.preventDefault?.();
+    };
+    document.addEventListener('pointerlockchange', onPointerLockChange);
+    document.addEventListener('pointerlockerror', onPointerLockError);
+    return () => {
+      document.removeEventListener('pointerlockchange', onPointerLockChange);
+      document.removeEventListener('pointerlockerror', onPointerLockError);
+    };
+  }, []);
+
   const handleEngagePointerLock = () => {
     const canvas = canvasMountRef.current?.querySelector('canvas');
-    if (canvas && document.pointerLockElement !== canvas) {
-      canvas.requestPointerLock?.();
+    if (!canvas || document.pointerLockElement === canvas) return;
+    // Respect browser security cooldown (~1.3s) after user exits pointer lock via Esc
+    if (performance.now() - lastPointerLockExitTimeRef.current < 1350) {
+      return;
+    }
+    try {
+      const lockPromise = canvas.requestPointerLock?.() as unknown as
+        | Promise<void>
+        | undefined;
+      if (lockPromise && typeof lockPromise.catch === 'function') {
+        lockPromise.catch(() => {
+          // Ignore transient browser cooldown rejection; click-and-drag camera rotation still works
+        });
+      }
+    } catch {
+      // Fallback for browsers that throw synchronously
     }
   };
 
@@ -1038,15 +1093,19 @@ export default function App() {
         </div>
       )}
 
-      {/* Grand Entrance Hall Fountain Hologram Floating Caption */}
+      {/* Grand Entrance Hall Fountain Hologram & Starlight Orchid Floating Caption */}
       {telemetry.castleFountainCaption && !telemetry.carnivalOverlay && (
         <div className="pointer-events-none absolute top-16 left-1/2 -translate-x-1/2 z-30 w-full max-w-lg px-4">
-          <div className="flex flex-col items-center gap-1.5 bg-slate-950/88 backdrop-blur-md border border-cyan-300/45 rounded-2xl px-6 py-3.5 text-center shadow-[0_0_28px_rgba(56,189,248,0.28)]">
+          <div className="flex flex-col items-center gap-1.5 bg-slate-950/88 backdrop-blur-md border border-pink-300/50 rounded-2xl px-6 py-3.5 text-center shadow-[0_0_28px_rgba(244,114,182,0.32)]">
             <div className="flex items-center gap-1.5 text-[11px] font-semibold tracking-widest uppercase text-amber-300">
-              <Sparkles className="w-3.5 h-3.5 text-cyan-300" />
-              <span>Crystal Lotus Fountain • Yeshwanth &amp; Harsha</span>
+              <Sparkles className="w-3.5 h-3.5 text-pink-300" />
+              <span>
+                {telemetry.castleFountainCaption === 'I Love u Mandu 💕'
+                  ? 'Starlight Orchid Conservatory • Yeshwanth & Harsha'
+                  : 'Crystal Lotus Fountain • Yeshwanth & Harsha'}
+              </span>
             </div>
-            <p className="text-base leading-relaxed text-amber-50 font-serif italic">
+            <p className="text-lg leading-relaxed text-amber-100 font-serif italic font-semibold drop-shadow-[0_0_10px_rgba(244,114,182,0.7)]">
               {telemetry.castleFountainCaption}
             </p>
           </div>
@@ -1061,17 +1120,171 @@ export default function App() {
             <span className="text-xs font-semibold text-pink-200">
               Pastel Dream Castle
             </span>
-            <span className="text-xs text-slate-200">
+            <span className="text-xs text-slate-200 whitespace-nowrap">
               {telemetry.castlePrompt}
             </span>
           </div>
-          <button
-            type="button"
-            onClick={() => controllerRef.current?.triggerCastleAction()}
-            className="ml-2 px-3 py-1.5 rounded-lg bg-pink-500 hover:bg-pink-400 text-white text-xs font-semibold transition-colors cursor-pointer"
-          >
-            Interact
-          </button>
+          {telemetry.castlePrompt.includes('Select Floor') ? (
+            <div className="ml-2 flex items-center gap-1.5">
+              {[
+                { label: '1', floor: 1 },
+                { label: '2', floor: 2 },
+                { label: '3', floor: 3 },
+                { label: '4', floor: 4 },
+                { label: 'B', floor: -1 },
+              ].map((btn) => (
+                <button
+                  key={btn.label}
+                  type="button"
+                  onClick={() =>
+                    controllerRef.current?.selectElevatorFloor(btn.floor)
+                  }
+                  className="px-2.5 py-1 rounded-lg bg-pink-500 hover:bg-pink-400 text-white text-xs font-semibold border border-amber-200/40 transition-colors cursor-pointer"
+                >
+                  [{btn.label}]
+                </button>
+              ))}
+              <button
+                type="button"
+                onClick={() => controllerRef.current?.triggerCastleAction()}
+                className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-pink-200 text-xs font-semibold border border-pink-300/35 transition-colors cursor-pointer"
+              >
+                [E] Step Out
+              </button>
+            </div>
+          ) : telemetry.castlePrompt.includes('Freestyle Dance') ||
+            telemetry.castlePrompt.includes('Choose Song') ? (
+            <div className="ml-2 flex flex-col gap-1.5">
+              {/* Row 1: 5 Songs Selector */}
+              <div className="flex items-center gap-1">
+                <span className="text-[11px] font-semibold text-pink-300 mr-1">Songs:</span>
+                {[
+                  { label: '1', name: 'Barbie Pop', idx: 0 },
+                  { label: '2', name: 'Starlight Waltz', idx: 1 },
+                  { label: '3', name: 'Pastel R&B', idx: 2 },
+                  { label: '4', name: 'Electro Heart', idx: 3 },
+                  { label: '5', name: 'Mandu Serenade', idx: 4 },
+                ].map((s) => (
+                  <button
+                    key={s.label}
+                    type="button"
+                    onClick={() => controllerRef.current?.selectDanceSong(s.idx)}
+                    className="px-2 py-0.5 rounded bg-pink-600/80 hover:bg-pink-500 text-white text-[11px] font-medium border border-pink-300/30 transition-colors cursor-pointer whitespace-nowrap"
+                  >
+                    [{s.label}] {s.name}
+                  </button>
+                ))}
+              </div>
+              {/* Row 2: 10 Manual Dance Step Keys */}
+              <div className="flex items-center gap-1 flex-wrap">
+                <span className="text-[11px] font-semibold text-amber-300 mr-1">Steps:</span>
+                {[
+                  { key: 'W', name: 'Reach & Leap' },
+                  { key: 'A', name: 'Left Sway' },
+                  { key: 'S', name: 'Low Dip' },
+                  { key: 'D', name: 'Right Sway' },
+                  { key: 'F', name: 'Heart Claps' },
+                  { key: 'G', name: 'Pirouette' },
+                  { key: 'H', name: 'Heart Hands 💕' },
+                  { key: 'J', name: 'Jeté Kick' },
+                  { key: 'K', name: 'Shoulder Wave' },
+                  { key: 'L', name: 'Curtsy' },
+                ].map((m) => (
+                  <button
+                    key={m.key}
+                    type="button"
+                    onClick={() => controllerRef.current?.performManualDance(m.key)}
+                    className="px-1.5 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-amber-200 text-[11px] font-medium border border-amber-300/30 transition-colors cursor-pointer whitespace-nowrap"
+                  >
+                    <span className="font-bold text-white">[{m.key}]</span> {m.name}
+                  </button>
+                ))}
+                <button
+                  type="button"
+                  onClick={() => controllerRef.current?.triggerCastleAction()}
+                  className="ml-1 px-2.5 py-0.5 rounded bg-rose-700 hover:bg-rose-600 text-white text-[11px] font-semibold transition-colors cursor-pointer whitespace-nowrap"
+                >
+                  [E] Finish
+                </button>
+              </div>
+              {/* Row 3: 5 Predefined Choreography Steps (Keys 6, 7, 8, 9, 0) */}
+              <div className="flex items-center gap-1 flex-wrap">
+                <span className="text-[11px] font-semibold text-rose-300 mr-1">Choreo [6-0]:</span>
+                {[
+                  { key: '6', name: 'Pirouette ✧', stepIdx: 0 },
+                  { key: '7', name: 'Arabesque ✧', stepIdx: 1 },
+                  { key: '8', name: 'Pop Groove ✧', stepIdx: 2 },
+                  { key: '9', name: 'Grand Jeté ✧', stepIdx: 3 },
+                  { key: '0', name: 'Swan Waltz ✧', stepIdx: 4 },
+                ].map((c) => (
+                  <button
+                    key={c.key}
+                    type="button"
+                    onClick={() => controllerRef.current?.performPredefinedDance(c.stepIdx)}
+                    className="px-1.5 py-0.5 rounded bg-gradient-to-r from-pink-800/80 to-purple-800/80 hover:from-pink-600 hover:to-purple-600 text-pink-100 text-[11px] font-medium border border-pink-300/40 transition-colors cursor-pointer whitespace-nowrap"
+                  >
+                    <span className="font-bold text-amber-300">[{c.key}]</span> {c.name}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : telemetry.castlePrompt.includes('Romantic Memory') ||
+            telemetry.castlePrompt.includes('Memory Frames') ||
+            telemetry.castlePrompt.includes('Gallery') ? (
+            <div className="ml-2 flex flex-col gap-1.5">
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <span className="text-[11px] font-semibold text-pink-300 mr-1">Frame:</span>
+                {[0, 1, 2, 3, 4].map((idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => {
+                      setSelectedGalleryFrame(idx);
+                      window.dispatchEvent(new KeyboardEvent('keydown', { key: String(idx + 1) }));
+                    }}
+                    className={`px-2 py-0.5 rounded text-[11px] font-medium border transition-colors cursor-pointer ${
+                      selectedGalleryFrame === idx
+                        ? 'bg-pink-500 text-white border-amber-300 shadow-sm'
+                        : 'bg-slate-800 hover:bg-slate-700 text-pink-200 border-pink-300/30'
+                    }`}
+                  >
+                    Frame {idx + 1}
+                  </button>
+                ))}
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => galleryFileInputRef.current?.click()}
+                  className="px-2.5 py-1 rounded bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer"
+                >
+                  <Upload className="w-3.5 h-3.5" /> Upload Image
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowGalleryUrlModal(true)}
+                  className="px-2.5 py-1 rounded bg-pink-600/80 hover:bg-pink-500 text-white text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer"
+                >
+                  <LinkIcon className="w-3.5 h-3.5" /> Paste Image URL
+                </button>
+                <button
+                  type="button"
+                  onClick={() => controllerRef.current?.triggerCastleAction()}
+                  className="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-pink-200 text-xs font-semibold border border-pink-300/30 transition-colors cursor-pointer"
+                >
+                  [E] View / Return
+                </button>
+              </div>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => controllerRef.current?.triggerCastleAction()}
+              className="ml-2 px-3 py-1.5 rounded-lg bg-pink-500 hover:bg-pink-400 text-white text-xs font-semibold transition-colors cursor-pointer"
+            >
+              Interact
+            </button>
+          )}
         </div>
       )}
 
@@ -1339,6 +1552,64 @@ export default function App() {
             </div>
           </div>
           )}
+        </div>
+      )}
+
+      {/* Hidden file input for uploading custom romantic gallery pictures */}
+      <input
+        ref={galleryFileInputRef}
+        type="file"
+        accept="image/*"
+        onChange={handleGalleryFileUpload}
+        className="hidden"
+      />
+
+      {/* Romantic Memory Gallery Custom Image URL Modal */}
+      {showGalleryUrlModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="bg-slate-900 border border-pink-400/50 rounded-2xl p-5 max-w-md w-full shadow-2xl text-white">
+            <h3 className="text-sm font-bold text-pink-300 mb-1 flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-amber-300" /> Frame {selectedGalleryFrame + 1} Custom Picture
+            </h3>
+            <p className="text-xs text-slate-300 mb-3">
+              Enter a direct image URL (PNG, JPG, or WebP) to display inside this romantic gold filigree frame.
+            </p>
+            <input
+              type="text"
+              placeholder="https://example.com/photo.jpg"
+              value={galleryUrlInput}
+              onChange={(e) => setGalleryUrlInput(e.target.value)}
+              className="w-full px-3 py-2 bg-slate-950 border border-pink-400/40 rounded-lg text-xs text-white placeholder-slate-500 focus:outline-none focus:border-pink-300 mb-4"
+            />
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowGalleryUrlModal(false);
+                  setGalleryUrlInput('');
+                }}
+                className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  if (galleryUrlInput.trim()) {
+                    controllerRef.current?.setGalleryFrameImage(
+                      selectedGalleryFrame,
+                      galleryUrlInput.trim(),
+                    );
+                  }
+                  setShowGalleryUrlModal(false);
+                  setGalleryUrlInput('');
+                }}
+                className="px-4 py-1.5 rounded-lg bg-pink-500 hover:bg-pink-400 text-white text-xs font-semibold cursor-pointer"
+              >
+                Set Image
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

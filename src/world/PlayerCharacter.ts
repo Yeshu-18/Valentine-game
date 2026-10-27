@@ -1,5 +1,86 @@
 import * as THREE from 'three';
 
+export type AvatarActivityPose =
+  | 'none'
+  | 'pop_sing'
+  | 'dance_step_1'
+  | 'dance_step_2'
+  | 'dance_step_3'
+  | 'dance_step_4'
+  | 'dance_step_5'
+  | 'manual_dance_w'
+  | 'manual_dance_a'
+  | 'manual_dance_s'
+  | 'manual_dance_d'
+  | 'manual_dance_f'
+  | 'manual_dance_g'
+  | 'manual_dance_h'
+  | 'manual_dance_j'
+  | 'manual_dance_k'
+  | 'manual_dance_l'
+  | 'photo_pose_1'
+  | 'photo_pose_2'
+  | 'photo_pose_3';
+
+export interface OutfitPalettePreset {
+  name: string;
+  dressHex: string;
+  trimHex: string;
+  beltHex: string;
+  bootHex: string;
+}
+
+export interface HairPalettePreset {
+  name: string;
+  hairHex: string;
+}
+
+export const OUTFIT_PALETTE_PRESETS: readonly OutfitPalettePreset[] = [
+  {
+    name: 'Rose Quartz Ballgown',
+    dressHex: '#f26b8a',
+    trimHex: '#fff7f9',
+    beltHex: '#f7c96f',
+    bootHex: '#4a3228',
+  },
+  {
+    name: 'Starlight Sapphire Gown',
+    dressHex: '#38bdf8',
+    trimHex: '#e0f2fe',
+    beltHex: '#fde047',
+    bootHex: '#1e3a8a',
+  },
+  {
+    name: 'Champagne Empress Couture',
+    dressHex: '#f59e0b',
+    trimHex: '#fef3c7',
+    beltHex: '#fbbf24',
+    bootHex: '#78350f',
+  },
+  {
+    name: 'Lavender Dream Tulle',
+    dressHex: '#c084fc',
+    trimHex: '#f3e8ff',
+    beltHex: '#f472b6',
+    bootHex: '#581c87',
+  },
+  {
+    name: 'Valentine Ruby Velvet',
+    dressHex: '#e11d48',
+    trimHex: '#ffe4e6',
+    beltHex: '#fde047',
+    bootHex: '#881337',
+  },
+];
+
+export const HAIR_PALETTE_PRESETS: readonly HairPalettePreset[] = [
+  { name: 'Espresso Silk', hairHex: '#3b261d' },
+  { name: 'Golden Honey Blonde', hairHex: '#d97706' },
+  { name: 'Pastel Rose Gold', hairHex: '#f472b6' },
+  { name: 'Midnight Starlight', hairHex: '#1e1b4b' },
+  { name: 'Auburn Velvet', hairHex: '#7c2d12' },
+];
+
 export interface PlayerAvatarBundle {
   group: THREE.Group;
   bodyGroup: THREE.Group;
@@ -17,6 +98,20 @@ export interface PlayerAvatarBundle {
   getRightHandWorldPosition: (target: THREE.Vector3) => THREE.Vector3;
   setFirstPersonVisibility: (isFirstPerson: boolean) => void;
   setShadowVisible: (visible: boolean) => void;
+  setOutfitPalette: (presetIndex: number) => string;
+  cycleOutfitPalette: () => string;
+  setHairPalette: (presetIndex: number) => string;
+  cycleHairColor: () => string;
+  toggleTiara: () => boolean;
+  isTiaraVisible: () => boolean;
+  setActivityPose: (pose: AvatarActivityPose) => void;
+  getActivityPose: () => AvatarActivityPose;
+  resetNeutralPose?: () => void;
+  getAppearanceSummary: () => {
+    outfitName: string;
+    hairName: string;
+    tiaraVisible: boolean;
+  };
   dispose: () => void;
 }
 
@@ -242,16 +337,96 @@ export function createPlayerAvatar(): PlayerAvatarBundle {
   const bowRight = new THREE.Mesh(bowWingGeo, collarTrimMat);
   bowRight.position.set(0.07, 0.02, -0.01);
   bowRight.rotation.z = -0.22;
-  const bowCenter = new THREE.Mesh(
-    new THREE.SphereGeometry(0.032, 8, 8),
-    ribbonGoldMat,
-  );
+  const bowCenterGeo = new THREE.SphereGeometry(0.032, 8, 8);
+  const bowCenter = new THREE.Mesh(bowCenterGeo, ribbonGoldMat);
   bowCenter.position.set(0, 0.02, -0.01);
   ponytailPivot.add(bowLeft, bowRight, bowCenter);
 
-  geometries.push(headGeo, hairCapGeo, ponytailGeo, bowWingGeo);
+  // 6. Royal Crystal Tiara Crown (toggled in Royal Wardrobe & Beauty Studio)
+  const tiaraGroup = new THREE.Group();
+  tiaraGroup.name = 'RoyalTiara';
+  tiaraGroup.position.set(0, 0.2, 0.05);
+  tiaraGroup.rotation.x = -0.18;
+  tiaraGroup.visible = true;
+  headPivot.add(tiaraGroup);
+
+  const tiaraBandGeo = new THREE.TorusGeometry(0.145, 0.014, 8, 20, Math.PI * 1.15);
+  tiaraBandGeo.rotateX(Math.PI / 2);
+  tiaraBandGeo.rotateY(-Math.PI * 0.075);
+  const tiaraBand = new THREE.Mesh(tiaraBandGeo, ribbonGoldMat);
+  tiaraGroup.add(tiaraBand);
+
+  const tiaraGemMat = new THREE.MeshStandardMaterial({
+    color: new THREE.Color('#fbcfe8'),
+    emissive: new THREE.Color('#f472b6'),
+    emissiveIntensity: 0.75,
+    roughness: 0.15,
+    metalness: 0.25,
+  });
+  materials.push(tiaraGemMat);
+
+  const tiaraPeakGeo = new THREE.ConeGeometry(0.024, 0.075, 6);
+  const tiaraGemGeo = new THREE.OctahedronGeometry(0.022, 0);
+  const peakAngles = [-0.65, -0.32, 0, 0.32, 0.65];
+  peakAngles.forEach((ang, idx) => {
+    const isCenter = idx === 2;
+    const hScale = isCenter ? 1.35 : idx === 1 || idx === 3 ? 1.05 : 0.78;
+    const px = Math.sin(ang) * 0.142;
+    const pz = Math.cos(ang) * 0.142;
+    const peak = new THREE.Mesh(tiaraPeakGeo, ribbonGoldMat);
+    peak.scale.set(1, hScale, 1);
+    peak.position.set(px, 0.028 * hScale, pz);
+    tiaraGroup.add(peak);
+
+    if (isCenter || idx === 1 || idx === 3) {
+      const gem = new THREE.Mesh(tiaraGemGeo, tiaraGemMat);
+      gem.scale.setScalar(isCenter ? 1.15 : 0.82);
+      gem.position.set(px * 1.03, 0.052 * hScale, pz * 1.03);
+      tiaraGroup.add(gem);
+    }
+  });
+
+  geometries.push(
+    headGeo,
+    hairCapGeo,
+    ponytailGeo,
+    bowWingGeo,
+    bowCenterGeo,
+    tiaraBandGeo,
+    tiaraPeakGeo,
+    tiaraGemGeo,
+  );
 
   let walkPhase = 0;
+  let currentOutfitIndex = 0;
+  let currentHairIndex = 0;
+  let tiaraVisible = true;
+  let activityPose: AvatarActivityPose = 'none';
+
+  const applyOutfitPreset = (index: number): string => {
+    const safeIdx =
+      ((index % OUTFIT_PALETTE_PRESETS.length) + OUTFIT_PALETTE_PRESETS.length) %
+      OUTFIT_PALETTE_PRESETS.length;
+    currentOutfitIndex = safeIdx;
+    const preset = OUTFIT_PALETTE_PRESETS[safeIdx];
+    dressMat.color.set(preset.dressHex);
+    collarTrimMat.color.set(preset.trimHex);
+    ribbonGoldMat.color.set(preset.beltHex);
+    bootMat.color.set(preset.bootHex);
+    tiaraGemMat.color.set(preset.dressHex);
+    tiaraGemMat.emissive.set(preset.dressHex);
+    return preset.name;
+  };
+
+  const applyHairPreset = (index: number): string => {
+    const safeIdx =
+      ((index % HAIR_PALETTE_PRESETS.length) + HAIR_PALETTE_PRESETS.length) %
+      HAIR_PALETTE_PRESETS.length;
+    currentHairIndex = safeIdx;
+    const preset = HAIR_PALETTE_PRESETS[safeIdx];
+    hairMat.color.set(preset.hairHex);
+    return preset.name;
+  };
 
   return {
     group,
@@ -272,6 +447,7 @@ export function createPlayerAvatar(): PlayerAvatarBundle {
       isSitting = false,
     ) {
       if (isSitting) {
+        bodyGroup.rotation.y = THREE.MathUtils.damp(bodyGroup.rotation.y, 0, 8, delta);
         leftLegPivot.rotation.x = THREE.MathUtils.damp(
           leftLegPivot.rotation.x,
           -1.45,
@@ -369,6 +545,7 @@ export function createPlayerAvatar(): PlayerAvatarBundle {
         return;
       }
       if (isSeatedOnBroom) {
+        bodyGroup.rotation.y = THREE.MathUtils.damp(bodyGroup.rotation.y, 0, 10, delta);
         // Seated broom-riding pose: knees tucked back/astride, arms reaching forward to grip handle
         const speedNorm = THREE.MathUtils.clamp(Math.abs(moveSpeed) / 22.0, 0, 1);
         leftLegPivot.rotation.x = THREE.MathUtils.damp(
@@ -465,6 +642,432 @@ export function createPlayerAvatar(): PlayerAvatarBundle {
           Math.cos(elapsedTime * 8.5) * (0.08 + speedNorm * 0.14);
         return;
       }
+
+      // Floor 2 Interactive Activity Poses (Pop Stage, Dance Studio Choreography, Fashion Photo Poses)
+      if (activityPose !== 'none') {
+        const dRate = 10.0;
+        if (activityPose === 'pop_sing') {
+          const beat = elapsedTime * 5.2;
+          const sway = Math.sin(beat * 0.5) * 0.12;
+          bodyGroup.position.y = THREE.MathUtils.damp(
+            bodyGroup.position.y,
+            Math.abs(Math.sin(beat)) * 0.045,
+            dRate,
+            delta,
+          );
+          bodyGroup.rotation.x = THREE.MathUtils.damp(bodyGroup.rotation.x, -0.04, dRate, delta);
+          bodyGroup.rotation.y = THREE.MathUtils.damp(bodyGroup.rotation.y, sway, dRate, delta);
+          leftLegPivot.rotation.x = THREE.MathUtils.damp(
+            leftLegPivot.rotation.x,
+            Math.sin(beat) * 0.14,
+            dRate,
+            delta,
+          );
+          rightLegPivot.rotation.x = THREE.MathUtils.damp(
+            rightLegPivot.rotation.x,
+            -Math.sin(beat) * 0.14,
+            dRate,
+            delta,
+          );
+          leftLegPivot.rotation.z = THREE.MathUtils.damp(leftLegPivot.rotation.z, 0.06, dRate, delta);
+          rightLegPivot.rotation.z = THREE.MathUtils.damp(rightLegPivot.rotation.z, -0.06, dRate, delta);
+          // Right hand holds crystal stand microphone near lips; left arm waves expressively to the crowd
+          rightArmPivot.rotation.x = THREE.MathUtils.damp(rightArmPivot.rotation.x, -1.35, dRate, delta);
+          rightArmPivot.rotation.y = THREE.MathUtils.damp(rightArmPivot.rotation.y, -0.25, dRate, delta);
+          rightArmPivot.rotation.z = THREE.MathUtils.damp(rightArmPivot.rotation.z, 0.15, dRate, delta);
+          leftArmPivot.rotation.x = THREE.MathUtils.damp(
+            leftArmPivot.rotation.x,
+            -0.85 + Math.sin(beat * 0.5) * 0.35,
+            dRate,
+            delta,
+          );
+          leftArmPivot.rotation.z = THREE.MathUtils.damp(
+            leftArmPivot.rotation.z,
+            0.55 + Math.cos(beat * 0.5) * 0.22,
+            dRate,
+            delta,
+          );
+          headPivot.rotation.x = THREE.MathUtils.damp(
+            headPivot.rotation.x,
+            -0.08 + Math.sin(beat) * 0.06,
+            dRate,
+            delta,
+          );
+          headPivot.rotation.y = THREE.MathUtils.damp(
+            headPivot.rotation.y,
+            Math.sin(beat * 0.25) * 0.18,
+            dRate,
+            delta,
+          );
+          ponytailPivot.rotation.y = Math.cos(beat) * 0.22;
+          ponytailPivot.rotation.x = 0.12 + Math.abs(Math.sin(beat)) * 0.14;
+          return;
+        }
+
+        if (activityPose === 'dance_step_1') {
+          // Pirouette Spin: graceful continuous 360° ballet rotation with arms arched overhead in fifth position
+          bodyGroup.rotation.y = (elapsedTime * 3.6) % (Math.PI * 2);
+          bodyGroup.position.y = THREE.MathUtils.damp(
+            bodyGroup.position.y,
+            0.06 + Math.sin(elapsedTime * 7.2) * 0.025,
+            dRate,
+            delta,
+          );
+          bodyGroup.rotation.x = THREE.MathUtils.damp(bodyGroup.rotation.x, 0, dRate, delta);
+          leftArmPivot.rotation.x = THREE.MathUtils.damp(leftArmPivot.rotation.x, -2.35, dRate, delta);
+          rightArmPivot.rotation.x = THREE.MathUtils.damp(rightArmPivot.rotation.x, -2.35, dRate, delta);
+          leftArmPivot.rotation.z = THREE.MathUtils.damp(leftArmPivot.rotation.z, -0.25, dRate, delta);
+          rightArmPivot.rotation.z = THREE.MathUtils.damp(rightArmPivot.rotation.z, 0.25, dRate, delta);
+          leftLegPivot.rotation.x = THREE.MathUtils.damp(leftLegPivot.rotation.x, 0.05, dRate, delta);
+          rightLegPivot.rotation.x = THREE.MathUtils.damp(rightLegPivot.rotation.x, -0.45, dRate, delta);
+          rightLegPivot.rotation.z = THREE.MathUtils.damp(rightLegPivot.rotation.z, -0.22, dRate, delta);
+          ponytailPivot.rotation.x = 0.35;
+          ponytailPivot.rotation.y = Math.sin(elapsedTime * 7.2) * 0.25;
+          return;
+        }
+
+        if (activityPose === 'dance_step_2') {
+          // Ballet Arabesque: poised forward extension with back leg raised and arms outstretched
+          const pulse = Math.sin(elapsedTime * 3.2);
+          bodyGroup.rotation.y = THREE.MathUtils.damp(bodyGroup.rotation.y, pulse * 0.18, dRate, delta);
+          bodyGroup.rotation.x = THREE.MathUtils.damp(bodyGroup.rotation.x, 0.22, dRate, delta);
+          bodyGroup.position.y = THREE.MathUtils.damp(
+            bodyGroup.position.y,
+            0.04 + Math.abs(pulse) * 0.03,
+            dRate,
+            delta,
+          );
+          leftLegPivot.rotation.x = THREE.MathUtils.damp(leftLegPivot.rotation.x, -0.15, dRate, delta);
+          rightLegPivot.rotation.x = THREE.MathUtils.damp(
+            rightLegPivot.rotation.x,
+            0.78 + pulse * 0.08,
+            dRate,
+            delta,
+          );
+          leftArmPivot.rotation.x = THREE.MathUtils.damp(leftArmPivot.rotation.x, -1.45, dRate, delta);
+          rightArmPivot.rotation.x = THREE.MathUtils.damp(rightArmPivot.rotation.x, -0.65, dRate, delta);
+          leftArmPivot.rotation.z = THREE.MathUtils.damp(leftArmPivot.rotation.z, 0.32, dRate, delta);
+          rightArmPivot.rotation.z = THREE.MathUtils.damp(rightArmPivot.rotation.z, -0.68, dRate, delta);
+          headPivot.rotation.x = THREE.MathUtils.damp(headPivot.rotation.x, -0.18, dRate, delta);
+          ponytailPivot.rotation.x = 0.22;
+          return;
+        }
+
+        if (activityPose === 'dance_step_3') {
+          // Upbeat Pop Choreography: side-to-side groove with alternating arm waves
+          const groove = elapsedTime * 6.4;
+          const s = Math.sin(groove);
+          const c = Math.cos(groove);
+          bodyGroup.rotation.y = THREE.MathUtils.damp(bodyGroup.rotation.y, s * 0.32, dRate, delta);
+          bodyGroup.position.y = THREE.MathUtils.damp(
+            bodyGroup.position.y,
+            Math.abs(c) * 0.075,
+            dRate,
+            delta,
+          );
+          leftLegPivot.rotation.x = THREE.MathUtils.damp(leftLegPivot.rotation.x, s * 0.38, dRate, delta);
+          rightLegPivot.rotation.x = THREE.MathUtils.damp(rightLegPivot.rotation.x, -s * 0.38, dRate, delta);
+          leftArmPivot.rotation.x = THREE.MathUtils.damp(
+            leftArmPivot.rotation.x,
+            -1.15 + s * 0.65,
+            dRate,
+            delta,
+          );
+          rightArmPivot.rotation.x = THREE.MathUtils.damp(
+            rightArmPivot.rotation.x,
+            -1.15 - s * 0.65,
+            dRate,
+            delta,
+          );
+          leftArmPivot.rotation.z = THREE.MathUtils.damp(
+            leftArmPivot.rotation.z,
+            0.45 + c * 0.25,
+            dRate,
+            delta,
+          );
+          rightArmPivot.rotation.z = THREE.MathUtils.damp(
+            rightArmPivot.rotation.z,
+            -0.45 - c * 0.25,
+            dRate,
+            delta,
+          );
+          headPivot.rotation.z = THREE.MathUtils.damp(headPivot.rotation.z, s * 0.12, dRate, delta);
+          ponytailPivot.rotation.y = c * 0.28;
+          return;
+        }
+
+        if (activityPose === 'dance_step_4') {
+          // Heart Ribbon Grand Jeté Leap: joyful rhythmic leap with open heart arms
+          const leapWave = Math.abs(Math.sin(elapsedTime * 4.4));
+          bodyGroup.rotation.y = THREE.MathUtils.damp(
+            bodyGroup.rotation.y,
+            Math.sin(elapsedTime * 2.2) * 0.25,
+            dRate,
+            delta,
+          );
+          bodyGroup.position.y = THREE.MathUtils.damp(
+            bodyGroup.position.y,
+            leapWave * 0.22,
+            14,
+            delta,
+          );
+          leftLegPivot.rotation.x = THREE.MathUtils.damp(
+            leftLegPivot.rotation.x,
+            -leapWave * 0.55,
+            14,
+            delta,
+          );
+          rightLegPivot.rotation.x = THREE.MathUtils.damp(
+            rightLegPivot.rotation.x,
+            leapWave * 0.55,
+            14,
+            delta,
+          );
+          leftArmPivot.rotation.x = THREE.MathUtils.damp(leftArmPivot.rotation.x, -1.85, dRate, delta);
+          rightArmPivot.rotation.x = THREE.MathUtils.damp(rightArmPivot.rotation.x, -1.85, dRate, delta);
+          leftArmPivot.rotation.z = THREE.MathUtils.damp(leftArmPivot.rotation.z, 0.65, dRate, delta);
+          rightArmPivot.rotation.z = THREE.MathUtils.damp(rightArmPivot.rotation.z, -0.65, dRate, delta);
+          ponytailPivot.rotation.x = 0.25 + leapWave * 0.35;
+          return;
+        }
+
+        if (activityPose === 'dance_step_5') {
+          // Royal Swan Lake Waltz Glide: graceful undulating swan arms, gentle arched torso rise, poised ballet extension
+          const waltzWave = Math.sin(elapsedTime * 3.4);
+          const waltzCos = Math.cos(elapsedTime * 3.4);
+          bodyGroup.rotation.y = THREE.MathUtils.damp(
+            bodyGroup.rotation.y,
+            waltzWave * 0.24,
+            dRate,
+            delta,
+          );
+          bodyGroup.rotation.x = THREE.MathUtils.damp(bodyGroup.rotation.x, -0.04, dRate, delta);
+          bodyGroup.rotation.z = THREE.MathUtils.damp(bodyGroup.rotation.z, waltzWave * 0.08, dRate, delta);
+          bodyGroup.position.y = THREE.MathUtils.damp(
+            bodyGroup.position.y,
+            0.05 + Math.abs(waltzCos) * 0.045,
+            dRate,
+            delta,
+          );
+          // Undulating wing-like swan arms
+          leftArmPivot.rotation.x = THREE.MathUtils.damp(
+            leftArmPivot.rotation.x,
+            -1.65 + waltzWave * 0.35,
+            dRate,
+            delta,
+          );
+          rightArmPivot.rotation.x = THREE.MathUtils.damp(
+            rightArmPivot.rotation.x,
+            -1.65 - waltzWave * 0.35,
+            dRate,
+            delta,
+          );
+          leftArmPivot.rotation.z = THREE.MathUtils.damp(
+            leftArmPivot.rotation.z,
+            0.62 + waltzCos * 0.28,
+            dRate,
+            delta,
+          );
+          rightArmPivot.rotation.z = THREE.MathUtils.damp(
+            rightArmPivot.rotation.z,
+            -0.62 - waltzCos * 0.28,
+            dRate,
+            delta,
+          );
+          leftArmPivot.rotation.y = THREE.MathUtils.damp(leftArmPivot.rotation.y, -0.25, dRate, delta);
+          rightArmPivot.rotation.y = THREE.MathUtils.damp(rightArmPivot.rotation.y, 0.25, dRate, delta);
+          leftLegPivot.rotation.x = THREE.MathUtils.damp(leftLegPivot.rotation.x, waltzWave * 0.22, dRate, delta);
+          rightLegPivot.rotation.x = THREE.MathUtils.damp(rightLegPivot.rotation.x, -waltzWave * 0.22, dRate, delta);
+          headPivot.rotation.x = THREE.MathUtils.damp(headPivot.rotation.x, -0.12, dRate, delta);
+          headPivot.rotation.z = THREE.MathUtils.damp(headPivot.rotation.z, waltzWave * 0.12, dRate, delta);
+          ponytailPivot.rotation.y = waltzCos * 0.25;
+          ponytailPivot.rotation.x = 0.18;
+          return;
+        }
+
+        // Manual Dance Gestures (Keys: W, A, S, D, F, G, H, J, K, L)
+        if (activityPose.startsWith('manual_dance_')) {
+          if (activityPose === 'manual_dance_w') {
+            // [W] High Reach & Graceful Leap: Arms reach skyward, back arches, airborne spring
+            const leap = Math.abs(Math.sin(elapsedTime * 5.0));
+            bodyGroup.position.y = THREE.MathUtils.damp(bodyGroup.position.y, 0.16 + leap * 0.14, 14, delta);
+            bodyGroup.rotation.x = THREE.MathUtils.damp(bodyGroup.rotation.x, -0.15, dRate, delta);
+            leftArmPivot.rotation.x = THREE.MathUtils.damp(leftArmPivot.rotation.x, -2.65, dRate, delta);
+            rightArmPivot.rotation.x = THREE.MathUtils.damp(rightArmPivot.rotation.x, -2.65, dRate, delta);
+            leftArmPivot.rotation.z = THREE.MathUtils.damp(leftArmPivot.rotation.z, 0.28, dRate, delta);
+            rightArmPivot.rotation.z = THREE.MathUtils.damp(rightArmPivot.rotation.z, -0.28, dRate, delta);
+            headPivot.rotation.x = THREE.MathUtils.damp(headPivot.rotation.x, -0.32, dRate, delta);
+            leftLegPivot.rotation.x = THREE.MathUtils.damp(leftLegPivot.rotation.x, -0.35, dRate, delta);
+            rightLegPivot.rotation.x = THREE.MathUtils.damp(rightLegPivot.rotation.x, 0.25, dRate, delta);
+            return;
+          }
+          if (activityPose === 'manual_dance_a') {
+            // [A] Left Hip Sway & Silk Ribbon Sweep: Left hip sways, left arm sweeps wide
+            const sway = Math.sin(elapsedTime * 4.5);
+            bodyGroup.rotation.y = THREE.MathUtils.damp(bodyGroup.rotation.y, 0.42 + sway * 0.12, dRate, delta);
+            bodyGroup.rotation.z = THREE.MathUtils.damp(bodyGroup.rotation.z, 0.16, dRate, delta);
+            bodyGroup.position.y = THREE.MathUtils.damp(bodyGroup.position.y, Math.abs(sway) * 0.03, dRate, delta);
+            leftArmPivot.rotation.x = THREE.MathUtils.damp(leftArmPivot.rotation.x, -1.25, dRate, delta);
+            leftArmPivot.rotation.z = THREE.MathUtils.damp(leftArmPivot.rotation.z, 1.25, dRate, delta);
+            rightArmPivot.rotation.x = THREE.MathUtils.damp(rightArmPivot.rotation.x, -0.35, dRate, delta);
+            rightArmPivot.rotation.z = THREE.MathUtils.damp(rightArmPivot.rotation.z, -0.42, dRate, delta);
+            headPivot.rotation.z = THREE.MathUtils.damp(headPivot.rotation.z, 0.24, dRate, delta);
+            return;
+          }
+          if (activityPose === 'manual_dance_s') {
+            // [S] Low Curtsy & Dramatic Floor Dip: Knees bend, skirt flares, arms sweep down
+            const dip = Math.cos(elapsedTime * 3.5);
+            bodyGroup.position.y = THREE.MathUtils.damp(bodyGroup.position.y, -0.16 + dip * 0.02, dRate, delta);
+            bodyGroup.rotation.x = THREE.MathUtils.damp(bodyGroup.rotation.x, 0.12, dRate, delta);
+            leftLegPivot.rotation.x = THREE.MathUtils.damp(leftLegPivot.rotation.x, 0.45, dRate, delta);
+            rightLegPivot.rotation.x = THREE.MathUtils.damp(rightLegPivot.rotation.x, -0.38, dRate, delta);
+            leftArmPivot.rotation.x = THREE.MathUtils.damp(leftArmPivot.rotation.x, -0.25, dRate, delta);
+            leftArmPivot.rotation.z = THREE.MathUtils.damp(leftArmPivot.rotation.z, 0.95, dRate, delta);
+            rightArmPivot.rotation.x = THREE.MathUtils.damp(rightArmPivot.rotation.x, -0.25, dRate, delta);
+            rightArmPivot.rotation.z = THREE.MathUtils.damp(rightArmPivot.rotation.z, -0.95, dRate, delta);
+            headPivot.rotation.x = THREE.MathUtils.damp(headPivot.rotation.x, 0.22, dRate, delta);
+            return;
+          }
+          if (activityPose === 'manual_dance_d') {
+            // [D] Right Hip Sway & Silk Ribbon Sweep: Right hip sways, right arm sweeps wide
+            const sway = Math.sin(elapsedTime * 4.5);
+            bodyGroup.rotation.y = THREE.MathUtils.damp(bodyGroup.rotation.y, -0.42 - sway * 0.12, dRate, delta);
+            bodyGroup.rotation.z = THREE.MathUtils.damp(bodyGroup.rotation.z, -0.16, dRate, delta);
+            bodyGroup.position.y = THREE.MathUtils.damp(bodyGroup.position.y, Math.abs(sway) * 0.03, dRate, delta);
+            rightArmPivot.rotation.x = THREE.MathUtils.damp(rightArmPivot.rotation.x, -1.25, dRate, delta);
+            rightArmPivot.rotation.z = THREE.MathUtils.damp(rightArmPivot.rotation.z, -1.25, dRate, delta);
+            leftArmPivot.rotation.x = THREE.MathUtils.damp(leftArmPivot.rotation.x, -0.35, dRate, delta);
+            leftArmPivot.rotation.z = THREE.MathUtils.damp(leftArmPivot.rotation.z, 0.42, dRate, delta);
+            headPivot.rotation.z = THREE.MathUtils.damp(headPivot.rotation.z, -0.24, dRate, delta);
+            return;
+          }
+          if (activityPose === 'manual_dance_f') {
+            // [F] Front Heart Claps & Pop Isolation: Rhythmic hand clapping in front of chest
+            const clap = Math.sin(elapsedTime * 10.0);
+            bodyGroup.position.y = THREE.MathUtils.damp(bodyGroup.position.y, Math.abs(clap) * 0.03, 14, delta);
+            leftArmPivot.rotation.x = THREE.MathUtils.damp(leftArmPivot.rotation.x, -1.45, dRate, delta);
+            rightArmPivot.rotation.x = THREE.MathUtils.damp(rightArmPivot.rotation.x, -1.45, dRate, delta);
+            leftArmPivot.rotation.y = THREE.MathUtils.damp(leftArmPivot.rotation.y, -0.72 + clap * 0.12, 16, delta);
+            rightArmPivot.rotation.y = THREE.MathUtils.damp(rightArmPivot.rotation.y, 0.72 - clap * 0.12, 16, delta);
+            leftArmPivot.rotation.z = THREE.MathUtils.damp(leftArmPivot.rotation.z, 0.28, dRate, delta);
+            rightArmPivot.rotation.z = THREE.MathUtils.damp(rightArmPivot.rotation.z, -0.28, dRate, delta);
+            headPivot.rotation.x = THREE.MathUtils.damp(headPivot.rotation.x, -clap * 0.08, dRate, delta);
+            return;
+          }
+          if (activityPose === 'manual_dance_g') {
+            // [G] Golden Pirouette 360° Spin: Rapid spin with arms rounded in ballet 5th position
+            bodyGroup.rotation.y = (bodyGroup.rotation.y + delta * 7.5) % (Math.PI * 2);
+            bodyGroup.position.y = THREE.MathUtils.damp(bodyGroup.position.y, 0.06, dRate, delta);
+            leftArmPivot.rotation.x = THREE.MathUtils.damp(leftArmPivot.rotation.x, -2.75, dRate, delta);
+            rightArmPivot.rotation.x = THREE.MathUtils.damp(rightArmPivot.rotation.x, -2.75, dRate, delta);
+            leftArmPivot.rotation.y = THREE.MathUtils.damp(leftArmPivot.rotation.y, -0.45, dRate, delta);
+            rightArmPivot.rotation.y = THREE.MathUtils.damp(rightArmPivot.rotation.y, 0.45, dRate, delta);
+            leftArmPivot.rotation.z = THREE.MathUtils.damp(leftArmPivot.rotation.z, 0.22, dRate, delta);
+            rightArmPivot.rotation.z = THREE.MathUtils.damp(rightArmPivot.rotation.z, -0.22, dRate, delta);
+            headPivot.rotation.x = THREE.MathUtils.damp(headPivot.rotation.x, -0.15, dRate, delta);
+            leftLegPivot.rotation.x = THREE.MathUtils.damp(leftLegPivot.rotation.x, 0.12, dRate, delta);
+            rightLegPivot.rotation.x = THREE.MathUtils.damp(rightLegPivot.rotation.x, -0.12, dRate, delta);
+            return;
+          }
+          if (activityPose === 'manual_dance_h') {
+            // [H] Heart Hands to Mandu 💕: Hands curl over chest in a heart shape with sweet tilt
+            const breathe = Math.sin(elapsedTime * 3.2);
+            bodyGroup.position.y = THREE.MathUtils.damp(bodyGroup.position.y, breathe * 0.02, dRate, delta);
+            bodyGroup.rotation.y = THREE.MathUtils.damp(bodyGroup.rotation.y, breathe * 0.1, dRate, delta);
+            leftArmPivot.rotation.x = THREE.MathUtils.damp(leftArmPivot.rotation.x, -1.55, dRate, delta);
+            rightArmPivot.rotation.x = THREE.MathUtils.damp(rightArmPivot.rotation.x, -1.55, dRate, delta);
+            leftArmPivot.rotation.y = THREE.MathUtils.damp(leftArmPivot.rotation.y, -0.85, dRate, delta);
+            rightArmPivot.rotation.y = THREE.MathUtils.damp(rightArmPivot.rotation.y, 0.85, dRate, delta);
+            leftArmPivot.rotation.z = THREE.MathUtils.damp(leftArmPivot.rotation.z, 0.35, dRate, delta);
+            rightArmPivot.rotation.z = THREE.MathUtils.damp(rightArmPivot.rotation.z, -0.35, dRate, delta);
+            headPivot.rotation.z = THREE.MathUtils.damp(headPivot.rotation.z, 0.26, dRate, delta);
+            headPivot.rotation.x = THREE.MathUtils.damp(headPivot.rotation.x, -0.08, dRate, delta);
+            return;
+          }
+          if (activityPose === 'manual_dance_j') {
+            // [J] Jeté Flying Kick & High Kick: Joyful airborne leap with kick
+            const leap = Math.abs(Math.sin(elapsedTime * 5.2));
+            bodyGroup.position.y = THREE.MathUtils.damp(bodyGroup.position.y, 0.22 + leap * 0.12, 14, delta);
+            bodyGroup.rotation.x = THREE.MathUtils.damp(bodyGroup.rotation.x, -0.18, dRate, delta);
+            rightLegPivot.rotation.x = THREE.MathUtils.damp(rightLegPivot.rotation.x, -1.35, 14, delta);
+            leftLegPivot.rotation.x = THREE.MathUtils.damp(leftLegPivot.rotation.x, 0.65, 14, delta);
+            leftArmPivot.rotation.x = THREE.MathUtils.damp(leftArmPivot.rotation.x, -1.95, dRate, delta);
+            rightArmPivot.rotation.x = THREE.MathUtils.damp(rightArmPivot.rotation.x, -1.95, dRate, delta);
+            leftArmPivot.rotation.z = THREE.MathUtils.damp(leftArmPivot.rotation.z, 0.85, dRate, delta);
+            rightArmPivot.rotation.z = THREE.MathUtils.damp(rightArmPivot.rotation.z, -0.85, dRate, delta);
+            headPivot.rotation.x = THREE.MathUtils.damp(headPivot.rotation.x, -0.22, dRate, delta);
+            return;
+          }
+          if (activityPose === 'manual_dance_k') {
+            // [K] K-Pop Shoulder Wave & Hip Snap: Sharp isolations with angled styling arms
+            const wave = Math.sin(elapsedTime * 7.5);
+            bodyGroup.rotation.y = THREE.MathUtils.damp(bodyGroup.rotation.y, wave * 0.35, 14, delta);
+            bodyGroup.position.y = THREE.MathUtils.damp(bodyGroup.position.y, Math.abs(wave) * 0.04, 14, delta);
+            leftArmPivot.rotation.x = THREE.MathUtils.damp(leftArmPivot.rotation.x, -1.85 + wave * 0.35, dRate, delta);
+            rightArmPivot.rotation.x = THREE.MathUtils.damp(rightArmPivot.rotation.x, -0.75 - wave * 0.35, dRate, delta);
+            leftArmPivot.rotation.z = THREE.MathUtils.damp(leftArmPivot.rotation.z, 0.65, dRate, delta);
+            rightArmPivot.rotation.z = THREE.MathUtils.damp(rightArmPivot.rotation.z, -0.45, dRate, delta);
+            headPivot.rotation.z = THREE.MathUtils.damp(headPivot.rotation.z, wave * 0.18, dRate, delta);
+            return;
+          }
+          if (activityPose === 'manual_dance_l') {
+            // [L] Love Bow & Royal Princess Curtsy: Deep graceful bow with arms swept behind
+            bodyGroup.rotation.x = THREE.MathUtils.damp(bodyGroup.rotation.x, 0.38, dRate, delta);
+            bodyGroup.position.y = THREE.MathUtils.damp(bodyGroup.position.y, -0.12, dRate, delta);
+            leftArmPivot.rotation.x = THREE.MathUtils.damp(leftArmPivot.rotation.x, 0.65, dRate, delta);
+            rightArmPivot.rotation.x = THREE.MathUtils.damp(rightArmPivot.rotation.x, 0.65, dRate, delta);
+            leftArmPivot.rotation.z = THREE.MathUtils.damp(leftArmPivot.rotation.z, 0.55, dRate, delta);
+            rightArmPivot.rotation.z = THREE.MathUtils.damp(rightArmPivot.rotation.z, -0.55, dRate, delta);
+            headPivot.rotation.x = THREE.MathUtils.damp(headPivot.rotation.x, 0.32, dRate, delta);
+            leftLegPivot.rotation.x = THREE.MathUtils.damp(leftLegPivot.rotation.x, 0.28, dRate, delta);
+            rightLegPivot.rotation.x = THREE.MathUtils.damp(rightLegPivot.rotation.x, -0.28, dRate, delta);
+            return;
+          }
+        }
+
+        if (
+          activityPose === 'photo_pose_1' ||
+          activityPose === 'photo_pose_2' ||
+          activityPose === 'photo_pose_3'
+        ) {
+          bodyGroup.rotation.y = THREE.MathUtils.damp(
+            bodyGroup.rotation.y,
+            activityPose === 'photo_pose_1' ? 0.18 : activityPose === 'photo_pose_2' ? -0.2 : 0,
+            dRate,
+            delta,
+          );
+          bodyGroup.position.y = THREE.MathUtils.damp(
+            bodyGroup.position.y,
+            Math.sin(elapsedTime * 2.0) * 0.01,
+            dRate,
+            delta,
+          );
+          leftArmPivot.rotation.x = THREE.MathUtils.damp(
+            leftArmPivot.rotation.x,
+            activityPose === 'photo_pose_3' ? -1.95 : -0.55,
+            dRate,
+            delta,
+          );
+          rightArmPivot.rotation.x = THREE.MathUtils.damp(
+            rightArmPivot.rotation.x,
+            activityPose === 'photo_pose_1' ? -1.45 : -1.95,
+            dRate,
+            delta,
+          );
+          leftArmPivot.rotation.z = THREE.MathUtils.damp(leftArmPivot.rotation.z, 0.38, dRate, delta);
+          rightArmPivot.rotation.z = THREE.MathUtils.damp(rightArmPivot.rotation.z, -0.38, dRate, delta);
+          headPivot.rotation.z = THREE.MathUtils.damp(
+            headPivot.rotation.z,
+            activityPose === 'photo_pose_2' ? -0.1 : 0.08,
+            dRate,
+            delta,
+          );
+          return;
+        }
+      }
+
+      bodyGroup.rotation.y = THREE.MathUtils.damp(bodyGroup.rotation.y, 0, 10, delta);
+      bodyGroup.rotation.z = THREE.MathUtils.damp(bodyGroup.rotation.z, 0, 10, delta);
 
       leftLegPivot.rotation.z = THREE.MathUtils.damp(
         leftLegPivot.rotation.z,
@@ -673,6 +1276,12 @@ export function createPlayerAvatar(): PlayerAvatarBundle {
           10,
           delta,
         );
+        bodyGroup.rotation.z = THREE.MathUtils.damp(
+          bodyGroup.rotation.z,
+          0,
+          10,
+          delta,
+        );
         ponytailPivot.rotation.y = Math.sin(elapsedTime * 2.0) * 0.06;
         ponytailPivot.rotation.x = THREE.MathUtils.damp(
           ponytailPivot.rotation.x,
@@ -687,6 +1296,50 @@ export function createPlayerAvatar(): PlayerAvatarBundle {
     },
     setShadowVisible(visible: boolean) {
       shadowMesh.visible = visible;
+    },
+    setOutfitPalette(presetIndex: number): string {
+      return applyOutfitPreset(presetIndex);
+    },
+    cycleOutfitPalette(): string {
+      return applyOutfitPreset(currentOutfitIndex + 1);
+    },
+    setHairPalette(presetIndex: number): string {
+      return applyHairPreset(presetIndex);
+    },
+    cycleHairColor(): string {
+      return applyHairPreset(currentHairIndex + 1);
+    },
+    toggleTiara(): boolean {
+      tiaraVisible = !tiaraVisible;
+      tiaraGroup.visible = tiaraVisible;
+      return tiaraVisible;
+    },
+    isTiaraVisible(): boolean {
+      return tiaraVisible;
+    },
+    setActivityPose(pose: AvatarActivityPose): void {
+      activityPose = pose;
+    },
+    getActivityPose(): AvatarActivityPose {
+      return activityPose;
+    },
+    resetNeutralPose() {
+      activityPose = 'none';
+      bodyGroup.rotation.set(0, 0, 0);
+      bodyGroup.position.set(0, 0, 0);
+      headPivot.rotation.set(0, 0, 0);
+      leftArmPivot.rotation.set(0, 0, 0.14);
+      rightArmPivot.rotation.set(0, 0, -0.14);
+      leftLegPivot.rotation.set(0, 0, 0);
+      rightLegPivot.rotation.set(0, 0, 0);
+      ponytailPivot.rotation.set(0, 0, 0);
+    },
+    getAppearanceSummary() {
+      return {
+        outfitName: OUTFIT_PALETTE_PRESETS[currentOutfitIndex].name,
+        hairName: HAIR_PALETTE_PRESETS[currentHairIndex].name,
+        tiaraVisible,
+      };
     },
     dispose() {
       geometries.forEach((g) => g.dispose());

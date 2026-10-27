@@ -17,6 +17,8 @@ export interface CircleCollider {
   x: number;
   z: number;
   radius: number;
+  y?: number;
+  height?: number;
 }
 
 export interface VegetationBundle {
@@ -144,6 +146,12 @@ function isInsideLandmarkOrPlazaClearing(x: number, z: number): boolean {
     return true;
   }
   if (localX >= 8.0 && localX <= 145.0 && localZ >= -35.0 && localZ <= 70.0) {
+    return true;
+  }
+
+  // Keep the Pastel Dreamscape Castle (origin 88, 18), front pathway, Conservatory doorway,
+  // and Rear Rose/Butterfly Garden 100% clear of procedural island trees and boulders
+  if (x >= 56.0 && x <= 112.0 && z >= -10.0 && z <= 58.0) {
     return true;
   }
 
@@ -728,6 +736,7 @@ export function createVegetationSystem(): VegetationBundle {
     if (rPlaza < 31.5) continue; // Keep off Central Plaza stone paving
     if (Math.hypot(x + 74, z - 64) < 11.5) continue; // Keep off Castle Landing Terrace stone paving
     if (Math.hypot(x + 28.5, z - 26.0) < 3.0) continue; // Keep off Broom Travel Stand plinth
+    if (x >= 56.0 && x <= 112.0 && z >= -10.0 && z <= 58.0) continue; // Keep off Dream Castle & Conservatory floors
 
     // Keep off the Forest Lake, Hidden Pool, and Sanctuary Pool water surfaces
     const gLocal = worldToCastleLocal(x, z);

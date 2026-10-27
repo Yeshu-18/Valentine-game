@@ -20,15 +20,168 @@ export const CASTLE_FLOOR_DEFS: ReadonlyArray<CastleFloorDef> = [
   { id: 4, name: 'Rooftop Panoramic Observatory', shortName: 'Rooftop Terrace', keyLabel: '4', elevOffset: 15.25 },
 ];
 
-export interface StairRampDef {
-  name: string;
+export interface StairBounds2D {
   minX: number;
   maxX: number;
   minZ: number;
   maxZ: number;
-  elevStart: number;
-  elevEnd: number;
-  isZAxis: boolean;
+}
+
+export interface CastleStaircaseConfig {
+  id: 'f1_to_f2_west' | 'f1_to_f2_east' | 'f2_to_f3_east' | 'f3_to_f4_west' | 'f1_to_basement';
+  label: string;
+  fromFloorId: number;
+  toFloorId: number;
+  startX: number;
+  startZ: number;
+  startY: number;
+  endX: number;
+  endZ: number;
+  endY: number;
+  stepCount: number;
+  stepWidth: number;
+  stepDepth: number;
+  stepHeight: number;
+  stairWidth: number;
+  railInnerX: number;
+  railOuterX: number;
+  openingBounds: StairBounds2D;
+  bottomLandingBounds: StairBounds2D;
+  topLandingBounds: StairBounds2D;
+  hasLoveRibbon: boolean;
+}
+
+/**
+ * Single Source of Truth for every staircase in the Dream Castle.
+ * Drives visual step meshes, landings, floor slab cutouts, Love Ribbon curves,
+ * simplified side-rail collision, and continuous surface height navigation.
+ */
+export const CASTLE_STAIRCASE_CONFIGS: readonly CastleStaircaseConfig[] = [
+  {
+    id: 'f1_to_f2_west',
+    label: 'Floor 1 -> Floor 2 West Grand Staircase',
+    fromFloorId: 1,
+    toFloorId: 2,
+    startX: -6.9,
+    startZ: -6.0,
+    startY: 0.25,
+    endX: -6.9,
+    endZ: 6.0,
+    endY: 5.25,
+    stepCount: 18,
+    stepWidth: 3.4,
+    stepDepth: 12.0 / 18,
+    stepHeight: 5.0 / 18,
+    stairWidth: 3.4,
+    railOuterX: -8.35,
+    railInnerX: -5.45,
+    openingBounds: { minX: -8.6, maxX: -5.2, minZ: -6.0, maxZ: 6.0 },
+    bottomLandingBounds: { minX: -8.6, maxX: -5.2, minZ: -8.2, maxZ: -6.0 },
+    topLandingBounds: { minX: -8.6, maxX: -5.2, minZ: 6.0, maxZ: 8.4 },
+    hasLoveRibbon: true,
+  },
+  {
+    id: 'f1_to_f2_east',
+    label: 'Floor 1 -> Floor 2 East Grand Staircase',
+    fromFloorId: 1,
+    toFloorId: 2,
+    startX: 6.9,
+    startZ: -6.0,
+    startY: 0.25,
+    endX: 6.9,
+    endZ: 6.0,
+    endY: 5.25,
+    stepCount: 18,
+    stepWidth: 3.4,
+    stepDepth: 12.0 / 18,
+    stepHeight: 5.0 / 18,
+    stairWidth: 3.4,
+    railInnerX: 5.45,
+    railOuterX: 8.35,
+    openingBounds: { minX: 5.2, maxX: 8.6, minZ: -6.0, maxZ: 6.0 },
+    bottomLandingBounds: { minX: 5.2, maxX: 8.6, minZ: -8.2, maxZ: -6.0 },
+    topLandingBounds: { minX: 5.2, maxX: 8.6, minZ: 6.0, maxZ: 8.4 },
+    hasLoveRibbon: true,
+  },
+  {
+    id: 'f2_to_f3_east',
+    label: 'Floor 2 -> Floor 3 East Gallery Staircase',
+    fromFloorId: 2,
+    toFloorId: 3,
+    startX: 7.5,
+    startZ: 6.5,
+    startY: 5.25,
+    endX: 7.5,
+    endZ: 13.0,
+    endY: 10.25,
+    stepCount: 14,
+    stepWidth: 3.4,
+    stepDepth: 6.5 / 14,
+    stepHeight: 5.0 / 14,
+    stairWidth: 3.4,
+    railInnerX: 6.0,
+    railOuterX: 9.0,
+    openingBounds: { minX: 5.8, maxX: 9.2, minZ: 6.5, maxZ: 13.0 },
+    bottomLandingBounds: { minX: 5.2, maxX: 9.2, minZ: 5.6, maxZ: 6.5 },
+    topLandingBounds: { minX: 5.8, maxX: 9.2, minZ: 13.0, maxZ: 15.2 },
+    hasLoveRibbon: true,
+  },
+  {
+    id: 'f3_to_f4_west',
+    label: 'Floor 3 -> Floor 4 West Gallery Staircase',
+    fromFloorId: 3,
+    toFloorId: 4,
+    startX: -7.5,
+    startZ: 6.5,
+    startY: 10.25,
+    endX: -7.5,
+    endZ: 13.0,
+    endY: 15.25,
+    stepCount: 14,
+    stepWidth: 3.4,
+    stepDepth: 6.5 / 14,
+    stepHeight: 5.0 / 14,
+    stairWidth: 3.4,
+    railOuterX: -9.0,
+    railInnerX: -6.0,
+    openingBounds: { minX: -9.2, maxX: -5.8, minZ: 6.5, maxZ: 13.0 },
+    bottomLandingBounds: { minX: -9.2, maxX: -5.8, minZ: 4.8, maxZ: 6.5 },
+    topLandingBounds: { minX: -9.2, maxX: -5.8, minZ: 13.0, maxZ: 15.2 },
+    hasLoveRibbon: true,
+  },
+  {
+    id: 'f1_to_basement',
+    label: 'Floor 1 -> Basement -1 Service Staircase',
+    fromFloorId: 1,
+    toFloorId: -1,
+    startX: -3.95,
+    startZ: 11.5,
+    startY: 0.25,
+    endX: -3.95,
+    endZ: 15.2,
+    endY: -4.5,
+    stepCount: 16,
+    stepWidth: 2.7,
+    stepDepth: 3.7 / 16,
+    stepHeight: -4.75 / 16,
+    stairWidth: 2.7,
+    railOuterX: -5.25,
+    railInnerX: -2.65,
+    openingBounds: { minX: -5.3, maxX: -2.6, minZ: 11.5, maxZ: 15.2 },
+    bottomLandingBounds: { minX: -5.3, maxX: -2.6, minZ: 9.8, maxZ: 11.5 },
+    topLandingBounds: { minX: -5.3, maxX: -2.6, minZ: 15.2, maxZ: 16.5 },
+    hasLoveRibbon: false,
+  },
+];
+
+// Preallocated module-scope scratch objects (Zero Per-Frame Allocations)
+const _scratchLocal = { lx: 0.0, lz: 0.0 };
+const _scratchCollisionPos = { lx: 0.0, lz: 0.0 };
+const _scratchWorld = { wx: 0.0, wz: 0.0 };
+
+function smoothStep01(val: number): number {
+  const c = THREE.MathUtils.clamp(val, 0, 1);
+  return c * c * (3.0 - 2.0 * c);
 }
 
 export class CastleNavigationController {
@@ -46,6 +199,7 @@ export class CastleNavigationController {
   public elevatorShaftLocalX: number = 0.0;
   public elevatorShaftLocalZ: number = 8.5;
   public elevatorCabinRadius: number = 1.85;
+  public isElevatorFpvActive: boolean = false;
 
   // Entrance Door State
   public doorOpenRatio: number = 0.0; // 0 = closed, 1 = open
@@ -63,6 +217,7 @@ export class CastleNavigationController {
     fov?: number;
     duration: number;
     elapsed: number;
+    blendAlpha: number;
   } | null = null;
 
   public hasTriggeredEntranceReveal: boolean = false;
@@ -78,17 +233,32 @@ export class CastleNavigationController {
   public readonly fountainHologramCaption: string =
     '"Our favorite place in the world is right beside you. ♡"';
 
+  // Preallocated rooftop sweep waypoints (Zero Per-Frame Allocations)
+  private readonly rooftopSweepWaypoints: THREE.Vector3[];
+  private readonly focusCamPos = new THREE.Vector3();
+  private readonly focusTargetPos = new THREE.Vector3();
+
   // Audio cues
   private audioCtx: AudioContext | null = null;
 
   constructor() {
     this.baseY = getTerrainHeight(this.originX, this.originZ);
     this.elevatorCabinY = this.baseY + 0.25;
+    this.rooftopSweepWaypoints = [
+      new THREE.Vector3(this.originX - 15.5, this.baseY + 25.0, this.originZ - 15.5), // Castle Spires
+      new THREE.Vector3(38.0, 12.0, 42.0), // Enchanted Garden
+      new THREE.Vector3(0.0, 11.0, 0.0), // Central Plaza
+      new THREE.Vector3(24.0, 14.0, -56.0), // Romantic Carnival Midway
+      new THREE.Vector3(-42.0, 12.0, -68.0), // Aurora Lake
+      new THREE.Vector3(0.0, 38.0, -30.0), // Starlit Sky above Heart Island
+    ];
   }
 
   private initAudio() {
     if (!this.audioCtx && typeof window !== 'undefined') {
-      const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+      const AudioCtx =
+        window.AudioContext ||
+        (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
       if (AudioCtx) {
         this.audioCtx = new AudioCtx();
       }
@@ -127,10 +297,9 @@ export class CastleNavigationController {
         this.audioCtx.resume();
       }
       const now = this.audioCtx.currentTime;
-      // Gentle romantic music-box arpeggio (C5 - E5 - G5 - B5 - C6 - E6)
       const notes = [523.25, 659.25, 783.99, 987.77, 1046.5, 1318.5];
-      notes.forEach((freq, idx) => {
-        if (!this.audioCtx) return;
+      for (let idx = 0; idx < notes.length; idx++) {
+        const freq = notes[idx];
         const start = now + idx * 0.16;
         const osc = this.audioCtx.createOscillator();
         const gain = this.audioCtx.createGain();
@@ -143,7 +312,7 @@ export class CastleNavigationController {
         gain.connect(this.audioCtx.destination);
         osc.start(start);
         osc.stop(start + 1.2);
-      });
+      }
     } catch {
       // Audio fallback
     }
@@ -174,22 +343,21 @@ export class CastleNavigationController {
   }
 
   public worldToLocal(wx: number, wz: number): { lx: number; lz: number } {
-    return {
-      lx: wx - this.originX,
-      lz: wz - this.originZ,
-    };
+    _scratchLocal.lx = wx - this.originX;
+    _scratchLocal.lz = wz - this.originZ;
+    return _scratchLocal;
   }
 
   public localToWorld(lx: number, lz: number): { wx: number; wz: number } {
-    return {
-      wx: lx + this.originX,
-      wz: lz + this.originZ,
-    };
+    _scratchWorld.wx = lx + this.originX;
+    _scratchWorld.wz = lz + this.originZ;
+    return _scratchWorld;
   }
 
   public isInsideCastleBounds(wx: number, wz: number): boolean {
-    const { lx, lz } = this.worldToLocal(wx, wz);
-    return Math.abs(lx) <= 22.0 && Math.abs(lz) <= 22.0;
+    const lx = wx - this.originX;
+    const lz = wz - this.originZ;
+    return Math.abs(lx) <= 22.0 && lz >= -22.0 && lz <= 44.5;
   }
 
   /**
@@ -203,7 +371,8 @@ export class CastleNavigationController {
     if (Math.abs(playerPos.y - (this.baseY + 0.25)) > 4.2) {
       return false;
     }
-    const { lx, lz } = this.worldToLocal(playerPos.x, playerPos.z);
+    const lx = playerPos.x - this.originX;
+    const lz = playerPos.z - this.originZ;
     const boxMinX = -2.35;
     const boxMaxX = 2.35;
     const boxMinZ = -16.48;
@@ -216,7 +385,6 @@ export class CastleNavigationController {
     const distSq = dx * dx + dz * dz;
 
     if (distSq < playerRadius * playerRadius) {
-      // Push player out along Z (toward exterior porch or interior)
       if (lz <= this.doorCenterLocalZ) {
         playerPos.z = this.originZ + (boxMinZ - playerRadius);
       } else {
@@ -227,14 +395,225 @@ export class CastleNavigationController {
     return false;
   }
 
+  /**
+   * Resolves circle-vs-AABB collision in castle local coordinates (lx, lz) with minimum wall thickness 0.85m - 1.2m.
+   */
+  private pushOutLocalBox(
+    pos: { lx: number; lz: number },
+    minX: number,
+    maxX: number,
+    minZ: number,
+    maxZ: number,
+    radius: number,
+  ): boolean {
+    const closestX = THREE.MathUtils.clamp(pos.lx, minX, maxX);
+    const closestZ = THREE.MathUtils.clamp(pos.lz, minZ, maxZ);
+    const dx = pos.lx - closestX;
+    const dz = pos.lz - closestZ;
+    const distSq = dx * dx + dz * dz;
+
+    if (distSq >= radius * radius) {
+      return false;
+    }
+
+    if (distSq > 0.00001) {
+      const dist = Math.sqrt(distSq);
+      const push = radius - dist;
+      pos.lx += (dx / dist) * push;
+      pos.lz += (dz / dist) * push;
+      return true;
+    }
+
+    const penLeft = pos.lx - minX;
+    const penRight = maxX - pos.lx;
+    const penFront = pos.lz - minZ;
+    const penBack = maxZ - pos.lz;
+    const minPen = Math.min(penLeft, penRight, penFront, penBack);
+
+    if (minPen === penLeft) {
+      pos.lx = minX - radius;
+    } else if (minPen === penRight) {
+      pos.lx = maxX + radius;
+    } else if (minPen === penFront) {
+      pos.lz = minZ - radius;
+    } else {
+      pos.lz = maxZ + radius;
+    }
+    return true;
+  }
+
+  /**
+   * Enforces solid 0.88m - 1.2m thick wall barriers across all exterior castle perimeter walls,
+   * Floor 1 interior room partition walls, the central elevator shaft, and simplified staircase railings.
+   * Decorative Love Ribbon meshes never interfere with player collision.
+   */
+  public resolveCastleWallCollisions(playerPos: THREE.Vector3, playerRadius = 0.48): void {
+    if (this.isElevatorFpvActive) {
+      playerPos.x = this.originX + this.elevatorShaftLocalX;
+      playerPos.z = this.originZ + this.elevatorShaftLocalZ;
+      return;
+    }
+
+    _scratchCollisionPos.lx = playerPos.x - this.originX;
+    _scratchCollisionPos.lz = playerPos.z - this.originZ;
+    const pos = _scratchCollisionPos;
+    if (Math.abs(pos.lx) > 19.5 || Math.abs(pos.lz) > 19.5) {
+      return;
+    }
+
+    const relY = playerPos.y - this.baseY;
+    const isFloor1 = Math.abs(relY - 0.25) <= 2.35;
+    const isFloor2 = Math.abs(relY - 5.25) <= 2.25;
+    const isFloor4 = relY >= 14.0;
+    const isBasement = relY <= -1.5;
+
+    // 1. Exterior Perimeter Walls (1.2m thickness: [-16.6, -15.4] and [15.4, 16.6])
+    if (relY >= -5.2 && relY <= 14.6) {
+      // Front Wall (lz = -16.0, open doorway at lx in [-2.08, +2.08] on Floor 1)
+      this.pushOutLocalBox(pos, -16.6, -2.08, -16.6, -15.4, playerRadius);
+      this.pushOutLocalBox(pos, 2.08, 16.6, -16.6, -15.4, playerRadius);
+      if (!isFloor1 || this.doorState === 'CLOSED') {
+        this.pushOutLocalBox(pos, -2.25, 2.25, -16.6, -15.4, playerRadius);
+      }
+
+      // Rear Wall (lz = +16.0, open Rear Center Garden Portal at lx in [-2.22, +2.22] on Floor 1)
+      this.pushOutLocalBox(pos, -16.6, -2.22, 15.4, 16.6, playerRadius);
+      this.pushOutLocalBox(pos, 2.22, 16.6, 15.4, 16.6, playerRadius);
+      if (!isFloor1) {
+        this.pushOutLocalBox(pos, -2.35, 2.35, 15.4, 16.6, playerRadius);
+      }
+
+      // West & East Exterior Side Walls (lx = -16.0 and lx = +16.0, 1.2m thickness)
+      this.pushOutLocalBox(pos, -16.6, -15.4, -16.6, 16.6, playerRadius);
+      this.pushOutLocalBox(pos, 15.4, 16.6, -16.6, 16.6, playerRadius);
+    }
+
+    // Basement Vault Inner Perimeter Retaining Walls (1.0m thickness at |lx| = 13.5, |lz| = 13.5)
+    if (isBasement) {
+      this.pushOutLocalBox(pos, -14.8, 14.8, -14.6, -13.6, playerRadius);
+      this.pushOutLocalBox(pos, -14.8, 14.8, 13.6, 14.6, playerRadius);
+      this.pushOutLocalBox(pos, -14.6, -13.6, -14.8, 14.8, playerRadius);
+      this.pushOutLocalBox(pos, 13.6, 14.6, -14.8, 14.8, playerRadius);
+    }
+
+    // Rooftop Observatory Perimeter Balustrade Railings (placed at ±15.35m so North landing lz = 13.0..15.2 is wide and unobstructed)
+    if (isFloor4) {
+      this.pushOutLocalBox(pos, -15.8, 15.8, -15.65, -15.1, playerRadius);
+      this.pushOutLocalBox(pos, -15.8, 15.8, 15.1, 15.65, playerRadius);
+      this.pushOutLocalBox(pos, -15.65, -15.1, -15.8, 15.8, playerRadius);
+      this.pushOutLocalBox(pos, 15.1, 15.65, -15.8, 15.8, playerRadius);
+    }
+
+    // 2. Floor 1 Interior Room Partition Walls (0.88m thickness at lz = -7.6 and lz = +7.6, |lx| >= 9.2)
+    if (isFloor1 && relY <= 3.6) {
+      // West Wing Partitions (lz = -7.6 & +7.6, |lx| >= 9.2)
+      this.pushOutLocalBox(pos, -15.6, -13.4, -8.04, -7.16, playerRadius);
+      this.pushOutLocalBox(pos, -11.0, -9.2, -8.04, -7.16, playerRadius);
+      this.pushOutLocalBox(pos, -15.6, -13.4, 7.16, 8.04, playerRadius);
+      this.pushOutLocalBox(pos, -11.0, -9.2, 7.16, 8.04, playerRadius);
+
+      // East Wing Partitions (lz = -7.6 & +7.6, |lx| >= 9.2)
+      this.pushOutLocalBox(pos, 9.2, 11.0, -8.04, -7.16, playerRadius);
+      this.pushOutLocalBox(pos, 13.4, 15.6, -8.04, -7.16, playerRadius);
+      this.pushOutLocalBox(pos, 9.2, 11.0, 7.16, 8.04, playerRadius);
+      this.pushOutLocalBox(pos, 13.4, 15.6, 7.16, 8.04, playerRadius);
+
+      // Basement Service Stairwell Side Guard Walls
+      this.pushOutLocalBox(pos, -5.85, -5.05, 11.8, 15.4, playerRadius);
+      this.pushOutLocalBox(pos, -2.85, -2.05, 11.8, 15.4, playerRadius);
+      this.pushOutLocalBox(pos, -5.85, -2.05, 14.95, 15.75, playerRadius);
+    }
+
+      // 2B. Floor 2 West Wing Partition Walls (lz = -6.0 and lz = +6.0, open doorway at lx in [-12.8, -10.6])
+    if (isFloor2 && relY <= 8.8) {
+      this.pushOutLocalBox(pos, -15.5, -12.8, -6.22, -5.78, playerRadius);
+      this.pushOutLocalBox(pos, -10.6, -9.2, -6.22, -5.78, playerRadius);
+      this.pushOutLocalBox(pos, -15.5, -12.8, 5.78, 6.22, playerRadius);
+      this.pushOutLocalBox(pos, -10.6, -9.2, 5.78, 6.22, playerRadius);
+
+      // Floor 2 Central Atrium Balustrade Guardrails (prevents falling into Grand Hall atrium after exiting elevator)
+      this.pushOutLocalBox(pos, -5.3, 5.3, -6.15, -5.85, playerRadius);
+      this.pushOutLocalBox(pos, -5.3, 5.3, 3.65, 3.98, playerRadius);
+      this.pushOutLocalBox(pos, -5.35, -5.05, 3.65, 5.65, playerRadius);
+      this.pushOutLocalBox(pos, 5.05, 5.35, 3.65, 5.65, playerRadius);
+      this.pushOutLocalBox(pos, -8.75, -8.45, -6.0, 5.72, playerRadius);
+      this.pushOutLocalBox(pos, 8.45, 8.75, -6.0, 5.72, playerRadius);
+    }
+
+    // 2C. Floor 3 Central Atrium Balustrade Guardrails (prevents falling into atrium after exiting elevator on Floor 3)
+    const isFloor3 = Math.abs(relY - 10.25) <= 2.25;
+    if (isFloor3) {
+      this.pushOutLocalBox(pos, -5.3, 5.3, -5.35, -5.05, playerRadius);
+      this.pushOutLocalBox(pos, -5.3, 5.3, 3.65, 3.98, playerRadius);
+      this.pushOutLocalBox(pos, -5.35, -5.05, -5.3, 3.98, playerRadius);
+      this.pushOutLocalBox(pos, 5.05, 5.35, -5.3, 3.98, playerRadius);
+    }
+
+    // 3. Central Elevator Shaft Walls & Doorway Guard (Shaft center: lx = 0.0, lz = 8.5)
+    this.pushOutLocalBox(pos, -2.25, -1.4, 6.65, 10.45, playerRadius);
+    this.pushOutLocalBox(pos, 1.4, 2.25, 6.65, 10.45, playerRadius);
+    this.pushOutLocalBox(pos, -2.2, 2.2, 9.65, 10.5, playerRadius);
+
+    // Front elevator entrance (lz = 6.7): solid barrier if cabin is on another floor or doors are closed
+    const isCabinAtPlayerFloor = Math.abs(playerPos.y - this.elevatorCabinY) <= 1.25;
+    const isElevatorDoorWalkable = isCabinAtPlayerFloor && this.elevatorDoorsOpenRatio >= 0.65;
+    if (!isElevatorDoorWalkable) {
+      this.pushOutLocalBox(pos, -1.75, 1.75, 6.3, 7.15, playerRadius);
+    }
+
+    // 4. Unified Staircase Side-Rail & Upper-Floor Stairwell Opening Guardrails (driven by CASTLE_STAIRCASE_CONFIGS)
+    // Never blocks bottom or top staircase entries; keeps player strictly centered on steps during climb
+    for (let i = 0; i < CASTLE_STAIRCASE_CONFIGS.length; i++) {
+      const sc = CASTLE_STAIRCASE_CONFIGS[i];
+      if (!sc.hasLoveRibbon) continue;
+
+      const minY = Math.min(sc.startY, sc.endY);
+      const maxY = Math.max(sc.startY, sc.endY);
+      const leftRailX = Math.min(sc.railInnerX, sc.railOuterX);
+      const rightRailX = Math.max(sc.railInnerX, sc.railOuterX);
+      const zMinGuard = sc.startZ + 0.35;
+      const zMaxGuard = sc.endZ - 0.25;
+
+      // While climbing/descending the staircase or walking beside the stairwell opening on the upper floor:
+      // enforce thin side rail barriers at leftRailX and rightRailX so the player can never slip off the side of a step
+      if (relY >= minY + 0.35 && relY <= maxY + 1.25) {
+        this.pushOutLocalBox(pos, leftRailX - 0.24, leftRailX + 0.06, zMinGuard, zMaxGuard, playerRadius);
+        this.pushOutLocalBox(pos, rightRailX - 0.06, rightRailX + 0.24, zMinGuard, zMaxGuard, playerRadius);
+      }
+
+      // On the upper destination floor (Floor 3 for f2_to_f3_east, Floor 4 for f3_to_f4_west),
+      // add a protective south-end guardrail at startZ so a player walking on the upper floor
+      // cannot accidentally step backward into the deep end of the stairwell opening
+      if (
+        (sc.id === 'f2_to_f3_east' || sc.id === 'f3_to_f4_west') &&
+        relY >= maxY - 0.35 &&
+        relY <= maxY + 1.5
+      ) {
+        this.pushOutLocalBox(
+          pos,
+          leftRailX - 0.15,
+          rightRailX + 0.15,
+          sc.startZ - 0.22,
+          sc.startZ + 0.12,
+          playerRadius,
+        );
+      }
+    }
+
+    playerPos.x = this.originX + pos.lx;
+    playerPos.z = this.originZ + pos.lz;
+  }
+
   public isNearEntranceDoors(playerPos: THREE.Vector3): boolean {
-    const { lx, lz } = this.worldToLocal(playerPos.x, playerPos.z);
+    const lx = playerPos.x - this.originX;
+    const lz = playerPos.z - this.originZ;
     const dist = Math.hypot(lx - this.doorCenterLocalX, lz - this.doorCenterLocalZ);
     return dist <= this.doorProximityRange && Math.abs(playerPos.y - (this.baseY + 0.25)) <= 3.5;
   }
 
   public isWithinEntranceFramingZone(playerPos: THREE.Vector3): boolean {
-    const { lx, lz } = this.worldToLocal(playerPos.x, playerPos.z);
+    const lx = playerPos.x - this.originX;
+    const lz = playerPos.z - this.originZ;
     const dist = Math.hypot(lx - this.doorCenterLocalX, lz - this.doorCenterLocalZ);
     return dist <= 9.8 && lz <= -14.5 && Math.abs(playerPos.y - (this.baseY + 0.25)) <= 4.0;
   }
@@ -243,14 +622,14 @@ export class CastleNavigationController {
    * Checks if player is within 2.2m of the central marble fountain basin (radius 2.9m -> center dist <= 5.1m).
    */
   public isNearFountain(playerPos: THREE.Vector3): boolean {
-    const { lx, lz } = this.worldToLocal(playerPos.x, playerPos.z);
+    const lx = playerPos.x - this.originX;
+    const lz = playerPos.z - this.originZ;
     const dist = Math.hypot(lx, lz);
     return dist <= 5.1 && Math.abs(playerPos.y - (this.baseY + 0.25)) <= 1.8;
   }
 
   public triggerFountainRipple(): boolean {
     if (this.fountainHologramActive && this.fountainHologramTimer < this.fountainHologramDuration - 0.35) {
-      // Pressing E again while active gracefully dissolves the hologram back into water ripples
       this.fountainHologramActive = false;
       this.fountainHologramTimer = 0.0;
       this.fountainRippleTimer = 2.2;
@@ -276,39 +655,129 @@ export class CastleNavigationController {
   }
 
   public isInsideElevatorCabin(playerPos: THREE.Vector3): boolean {
-    const { lx, lz } = this.worldToLocal(playerPos.x, playerPos.z);
+    if (this.isElevatorFpvActive) return true;
+    const lx = playerPos.x - this.originX;
+    const lz = playerPos.z - this.originZ;
     const dist = Math.hypot(lx - this.elevatorShaftLocalX, lz - this.elevatorShaftLocalZ);
-    return dist <= this.elevatorCabinRadius && Math.abs(playerPos.y - this.elevatorCabinY) <= 1.7;
+    return dist <= this.elevatorCabinRadius + 0.35 && Math.abs(playerPos.y - this.elevatorCabinY) <= 1.7;
   }
 
-  public isNearElevatorFloorCall(playerPos: THREE.Vector3): { floor: CastleFloorDef; dist: number } | null {
-    const { lx, lz } = this.worldToLocal(playerPos.x, playerPos.z);
+  /**
+   * Checks if the player is standing near the Royal Crystal Elevator entrance on any floor.
+   */
+  public getNearbyElevatorFloor(playerPos: THREE.Vector3): CastleFloorDef | null {
+    const lx = playerPos.x - this.originX;
+    const lz = playerPos.z - this.originZ;
     const distToShaft = Math.hypot(lx - this.elevatorShaftLocalX, lz - this.elevatorShaftLocalZ);
     if (distToShaft > 4.4) return null;
 
-    for (const f of CASTLE_FLOOR_DEFS) {
+    for (let i = 0; i < CASTLE_FLOOR_DEFS.length; i++) {
+      const f = CASTLE_FLOOR_DEFS[i];
       const floorY = this.baseY + f.elevOffset;
-      if (Math.abs(playerPos.y - floorY) <= 1.4) {
-        return { floor: f, dist: distToShaft };
+      if (Math.abs(playerPos.y - floorY) <= 1.45) {
+        return f;
       }
     }
     return null;
+  }
+
+  public isNearElevatorFloorCall(playerPos: THREE.Vector3): { floor: CastleFloorDef; dist: number } | null {
+    const lx = playerPos.x - this.originX;
+    const lz = playerPos.z - this.originZ;
+    const distToShaft = Math.hypot(lx - this.elevatorShaftLocalX, lz - this.elevatorShaftLocalZ);
+    if (distToShaft > 4.4) return null;
+
+    const floor = this.getNearbyElevatorFloor(playerPos);
+    if (!floor) return null;
+    return { floor, dist: distToShaft };
+  }
+
+  /**
+   * Enters the Royal Crystal Elevator in First-Person View (FPV):
+   * 1. Opens elevator doors & brings cabin to the player's floor.
+   * 2. Moves player to cabin center.
+   * 3. Switches to FPV (eye height = cabinY + 1.55m) with full 360° look.
+   */
+  public enterElevatorFpv(playerPos: THREE.Vector3): boolean {
+    const floor = this.getNearbyElevatorFloor(playerPos);
+    const targetFloorId = floor ? floor.id : this.elevatorFloorIndex;
+    const floorDef =
+      CASTLE_FLOOR_DEFS.find((f) => f.id === targetFloorId) || CASTLE_FLOOR_DEFS[1];
+    const floorY = this.baseY + floorDef.elevOffset;
+
+    this.elevatorFloorIndex = floorDef.id;
+    this.elevatorTargetFloorIndex = floorDef.id;
+    this.elevatorCabinY = floorY;
+    this.elevatorDoorsOpenRatio = 1.0;
+    this.elevatorState = 'IDLE';
+    this.isElevatorFpvActive = true;
+
+    playerPos.set(
+      this.originX + this.elevatorShaftLocalX,
+      this.elevatorCabinY,
+      this.originZ + this.elevatorShaftLocalZ,
+    );
+    this.playChime(587.33, 880.0);
+    return true;
+  }
+
+  /**
+   * Exits the Royal Crystal Elevator FPV mode and steps the player cleanly onto the current/target floor landing.
+   */
+  public exitElevatorFpv(playerPos: THREE.Vector3): boolean {
+    if (!this.isElevatorFpvActive && !this.isInsideElevatorCabin(playerPos)) {
+      return false;
+    }
+
+    // Ensure the cabin is snapped to the target floor slab if the player steps out while arriving/moving
+    const targetDef =
+      CASTLE_FLOOR_DEFS.find((f) => f.id === this.elevatorTargetFloorIndex) ||
+      CASTLE_FLOOR_DEFS.find((f) => f.id === this.elevatorFloorIndex) ||
+      CASTLE_FLOOR_DEFS[1];
+    this.elevatorFloorIndex = targetDef.id;
+    this.elevatorTargetFloorIndex = targetDef.id;
+    this.elevatorCabinY = this.baseY + targetDef.elevOffset;
+
+    this.isElevatorFpvActive = false;
+    this.elevatorDoorsOpenRatio = 1.0;
+    this.elevatorState = 'IDLE';
+
+    // Place player at lz = 5.85 (0.8m south of the elevator doors at lz = 6.65),
+    // squarely on the solid Elevator Lobby slab on all 5 floors.
+    playerPos.set(
+      this.originX + this.elevatorShaftLocalX,
+      this.elevatorCabinY,
+      this.originZ + 5.85,
+    );
+    this.playChime(659.25, 523.25);
+    return true;
   }
 
   public openEntranceDoors(): boolean {
     if (this.doorState === 'CLOSED') {
       this.doorState = 'OPENING';
       this.playDoorCreak();
+      this.triggerEntranceCinematicTilt();
       return true;
     }
     return false;
   }
 
   public callElevatorToFloor(floorId: number): boolean {
-    const targetDef = CASTLE_FLOOR_DEFS.find((f) => f.id === floorId);
+    let targetDef: CastleFloorDef | undefined;
+    for (let i = 0; i < CASTLE_FLOOR_DEFS.length; i++) {
+      if (CASTLE_FLOOR_DEFS[i].id === floorId) {
+        targetDef = CASTLE_FLOOR_DEFS[i];
+        break;
+      }
+    }
     if (!targetDef) return false;
 
-    if (this.elevatorTargetFloorIndex === floorId && this.elevatorDoorsOpenRatio >= 0.9) {
+    if (
+      this.elevatorTargetFloorIndex === floorId &&
+      Math.abs(this.elevatorCabinY - (this.baseY + targetDef.elevOffset)) <= 0.15 &&
+      this.elevatorDoorsOpenRatio >= 0.9
+    ) {
       return false;
     }
 
@@ -322,47 +791,72 @@ export class CastleNavigationController {
   }
 
   public cycleElevatorFloor(): boolean {
-    const order = [1, 2, 3, 4, -1];
-    const idx = order.indexOf(this.elevatorTargetFloorIndex);
-    const nextFloorId = order[(idx + 1) % order.length];
-    return this.callElevatorToFloor(nextFloorId);
+    return false;
   }
 
-  public triggerEntranceCinematicTilt(playerPos: THREE.Vector3) {
+  private focusYawOffset = 0;
+  private focusPitchOffset = 0;
+
+  public applyFocusLookDelta(deltaYaw: number, deltaPitch: number) {
+    if (!this.activeCameraFocus) return;
+    this.focusYawOffset -= deltaYaw;
+    this.focusPitchOffset = THREE.MathUtils.clamp(
+      this.focusPitchOffset + deltaPitch,
+      -0.85,
+      0.85,
+    );
+  }
+
+  public triggerEntranceCinematicTilt(_playerPos?: THREE.Vector3) {
     if (this.hasTriggeredEntranceReveal) return;
     this.hasTriggeredEntranceReveal = true;
+    this.focusYawOffset = 0;
+    this.focusPitchOffset = 0;
 
-    // Upward tilt showing towering atrium, chandelier, and twin sweeping staircases
+    this.focusCamPos.set(this.originX, this.baseY + 2.1, this.originZ - 14.2);
+    this.focusTargetPos.set(this.originX, this.baseY + 2.0, this.originZ - 4.0);
     this.activeCameraFocus = {
       mode: 'entrance',
-      position: new THREE.Vector3(playerPos.x, playerPos.y + 1.8, playerPos.z - 2.8),
-      target: new THREE.Vector3(this.originX, this.baseY + 9.5, this.originZ + 2.0),
-      fov: 64,
+      position: this.focusCamPos,
+      target: this.focusTargetPos,
+      fov: 62,
       duration: 2.8,
       elapsed: 0,
+      blendAlpha: 0,
     };
   }
 
   public triggerRooftopPanoramicPan(_playerPos: THREE.Vector3, force = false) {
     if (this.hasTriggeredRooftopReveal && !force) return;
     this.hasTriggeredRooftopReveal = true;
+    this.focusYawOffset = 0;
+    this.focusPitchOffset = 0;
 
-    // Panoramic 3.8s sweeping pan from the rooftop terrace across the island landmarks
+    this.focusCamPos.set(this.originX, this.baseY + 17.8, this.originZ - 6.5);
+    this.focusTargetPos.set(this.originX - 15.5, this.baseY + 26.0, this.originZ - 15.5);
     this.activeCameraFocus = {
       mode: 'rooftop',
-      position: new THREE.Vector3(this.originX, this.baseY + 17.8, this.originZ - 6.5),
-      target: new THREE.Vector3(this.originX - 15.5, this.baseY + 26.0, this.originZ - 15.5),
+      position: this.focusCamPos,
+      target: this.focusTargetPos,
       fov: 65,
       duration: 3.8,
       elapsed: 0,
+      blendAlpha: 0,
     };
   }
 
   public skipCameraFocus() {
-    this.activeCameraFocus = null;
+    if (!this.activeCameraFocus) return;
+    this.activeCameraFocus.elapsed = Math.max(
+      this.activeCameraFocus.elapsed,
+      this.activeCameraFocus.duration - 0.4,
+    );
   }
 
   public update(delta: number, playerPos: THREE.Vector3) {
+    const lx = playerPos.x - this.originX;
+    const lz = playerPos.z - this.originZ;
+
     // 0. Fountain ripple & 7-second hologram projection state machine
     if (this.fountainRippleTimer > 0) {
       this.fountainRippleTimer = Math.max(0, this.fountainRippleTimer - delta);
@@ -370,9 +864,7 @@ export class CastleNavigationController {
 
     if (this.fountainHologramActive) {
       this.fountainHologramTimer = Math.max(0, this.fountainHologramTimer - delta);
-      const { lx, lz } = this.worldToLocal(playerPos.x, playerPos.z);
       const distFromFountain = Math.hypot(lx, lz);
-      // Dissolve if 7 seconds elapsed or player walks away from fountain
       if (
         this.fountainHologramTimer <= 0 ||
         distFromFountain > 6.5 ||
@@ -400,7 +892,6 @@ export class CastleNavigationController {
     // 1. Door opening state machine
     if (this.doorState === 'OPENING') {
       this.doorOpenRatio = Math.min(1.0, this.doorOpenRatio + delta * 0.65);
-      // Handle rotates down during 0.0s - 0.5s, then springs gently back
       if (this.doorOpenRatio < 0.35) {
         this.doorHandleAngle = Math.min(0.65, this.doorHandleAngle + delta * 2.4);
       } else {
@@ -414,7 +905,6 @@ export class CastleNavigationController {
 
     // Check first entry threshold for entrance cinematic reveal
     if (!this.hasTriggeredEntranceReveal && this.doorOpenRatio > 0.4) {
-      const { lx, lz } = this.worldToLocal(playerPos.x, playerPos.z);
       if (Math.abs(lx) <= 6.0 && lz >= -15.5 && lz <= -10.0) {
         this.triggerEntranceCinematicTilt(playerPos);
       }
@@ -422,7 +912,6 @@ export class CastleNavigationController {
 
     // Check rooftop arrival for panoramic pan
     if (!this.hasTriggeredRooftopReveal) {
-      const { lx, lz } = this.worldToLocal(playerPos.x, playerPos.z);
       if (Math.abs(lx) <= 15.0 && Math.abs(lz) <= 15.0 && playerPos.y >= this.baseY + 14.5) {
         this.triggerRooftopPanoramicPan(playerPos);
       }
@@ -431,42 +920,78 @@ export class CastleNavigationController {
     // Camera cinematic animation progress
     if (this.activeCameraFocus) {
       this.activeCameraFocus.elapsed += delta;
-      if (this.activeCameraFocus.mode === 'rooftop') {
-        // Smoothly sweep target across Castle Spires -> Enchanted Garden -> Central Plaza -> Romantic Carnival -> Aurora Lake -> Sky
-        const t = THREE.MathUtils.clamp(
-          this.activeCameraFocus.elapsed / this.activeCameraFocus.duration,
-          0,
-          1,
-        );
-        const sweepWaypoints = [
-          new THREE.Vector3(this.originX - 15.5, this.baseY + 25.0, this.originZ - 15.5), // Castle Spires
-          new THREE.Vector3(38.0, 12.0, 42.0), // Enchanted Garden
-          new THREE.Vector3(0.0, 11.0, 0.0), // Central Plaza
-          new THREE.Vector3(24.0, 14.0, -56.0), // Romantic Carnival Midway
-          new THREE.Vector3(-42.0, 12.0, -68.0), // Aurora Lake
-          new THREE.Vector3(0.0, 38.0, -30.0), // Starlit Sky above Heart Island
-        ];
-        const scaled = t * (sweepWaypoints.length - 1);
-        const idx = Math.min(Math.floor(scaled), sweepWaypoints.length - 2);
+      const totalDur = this.activeCameraFocus.duration;
+      const u = THREE.MathUtils.clamp(this.activeCameraFocus.elapsed / totalDur, 0, 1);
+
+      const entryAlpha = smoothStep01(this.activeCameraFocus.elapsed / 0.38);
+      const remaining = Math.max(0, totalDur - this.activeCameraFocus.elapsed);
+      const exitAlpha = smoothStep01(remaining / 0.4);
+      this.activeCameraFocus.blendAlpha = Math.min(entryAlpha, exitAlpha);
+
+      if (this.activeCameraFocus.mode === 'entrance') {
+        const camZ = THREE.MathUtils.lerp(this.originZ - 14.2, this.originZ - 11.5, smoothStep01(u));
+        this.activeCameraFocus.position.set(this.originX, this.baseY + 2.1, camZ);
+
+        let targetY: number;
+        let targetZ: number;
+        if (u <= 0.58) {
+          const uUp = smoothStep01(u / 0.58);
+          targetY = THREE.MathUtils.lerp(this.baseY + 2.0, this.baseY + 7.2, uUp);
+          targetZ = THREE.MathUtils.lerp(this.originZ - 4.0, this.originZ, uUp);
+        } else {
+          const uDown = smoothStep01((u - 0.58) / 0.42);
+          targetY = THREE.MathUtils.lerp(this.baseY + 7.2, this.baseY + 1.65, uDown);
+          targetZ = this.originZ;
+        }
+        this.activeCameraFocus.target.set(this.originX, targetY, targetZ);
+      } else if (this.activeCameraFocus.mode === 'rooftop') {
+        const sweepEase = smoothStep01(u);
+        const wpLen = this.rooftopSweepWaypoints.length;
+        const scaled = sweepEase * (wpLen - 1);
+        const idx = Math.min(Math.floor(scaled), wpLen - 2);
         const frac = scaled - idx;
         this.activeCameraFocus.target.lerpVectors(
-          sweepWaypoints[idx],
-          sweepWaypoints[idx + 1],
+          this.rooftopSweepWaypoints[idx],
+          this.rooftopSweepWaypoints[idx + 1],
           frac,
         );
       }
-      if (this.activeCameraFocus.elapsed >= this.activeCameraFocus.duration) {
+
+      if (Math.abs(this.focusYawOffset) > 0.0001 || Math.abs(this.focusPitchOffset) > 0.0001) {
+        const dx = this.activeCameraFocus.target.x - this.activeCameraFocus.position.x;
+        const dy = this.activeCameraFocus.target.y - this.activeCameraFocus.position.y;
+        const dz = this.activeCameraFocus.target.z - this.activeCameraFocus.position.z;
+        const dist = Math.hypot(dx, dy, dz) || 1.0;
+        const baseYaw = Math.atan2(dx, dz);
+        const basePitch = Math.asin(THREE.MathUtils.clamp(-dy / dist, -0.96, 0.96));
+        const finalYaw = baseYaw + this.focusYawOffset;
+        const finalPitch = THREE.MathUtils.clamp(basePitch + this.focusPitchOffset, -0.92, 0.92);
+        this.activeCameraFocus.target.set(
+          this.activeCameraFocus.position.x + Math.sin(finalYaw) * Math.cos(finalPitch) * dist,
+          this.activeCameraFocus.position.y - Math.sin(finalPitch) * dist,
+          this.activeCameraFocus.position.z + Math.cos(finalYaw) * Math.cos(finalPitch) * dist,
+        );
+      }
+
+      if (this.activeCameraFocus.elapsed >= totalDur) {
         this.activeCameraFocus = null;
+        this.focusYawOffset = 0;
+        this.focusPitchOffset = 0;
       }
     }
 
     // 2. Elevator state machine
-    const targetFloorDef = CASTLE_FLOOR_DEFS.find((f) => f.id === this.elevatorTargetFloorIndex) || CASTLE_FLOOR_DEFS[1];
+    let targetFloorDef = CASTLE_FLOOR_DEFS[1];
+    for (let i = 0; i < CASTLE_FLOOR_DEFS.length; i++) {
+      if (CASTLE_FLOOR_DEFS[i].id === this.elevatorTargetFloorIndex) {
+        targetFloorDef = CASTLE_FLOOR_DEFS[i];
+        break;
+      }
+    }
     const targetY = this.baseY + targetFloorDef.elevOffset;
 
     switch (this.elevatorState) {
       case 'IDLE':
-        // Ensure doors stay open when idle at floor
         this.elevatorDoorsOpenRatio = Math.min(1.0, this.elevatorDoorsOpenRatio + delta * 1.5);
         break;
 
@@ -501,126 +1026,167 @@ export class CastleNavigationController {
         }
         break;
     }
+
+    // Keep player anchored at cabin center while in Elevator FPV mode
+    if (this.isElevatorFpvActive) {
+      playerPos.x = this.originX + this.elevatorShaftLocalX;
+      playerPos.z = this.originZ + this.elevatorShaftLocalZ;
+      playerPos.y = this.elevatorCabinY;
+    }
   }
 
   /**
    * Evaluates the multi-floor surface height at world coordinate (wx, wz) given the player's current vertical Y.
-   * Rock-solid resolver prevents snapping through floors or elevator floors.
+   * Zero per-frame allocations; exact match with visual staircase geometry.
    */
   public getSurfaceHeight(wx: number, wz: number, playerY: number, defaultGroundY: number): number {
-    const { lx, lz } = this.worldToLocal(wx, wz);
-
-    // If completely outside the castle outer grounds, return default terrain height
-    if (Math.abs(lx) > 23.0 || Math.abs(lz) > 23.0) {
-      return defaultGroundY;
-    }
-
-    // 1. Elevator cabin floor
-    const distToShaft = Math.hypot(lx - this.elevatorShaftLocalX, lz - this.elevatorShaftLocalZ);
-    if (distToShaft <= this.elevatorCabinRadius && Math.abs(playerY - this.elevatorCabinY) <= 1.85) {
+    if (this.isElevatorFpvActive) {
       return this.elevatorCabinY;
     }
 
-    // 2. Walkable Staircases & Ramps
+    const lx = wx - this.originX;
+    const lz = wz - this.originZ;
+
+    if (Math.abs(lx) > 23.0 || lz < -23.0 || lz > 45.0) {
+      return defaultGroundY;
+    }
+
+    // Rear Castle Garden: Arched Footbridge over Reflective Pond (lz: 24.0..29.2, |lx| <= 1.45)
+    if (lz >= 24.0 && lz <= 29.2 && Math.abs(lx) <= 1.45) {
+      const bridgeU = THREE.MathUtils.clamp((lz - 24.0) / 5.2, 0, 1);
+      const archH = Math.sin(bridgeU * Math.PI) * 0.55;
+      return defaultGroundY + archH + 0.1;
+    }
+
+    // Rear Castle Garden: Central Belvedere Gazebo Floor (lz = 32.5, radius <= 3.95m)
+    const distToGazebo = Math.hypot(lx, lz - 32.5);
+    if (distToGazebo <= 3.95) {
+      const gazGround = getTerrainHeight(this.originX, this.originZ + 32.5);
+      return gazGround + 0.48;
+    }
+
+    // Rear Garden Promenade Steps (lz: 16.0..18.5, |lx| <= 3.5)
+    if (lz > 16.0 && lz <= 18.5 && Math.abs(lx) <= 3.5) {
+      const stepT = THREE.MathUtils.clamp((lz - 16.0) / 2.5, 0, 1);
+      return THREE.MathUtils.lerp(this.baseY + 0.25, defaultGroundY + 0.06, stepT);
+    }
+
+    if (lz > 18.0) {
+      return defaultGroundY;
+    }
+
+    // 1. Elevator cabin floor & doorway threshold pad
+    const distToShaft = Math.hypot(lx - this.elevatorShaftLocalX, lz - this.elevatorShaftLocalZ);
+    if (distToShaft <= this.elevatorCabinRadius + 0.95 && Math.abs(playerY - this.elevatorCabinY) <= 1.85) {
+      return this.elevatorCabinY;
+    }
+
+    // 2. Walkable Staircases & Ramps (Single Source of Truth via CASTLE_STAIRCASE_CONFIGS)
     // Exterior entrance steps / ramp: lz [-22, -15.8], lx [-5.8, 5.8]
     if (lz >= -22.0 && lz <= -15.8 && Math.abs(lx) <= 5.8) {
-      const rampT = THREE.MathUtils.clamp((lz - (-22.0)) / 6.2, 0, 1);
+      const rampT = THREE.MathUtils.clamp((lz - -22.0) / 6.2, 0, 1);
       const rampY = THREE.MathUtils.lerp(this.baseY - 0.25, this.baseY + 0.25, rampT);
       if (Math.abs(playerY - rampY) <= 1.7) {
         return rampY;
       }
     }
 
-    // Grand Atrium West Sweeping Staircase (Floor 1 -> Floor 2): lx [-8.6, -5.2], lz [-6.0, 6.0]
-    if (lx >= -8.6 && lx <= -5.2 && lz >= -6.0 && lz <= 6.0) {
-      const stairT = (lz - (-6.0)) / 12.0;
-      const rampY = THREE.MathUtils.lerp(this.baseY + 0.25, this.baseY + 5.25, stairT);
-      if (Math.abs(playerY - rampY) <= 1.75) {
-        return rampY;
+    // Evaluate all interior staircases from CASTLE_STAIRCASE_CONFIGS with overlapping landing buffers
+    // so bottom landing -> steps -> top landing -> destination floor slab is 100% continuous with zero gaps
+    for (let i = 0; i < CASTLE_STAIRCASE_CONFIGS.length; i++) {
+      const sc = CASTLE_STAIRCASE_CONFIGS[i];
+      const ob = sc.openingBounds;
+      if (
+        lx >= ob.minX - 0.08 &&
+        lx <= ob.maxX + 0.08 &&
+        lz >= sc.startZ - 0.25 &&
+        lz <= sc.endZ + 0.25
+      ) {
+        const spanZ = sc.endZ - sc.startZ;
+        const stairT = THREE.MathUtils.clamp((lz - sc.startZ) / spanZ, 0, 1);
+        const rampY = THREE.MathUtils.lerp(this.baseY + sc.startY, this.baseY + sc.endY, stairT);
+        if (Math.abs(playerY - rampY) <= 1.95) {
+          return rampY;
+        }
       }
     }
 
-    // Grand Atrium East Sweeping Staircase (Floor 1 -> Floor 2): lx [5.2, 8.6], lz [-6.0, 6.0]
-    if (lx >= 5.2 && lx <= 8.6 && lz >= -6.0 && lz <= 6.0) {
-      const stairT = (lz - (-6.0)) / 12.0;
-      const rampY = THREE.MathUtils.lerp(this.baseY + 0.25, this.baseY + 5.25, stairT);
-      if (Math.abs(playerY - rampY) <= 1.75) {
-        return rampY;
-      }
-    }
-
-    // East Staircase (Floor 2 -> Floor 3): lx [5.8, 9.2], lz [7.0, 13.5]
-    if (lx >= 5.8 && lx <= 9.2 && lz >= 7.0 && lz <= 13.5) {
-      const stairT = (lz - 7.0) / 6.5;
-      const rampY = THREE.MathUtils.lerp(this.baseY + 5.25, this.baseY + 10.25, stairT);
-      if (Math.abs(playerY - rampY) <= 1.75) {
-        return rampY;
-      }
-    }
-
-    // West Staircase (Floor 3 -> Floor 4 Rooftop): lx [-9.2, -5.8], lz [7.0, 13.5]
-    if (lx >= -9.2 && lx <= -5.8 && lz >= 7.0 && lz <= 13.5) {
-      const stairT = (lz - 7.0) / 6.5;
-      const rampY = THREE.MathUtils.lerp(this.baseY + 10.25, this.baseY + 15.25, stairT);
-      if (Math.abs(playerY - rampY) <= 1.75) {
-        return rampY;
-      }
-    }
-
-    // Basement Service Stairs (Floor 1 -> Basement -1): lx [-3.2, 3.2], lz [11.5, 16.0]
-    if (Math.abs(lx) <= 3.2 && lz >= 11.5 && lz <= 16.0) {
-      const stairT = (lz - 11.5) / 4.5;
-      const rampY = THREE.MathUtils.lerp(this.baseY + 0.25, this.baseY - 4.5, stairT);
-      if (Math.abs(playerY - rampY) <= 1.85) {
-        return rampY;
-      }
-    }
-
-    // 3. Multi-Floor Horizontal Slabs (highest surface <= playerY + 0.85m)
-    const validFloorHeights: number[] = [];
+    // 3. Multi-Floor Horizontal Slabs (evaluated inline with zero array allocation)
+    let bestSurface = defaultGroundY;
+    let foundSlab = false;
 
     // Level -1: Basement Vault (|lx| <= 14, |lz| <= 14)
     if (Math.abs(lx) <= 14.0 && Math.abs(lz) <= 14.0) {
-      validFloorHeights.push(this.baseY - 4.5);
+      const h = this.baseY - 4.5;
+      if (h <= playerY + 0.85) {
+        bestSurface = h;
+        foundSlab = true;
+      }
     }
 
     // Level 1: Grand Entrance Hall (|lx| <= 18, |lz| <= 18)
     if (Math.abs(lx) <= 18.0 && Math.abs(lz) <= 18.0) {
-      // Small hole cutout for basement stairs
-      const isBasementStairHole = Math.abs(lx) <= 3.0 && lz >= 12.0 && lz <= 16.0;
+      const bOpen = CASTLE_STAIRCASE_CONFIGS[4].openingBounds;
+      const isBasementStairHole =
+        lx > bOpen.minX + 0.02 &&
+        lx < bOpen.maxX - 0.02 &&
+        lz > bOpen.minZ + 0.1 &&
+        lz < bOpen.maxZ - 0.05;
       if (!isBasementStairHole) {
-        validFloorHeights.push(this.baseY + 0.25);
+        const h = this.baseY + 0.25;
+        if (h <= playerY + 0.85 && (!foundSlab || h > bestSurface)) {
+          bestSurface = h;
+          foundSlab = true;
+        }
       }
     }
 
-    // Level 2: Mezzanine Gallery (|lx| <= 17, |lz| <= 17 with central atrium cutout)
+    // Level 2: Mezzanine Gallery (|lx| <= 17, |lz| <= 17; clear opening above central atrium & twin staircases,
+    // with solid Elevator Lobby Bridge at |lx| <= 5.2, lz >= 3.8 so stepping out of the elevator never drops down)
     if (Math.abs(lx) <= 17.0 && Math.abs(lz) <= 17.0) {
-      const isCentralAtriumOpen = Math.abs(lx) < 4.8 && Math.abs(lz) < 4.8;
-      if (!isCentralAtriumOpen) {
-        validFloorHeights.push(this.baseY + 5.25);
+      const isTwinStair12Open =
+        Math.abs(lx) >= 5.18 && Math.abs(lx) < 8.58 && lz > -5.95 && lz < 5.92;
+      const isCentralAtrium2Open =
+        Math.abs(lx) < 5.18 && lz > -5.95 && lz < 3.8;
+      if (!isTwinStair12Open && !isCentralAtrium2Open) {
+        const h = this.baseY + 5.25;
+        if (h <= playerY + 0.85 && (!foundSlab || h > bestSurface)) {
+          bestSurface = h;
+          foundSlab = true;
+        }
       }
     }
 
-    // Level 3: Dream Wing Gallery (|lx| <= 17, |lz| <= 17 with central atrium cutout)
+    // Level 3: Dream Wing Gallery (|lx| <= 17, |lz| <= 17; clear opening above central atrium & East Stair 2->3,
+    // with solid Elevator Lobby Bridge at |lx| <= 5.2, lz >= 3.8)
     if (Math.abs(lx) <= 17.0 && Math.abs(lz) <= 17.0) {
-      const isCentralAtriumOpen = Math.abs(lx) < 4.2 && Math.abs(lz) < 4.2;
-      if (!isCentralAtriumOpen) {
-        validFloorHeights.push(this.baseY + 10.25);
+      const isCentralAtriumOpen = Math.abs(lx) < 5.15 && lz > -5.15 && lz < 3.8;
+      const s23 = CASTLE_STAIRCASE_CONFIGS[2].openingBounds;
+      const isStair23Open =
+        lx > s23.minX + 0.02 &&
+        lx < s23.maxX - 0.02 &&
+        lz > s23.minZ + 0.05 &&
+        lz < s23.maxZ - 0.05;
+      if (!isCentralAtriumOpen && !isStair23Open) {
+        const h = this.baseY + 10.25;
+        if (h <= playerY + 0.85 && (!foundSlab || h > bestSurface)) {
+          bestSurface = h;
+          foundSlab = true;
+        }
       }
     }
 
-    // Level 4: Rooftop Observatory Terrace (|lx| <= 16, |lz| <= 16)
+    // Level 4: Rooftop Observatory Terrace (|lx| <= 16, |lz| <= 16; clear opening above West Stair 3->4)
     if (Math.abs(lx) <= 16.0 && Math.abs(lz) <= 16.0) {
-      validFloorHeights.push(this.baseY + 15.25);
-    }
-
-    // Find the highest floor surface that is at or beneath player elevation (+0.85m tolerance for stepping)
-    let bestSurface = defaultGroundY;
-    let foundSlab = false;
-
-    for (const h of validFloorHeights) {
-      if (h <= playerY + 0.85) {
-        if (!foundSlab || h > bestSurface) {
+      const s34 = CASTLE_STAIRCASE_CONFIGS[3].openingBounds;
+      const isStair34Open =
+        lx > s34.minX + 0.02 &&
+        lx < s34.maxX - 0.02 &&
+        lz > s34.minZ + 0.05 &&
+        lz < s34.maxZ - 0.05;
+      if (!isStair34Open) {
+        const h = this.baseY + 15.25;
+        if (h <= playerY + 0.85 && (!foundSlab || h > bestSurface)) {
           bestSurface = h;
           foundSlab = true;
         }
@@ -631,11 +1197,141 @@ export class CastleNavigationController {
       return bestSurface;
     }
 
-    // If player is inside castle footprint but slightly above terrain, ground to Grand Hall Floor 1
     if (Math.abs(lx) <= 18.0 && Math.abs(lz) <= 18.0) {
       return Math.max(defaultGroundY, this.baseY + 0.25);
     }
 
     return defaultGroundY;
+  }
+
+  /**
+   * Returns the world Y height of the ceiling slab directly above the player's current floor at (wx, wz),
+   * or null if the sky/atrium/stairwell is open above. Prevents head-bonking or ceiling camera clipping.
+   */
+  public getCeilingHeight(wx: number, wz: number, playerY: number): number | null {
+    const lx = wx - this.originX;
+    const lz = wz - this.originZ;
+    if (Math.abs(lx) > 16.5 || Math.abs(lz) > 16.5) {
+      return null;
+    }
+
+    const relY = playerY - this.baseY;
+
+    // Basement (-4.5m) -> Ceiling is Floor 1 slab (-0.15m bottom face, open at basement stairwell)
+    if (relY < -1.0) {
+      const bOpen = CASTLE_STAIRCASE_CONFIGS[4].openingBounds;
+      if (lx >= bOpen.minX && lx <= bOpen.maxX && lz >= bOpen.minZ && lz <= bOpen.maxZ) {
+        return this.baseY + 4.9;
+      }
+      return this.baseY - 0.15;
+    }
+
+    // Floor 1 (+0.25m) -> Open above central atrium and twin sweeping staircases (|lx| < 8.8, |lz| < 6.2)
+    if (relY < 4.6) {
+      if (Math.abs(lx) < 8.8 && Math.abs(lz) < 6.2) {
+        return this.baseY + 15.0;
+      }
+      return this.baseY + 4.9;
+    }
+
+    // Floor 2 (+5.25m) -> Open above central atrium and East Stair 2->3
+    if (relY < 9.6) {
+      const s23 = CASTLE_STAIRCASE_CONFIGS[2].openingBounds;
+      if (
+        (Math.abs(lx) < 5.2 && Math.abs(lz) < 5.2) ||
+        (lx >= s23.minX - 0.2 && lx <= s23.maxX + 0.2 && lz >= s23.minZ - 0.2 && lz <= s23.maxZ + 0.2)
+      ) {
+        return this.baseY + 15.0;
+      }
+      return this.baseY + 9.9;
+    }
+
+    // Floor 3 (+10.25m) -> Open above West Stair 3->4
+    if (relY < 14.2) {
+      const s34 = CASTLE_STAIRCASE_CONFIGS[3].openingBounds;
+      if (lx >= s34.minX - 0.2 && lx <= s34.maxX + 0.2 && lz >= s34.minZ - 0.2 && lz <= s34.maxZ + 0.2) {
+        return null;
+      }
+      return this.baseY + 14.8;
+    }
+
+    // Floor 4 Rooftop (+15.25m) -> Open sky
+    return null;
+  }
+
+  /**
+   * Validates that every staircase in CASTLE_STAIRCASE_CONFIGS physically connects its source and
+   * destination floor slabs with exact top-surface Y alignment, horizontal landing overlap,
+   * stairwell opening containment, and >= 2.4m vertical headroom clearance.
+   */
+  public validateStaircaseConnections(): boolean {
+    let allValid = true;
+    for (let i = 0; i < CASTLE_STAIRCASE_CONFIGS.length; i++) {
+      const sc = CASTLE_STAIRCASE_CONFIGS[i];
+      const fromFloor = CASTLE_FLOOR_DEFS.find((f) => f.id === sc.fromFloorId);
+      const toFloor = CASTLE_FLOOR_DEFS.find((f) => f.id === sc.toFloorId);
+
+      if (!fromFloor || !toFloor) {
+        console.error(`[STAIRCASE ERROR] ${sc.id}: Missing floor definition`);
+        allValid = false;
+        continue;
+      }
+
+      // 1. Check bottom step Y matches source floor surface Y
+      if (Math.abs(sc.startY - fromFloor.elevOffset) > 0.02) {
+        console.error(
+          `[STAIRCASE ERROR] ${sc.id}: startY (${sc.startY}) != sourceFloorY (${fromFloor.elevOffset})`,
+        );
+        allValid = false;
+      }
+
+      // 2. Check final step top Y matches destination floor surface Y
+      const computedEndY = sc.startY + sc.stepCount * sc.stepHeight;
+      if (Math.abs(computedEndY - toFloor.elevOffset) > 0.02 || Math.abs(sc.endY - toFloor.elevOffset) > 0.02) {
+        console.error(
+          `[STAIRCASE ERROR] ${sc.id}: lastStep.topY (${computedEndY}) != destinationFloorY (${toFloor.elevOffset})`,
+        );
+        allValid = false;
+      }
+
+      // 3. Check horizontal landing overlap at bottom (startZ) and top (endZ)
+      const bottomTouchesStart =
+        sc.bottomLandingBounds.maxZ >= sc.startZ - 0.02 &&
+        sc.bottomLandingBounds.minZ <= sc.startZ + 0.02;
+      const topTouchesEnd =
+        sc.topLandingBounds.minZ <= sc.endZ + 0.02 &&
+        sc.topLandingBounds.maxZ >= sc.endZ - 0.02;
+      if (!bottomTouchesStart || !topTouchesEnd) {
+        console.error(
+          `[STAIRCASE ERROR] ${sc.id}: Landing horizontal discontinuity at startZ=${sc.startZ} or endZ=${sc.endZ}`,
+        );
+        allValid = false;
+      }
+
+      // 4. Check stairwell opening width >= stairWidth
+      const openingWidth = sc.openingBounds.maxX - sc.openingBounds.minX;
+      if (openingWidth + 0.01 < sc.stairWidth) {
+        console.error(
+          `[STAIRCASE ERROR] ${sc.id}: openingWidth (${openingWidth}) < stairWidth (${sc.stairWidth})`,
+        );
+        allValid = false;
+      }
+
+      // 5. Check headroom clearance along the staircase climb
+      for (let s = 1; s <= sc.stepCount; s++) {
+        const u = (s - 0.5) / sc.stepCount;
+        const stepZ = THREE.MathUtils.lerp(sc.startZ, sc.endZ, u);
+        const stepTopY = this.baseY + THREE.MathUtils.lerp(sc.startY, sc.endY, u);
+        const ceilY = this.getCeilingHeight(this.originX + sc.startX, this.originZ + stepZ, stepTopY);
+        if (ceilY !== null && ceilY - stepTopY < 2.4) {
+          console.error(
+            `[STAIRCASE ERROR] ${sc.id}: Insufficient headroom (${(ceilY - stepTopY).toFixed(2)}m) at step ${s}`,
+          );
+          allValid = false;
+          break;
+        }
+      }
+    }
+    return allValid;
   }
 }
