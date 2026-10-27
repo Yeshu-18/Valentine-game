@@ -825,6 +825,13 @@ export function getTerrainHeight(x: number, z: number): number {
     height = THREE.MathUtils.lerp(height, 4.2, flatWeight);
   }
 
+  // Level shelf at the Pastel Dream Castle podium (88, 18) at Y = 10.0m
+  const distFromDreamCastle = Math.hypot(x - 88.0, z - 18.0);
+  if (distFromDreamCastle < 24.0) {
+    const castleFlatWeight = 1.0 - smoothstep(18.0, 24.0, distFromDreamCastle);
+    height = THREE.MathUtils.lerp(height, 10.0, castleFlatWeight);
+  }
+
   const shoreTaper = smoothstep(0.0, 0.09, mask);
   let finalHeight = height * shoreTaper;
 
@@ -1006,6 +1013,10 @@ export function isWalkablePosition(x: number, z: number): boolean {
   ) {
     return true;
   }
+  // Always walkable inside and immediately around the Pastel Dream Castle grounds (88, 18)
+  if (Math.hypot(x - 88.0, z - 18.0) <= 22.0) {
+    return true;
+  }
   const normal = getTerrainNormal(x, z);
   return normal.y >= 0.52;
 }
@@ -1015,6 +1026,15 @@ export function getRegionAtPosition(x: number, z: number): {
   name: string;
   subtitle: string;
 } {
+  // Pastel Dreamscape: Dream Castle Area
+  if (Math.hypot(x - 88.0, z - 18.0) <= 22.0) {
+    return {
+      id: 'dream-castle',
+      name: 'Pastel Dream Castle',
+      subtitle: '5-Level Grand Palace & Couture Sanctuary',
+    };
+  }
+
   const { localX, localZ } = worldToCastleLocal(x, z);
 
   // Phase F5/F6: The Heartwood Sanctuary

@@ -22,6 +22,7 @@ import {
   CarnivalDistrictBundle,
   CarnivalProximityPrompt,
 } from './carnival/CarnivalState';
+import { DreamCastleBundle } from './dreamscape/DreamCastle';
 import {
   BROOM_STAND_POS,
   CASTLE_KEEP_POS,
@@ -82,6 +83,7 @@ export interface PlayerTelemetry {
   carnivalPrompt: CarnivalProximityPrompt | null;
   carnivalOverlay: CarnivalActiveOverlay | null;
   carnivalPrizesCount: number;
+  castlePrompt: string | null;
 }
 
 export interface PlayerControllerBundle {
@@ -95,6 +97,7 @@ export interface PlayerControllerBundle {
   triggerSchoolAction: () => void;
   triggerAuroraAction: () => void;
   triggerCarnivalAction: () => void;
+  triggerCastleAction: () => boolean;
   performCarnivalGameAction: () => void;
   advanceDialogue: () => void;
   skipDialogueOrCinematic: () => void;
@@ -129,6 +132,7 @@ export function createPlayerController(
   carnivalDistrict: CarnivalDistrictBundle,
   colliders: CircleCollider[],
   onTelemetryChange?: (telemetry: PlayerTelemetry) => void,
+  dreamCastle?: DreamCastleBundle,
 ): PlayerControllerBundle {
   // Spawn at the NW edge of Central Plaza (-16, +16), facing the NW Ancient Realm Gateway,
   // Ancient Realm Signboard, Broom Travel Stand (-28.5, +26.0), and Castle (-85, +75) on the mountain crag!
@@ -622,6 +626,32 @@ export function createPlayerController(
     }
   }
 
+  function triggerCastleAction(): boolean {
+    if (locomotionState !== 'walk' || !dreamCastle) return false;
+    const prompt = dreamCastle.getProximityPrompt(playerPos);
+    if (!prompt) return false;
+
+    if (prompt.action === 'door') {
+      dreamCastle.nav.openEntranceDoors();
+      onTelemetryChange?.(buildTelemetry());
+      return true;
+    }
+    if (prompt.action === 'call_elevator') {
+      const callInfo = dreamCastle.nav.isNearElevatorFloorCall(playerPos);
+      if (callInfo) {
+        dreamCastle.nav.callElevatorToFloor(callInfo.floor.id);
+        onTelemetryChange?.(buildTelemetry());
+        return true;
+      }
+    }
+    if (prompt.action === 'telescope') {
+      dreamCastle.nav.triggerRooftopPanoramicPan(playerPos);
+      onTelemetryChange?.(buildTelemetry());
+      return true;
+    }
+    return false;
+  }
+
   /**
    * Initiates mounting when within 3.2m of the Travel Stand, or dismounting when flying.
    */
@@ -632,6 +662,9 @@ export function createPlayerController(
         return;
       }
       if (triggerCarnivalAction()) {
+        return;
+      }
+      if (triggerCastleAction()) {
         return;
       }
       if (handleInteractMystery()) {
@@ -688,6 +721,11 @@ export function createPlayerController(
 
     if (e.code === 'Escape') {
       if (!e.repeat) {
+        if (dreamCastle?.nav.activeCameraFocus) {
+          e.preventDefault();
+          dreamCastle.nav.skipCameraFocus();
+          return;
+        }
         if (auroraCinematic.isActive() || carnivalDistrict.isActive()) {
           e.preventDefault();
           handleSkipDialogueOrCinematic();
@@ -722,6 +760,40 @@ export function createPlayerController(
         (carnivalDistrict as any).selectOption?.(digit);
       }
       return;
+    }
+
+    // Elevator Floor Selection inside Dream Castle Cabin
+    if (dreamCastle && dreamCastle.nav.isInsideElevatorCabin(playerPos) && !e.repeat) {
+      if (e.code === 'Digit1' || e.code === 'Numpad1') {
+        e.preventDefault();
+        dreamCastle.handleElevatorFloorSelect(1);
+        onTelemetryChange?.(buildTelemetry());
+        return;
+      }
+      if (e.code === 'Digit2' || e.code === 'Numpad2') {
+        e.preventDefault();
+        dreamCastle.handleElevatorFloorSelect(2);
+        onTelemetryChange?.(buildTelemetry());
+        return;
+      }
+      if (e.code === 'Digit3' || e.code === 'Numpad3') {
+        e.preventDefault();
+        dreamCastle.handleElevatorFloorSelect(3);
+        onTelemetryChange?.(buildTelemetry());
+        return;
+      }
+      if (e.code === 'Digit4' || e.code === 'Numpad4') {
+        e.preventDefault();
+        dreamCastle.handleElevatorFloorSelect(4);
+        onTelemetryChange?.(buildTelemetry());
+        return;
+      }
+      if (e.code === 'Digit0' || e.code === 'Numpad0') {
+        e.preventDefault();
+        dreamCastle.handleElevatorFloorSelect(-1);
+        onTelemetryChange?.(buildTelemetry());
+        return;
+      }
     }
 
     if (
@@ -1001,6 +1073,10 @@ export function createPlayerController(
           : null,
       carnivalOverlay: carnivalDistrict.getActiveOverlay(),
       carnivalPrizesCount: carnivalDistrict.getEarnedPrizeIds().length,
+      castlePrompt:
+        locomotionState === 'walk' && dreamCastle
+          ? dreamCastle.getProximityPrompt(playerPos)?.prompt ?? null
+          : null,
     };
   }
 
@@ -1014,6 +1090,7 @@ export function createPlayerController(
     triggerSchoolAction: handleInteractSchool,
     triggerAuroraAction,
     triggerCarnivalAction,
+    triggerCastleAction,
     performCarnivalGameAction,
     advanceDialogue: handleAdvanceDialogue,
     skipDialogueOrCinematic: handleSkipDialogueOrCinematic,
@@ -1522,13 +1599,14 @@ export function createPlayerController(
         const nextX = playerPos.x + playerVelocity.x * dt;
         const nextZ = playerPos.z + playerVelocity.z * dt;
 
-        if (isWalkablePosition(nextX, nextZ)) {
+        const isNextCastle = dreamCastle?.isInsideCastle(nextX, nextZ);
+        if (isNextCastle || isWalkablePosition(nextX, nextZ)) {
           playerPos.x = nextX;
           playerPos.z = nextZ;
-        } else if (isWalkablePosition(nextX, playerPos.z)) {
+        } else if (dreamCastle?.isInsideCastle(nextX, playerPos.z) || isWalkablePosition(nextX, playerPos.z)) {
           playerPos.x = nextX;
           playerVelocity.z *= 0.2;
-        } else if (isWalkablePosition(playerPos.x, nextZ)) {
+        } else if (dreamCastle?.isInsideCastle(playerPos.x, nextZ) || isWalkablePosition(playerPos.x, nextZ)) {
           playerPos.z = nextZ;
           playerVelocity.x *= 0.2;
         } else {
@@ -1550,18 +1628,21 @@ export function createPlayerController(
         }
 
         const groundY = getTerrainHeight(playerPos.x, playerPos.z);
+        const surfaceY = dreamCastle
+          ? dreamCastle.getSurfaceHeight(playerPos.x, playerPos.z, playerPos.y, groundY)
+          : groundY;
         if (!isGrounded) {
           verticalVel -= 19.6 * dt;
           playerPos.y += verticalVel * dt;
-          if (playerPos.y <= groundY) {
-            playerPos.y = groundY;
+          if (playerPos.y <= surfaceY) {
+            playerPos.y = surfaceY;
             verticalVel = 0;
             isGrounded = true;
           }
         } else {
           playerPos.y = THREE.MathUtils.lerp(
             playerPos.y,
-            groundY,
+            surfaceY,
             1 - Math.exp(-22 * dt),
           );
         }
@@ -1622,8 +1703,11 @@ export function createPlayerController(
             _desiredCamPos.x,
             _desiredCamPos.z,
           );
-          if (_desiredCamPos.y < camGround + 0.75) {
-            _desiredCamPos.y = camGround + 0.75;
+          const camSurface = dreamCastle
+            ? Math.max(camGround, dreamCastle.getSurfaceHeight(_desiredCamPos.x, _desiredCamPos.z, _desiredCamPos.y, camGround))
+            : camGround;
+          if (_desiredCamPos.y < camSurface + 0.75) {
+            _desiredCamPos.y = camSurface + 0.75;
           }
 
           _desiredLookAt.set(playerPos.x, playerPos.y + 1.38, playerPos.z);
@@ -1682,6 +1766,18 @@ export function createPlayerController(
             }
           }
 
+          if (dreamCastle) {
+            const castleFocus = dreamCastle.getCameraFocus();
+            if (castleFocus) {
+              _desiredCamPos.lerp(castleFocus.position, 0.85);
+              _desiredLookAt.lerp(castleFocus.target, 0.85);
+              if (castleFocus.fov) {
+                camera.fov = dampValue(camera.fov, castleFocus.fov, 6.0, dt);
+                camera.updateProjectionMatrix();
+              }
+            }
+          }
+
           currentCamPos.lerp(_desiredCamPos, 1 - Math.exp(-10 * dt));
           currentLookAt.lerp(_desiredLookAt, 1 - Math.exp(-12 * dt));
 
@@ -1690,11 +1786,14 @@ export function createPlayerController(
         }
       }
 
-      // Advance the MagicFlight, MagicMysteryBox, WizardingSchool & CarnivalDistrict systems
+      // Advance the MagicFlight, MagicMysteryBox, WizardingSchool, CarnivalDistrict & DreamCastle systems
       magicFlight.update(dt, elapsedTime);
       mysteryBox.update(dt, elapsedTime);
       wizardingSchool.update(dt, elapsedTime, playerPos);
       carnivalDistrict.update(dt, elapsedTime, playerPos, camera, keys);
+      if (dreamCastle) {
+        dreamCastle.update(dt, playerPos);
+      }
 
       // Apply Castle Gate physical camera shake (Stage 2 seal break shudder & Stage 3 heavy inertia rumble/thud)
       if (locomotionState === 'walk') {

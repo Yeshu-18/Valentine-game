@@ -46,6 +46,7 @@ import { createAuroraUndergroundCinematic } from './world/cinematics/AuroraUnder
 import { AuroraDialogueCard } from './world/cinematics/AuroraDialogueCard';
 import { AuroraDialogueLine } from './world/cinematics/auroraDialogueData';
 import { createCarnivalDistrict } from './world/carnival/CarnivalDistrict';
+import { createDreamCastle } from './world/dreamscape/DreamCastle';
 import {
   BROOM_STAND_POS,
   CASTLE_KEEP_POS,
@@ -135,6 +136,7 @@ export default function App() {
     carnivalPrompt: null,
     carnivalOverlay: null,
     carnivalPrizesCount: 0,
+    castlePrompt: null,
   }));
 
   const [auroraDialogue, setAuroraDialogue] = useState<AuroraDialogueLine | null>(null);
@@ -235,6 +237,9 @@ export default function App() {
     const carnivalDistrict = createCarnivalDistrict();
     scene.add(carnivalDistrict.group);
 
+    const dreamCastle = createDreamCastle();
+    scene.add(dreamCastle.group);
+
     const allColliders = [
       ...centralPlaza.colliders,
       ...distantLandmarks.colliders,
@@ -245,6 +250,7 @@ export default function App() {
       ...vegetation.colliders,
       ...auroraCinematic.colliders,
       ...carnivalDistrict.colliders,
+      ...dreamCastle.colliders,
     ];
 
     const avatar = createPlayerAvatar();
@@ -263,6 +269,7 @@ export default function App() {
       (nextTelemetry) => {
         setTelemetry(nextTelemetry);
       },
+      dreamCastle,
     );
     controllerRef.current = playerController;
 
@@ -361,6 +368,7 @@ export default function App() {
       playerController.dispose();
       auroraCinematic.dispose();
       carnivalDistrict.dispose();
+      dreamCastle.dispose();
       avatar.dispose();
       magicFlight.dispose();
       mysteryBox.dispose();
@@ -898,6 +906,28 @@ export default function App() {
         </div>
       )}
 
+      {/* Dream Castle Interaction & Elevator Proximity Prompt */}
+      {telemetry.castlePrompt && !telemetry.carnivalOverlay && (
+        <div className="pointer-events-auto absolute bottom-32 left-1/2 -translate-x-1/2 z-20 flex items-center gap-3 bg-slate-950/92 border border-pink-300/40 rounded-xl px-4 py-2.5 text-white shadow-xl">
+          <Sparkles className="w-4 h-4 text-pink-300 shrink-0" />
+          <div className="flex flex-col">
+            <span className="text-xs font-semibold text-pink-200">
+              Pastel Dream Castle
+            </span>
+            <span className="text-xs text-slate-200">
+              {telemetry.castlePrompt}
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={() => controllerRef.current?.triggerCastleAction()}
+            className="ml-2 px-3 py-1.5 rounded-lg bg-pink-500 hover:bg-pink-400 text-white text-xs font-semibold transition-colors cursor-pointer"
+          >
+            Interact
+          </button>
+        </div>
+      )}
+
       {/* Floating Interaction Prompt: [E] Pick up Broom & Fly */}
       {telemetry.broomPromptMode === 'pickup' && (
         <div className="pointer-events-auto absolute bottom-32 left-1/2 -translate-x-1/2 z-20 flex items-center gap-3 bg-slate-950/90 border border-amber-300/35 rounded-xl px-4 py-2.5 text-white shadow-xl">
@@ -1116,6 +1146,15 @@ export default function App() {
                   className="px-2.5 py-1 text-xs font-semibold rounded-md bg-teal-500/20 hover:bg-teal-500/30 text-teal-200 border border-teal-400/35 transition-colors whitespace-nowrap shrink-0 cursor-pointer"
                 >
                   Ancient Forest (F2)
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    handleTeleport(88.0, 1.5, 0)
+                  }
+                  className="px-2.5 py-1 text-xs font-semibold rounded-md bg-pink-500/20 hover:bg-pink-500/30 text-pink-200 border border-pink-400/35 transition-colors whitespace-nowrap shrink-0 cursor-pointer"
+                >
+                  Dream Castle (5L)
                 </button>
                 {ISLAND_ZONES.map((zone) => (
                   <button

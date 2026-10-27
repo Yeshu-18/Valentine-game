@@ -1289,13 +1289,15 @@ export function createDistantLandmarks(): DistantLandmarksBundle {
 
   // ============================================================================
   // 4. EAST (+80, +5): PASTEL DREAMSCAPE / DOLL WORLD (PAGE 4 OF PDF)
+  // Upgraded: The interactive 5-Level Dream Castle at (88, 18) now anchors this zone.
+  // We keep the high-altitude whimsical hot-air balloon and distant decorative accents.
   // ============================================================================
   const dollGroup = new THREE.Group();
   const dollBaseY = getTerrainHeight(80, 5);
   dollGroup.position.set(80, dollBaseY, 5);
   dollGroup.rotation.y = -Math.PI / 2;
   group.add(dollGroup);
-  colliders.push({ x: 80, z: 5, radius: 13 });
+  // Replaced large 13m collider with open clearance for Dream Castle grounds
 
   const blushLacquerMat = tracker.trackMat(
     new THREE.MeshPhysicalMaterial({
@@ -1327,48 +1329,6 @@ export function createDistantLandmarks(): DistantLandmarksBundle {
       clearcoat: 0.45,
     }),
   );
-
-  // Landmark 4A: Monumental Quilted Pink Handbag Building with Golden Clasp & Handle (Page 4!)
-  const bagBodyGeo = tracker.trackGeo(new THREE.BoxGeometry(13.0, 12.0, 7.0));
-  bagBodyGeo.translate(0, 6.0, 0);
-  const bagFlapGeo = tracker.trackGeo(
-    new THREE.CylinderGeometry(3.5, 3.5, 13.1, 16, 1, false, 0, Math.PI),
-  );
-  bagFlapGeo.rotateZ(Math.PI / 2);
-  bagFlapGeo.translate(0, 12.0, 0);
-  const bagHandleGeo = tracker.trackGeo(
-    new THREE.TorusGeometry(4.0, 0.45, 12, 32, Math.PI),
-  );
-  bagHandleGeo.translate(0, 13.8, 0);
-  const bagClaspGeo = tracker.trackGeo(
-    new THREE.CylinderGeometry(1.2, 1.2, 0.6, 16),
-  );
-  bagClaspGeo.rotateX(Math.PI / 2);
-  bagClaspGeo.translate(0, 7.8, 3.55);
-
-  const bagBody = new THREE.Mesh(bagBodyGeo, blushLacquerMat);
-  const bagFlap = new THREE.Mesh(bagFlapGeo, coralPinkMat);
-  const bagHandle = new THREE.Mesh(bagHandleGeo, goldMat);
-  const bagClasp = new THREE.Mesh(bagClaspGeo, goldMat);
-  bagBody.castShadow = true;
-  dollGroup.add(bagBody, bagFlap, bagHandle, bagClasp);
-
-  // Landmark 4B: Sculptural Giant High-Heel Stiletto Pavilion on the Right (Page 4!)
-  const heelCurve = new THREE.CatmullRomCurve3([
-    new THREE.Vector3(-14.0, 10.2, 6),
-    new THREE.Vector3(-11.8, 4.8, 8.8),
-    new THREE.Vector3(-8.5, 0.6, 12.0),
-  ]);
-  const shoeSoleGeo = tracker.trackGeo(
-    new THREE.TubeGeometry(heelCurve, 24, 1.45, 10, false),
-  );
-  const stilettoSpikeGeo = tracker.trackGeo(
-    new THREE.CylinderGeometry(0.3, 0.16, 9.8, 10),
-  );
-  stilettoSpikeGeo.translate(-14.0, 4.9, 6);
-  const shoeSole = new THREE.Mesh(shoeSoleGeo, lavenderSilkMat);
-  const stilettoSpike = new THREE.Mesh(stilettoSpikeGeo, goldMat);
-  dollGroup.add(shoeSole, stilettoSpike);
 
   // Landmark 4C: Ribbon-Bow Dress Boutique Dome on the Left (Page 4!)
   const domeBaseGeo = tracker.trackGeo(
