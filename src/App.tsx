@@ -6,7 +6,6 @@
 import { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
-import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
@@ -57,13 +56,14 @@ import {
 } from './world/terrainMath';
 
 /**
- * Custom Warm Golden-Hour Color-Grading & Soft Romantic Vignette ShaderPass.
- * Enhances warm amber highlights, enriches twilight shadows, and frames the viewport softly.
+ * Combined ACESFilmic Tone Mapping + Warm Golden-Hour Color-Grading + Soft Romantic Vignette + sRGB Output Pass.
+ * Folds GoldenHourGradeShader and OutputPass into a single full-screen pass to cut fillrate overhead.
  */
 const GoldenHourGradeShader = {
   uniforms: {
     tDiffuse: { value: null },
     uVignetteStrength: { value: 0.26 },
+    uToneMappingExposure: { value: 0.95 },
   },
   vertexShader: `
     varying vec2 vUv;
@@ -75,11 +75,44 @@ const GoldenHourGradeShader = {
   fragmentShader: `
     uniform sampler2D tDiffuse;
     uniform float uVignetteStrength;
+    uniform float uToneMappingExposure;
     varying vec2 vUv;
+
+    vec3 gradeRRTAndODTFit(vec3 v) {
+      vec3 a = v * (v + 0.0245786) - 0.000090537;
+      vec3 b = v * (0.983729 * v + 0.4329510) + 0.238081;
+      return a / b;
+    }
+
+    vec3 gradeACESFilmic(vec3 color) {
+      const mat3 ACESInputMat = mat3(
+        0.59719, 0.07600, 0.02840,
+        0.35458, 0.90834, 0.13383,
+        0.04823, 0.01566, 0.83777
+      );
+      const mat3 ACESOutputMat = mat3(
+         1.60475, -0.10208, -0.00327,
+        -0.53108,  1.10813, -0.07276,
+        -0.07367, -0.00605,  1.07602
+      );
+      color *= uToneMappingExposure / 0.6;
+      color = ACESInputMat * color;
+      color = gradeRRTAndODTFit(color);
+      color = ACESOutputMat * color;
+      return clamp(color, 0.0, 1.0);
+    }
+
+    vec3 gradeLinearToSRGB(vec3 value) {
+      return mix(
+        pow(value, vec3(0.41666)) * 1.055 - vec3(0.055),
+        value * 12.92,
+        vec3(lessThanEqual(value, vec3(0.0031308)))
+      );
+    }
 
     void main() {
       vec4 texel = texture2D(tDiffuse, vUv);
-      vec3 col = texel.rgb;
+      vec3 col = gradeACESFilmic(texel.rgb);
 
       // Subtle warm golden-hour highlight & shadow balance
       float luma = dot(col, vec3(0.2126, 0.7152, 0.0722));
@@ -96,6 +129,7 @@ const GoldenHourGradeShader = {
       float vig = 1.0 - smoothstep(0.16, 0.72, distSq) * uVignetteStrength;
       col *= vig;
 
+      col = gradeLinearToSRGB(clamp(col, 0.0, 1.0));
       gl_FragColor = vec4(col, texel.a);
     }
   `,
@@ -104,6 +138,11 @@ const GoldenHourGradeShader = {
 export default function App() {
   const canvasMountRef = useRef<HTMLDivElement | null>(null);
   const controllerRef = useRef<PlayerControllerBundle | null>(null);
+  const hudCoordsRef = useRef<HTMLSpanElement | null>(null);
+  const hudElevRef = useRef<HTMLSpanElement | null>(null);
+  const hudAglRef = useRef<HTMLSpanElement | null>(null);
+  const hudSpeedRef = useRef<HTMLSpanElement | null>(null);
+  const hudMotionRef = useRef<HTMLSpanElement | null>(null);
 
   const [hudCollapsed, setHudCollapsed] = useState(false);
   const [telemetry, setTelemetry] = useState<PlayerTelemetry>(() => ({
@@ -137,6 +176,7 @@ export default function App() {
     carnivalOverlay: null,
     carnivalPrizesCount: 0,
     castlePrompt: null,
+    castleFountainCaption: null,
   }));
 
   const [auroraDialogue, setAuroraDialogue] = useState<AuroraDialogueLine | null>(null);
@@ -169,7 +209,7 @@ export default function App() {
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 0.95;
     renderer.setPixelRatio(
-      isSoftwareGl ? 1 : Math.min(window.devicePixelRatio, 2),
+      isSoftwareGl ? 1 : Math.min(window.devicePixelRatio, 1.35),
     );
     renderer.setSize(width, height);
     renderer.shadowMap.enabled = !isSoftwareGl;
@@ -178,7 +218,7 @@ export default function App() {
     container.innerHTML = '';
     container.appendChild(renderer.domElement);
 
-    // 2. Scene, Camera & Post-Processing Pipeline Setup
+    // 2. Scene, Camera & Post-Processing Pipeline Setup (Half-Res Bloom + Folded Grade/Output Pass)
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(60, width / height, 0.08, 1100);
 
@@ -187,7 +227,10 @@ export default function App() {
     composer.addPass(renderPass);
 
     const bloomPass = new UnrealBloomPass(
-      new THREE.Vector2(width, height),
+      new THREE.Vector2(
+        Math.max(1, Math.floor(width * 0.5)),
+        Math.max(1, Math.floor(height * 0.5)),
+      ),
       0.38, // restrained bloom so no blinding halos appear
       0.65,
       0.85,
@@ -195,10 +238,8 @@ export default function App() {
     composer.addPass(bloomPass);
 
     const gradePass = new ShaderPass(GoldenHourGradeShader);
+    gradePass.renderToScreen = true;
     composer.addPass(gradePass);
-
-    const outputPass = new OutputPass();
-    composer.addPass(outputPass);
 
     // 3. Build Protected Theme-Park Modules + Ancient Realm MagicFlight & Mystery Box Systems
     const atmosphere = createAtmosphereSystem(scene, renderer, isSoftwareGl);
@@ -256,6 +297,37 @@ export default function App() {
     const avatar = createPlayerAvatar();
     scene.add(avatar.group);
 
+    // 3B. Register all scene PointLights/SpotLights into the Dynamic PointLight Distance Culler (<= 10 active)
+    atmosphere.registerPointLights();
+
+    // 3C. Shadow Caster Discipline: disable castShadow on tiny decorative meshes (< 0.35m radius)
+    const avatarSet = new Set<THREE.Object3D>();
+    avatar.group.traverse((c) => avatarSet.add(c));
+    scene.traverse((obj) => {
+      if (obj instanceof THREE.Mesh && obj.castShadow && !avatarSet.has(obj)) {
+        const geo = obj.geometry;
+        if (geo) {
+          if (!geo.boundingSphere) {
+            geo.computeBoundingSphere();
+          }
+          if (geo.boundingSphere) {
+            const maxScale = Math.max(
+              Math.abs(obj.scale.x),
+              Math.abs(obj.scale.y),
+              Math.abs(obj.scale.z),
+            );
+            const worldRadius = geo.boundingSphere.radius * maxScale;
+            if (worldRadius < 0.35) {
+              obj.castShadow = false;
+              if (worldRadius < 0.22) {
+                obj.receiveShadow = false;
+              }
+            }
+          }
+        }
+      }
+    });
+
     const playerController = createPlayerController(
       camera,
       renderer.domElement,
@@ -287,6 +359,10 @@ export default function App() {
       camera.updateProjectionMatrix();
       renderer.setSize(w, h);
       composer.setSize(w, h);
+      bloomPass.resolution.set(
+        Math.max(1, Math.floor(w * 0.5)),
+        Math.max(1, Math.floor(h * 0.5)),
+      );
     };
 
     const handleKeyHud = (e: KeyboardEvent) => {
@@ -308,6 +384,12 @@ export default function App() {
     const clock = new THREE.Clock();
     let frameId = 0;
     let isDisposed = false;
+    let hudFastTimer = 0;
+    let visibilityCullTimer = 0.15;
+    let idleFrameParity = 0;
+
+    const gardenCenterW = castleLocalToWorld(25.0, 24.0);
+    const forestCenterW = castleLocalToWorld(64.0, 12.0);
 
     function afterDraw(cb: () => void) {
       const gl = renderer.getContext() as WebGL2RenderingContext;
@@ -328,20 +410,70 @@ export default function App() {
 
     function tick() {
       if (isDisposed) return;
-      const delta = clock.getDelta();
+      const delta = Math.min(clock.getDelta(), 0.05);
       const elapsed = clock.getElapsedTime();
 
       playerController.update(delta, elapsed);
       const playerPos = playerController.getPosition();
-      enchantedGarden.update(delta, elapsed, playerPos);
-      ancientForest.update(delta, elapsed, playerPos);
-      centralPlaza.update(elapsed);
-      distantLandmarks.update(elapsed);
-      vegetation.update(elapsed);
-      islandTerrain.update(elapsed);
-      atmosphere.update(playerPos, delta, elapsed);
+      const isIdle = playerController.isCompletelyIdle();
 
-      composer.render();
+      // Periodic District Detail Sub-Group Distance Visibility Culling (> 135m)
+      visibilityCullTimer += delta;
+      if (visibilityCullTimer >= 0.15) {
+        visibilityCullTimer = 0;
+        const distGardenSq =
+          (playerPos.x - gardenCenterW.x) ** 2 +
+          (playerPos.z - gardenCenterW.z) ** 2;
+        const showGardenProps = distGardenSq <= 135.0 * 135.0;
+        enchantedGarden.topiarySystem.group.visible = showGardenProps;
+        enchantedGarden.magicalPlantSystem.group.visible = showGardenProps;
+
+        const distForestSq =
+          (playerPos.x - forestCenterW.x) ** 2 +
+          (playerPos.z - forestCenterW.z) ** 2;
+        const showForestProps = distForestSq <= 135.0 * 135.0;
+        ancientForest.floorSystem.group.visible = showForestProps;
+        ancientForest.mushroomGrove.group.visible = showForestProps;
+        ancientForest.wildlifeSystem.group.visible = showForestProps;
+        ancientForest.forestStream.group.visible = showForestProps;
+        ancientForest.ancientRuins.group.visible = showForestProps;
+        ancientForest.treeDetail.group.visible = showForestProps;
+      }
+
+      // Skip redundant post-processing passes & distant ambient updates on alternating frames when completely idle (> 1s)
+      const shouldRenderPass = !isIdle || (idleFrameParity++ & 1) === 0;
+      if (shouldRenderPass) {
+        enchantedGarden.update(delta, elapsed, playerPos);
+        ancientForest.update(delta, elapsed, playerPos);
+        centralPlaza.update(elapsed);
+        distantLandmarks.update(elapsed);
+        vegetation.update(elapsed);
+        islandTerrain.update(elapsed);
+        atmosphere.update(playerPos, delta, elapsed);
+        composer.render();
+      }
+
+      // Lightweight DOM Ref HUD update (zero React reconciliation thrashing)
+      hudFastTimer += delta;
+      if (hudFastTimer >= 0.12) {
+        hudFastTimer = 0;
+        const fast = playerController.getFastHudState();
+        if (hudCoordsRef.current) {
+          hudCoordsRef.current.textContent = `X ${fast.x.toFixed(0)}m / Z ${fast.z.toFixed(0)}m`;
+        }
+        if (hudElevRef.current) {
+          hudElevRef.current.textContent = `Elev +${fast.y.toFixed(1)}m`;
+        }
+        if (hudAglRef.current && fast.isFlyingOrMounting) {
+          hudAglRef.current.textContent = `AGL +${fast.altitudeAboveGround.toFixed(1)}m`;
+        }
+        if (hudSpeedRef.current && fast.isFlyingOrMounting) {
+          hudSpeedRef.current.textContent = `${fast.speed.toFixed(1)} m/s`;
+        }
+        if (hudMotionRef.current) {
+          hudMotionRef.current.textContent = fast.statusLabel;
+        }
+      }
 
       const curDial = auroraCinematic.getCurrentDialogue();
       if (curDial !== lastAuroraDialogueRef.current) {
@@ -443,25 +575,25 @@ export default function App() {
             {telemetry.regionName}
           </h1>
           <div className="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-slate-300 font-mono-tabular">
-            <span>
+            <span ref={hudCoordsRef}>
               X {telemetry.x.toFixed(0)}m / Z {telemetry.z.toFixed(0)}m
             </span>
             <span aria-hidden="true">·</span>
-            <span>Elev +{telemetry.y.toFixed(1)}m</span>
+            <span ref={hudElevRef}>Elev +{telemetry.y.toFixed(1)}m</span>
             {isFlyingOrMounting && (
               <>
                 <span aria-hidden="true">·</span>
-                <span className="text-violet-300">
+                <span ref={hudAglRef} className="text-violet-300">
                   AGL +{telemetry.altitudeAboveGround.toFixed(1)}m
                 </span>
                 <span aria-hidden="true">·</span>
-                <span className="text-amber-300">
+                <span ref={hudSpeedRef} className="text-amber-300">
                   {telemetry.speed.toFixed(1)} m/s
                 </span>
               </>
             )}
             <span aria-hidden="true">·</span>
-            <span>
+            <span ref={hudMotionRef}>
               {telemetry.locomotionState === 'flight'
                 ? telemetry.isBoosting
                   ? 'Broom Boost (22 m/s)'
@@ -903,6 +1035,21 @@ export default function App() {
           >
             [{telemetry.carnivalPrompt.verb}]
           </button>
+        </div>
+      )}
+
+      {/* Grand Entrance Hall Fountain Hologram Floating Caption */}
+      {telemetry.castleFountainCaption && !telemetry.carnivalOverlay && (
+        <div className="pointer-events-none absolute top-16 left-1/2 -translate-x-1/2 z-30 w-full max-w-lg px-4">
+          <div className="flex flex-col items-center gap-1.5 bg-slate-950/88 backdrop-blur-md border border-cyan-300/45 rounded-2xl px-6 py-3.5 text-center shadow-[0_0_28px_rgba(56,189,248,0.28)]">
+            <div className="flex items-center gap-1.5 text-[11px] font-semibold tracking-widest uppercase text-amber-300">
+              <Sparkles className="w-3.5 h-3.5 text-cyan-300" />
+              <span>Crystal Lotus Fountain • Yeshwanth &amp; Harsha</span>
+            </div>
+            <p className="text-base leading-relaxed text-amber-50 font-serif italic">
+              {telemetry.castleFountainCaption}
+            </p>
+          </div>
         </div>
       )}
 

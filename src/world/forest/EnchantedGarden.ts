@@ -1702,6 +1702,9 @@ export function createEnchantedGardenSystem(): EnchantedGardenBundle {
   const magicalPlantSystem = createMagicalPlantSystem();
   group.add(magicalPlantSystem.group);
 
+  const gardenCenterW = castleLocalToWorld(25.0, 24.0);
+  let gardenFrameCounter = 0;
+
   return {
     group,
     colliders,
@@ -1713,6 +1716,21 @@ export function createEnchantedGardenSystem(): EnchantedGardenBundle {
       elapsedTime: number,
       playerWorldPos: THREE.Vector3,
     ): void {
+      const distToGarden = Math.hypot(
+        playerWorldPos.x - gardenCenterW.x,
+        playerWorldPos.z - gardenCenterW.z,
+      );
+      if (distToGarden > 90.0) {
+        return;
+      }
+
+      gardenFrameCounter = (gardenFrameCounter + 1) % 3;
+      const isMidRange = distToGarden > 55.0;
+      if (isMidRange && gardenFrameCounter !== 0) {
+        return;
+      }
+      const effDt = isMidRange ? dt * 3.0 : dt;
+
       // 0. Animate Directional Glowing Wave along the 9 Conservatory Stepping Stones
       //    (Ripples from the Royal Frog Pond -> Gate 1 so the player's eye follows it to the exit!)
       for (let i = 0; i < steppingStoneInlayMats.length; i++) {
@@ -1720,13 +1738,14 @@ export function createEnchantedGardenSystem(): EnchantedGardenBundle {
         steppingStoneInlayMats[i].emissiveIntensity = 0.52 + wave * 0.42;
       }
 
-      // 1. Gently flicker the 8 Warm Garden Lantern PointLights
+      // 1. Gently flicker the 8 Warm Garden Lantern PointLights (only when visible via distance culler)
       for (let i = 0; i < gardenPointLights.length; i++) {
         const gLight = gardenPointLights[i];
+        if (!gLight.light.visible) continue;
         const flicker =
           Math.sin(elapsedTime * 5.2 + gLight.phase) * 0.25 +
           Math.cos(elapsedTime * 8.7 + gLight.phase * 1.7) * 0.12;
-        gLight.light.intensity = gLight.baseIntensity + flicker;
+        gLight.light.intensity = Math.max(0.1, gLight.baseIntensity + flicker);
       }
 
       // 2. Animate Enchanted Levitating Copper Watering Can & Sparkling Water Stream in Zone 1
@@ -1747,8 +1766,8 @@ export function createEnchantedGardenSystem(): EnchantedGardenBundle {
       }
 
       // 3. Update Zone 2 Living Topiaries & Zone 3 Bioluminescent Reactive Magical Flora
-      topiarySystem.update(dt, elapsedTime, playerWorldPos);
-      magicalPlantSystem.update(dt, elapsedTime, playerWorldPos);
+      topiarySystem.update(effDt, elapsedTime, playerWorldPos);
+      magicalPlantSystem.update(effDt, elapsedTime, playerWorldPos);
     },
 
     dispose(): void {

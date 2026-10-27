@@ -27,24 +27,24 @@ export function createDreamCastleMaterials(
   const pearlWhite = tracker.trackMat(
     new THREE.MeshStandardMaterial({
       color: new THREE.Color('#fcfaf7'),
-      roughness: 0.28,
-      metalness: 0.05,
+      roughness: 0.55,
+      metalness: 0.02,
     }),
   );
 
   const champagneGold = tracker.trackMat(
     new THREE.MeshStandardMaterial({
       color: new THREE.Color('#d8b467'),
-      metalness: 0.85,
-      roughness: 0.22,
+      metalness: 0.65,
+      roughness: 0.28,
     }),
   );
 
   const blushRoseMarble = tracker.trackMat(
     new THREE.MeshPhysicalMaterial({
       color: new THREE.Color('#f4dce2'),
-      roughness: 0.32,
-      clearcoat: 0.45,
+      roughness: 0.38,
+      clearcoat: 0.25,
       clearcoatRoughness: 0.2,
     }),
   );
@@ -52,16 +52,16 @@ export function createDreamCastleMaterials(
   const softLavender = tracker.trackMat(
     new THREE.MeshStandardMaterial({
       color: new THREE.Color('#e3d7f4'),
-      roughness: 0.36,
-      metalness: 0.08,
+      roughness: 0.52,
+      metalness: 0.04,
     }),
   );
 
   const powderBlueSpire = tracker.trackMat(
     new THREE.MeshStandardMaterial({
-      color: new THREE.Color('#b9d8f2'),
-      roughness: 0.38,
-      metalness: 0.22,
+      color: new THREE.Color('#cfe2f3'),
+      roughness: 0.42,
+      metalness: 0.08,
     }),
   );
 
@@ -69,8 +69,9 @@ export function createDreamCastleMaterials(
     new THREE.MeshPhysicalMaterial({
       color: new THREE.Color('#ffffff'),
       transparent: true,
-      opacity: 0.35,
-      roughness: 0.12,
+      opacity: 0.34,
+      roughness: 0.15,
+      depthWrite: false,
       transmission: 0.65,
       ior: 1.48,
     }),

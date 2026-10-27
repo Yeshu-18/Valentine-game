@@ -15,12 +15,166 @@ export interface DreamCastleBundle {
   nav: CastleNavigationController;
   getSurfaceHeight: (wx: number, wz: number, playerY: number, defaultGroundY: number) => number;
   isInsideCastle: (wx: number, wz: number) => boolean;
-  getProximityPrompt: (playerPos: THREE.Vector3) => { prompt: string; action: 'door' | 'call_elevator' | 'telescope' | 'none' } | null;
-  interact: () => boolean;
+  getProximityPrompt: (playerPos: THREE.Vector3) => { prompt: string; action: 'door' | 'call_elevator' | 'fountain' | 'telescope' | 'none' } | null;
+  interact: (playerPos?: THREE.Vector3) => boolean;
   handleElevatorFloorSelect: (floorNum: number) => boolean;
   getCameraFocus: () => { target: THREE.Vector3; position: THREE.Vector3; fov?: number } | null;
   update: (delta: number, playerPos: THREE.Vector3) => void;
   dispose: () => void;
+}
+
+function createFountainHologramTexture(tracker: ResourceTracker): THREE.CanvasTexture {
+  const canvas = document.createElement('canvas');
+  canvas.width = 512;
+  canvas.height = 640;
+  const ctx = canvas.getContext('2d');
+
+  if (ctx) {
+    ctx.clearRect(0, 0, 512, 640);
+
+    // 1. Soft radial cyan & champagne-gold holographic aura
+    const bgGrad = ctx.createRadialGradient(256, 310, 24, 256, 310, 250);
+    bgGrad.addColorStop(0.0, 'rgba(254, 240, 138, 0.42)');
+    bgGrad.addColorStop(0.45, 'rgba(56, 189, 248, 0.28)');
+    bgGrad.addColorStop(0.82, 'rgba(14, 165, 233, 0.08)');
+    bgGrad.addColorStop(1.0, 'rgba(14, 165, 233, 0.0)');
+    ctx.fillStyle = bgGrad;
+    ctx.fillRect(0, 0, 512, 640);
+
+    // 2. Arched Royal Filigree Frame
+    ctx.save();
+    ctx.strokeStyle = 'rgba(253, 224, 71, 0.85)';
+    ctx.lineWidth = 4;
+    ctx.shadowColor = '#38bdf8';
+    ctx.shadowBlur = 16;
+    ctx.beginPath();
+    ctx.arc(256, 250, 172, Math.PI, 0, false);
+    ctx.lineTo(428, 520);
+    ctx.quadraticCurveTo(256, 555, 84, 520);
+    ctx.closePath();
+    ctx.stroke();
+
+    ctx.strokeStyle = 'rgba(125, 211, 252, 0.65)';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(256, 250, 160, Math.PI, 0, false);
+    ctx.lineTo(416, 508);
+    ctx.quadraticCurveTo(256, 540, 96, 508);
+    ctx.closePath();
+    ctx.stroke();
+    ctx.restore();
+
+    // 3. Glowing Heart Halo behind Yeshwanth & Harsha
+    const drawHeart = (cx: number, cy: number, size: number, fill: string, stroke?: string) => {
+      ctx.save();
+      ctx.beginPath();
+      ctx.moveTo(cx, cy + size * 0.35);
+      ctx.bezierCurveTo(cx - size, cy - size * 0.25, cx - size * 0.55, cy - size * 0.95, cx, cy - size * 0.42);
+      ctx.bezierCurveTo(cx + size * 0.55, cy - size * 0.95, cx + size, cy - size * 0.25, cx, cy + size * 0.35);
+      ctx.closePath();
+      ctx.fillStyle = fill;
+      ctx.fill();
+      if (stroke) {
+        ctx.strokeStyle = stroke;
+        ctx.lineWidth = 2.5;
+        ctx.stroke();
+      }
+      ctx.restore();
+    };
+
+    ctx.save();
+    ctx.shadowColor = '#fde047';
+    ctx.shadowBlur = 22;
+    drawHeart(256, 255, 118, 'rgba(253, 224, 71, 0.16)', 'rgba(253, 224, 71, 0.78)');
+    ctx.restore();
+
+    // 4. Stylized Romantic Silhouette Portrait of Yeshwanth & Harsha Holding Hands
+    ctx.save();
+    ctx.shadowColor = '#7dd3fc';
+    ctx.shadowBlur = 18;
+    const silGrad = ctx.createLinearGradient(160, 175, 350, 465);
+    silGrad.addColorStop(0.0, 'rgba(254, 249, 195, 0.96)');
+    silGrad.addColorStop(0.5, 'rgba(186, 230, 253, 0.92)');
+    silGrad.addColorStop(1.0, 'rgba(56, 189, 248, 0.78)');
+    ctx.fillStyle = silGrad;
+    ctx.strokeStyle = 'rgba(254, 240, 138, 0.95)';
+    ctx.lineWidth = 2.5;
+
+    // Yeshwanth (left, slightly taller, warm gentle posture leaning toward Harsha)
+    ctx.beginPath();
+    ctx.arc(216, 214, 23, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.moveTo(182, 438);
+    ctx.quadraticCurveTo(180, 290, 196, 246);
+    ctx.quadraticCurveTo(216, 238, 236, 248);
+    ctx.quadraticCurveTo(250, 285, 254, 332);
+    ctx.lineTo(242, 438);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+
+    // Harsha (right, flowing gown silhouette, leaning warmly against Yeshwanth)
+    ctx.beginPath();
+    ctx.arc(292, 226, 21.5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.moveTo(252, 438);
+    ctx.quadraticCurveTo(260, 325, 272, 256);
+    ctx.quadraticCurveTo(292, 248, 310, 258);
+    ctx.quadraticCurveTo(334, 335, 348, 438);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+
+    // Joined hands at center with glowing heart spark
+    drawHeart(255, 305, 22, 'rgba(254, 240, 138, 0.95)', 'rgba(255, 255, 255, 0.95)');
+    ctx.restore();
+
+    // 5. Floating Heart Sparkles around the couple
+    const heartSpots = [
+      { x: 132, y: 185, s: 14 },
+      { x: 382, y: 192, s: 15 },
+      { x: 148, y: 315, s: 12 },
+      { x: 372, y: 310, s: 13 },
+      { x: 256, y: 125, s: 18 },
+      { x: 188, y: 145, s: 11 },
+      { x: 326, y: 148, s: 11 },
+    ];
+    heartSpots.forEach((h) => {
+      drawHeart(h.x, h.y, h.s, 'rgba(253, 224, 71, 0.85)', 'rgba(125, 211, 252, 0.9)');
+    });
+
+    // 6. Subtle Holographic Scanlines
+    ctx.fillStyle = 'rgba(186, 230, 253, 0.09)';
+    for (let y = 60; y < 560; y += 6) {
+      ctx.fillRect(76, y, 360, 1.5);
+    }
+
+    // 7. Romantic Caption & Names on the Hologram Projection
+    ctx.save();
+    ctx.textAlign = 'center';
+    ctx.shadowColor = 'rgba(14, 165, 233, 0.95)';
+    ctx.shadowBlur = 12;
+    ctx.fillStyle = '#fef08a';
+    ctx.font = 'bold 24px Georgia, serif';
+    ctx.fillText('Yeshwanth & Harsha', 256, 478);
+
+    ctx.fillStyle = '#e0f2fe';
+    ctx.font = 'italic 16.5px Georgia, serif';
+    ctx.fillText('"Our favorite place in the world', 256, 508);
+    ctx.fillText('is right beside you. ♡"', 256, 530);
+    ctx.restore();
+  }
+
+  const tex = tracker.trackTex(new THREE.CanvasTexture(canvas));
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.needsUpdate = true;
+  return tex;
 }
 
 export function createDreamCastle(): DreamCastleBundle {
@@ -106,6 +260,27 @@ export function createDreamCastle(): DreamCastleBundle {
     const finial = new THREE.Mesh(towerFinialGeo, mats.champagneGold);
 
     tGroup.add(body, cornice, spire, finial);
+
+    // Signature Heart-Arched Window on Heart Tower (front-west tower)
+    if (tp.name === 'HeartTower') {
+      const heartWinGroup = new THREE.Group();
+      heartWinGroup.position.set(0, 13.5, -3.22);
+      const lobeGeo = tracker.trackGeo(new THREE.SphereGeometry(0.42, 10, 10));
+      const lobeL = new THREE.Mesh(lobeGeo, mats.champagneGold);
+      lobeL.position.set(-0.32, 0.35, 0);
+      const lobeR = new THREE.Mesh(lobeGeo, mats.champagneGold);
+      lobeR.position.set(0.32, 0.35, 0);
+      const pointGeo = tracker.trackGeo(new THREE.ConeGeometry(0.62, 0.95, 10));
+      pointGeo.rotateX(Math.PI);
+      const pointM = new THREE.Mesh(pointGeo, mats.champagneGold);
+      pointM.position.set(0, -0.1, 0);
+      const glassPaneGeo = tracker.trackGeo(new THREE.CircleGeometry(0.55, 12));
+      const glassPane = new THREE.Mesh(glassPaneGeo, mats.warmLanternGlow);
+      glassPane.position.set(0, 0.15, -0.05);
+      heartWinGroup.add(lobeL, lobeR, pointM, glassPane);
+      tGroup.add(heartWinGroup);
+    }
+
     group.add(tGroup);
 
     colliders.push({
@@ -146,30 +321,47 @@ export function createDreamCastle(): DreamCastleBundle {
   colliders.push({ x: nav.originX + 16.0, z: nav.originZ, radius: 14.5 });
 
   // ========================================================================
-  // 3. PHYSICAL DOUBLE ENTRANCE DOORS & REVEAL MECHANISM
+  // 3. PHYSICAL DOUBLE ENTRANCE DOORS, HINGE PIVOTS & COLLISION BARRIER
   // ========================================================================
-  const doorPanelGeo = tracker.trackGeo(new THREE.BoxGeometry(2.05, 4.4, 0.16));
-  doorPanelGeo.translate(1.025, 2.2, 0); // Pivot on side edge
-  const doorTrimGeo = tracker.trackGeo(new THREE.BoxGeometry(1.7, 3.8, 0.22));
-  doorTrimGeo.translate(1.025, 2.2, 0);
-  const handleGeo = tracker.trackGeo(new THREE.CylinderGeometry(0.04, 0.04, 0.72, 8));
-  handleGeo.translate(1.85, 2.0, 0.16);
+  // Temporary doorway barrier colliders active ONLY while doorState === 'CLOSED'
+  const doorBarrierColliders: CircleCollider[] = [
+    { x: nav.originX - 1.35, z: nav.originZ - 16.0, radius: 0.95 },
+    { x: nav.originX, z: nav.originZ - 16.0, radius: 0.95 },
+    { x: nav.originX + 1.35, z: nav.originZ - 16.0, radius: 0.95 },
+  ];
+  doorBarrierColliders.forEach((c) => colliders.push(c));
+  let doorBarrierRemoved = false;
 
-  // Left Door Pivot at lx = -2.1, lz = -16.0
+  // Left Door: local pivot shifted to far-left outer frame edge (lx = -2.1, rotates +105 deg)
+  const leftDoorPanelGeo = tracker.trackGeo(new THREE.BoxGeometry(2.08, 4.4, 0.16));
+  leftDoorPanelGeo.translate(1.04, 2.2, 0);
+  const leftDoorTrimGeo = tracker.trackGeo(new THREE.BoxGeometry(1.7, 3.8, 0.22));
+  leftDoorTrimGeo.translate(1.04, 2.2, 0);
+  const leftHandleGeo = tracker.trackGeo(new THREE.BoxGeometry(0.42, 0.08, 0.16));
+  leftHandleGeo.translate(-0.18, 0, 0);
+
   const leftDoorPivot = new THREE.Group();
   leftDoorPivot.position.set(-2.1, 0.25, -16.0);
-  const leftDoorPanel = new THREE.Mesh(doorPanelGeo, mats.blushRoseMarble);
-  const leftDoorTrim = new THREE.Mesh(doorTrimGeo, mats.champagneGold);
-  const leftDoorHandle = new THREE.Mesh(handleGeo, mats.champagneGold);
+  const leftDoorPanel = new THREE.Mesh(leftDoorPanelGeo, mats.blushRoseMarble);
+  const leftDoorTrim = new THREE.Mesh(leftDoorTrimGeo, mats.champagneGold);
+  const leftDoorHandle = new THREE.Mesh(leftHandleGeo, mats.champagneGold);
+  leftDoorHandle.position.set(1.88, 2.05, 0);
   leftDoorPivot.add(leftDoorPanel, leftDoorTrim, leftDoorHandle);
 
-  // Right Door Pivot at lx = 2.1, lz = -16.0 (mirrored)
+  // Right Door: local pivot shifted to far-right outer frame edge (lx = +2.1, rotates -105 deg)
+  const rightDoorPanelGeo = tracker.trackGeo(new THREE.BoxGeometry(2.08, 4.4, 0.16));
+  rightDoorPanelGeo.translate(-1.04, 2.2, 0);
+  const rightDoorTrimGeo = tracker.trackGeo(new THREE.BoxGeometry(1.7, 3.8, 0.22));
+  rightDoorTrimGeo.translate(-1.04, 2.2, 0);
+  const rightHandleGeo = tracker.trackGeo(new THREE.BoxGeometry(0.42, 0.08, 0.16));
+  rightHandleGeo.translate(0.18, 0, 0);
+
   const rightDoorPivot = new THREE.Group();
   rightDoorPivot.position.set(2.1, 0.25, -16.0);
-  rightDoorPivot.scale.x = -1; // Mirror horizontally so pivot is on outer edge
-  const rightDoorPanel = new THREE.Mesh(doorPanelGeo, mats.blushRoseMarble);
-  const rightDoorTrim = new THREE.Mesh(doorTrimGeo, mats.champagneGold);
-  const rightDoorHandle = new THREE.Mesh(handleGeo, mats.champagneGold);
+  const rightDoorPanel = new THREE.Mesh(rightDoorPanelGeo, mats.blushRoseMarble);
+  const rightDoorTrim = new THREE.Mesh(rightDoorTrimGeo, mats.champagneGold);
+  const rightDoorHandle = new THREE.Mesh(rightHandleGeo, mats.champagneGold);
+  rightDoorHandle.position.set(-1.88, 2.05, 0);
   rightDoorPivot.add(rightDoorPanel, rightDoorTrim, rightDoorHandle);
 
   group.add(leftDoorPivot, rightDoorPivot);
@@ -181,7 +373,7 @@ export function createDreamCastle(): DreamCastleBundle {
   group.add(archHeader);
 
   // ========================================================================
-  // 4. LEVEL 1: GRAND ENTRANCE HALL, FOUNTAIN & CHANDELIER
+  // 4. LEVEL 1: GRAND ENTRANCE HALL, FOUNTAIN HOLOGRAM & CHANDELIER
   // ========================================================================
   // Floor 1 Slab (Y = +0.25m)
   const floor1Geo = tracker.trackGeo(new THREE.BoxGeometry(31.0, 0.4, 31.0));
@@ -197,6 +389,34 @@ export function createDreamCastle(): DreamCastleBundle {
   carpetMesh.receiveShadow = true;
   group.add(carpetMesh);
 
+  // Circular Inlaid Pearl-and-Rose Floor Medallion around the Fountain
+  const medallionOuterGeo = tracker.trackGeo(new THREE.CylinderGeometry(4.8, 4.8, 0.03, 32));
+  medallionOuterGeo.translate(0, 0.26, 0);
+  const medallionInnerGeo = tracker.trackGeo(new THREE.TorusGeometry(4.2, 0.09, 8, 36));
+  medallionInnerGeo.rotateX(Math.PI / 2);
+  medallionInnerGeo.translate(0, 0.275, 0);
+  const medallionOuter = new THREE.Mesh(medallionOuterGeo, mats.pearlWhite);
+  medallionOuter.receiveShadow = true;
+  const medallionInner = new THREE.Mesh(medallionInnerGeo, mats.champagneGold);
+  group.add(medallionOuter, medallionInner);
+
+  // Open Archway Portals on Floor 1 perimeter walls leading toward future Sprint 2 rooms
+  const roomArchPillarGeo = tracker.trackGeo(new THREE.BoxGeometry(0.45, 3.8, 0.45));
+  roomArchPillarGeo.translate(0, 2.15, 0);
+  const roomArchHeaderGeo = tracker.trackGeo(new THREE.BoxGeometry(0.5, 0.55, 2.9));
+  roomArchHeaderGeo.translate(0, 4.15, 0);
+  [-15.2, 15.2].forEach((wx) => {
+    [-8.5, 0.0, 8.5].forEach((wz) => {
+      const p1 = new THREE.Mesh(roomArchPillarGeo, mats.champagneGold);
+      p1.position.set(wx, 0, wz - 1.2);
+      const p2 = new THREE.Mesh(roomArchPillarGeo, mats.champagneGold);
+      p2.position.set(wx, 0, wz + 1.2);
+      const hdr = new THREE.Mesh(roomArchHeaderGeo, mats.blushRoseMarble);
+      hdr.position.set(wx, 0, wz);
+      group.add(p1, p2, hdr);
+    });
+  });
+
   // Central Crystal Lotus Water Fountain (Center lx = 0, lz = 0)
   const fountainGroup = new THREE.Group();
   fountainGroup.position.set(0, 0.25, 0);
@@ -206,14 +426,189 @@ export function createDreamCastle(): DreamCastleBundle {
   const basinRimGeo = tracker.trackGeo(new THREE.TorusGeometry(2.9, 0.16, 8, 32));
   basinRimGeo.rotateX(Math.PI / 2);
   basinRimGeo.translate(0, 0.75, 0);
-  const waterGeo = tracker.trackGeo(new THREE.CylinderGeometry(2.7, 2.7, 0.1, 24));
+  const waterGeo = tracker.trackGeo(new THREE.CylinderGeometry(2.7, 2.7, 0.1, 32));
   waterGeo.translate(0, 0.65, 0);
+
+  // Custom Water Ripple Shader that intensifies with cyan & champagne-gold waves when touched
+  const fountainWaterUniforms = {
+    uTime: { value: 0.0 },
+    uIntensity: { value: 0.0 },
+  };
+  const fountainWaterShaderMat = tracker.trackMat(
+    new THREE.ShaderMaterial({
+      uniforms: fountainWaterUniforms,
+      transparent: true,
+      vertexShader: `
+        varying vec3 vLocalPos;
+        void main() {
+          vLocalPos = position;
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        }
+      `,
+      fragmentShader: `
+        uniform float uTime;
+        uniform float uIntensity;
+        varying vec3 vLocalPos;
+        void main() {
+          float r = length(vLocalPos.xz);
+          float speed = mix(2.4, 6.2, uIntensity);
+          float freq = mix(5.5, 10.5, uIntensity);
+          float wave1 = sin(r * freq - uTime * speed) * 0.5 + 0.5;
+          float wave2 = sin(r * (freq * 1.45) - uTime * (speed * 1.25) + 1.2) * 0.5 + 0.5;
+          float ripple = pow(wave1 * wave2, mix(2.2, 1.35, uIntensity));
+
+          vec3 baseWater = vec3(0.48, 0.84, 0.96);
+          vec3 cyanGlow = vec3(0.22, 0.78, 0.98);
+          vec3 goldCrest = vec3(0.99, 0.91, 0.52);
+
+          vec3 col = mix(baseWater, cyanGlow, ripple * (0.45 + 0.55 * uIntensity));
+          col = mix(col, goldCrest, pow(ripple, 2.0) * (0.28 + 0.65 * uIntensity));
+          float centerGlow = smoothstep(1.6, 0.0, r) * uIntensity * 0.55;
+          col += goldCrest * centerGlow;
+
+          float alpha = mix(0.84, 0.95, uIntensity);
+          gl_FragColor = vec4(col, alpha);
+        }
+      `,
+    }),
+  );
 
   const basinOuter = new THREE.Mesh(basinOuterGeo, mats.blushRoseMarble);
   const basinRim = new THREE.Mesh(basinRimGeo, mats.champagneGold);
-  const waterMesh = new THREE.Mesh(waterGeo, mats.fountainWater);
+  const waterMesh = new THREE.Mesh(waterGeo, fountainWaterShaderMat);
   basinOuter.castShadow = true;
   basinOuter.receiveShadow = true;
+
+  // Expanding Golden-Cyan Water Ripple Rings
+  const rippleRingGeo = tracker.trackGeo(new THREE.TorusGeometry(1.0, 0.045, 8, 32));
+  rippleRingGeo.rotateX(Math.PI / 2);
+  const rippleRingMesh = new THREE.Mesh(rippleRingGeo, mats.warmLanternGlow);
+  rippleRingMesh.position.set(0, 0.72, 0);
+  rippleRingMesh.visible = false;
+
+  // Hologram Projector Group (Vertical Light Beam + 3D Couple Portrait Canvas + Heart Sparkles & Confetti)
+  const hologramGroup = new THREE.Group();
+  hologramGroup.position.set(0, 0.7, 0);
+  hologramGroup.visible = false;
+
+  // Soft Vertical Beam of Cyan / Champagne-Gold Light beaming upward from basin center
+  const beamUniforms = {
+    uTime: { value: 0.0 },
+    uAlpha: { value: 0.0 },
+  };
+  const beamMat = tracker.trackMat(
+    new THREE.ShaderMaterial({
+      uniforms: beamUniforms,
+      transparent: true,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+      side: THREE.DoubleSide,
+      vertexShader: `
+        varying vec2 vUv;
+        void main() {
+          vUv = uv;
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        }
+      `,
+      fragmentShader: `
+        uniform float uTime;
+        uniform float uAlpha;
+        varying vec2 vUv;
+        void main() {
+          float vertFade = sin(vUv.y * 3.14159265) * (1.0 - vUv.y * 0.35);
+          float shimmer = 0.82 + 0.18 * sin(vUv.y * 18.0 - uTime * 4.5 + vUv.x * 12.56);
+          vec3 cyanCol = vec3(0.25, 0.82, 0.98);
+          vec3 goldCol = vec3(0.99, 0.89, 0.48);
+          vec3 col = mix(goldCol, cyanCol, vUv.y);
+          gl_FragColor = vec4(col, vertFade * shimmer * 0.36 * uAlpha);
+        }
+      `,
+    }),
+  );
+  const beamGeo = tracker.trackGeo(new THREE.CylinderGeometry(1.25, 0.42, 3.8, 28, 1, true));
+  beamGeo.translate(0, 1.9, 0);
+  const hologramBeamMesh = new THREE.Mesh(beamGeo, beamMat);
+  hologramGroup.add(hologramBeamMesh);
+
+  // Semi-Transparent Glowing 3D Hologram Canvas Plane (Yeshwanth & Harsha Silhouette Portrait)
+  const hologramTex = createFountainHologramTexture(tracker);
+  const hologramPlaneMat = tracker.trackMat(
+    new THREE.MeshBasicMaterial({
+      map: hologramTex,
+      transparent: true,
+      opacity: 0.0,
+      depthWrite: false,
+      side: THREE.DoubleSide,
+      blending: THREE.AdditiveBlending,
+    }),
+  );
+  const hologramBackdropMat = tracker.trackMat(
+    new THREE.MeshBasicMaterial({
+      map: hologramTex,
+      transparent: true,
+      opacity: 0.0,
+      depthWrite: false,
+      side: THREE.DoubleSide,
+    }),
+  );
+  const hologramPlaneGeo = tracker.trackGeo(new THREE.PlaneGeometry(2.35, 2.95));
+  const hologramBackdropMesh = new THREE.Mesh(hologramPlaneGeo, hologramBackdropMat);
+  const hologramGlowMesh = new THREE.Mesh(hologramPlaneGeo, hologramPlaneMat);
+  hologramGlowMesh.position.z = 0.01;
+  const hologramPortraitPivot = new THREE.Group();
+  hologramPortraitPivot.position.set(0, 2.1, 0);
+  hologramPortraitPivot.add(hologramBackdropMesh, hologramGlowMesh);
+  hologramGroup.add(hologramPortraitPivot);
+
+  // Floating Heart Sparkles & Micro-Confetti Particles orbiting the Hologram
+  const blossomSparklesGroup = new THREE.Group();
+  blossomSparklesGroup.position.set(0, 0.85, 0);
+  blossomSparklesGroup.visible = false;
+
+  const sparkleHeartGeo = tracker.trackGeo(new THREE.OctahedronGeometry(0.085, 0));
+  const confettiGeo = tracker.trackGeo(new THREE.PlaneGeometry(0.09, 0.055));
+  const cyanSparkleMat = tracker.trackMat(
+    new THREE.MeshBasicMaterial({
+      color: '#7dd3fc',
+      transparent: true,
+      opacity: 0.9,
+      side: THREE.DoubleSide,
+    }),
+  );
+  const roseConfettiMat = tracker.trackMat(
+    new THREE.MeshBasicMaterial({
+      color: '#f9a8d4',
+      transparent: true,
+      opacity: 0.9,
+      side: THREE.DoubleSide,
+    }),
+  );
+
+  interface HologramParticle {
+    mesh: THREE.Mesh;
+    baseAngle: number;
+    radius: number;
+    baseY: number;
+    speed: number;
+  }
+  const hologramParticles: HologramParticle[] = [];
+  for (let b = 0; b < 28; b++) {
+    const isHeart = b % 2 === 0;
+    const mat = b % 3 === 0 ? mats.warmLanternGlow : b % 3 === 1 ? cyanSparkleMat : roseConfettiMat;
+    const sp = new THREE.Mesh(isHeart ? sparkleHeartGeo : confettiGeo, mat);
+    const baseAngle = (b * Math.PI * 2) / 28;
+    const radius = 1.15 + (b % 4) * 0.28;
+    const baseY = (b % 7) * 0.42;
+    sp.position.set(Math.cos(baseAngle) * radius, baseY, Math.sin(baseAngle) * radius);
+    blossomSparklesGroup.add(sp);
+    hologramParticles.push({
+      mesh: sp,
+      baseAngle,
+      radius,
+      baseY,
+      speed: 0.9 + (b % 5) * 0.22,
+    });
+  }
 
   // Central Lotus Pedestal & Crystal Flower
   const lotusStemGeo = tracker.trackGeo(new THREE.CylinderGeometry(0.42, 0.6, 1.4, 12));
@@ -232,9 +627,19 @@ export function createDreamCastle(): DreamCastleBundle {
     lotusPetalsGroup.add(petal);
   }
 
-  fountainGroup.add(basinOuter, basinRim, waterMesh, lotusStem, lotusPetalsGroup);
+  fountainGroup.add(
+    basinOuter,
+    basinRim,
+    waterMesh,
+    rippleRingMesh,
+    hologramGroup,
+    blossomSparklesGroup,
+    lotusStem,
+    lotusPetalsGroup,
+  );
   group.add(fountainGroup);
   colliders.push({ x: nav.originX, z: nav.originZ, radius: 2.9 });
+  let fountainClock = 0;
 
   // Suspended Grand Crystal Chandelier (Hangs from high atrium roof down to Y = 7.5m)
   const chandelierGroup = new THREE.Group();
@@ -445,6 +850,34 @@ export function createDreamCastle(): DreamCastleBundle {
   telescopeGroup.add(teleBase, telePier, teleTube);
   group.add(telescopeGroup);
 
+  // Rooftop Flower Planters & Warm Lanterns along Terrace Balustrade
+  const planterBoxGeo = tracker.trackGeo(new THREE.BoxGeometry(2.2, 0.55, 0.85));
+  planterBoxGeo.translate(0, 15.72, 0);
+  const blossomBushGeo = tracker.trackGeo(new THREE.SphereGeometry(0.55, 10, 8));
+  blossomBushGeo.scale(1.6, 0.75, 0.9);
+  blossomBushGeo.translate(0, 16.15, 0);
+  const lanternPostGeo = tracker.trackGeo(new THREE.CylinderGeometry(0.06, 0.08, 1.45, 8));
+  lanternPostGeo.translate(0, 16.2, 0);
+  const lanternOrbGeo = tracker.trackGeo(new THREE.SphereGeometry(0.22, 10, 10));
+  lanternOrbGeo.translate(0, 17.0, 0);
+
+  [
+    { x: -8.5, z: -13.8 },
+    { x: 8.5, z: -13.8 },
+    { x: -8.5, z: 13.8 },
+    { x: 8.5, z: 13.8 },
+  ].forEach((pt) => {
+    const planter = new THREE.Mesh(planterBoxGeo, mats.pearlWhite);
+    planter.position.set(pt.x, 0, pt.z);
+    const bush = new THREE.Mesh(blossomBushGeo, mats.blushRoseMarble);
+    bush.position.set(pt.x, 0, pt.z);
+    const lPost = new THREE.Mesh(lanternPostGeo, mats.champagneGold);
+    lPost.position.set(pt.x * 1.15, 0, pt.z);
+    const lOrb = new THREE.Mesh(lanternOrbGeo, mats.warmLanternGlow);
+    lOrb.position.set(pt.x * 1.15, 0, pt.z);
+    group.add(planter, bush, lPost, lOrb);
+  });
+
   // Soft Rooftop Lantern Glow PointLight (Restrained, 2nd point light)
   const rooftopLight = new THREE.PointLight('#fef08a', 1.8, 18.0, 1.6);
   rooftopLight.position.set(0, 17.5, 0);
@@ -509,7 +942,7 @@ export function createDreamCastle(): DreamCastleBundle {
 
   // Dynamic Elevator Cabin
   const cabinGroup = new THREE.Group();
-  cabinGroup.position.set(elevatorShaftX, nav.elevatorCabinY, elevatorShaftZ);
+  cabinGroup.position.set(elevatorShaftX, nav.elevatorCabinY - nav.baseY, elevatorShaftZ);
 
   // Cabin Floor & Ceiling
   const cabinFloorGeo = tracker.trackGeo(new THREE.CylinderGeometry(1.85, 1.85, 0.22, 20));
@@ -585,7 +1018,7 @@ export function createDreamCastle(): DreamCastleBundle {
       // 2. Inside Elevator Cabin
       if (nav.isInsideElevatorCabin(playerPos)) {
         return {
-          prompt: '[1] Grand Hall  [2] Fashion  [3] Dream Wing  [4] Rooftop  [0] Basement',
+          prompt: '[1] Grand Hall  [2] Fashion  [3] Dream Wing  [4] Rooftop  [0/B] Basement',
           action: 'call_elevator',
         };
       }
@@ -599,7 +1032,15 @@ export function createDreamCastle(): DreamCastleBundle {
         };
       }
 
-      // 4. Rooftop Telescope
+      // 4. Near Central Crystal Fountain on Floor 1
+      if (nav.isNearFountain(playerPos)) {
+        return {
+          prompt: '[E] Touch Fountain Water',
+          action: 'fountain',
+        };
+      }
+
+      // 5. Rooftop Telescope
       const { lx, lz } = nav.worldToLocal(playerPos.x, playerPos.z);
       if (Math.hypot(lx, lz - (-13.5)) <= 2.8 && playerPos.y >= nav.baseY + 14.5) {
         return {
@@ -611,11 +1052,29 @@ export function createDreamCastle(): DreamCastleBundle {
       return null;
     },
 
-    interact: () => {
-      // Check what action applies
+    interact: (playerPos?: THREE.Vector3) => {
+      if (playerPos) {
+        if (nav.isNearEntranceDoors(playerPos) && nav.doorState === 'CLOSED') {
+          return nav.openEntranceDoors();
+        }
+        if (nav.isInsideElevatorCabin(playerPos)) {
+          return nav.cycleElevatorFloor();
+        }
+        const callInfo = nav.isNearElevatorFloorCall(playerPos);
+        if (callInfo) {
+          return nav.callElevatorToFloor(callInfo.floor.id);
+        }
+        if (nav.isNearFountain(playerPos)) {
+          return nav.triggerFountainRipple();
+        }
+        const { lx, lz } = nav.worldToLocal(playerPos.x, playerPos.z);
+        if (Math.hypot(lx, lz - (-13.5)) <= 2.8 && playerPos.y >= nav.baseY + 14.5) {
+          nav.triggerRooftopPanoramicPan(playerPos, true);
+          return true;
+        }
+      }
       if (nav.doorState === 'CLOSED') {
-        nav.openEntranceDoors();
-        return true;
+        return nav.openEntranceDoors();
       }
       return false;
     },
@@ -635,12 +1094,92 @@ export function createDreamCastle(): DreamCastleBundle {
 
     update: (delta: number, playerPos: THREE.Vector3) => {
       nav.update(delta, playerPos);
+      fountainClock += delta;
 
-      // Animate Entrance Doors
-      // Left swings to -105 deg (-1.83 rad), Right swings to +105 deg (+1.83 rad)
+      // Remove temporary doorway barrier collider once entrance doors transition to OPENING / OPEN
+      if (!doorBarrierRemoved && nav.doorState !== 'CLOSED') {
+        doorBarrierRemoved = true;
+        for (const c of doorBarrierColliders) {
+          c.radius = -10.0;
+          c.x = -99999;
+          c.z = -99999;
+          const idx = colliders.indexOf(c);
+          if (idx !== -1) {
+            colliders.splice(idx, 1);
+          }
+        }
+      }
+
+      // Animate Brass Door Handles & Entrance Door Side-Hinge Swing
+      // Left door pivots from far-left outer frame edge (+105°), Right door pivots from far-right outer frame edge (-105°)
+      leftDoorHandle.rotation.z = -nav.doorHandleAngle;
+      rightDoorHandle.rotation.z = nav.doorHandleAngle;
       const maxSwing = THREE.MathUtils.degToRad(105);
-      leftDoorPivot.rotation.y = -nav.doorOpenRatio * maxSwing;
+      leftDoorPivot.rotation.y = nav.doorOpenRatio * maxSwing;
       rightDoorPivot.rotation.y = -nav.doorOpenRatio * maxSwing;
+
+      // Update Fountain Water Ripple Shader
+      const holoAlpha = nav.fountainHologramAlpha;
+      fountainWaterUniforms.uTime.value = fountainClock;
+      fountainWaterUniforms.uIntensity.value = Math.max(
+        holoAlpha,
+        nav.fountainRippleTimer > 0 ? 0.55 : 0.0,
+      );
+
+      // Animate Fountain Water Ripple Ring, Hologram Light Beam, 3D Couple Portrait & Floating Heart Sparkles
+      if (holoAlpha > 0.01 || nav.fountainRippleTimer > 0) {
+        const rippleWave = (fountainClock * 0.75) % 1.0;
+        rippleRingMesh.visible = true;
+        const rippleScale = THREE.MathUtils.lerp(0.65, 2.55, rippleWave);
+        rippleRingMesh.scale.set(rippleScale, rippleScale, 1);
+      } else {
+        rippleRingMesh.visible = false;
+      }
+
+      if (holoAlpha > 0.01) {
+        hologramGroup.visible = true;
+        beamUniforms.uTime.value = fountainClock;
+        beamUniforms.uAlpha.value = holoAlpha;
+
+        // Smoothly project the 3D Hologram Canvas Plane upward out of the water & face Harsha
+        const riseEase = 1.0 - Math.pow(1.0 - holoAlpha, 3);
+        const bobOffset = Math.sin(fountainClock * 2.1) * 0.07;
+        hologramPortraitPivot.position.y =
+          THREE.MathUtils.lerp(0.65, 2.15, riseEase) + bobOffset;
+        const scaleEase = THREE.MathUtils.lerp(0.55, 1.0, riseEase);
+        hologramPortraitPivot.scale.setScalar(scaleEase);
+
+        const lookYaw = Math.atan2(
+          playerPos.x - nav.originX,
+          playerPos.z - nav.originZ,
+        );
+        hologramPortraitPivot.rotation.y = lookYaw;
+
+        hologramBackdropMat.opacity = holoAlpha * 0.86;
+        hologramPlaneMat.opacity =
+          holoAlpha * (0.42 + 0.12 * Math.sin(fountainClock * 4.2));
+
+        // Orbiting Heart Sparkles & Micro-Confetti Particles
+        blossomSparklesGroup.visible = true;
+        cyanSparkleMat.opacity = holoAlpha * 0.9;
+        roseConfettiMat.opacity = holoAlpha * 0.9;
+        for (let i = 0; i < hologramParticles.length; i++) {
+          const p = hologramParticles[i];
+          const ang = p.baseAngle + fountainClock * p.speed;
+          const lift = ((p.baseY + fountainClock * 0.55) % 2.8) * riseEase;
+          const radialPulse = p.radius + Math.sin(fountainClock * 2.4 + i) * 0.12;
+          p.mesh.position.set(
+            Math.cos(ang) * radialPulse,
+            0.35 + lift,
+            Math.sin(ang) * radialPulse,
+          );
+          p.mesh.rotation.y = ang + fountainClock * 1.8;
+          p.mesh.rotation.x = Math.sin(fountainClock * 2.2 + i) * 0.45;
+        }
+      } else {
+        hologramGroup.visible = false;
+        blossomSparklesGroup.visible = false;
+      }
 
       // Animate Elevator Cabin Y and Doors
       cabinGroup.position.y = nav.elevatorCabinY - nav.baseY;

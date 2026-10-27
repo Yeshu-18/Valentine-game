@@ -3419,6 +3419,14 @@ export function createWizardingSchoolSystem(): WizardingSchoolBundle {
         stepTimer += dt;
         seqTimer += dt;
         updateStationVirtualAnimationTimes();
+      } else {
+        const distToKeep = Math.hypot(
+          playerWorldPos.x - CASTLE_GATE_POS.x,
+          playerWorldPos.z - CASTLE_GATE_POS.z,
+        );
+        if (distToKeep > 90.0) {
+          return;
+        }
       }
 
       // 1. Update Enchanted Starry Night Ceiling & Pensieve Shaders
@@ -3711,8 +3719,8 @@ export function createWizardingSchoolSystem(): WizardingSchoolBundle {
         // Idle Compendium: every ~15s pages flutter, one page turns itself, tiny golden letters appear
         const idleBookCycle = elapsedTime % 15.0;
         const isFluttering = idleBookCycle > 11.5 && idleBookCycle < 14.0;
-        dynamicCompendium.renderPages(-1, isFluttering, elapsedTime);
         if (isFluttering) {
+          dynamicCompendium.renderPages(-1, true, elapsedTime);
           const uTurn = smoothstep01((idleBookCycle - 11.5) / 2.5);
           turningLeafPivot.rotation.z = uTurn * Math.PI;
         } else {
@@ -3725,8 +3733,6 @@ export function createWizardingSchoolSystem(): WizardingSchoolBundle {
       // ======================================================================
       if (mirrorSeqTime >= 0) {
         dynamicMirror.renderMirror(mirrorSeqTime, true, elapsedTime);
-      } else {
-        dynamicMirror.renderMirror(0, false, elapsedTime);
       }
 
       // ======================================================================

@@ -84,6 +84,7 @@ export interface PlayerTelemetry {
   carnivalOverlay: CarnivalActiveOverlay | null;
   carnivalPrizesCount: number;
   castlePrompt: string | null;
+  castleFountainCaption: string | null;
 }
 
 export interface PlayerControllerBundle {
@@ -102,6 +103,16 @@ export interface PlayerControllerBundle {
   advanceDialogue: () => void;
   skipDialogueOrCinematic: () => void;
   getTelemetry: () => PlayerTelemetry;
+  getFastHudState: () => {
+    x: number;
+    y: number;
+    z: number;
+    speed: number;
+    altitudeAboveGround: number;
+    statusLabel: string;
+    isFlyingOrMounting: boolean;
+  };
+  isCompletelyIdle: () => boolean;
   getPosition: () => THREE.Vector3;
   dispose: () => void;
 }
@@ -109,6 +120,7 @@ export interface PlayerControllerBundle {
 const _forward = new THREE.Vector3();
 const _right = new THREE.Vector3();
 const _moveDir = new THREE.Vector3();
+const _targetVelocity = new THREE.Vector3();
 const _desiredCamPos = new THREE.Vector3();
 const _desiredLookAt = new THREE.Vector3();
 const _broomWorldPos = new THREE.Vector3();
@@ -184,12 +196,14 @@ export function createPlayerController(
   let verticalVel = 0;
   let isGrounded = true;
 
-  // Input state
+  // Input & idle state
   const keys = new Set<string>();
   let isDragging = false;
   let isPointerLocked = false;
   let lastPointerX = 0;
   let lastPointerY = 0;
+  let idleTimer = 0;
+  let smoothedFrameDt = 1 / 60;
 
   let telemetryTimer = 0;
   let wasCarnivalActive = false;
@@ -201,6 +215,68 @@ export function createPlayerController(
   const WALK_DECEL = 10.5;
   const PLAYER_RADIUS = 0.48;
   const EYE_HEIGHT = 1.66;
+
+  // ==========================================================================
+  // 2D SPATIAL HASH GRID FOR FAST O(1) COLLIDER QUERIES (Cell Size = 12.0m)
+  // ==========================================================================
+  const SPATIAL_CELL_SIZE = 12.0;
+  const spatialGrid = new Map<number, CircleCollider[]>();
+  const _nearbyColliders: CircleCollider[] = [];
+  const _visitedColliders = new Set<CircleCollider>();
+
+  function getSpatialHashKey(cx: number, cz: number): number {
+    return ((cx & 0xffff) << 16) | (cz & 0xffff);
+  }
+
+  for (let i = 0; i < colliders.length; i++) {
+    const c = colliders[i];
+    const reach = c.radius + 1.5;
+    const minCx = Math.floor((c.x - reach) / SPATIAL_CELL_SIZE);
+    const maxCx = Math.floor((c.x + reach) / SPATIAL_CELL_SIZE);
+    const minCz = Math.floor((c.z - reach) / SPATIAL_CELL_SIZE);
+    const maxCz = Math.floor((c.z + reach) / SPATIAL_CELL_SIZE);
+
+    for (let cx = minCx; cx <= maxCx; cx++) {
+      for (let cz = minCz; cz <= maxCz; cz++) {
+        const key = getSpatialHashKey(cx, cz);
+        let bucket = spatialGrid.get(key);
+        if (!bucket) {
+          bucket = [];
+          spatialGrid.set(key, bucket);
+        }
+        bucket.push(c);
+      }
+    }
+  }
+
+  function queryNearbyColliders(wx: number, wz: number): CircleCollider[] {
+    _nearbyColliders.length = 0;
+    _visitedColliders.clear();
+    const baseCx = Math.floor(wx / SPATIAL_CELL_SIZE);
+    const baseCz = Math.floor(wz / SPATIAL_CELL_SIZE);
+
+    for (let dx = -1; dx <= 1; dx++) {
+      for (let dz = -1; dz <= 1; dz++) {
+        const bucket = spatialGrid.get(getSpatialHashKey(baseCx + dx, baseCz + dz));
+        if (!bucket) continue;
+        for (let i = 0; i < bucket.length; i++) {
+          const c = bucket[i];
+          if (!_visitedColliders.has(c)) {
+            _visitedColliders.add(c);
+            _nearbyColliders.push(c);
+          }
+        }
+      }
+    }
+    return _nearbyColliders;
+  }
+
+  const _emptySchoolPrompt: SchoolPromptInfo = {
+    id: 'none',
+    title: '',
+    actionLabel: '',
+  };
+  let lastDiscreteSignature = '';
 
   // Flight Physics Constants (Requirement 2)
   const FLIGHT_CRUISE_SPEED = 15.0; // W = Forward cruise (15 m/s)
@@ -628,24 +704,7 @@ export function createPlayerController(
 
   function triggerCastleAction(): boolean {
     if (locomotionState !== 'walk' || !dreamCastle) return false;
-    const prompt = dreamCastle.getProximityPrompt(playerPos);
-    if (!prompt) return false;
-
-    if (prompt.action === 'door') {
-      dreamCastle.nav.openEntranceDoors();
-      onTelemetryChange?.(buildTelemetry());
-      return true;
-    }
-    if (prompt.action === 'call_elevator') {
-      const callInfo = dreamCastle.nav.isNearElevatorFloorCall(playerPos);
-      if (callInfo) {
-        dreamCastle.nav.callElevatorToFloor(callInfo.floor.id);
-        onTelemetryChange?.(buildTelemetry());
-        return true;
-      }
-    }
-    if (prompt.action === 'telescope') {
-      dreamCastle.nav.triggerRooftopPanoramicPan(playerPos);
+    if (dreamCastle.interact(playerPos)) {
       onTelemetryChange?.(buildTelemetry());
       return true;
     }
@@ -707,15 +766,20 @@ export function createPlayerController(
       return;
     }
     keys.add(e.code);
+    idleTimer = 0;
+
+    // Decouple input polling from browser key-repeat events:
+    // Continuous movement is read from `keys` Set every frame; discrete actions ignore repeat events.
+    if (e.repeat) {
+      return;
+    }
 
     // Master Dialogue / Cinematic Input Rules:
     // - Enter advances one dialogue line (never auto-advances, ignores held key repeat)
     // - Esc immediately skips the active dialogue/cinematic sequence and restores gameplay
     if (e.code === 'Enter' || e.code === 'NumpadEnter') {
-      if (!e.repeat) {
-        e.preventDefault();
-        handleAdvanceDialogue();
-      }
+      e.preventDefault();
+      handleAdvanceDialogue();
       return;
     }
 
@@ -788,7 +852,7 @@ export function createPlayerController(
         onTelemetryChange?.(buildTelemetry());
         return;
       }
-      if (e.code === 'Digit0' || e.code === 'Numpad0') {
+      if (e.code === 'Digit0' || e.code === 'Numpad0' || e.code === 'KeyB') {
         e.preventDefault();
         dreamCastle.handleElevatorFloorSelect(-1);
         onTelemetryChange?.(buildTelemetry());
@@ -823,8 +887,14 @@ export function createPlayerController(
     keys.delete(e.code);
   };
 
+  const onWindowBlur = () => {
+    keys.clear();
+    isDragging = false;
+  };
+
   const onPointerDown = (e: PointerEvent) => {
     if (e.button !== 0) return;
+    idleTimer = 0;
     if (carnivalDistrict.isActive()) {
       performCarnivalGameAction();
     }
@@ -837,6 +907,7 @@ export function createPlayerController(
   let lastFreeMouseY: number | null = null;
 
   const onPointerMove = (e: PointerEvent) => {
+    idleTimer = 0;
     if (auroraCinematic.isActive()) {
       if (isPointerLocked) {
         auroraCinematic.applyMouseLookDelta(e.movementX, e.movementY);
@@ -941,6 +1012,7 @@ export function createPlayerController(
 
   window.addEventListener('keydown', onKeyDown);
   window.addEventListener('keyup', onKeyUp);
+  window.addEventListener('blur', onWindowBlur);
   domElement.addEventListener('pointerdown', onPointerDown);
   window.addEventListener('pointermove', onPointerMove);
   window.addEventListener('pointerup', onPointerUp);
@@ -1015,16 +1087,51 @@ export function createPlayerController(
       broomPromptMode = 'returning';
     }
 
-    const mysteryPromptMode = mysteryBox.getPromptMode(
-      playerPos,
-      locomotionState === 'walk',
+    // District Bounding-Radius Gated Proximity Checks
+    const isWalk = locomotionState === 'walk';
+    const distToTerrace = Math.hypot(
+      playerPos.x - CASTLE_TERRACE_POS.x,
+      playerPos.z - CASTLE_TERRACE_POS.z,
     );
+    const mysteryPromptMode: MysteryPromptMode =
+      isWalk && distToTerrace <= 30.0
+        ? mysteryBox.getPromptMode(playerPos, true)
+        : 'none';
+
     const gState = mysteryBox.getGateState();
-    const schoolPrompt = wizardingSchool.getPromptInfo(
-      playerPos,
-      locomotionState === 'walk',
-      gState === 'OPEN' || gState === 'UNLOCKING',
-    );
+    const isNearSchoolOrForest =
+      (playerPos.z > 8.0 && playerPos.x < 35.0) ||
+      wizardingSchool.isDialogueActive();
+    const schoolPrompt: SchoolPromptInfo =
+      isWalk && isNearSchoolOrForest
+        ? wizardingSchool.getPromptInfo(
+            playerPos,
+            true,
+            gState === 'OPEN' || gState === 'UNLOCKING',
+          )
+        : _emptySchoolPrompt;
+
+    const distToAurora = Math.hypot(playerPos.x - 0.0, playerPos.z - 58.0);
+    const auroraPrompt =
+      isWalk && distToAurora <= 28.0
+        ? auroraCinematic.getInteractionPrompt(playerPos)
+        : null;
+
+    const distToCarnival = Math.hypot(playerPos.x - 2.0, playerPos.z - (-62.0));
+    const carnivalPrompt =
+      isWalk && distToCarnival <= 58.0 && !auroraCinematic.isActive()
+        ? carnivalDistrict.getProximityPrompt(playerPos)
+        : null;
+
+    const distToDreamCastle = Math.hypot(playerPos.x - 88.0, playerPos.z - 18.0);
+    const castlePrompt =
+      isWalk && dreamCastle && distToDreamCastle <= 32.0
+        ? dreamCastle.getProximityPrompt(playerPos)?.prompt ?? null
+        : null;
+    const castleFountainCaption =
+      isWalk && dreamCastle && distToDreamCastle <= 25.0
+        ? dreamCastle.nav.getActiveFountainCaption()
+        : null;
 
     const horizSpeed =
       locomotionState === 'flight'
@@ -1038,7 +1145,7 @@ export function createPlayerController(
       speed: Math.round(horizSpeed * 10) / 10,
       altitudeAboveGround: Math.round(altitudeAboveGround * 10) / 10,
       isSprinting:
-        locomotionState === 'walk' &&
+        isWalk &&
         (keys.has('ShiftLeft') || keys.has('ShiftRight')) &&
         horizSpeed > 0.5,
       isBoosting:
@@ -1057,26 +1164,115 @@ export function createPlayerController(
       castleGateState: gState,
       castleAwaitsBanner: mysteryBox.isCastleAwaitsVisible(),
       cinematicTime: Math.round(currentCinematicTime * 10) / 10,
-      isOverCastleTerrace: magicFlight.isOverCastleTerrace(playerPos),
+      isOverCastleTerrace:
+        locomotionState === 'flight' && distToTerrace <= CASTLE_TERRACE_POS.radius + 6.0
+          ? magicFlight.isOverCastleTerrace(playerPos)
+          : false,
       cameraMode,
       cameraDistance: Math.round(targetCameraDistance * 10) / 10,
       regionName: currentRegion.name,
       regionSubtitle: currentRegion.subtitle,
       isPointerLocked,
-      auroraPrompt:
-        locomotionState === 'walk'
-          ? auroraCinematic.getInteractionPrompt(playerPos)
-          : null,
-      carnivalPrompt:
-        locomotionState === 'walk' && !auroraCinematic.isActive()
-          ? carnivalDistrict.getProximityPrompt(playerPos)
-          : null,
+      auroraPrompt,
+      carnivalPrompt,
       carnivalOverlay: carnivalDistrict.getActiveOverlay(),
       carnivalPrizesCount: carnivalDistrict.getEarnedPrizeIds().length,
-      castlePrompt:
-        locomotionState === 'walk' && dreamCastle
-          ? dreamCastle.getProximityPrompt(playerPos)?.prompt ?? null
-          : null,
+      castlePrompt,
+      castleFountainCaption,
+    };
+  }
+
+  function emitTelemetryIfDiscreteChanged(force = false) {
+    if (!onTelemetryChange) return;
+    const next = buildTelemetry();
+    const ov = next.carnivalOverlay;
+    const meterBucket =
+      ov && typeof ov.powerMeter === 'number'
+        ? Math.round(ov.powerMeter * 25)
+        : -1;
+    const sig = [
+      next.locomotionState,
+      next.broomState,
+      next.broomPromptMode,
+      next.mysteryPromptMode,
+      next.mysteryCaption?.line ?? '',
+      next.mysteryCaption?.stepIndex ?? -1,
+      next.flightCaption?.line ?? '',
+      next.flightCaption?.stepIndex ?? -1,
+      next.schoolPrompt.id,
+      next.schoolPrompt.actionLabel,
+      next.schoolBanner?.title ?? '',
+      next.schoolBanner?.message ?? '',
+      next.schoolBanner?.stepIndex ?? -1,
+      next.hasHarshaKey ? 1 : 0,
+      next.castleGateState,
+      next.castleAwaitsBanner ? 1 : 0,
+      next.isOverCastleTerrace ? 1 : 0,
+      next.cameraMode,
+      next.cameraDistance,
+      next.regionName,
+      next.isPointerLocked ? 1 : 0,
+      next.auroraPrompt ?? '',
+      next.carnivalPrompt?.attractionId ?? '',
+      next.carnivalPrompt?.verb ?? '',
+      ov?.title ?? '',
+      ov?.state ?? '',
+      ov?.captionLine ?? '',
+      ov?.progressText ?? '',
+      ov?.instruction ?? '',
+      ov?.prizeName ?? '',
+      ov?.showReticle ? 1 : 0,
+      ov?.reticleHovered ? 1 : 0,
+      ov?.requiresEnterToContinue ? 1 : 0,
+      meterBucket,
+      next.carnivalPrizesCount,
+      next.castlePrompt ?? '',
+      next.castleFountainCaption ?? '',
+    ].join('|');
+
+    if (force || sig !== lastDiscreteSignature) {
+      lastDiscreteSignature = sig;
+      onTelemetryChange(next);
+    }
+  }
+
+  function getFastHudState() {
+    const groundY = getTerrainHeight(playerPos.x, playerPos.z);
+    const altitudeAboveGround = Math.max(0, playerPos.y - groundY);
+    const horizSpeed =
+      locomotionState === 'flight'
+        ? Math.hypot(flightForwardSpeed, flightVerticalSpeed)
+        : Math.hypot(playerVelocity.x, playerVelocity.z);
+    const isSprinting =
+      locomotionState === 'walk' &&
+      (keys.has('ShiftLeft') || keys.has('ShiftRight')) &&
+      horizSpeed > 0.5;
+    const isBoosting =
+      locomotionState === 'flight' &&
+      (keys.has('ShiftLeft') || keys.has('ShiftRight')) &&
+      flightForwardSpeed > 15.5;
+    const statusLabel =
+      locomotionState === 'flight'
+        ? isBoosting
+          ? 'Broom Boost (22 m/s)'
+          : 'Broom Flight'
+        : locomotionState === 'mounting'
+          ? 'Mounting Broom'
+          : isSprinting
+            ? 'Sprinting'
+            : horizSpeed > 0.3
+              ? 'Walking'
+              : 'Standing';
+
+    return {
+      x: playerPos.x,
+      y: playerPos.y,
+      z: playerPos.z,
+      speed: horizSpeed,
+      altitudeAboveGround,
+      statusLabel,
+      isFlyingOrMounting:
+        locomotionState === 'flight' || locomotionState === 'mounting',
     };
   }
 
@@ -1095,14 +1291,18 @@ export function createPlayerController(
     advanceDialogue: handleAdvanceDialogue,
     skipDialogueOrCinematic: handleSkipDialogueOrCinematic,
     getTelemetry: buildTelemetry,
+    getFastHudState,
+    isCompletelyIdle: () => idleTimer > 1.0,
     getPosition: () => playerPos,
 
     update(rawDelta: number, elapsedTime: number) {
-      const dt = Math.min(rawDelta, 0.05);
+      const smoothDt = Math.min(rawDelta, 0.05);
+      smoothedFrameDt = THREE.MathUtils.lerp(smoothedFrameDt, smoothDt, 0.42);
+      const dt = smoothedFrameDt;
       currentElapsedTime = elapsedTime;
 
-      auroraCinematic.update(dt, elapsedTime);
-      carnivalDistrict.update(dt, elapsedTime, playerPos, camera, keys);
+      auroraCinematic.update(smoothDt, elapsedTime);
+      carnivalDistrict.update(smoothDt, elapsedTime, playerPos, camera, keys);
 
       const isCarnivalActive = carnivalDistrict.isActive();
       if (wasCarnivalActive && !isCarnivalActive) {
@@ -1134,7 +1334,7 @@ export function createPlayerController(
             focus.isSitting,
           );
         }
-        onTelemetryChange?.(buildTelemetry());
+        emitTelemetryIfDiscreteChanged();
         return;
       }
 
@@ -1168,7 +1368,7 @@ export function createPlayerController(
           );
         }
         currentRegion = getRegionAtPosition(playerPos.x, playerPos.z);
-        onTelemetryChange?.(buildTelemetry());
+        emitTelemetryIfDiscreteChanged();
         return;
       }
 
@@ -1395,9 +1595,10 @@ export function createPlayerController(
           ISLAND_BOUNDS.maxZ - 6,
         );
 
-        // 6. Cylinder Obstacle Sliding (Keep spires, trees, etc.)
-        for (let i = 0; i < colliders.length; i++) {
-          const c = colliders[i];
+        // 6. Cylinder Obstacle Sliding via 2D Spatial Hash Grid
+        const flightNearby = queryNearbyColliders(playerPos.x, playerPos.z);
+        for (let i = 0; i < flightNearby.length; i++) {
+          const c = flightNearby[i];
           const dx = playerPos.x - c.x;
           const dz = playerPos.z - c.z;
           const dist = Math.hypot(dx, dz);
@@ -1564,36 +1765,21 @@ export function createPlayerController(
         if (hasInput) {
           _moveDir.normalize();
           const maxSpeed = isSprinting ? SPRINT_SPEED : WALK_SPEED;
-          const targetVx = _moveDir.x * maxSpeed;
-          const targetVz = _moveDir.z * maxSpeed;
-
-          playerVelocity.x = THREE.MathUtils.lerp(
-            playerVelocity.x,
-            targetVx,
-            1 - Math.exp(-WALK_ACCEL * dt),
-          );
-          playerVelocity.z = THREE.MathUtils.lerp(
-            playerVelocity.z,
-            targetVz,
-            1 - Math.exp(-WALK_ACCEL * dt),
-          );
+          _targetVelocity.set(_moveDir.x * maxSpeed, 0, _moveDir.z * maxSpeed);
 
           const targetFacing = Math.atan2(_moveDir.x, _moveDir.z);
           const diff = wrapAnglePi(targetFacing - facingYaw);
           facingYaw = wrapAnglePi(
-            facingYaw + diff * (1 - Math.exp(-12.0 * dt)),
+            facingYaw + diff * (1 - Math.exp(-12.0 * smoothDt)),
           );
         } else {
-          playerVelocity.x = THREE.MathUtils.lerp(
-            playerVelocity.x,
-            0,
-            1 - Math.exp(-WALK_DECEL * dt),
-          );
-          playerVelocity.z = THREE.MathUtils.lerp(
-            playerVelocity.z,
-            0,
-            1 - Math.exp(-WALK_DECEL * dt),
-          );
+          _targetVelocity.set(0, 0, 0);
+        }
+
+        // Smooth player velocity transitions using organic exponential dampening
+        playerVelocity.lerp(_targetVelocity, 1 - Math.exp(-14 * smoothDt));
+        if (!hasInput && playerVelocity.lengthSq() < 0.0001) {
+          playerVelocity.set(0, 0, 0);
         }
 
         const nextX = playerPos.x + playerVelocity.x * dt;
@@ -1614,8 +1800,9 @@ export function createPlayerController(
           playerVelocity.z = 0;
         }
 
-        for (let i = 0; i < colliders.length; i++) {
-          const c = colliders[i];
+        const walkNearby = queryNearbyColliders(playerPos.x, playerPos.z);
+        for (let i = 0; i < walkNearby.length; i++) {
+          const c = walkNearby[i];
           const dx = playerPos.x - c.x;
           const dz = playerPos.z - c.z;
           const dist = Math.hypot(dx, dz);
@@ -1625,6 +1812,11 @@ export function createPlayerController(
             playerPos.x += (dx / dist) * push;
             playerPos.z += (dz / dist) * push;
           }
+        }
+
+        // Enforce solid temporary box collision barrier across closed Castle Entrance Doors
+        if (dreamCastle) {
+          dreamCastle.nav.resolveEntranceDoorBarrier(playerPos, PLAYER_RADIUS);
         }
 
         const groundY = getTerrainHeight(playerPos.x, playerPos.z);
@@ -1667,9 +1859,19 @@ export function createPlayerController(
           kissAlpha,
         );
 
+        const isCastleEntranceFraming =
+          dreamCastle?.nav.isWithinEntranceFramingZone(playerPos) ?? false;
+        const isRidingCastleElevator =
+          dreamCastle?.nav.isInsideElevatorCabin(playerPos) ?? false;
+        const framingDistanceBonus = isCastleEntranceFraming
+          ? 1.35
+          : isRidingCastleElevator
+            ? 0.85
+            : 0.0;
+
         currentCameraDistance = THREE.MathUtils.lerp(
           currentCameraDistance,
-          targetCameraDistance,
+          targetCameraDistance + framingDistanceBonus,
           1 - Math.exp(-10 * dt),
         );
 
@@ -1710,7 +1912,11 @@ export function createPlayerController(
             _desiredCamPos.y = camSurface + 0.75;
           }
 
-          _desiredLookAt.set(playerPos.x, playerPos.y + 1.38, playerPos.z);
+          _desiredLookAt.set(
+            playerPos.x,
+            playerPos.y + (isCastleEntranceFraming ? 1.85 : 1.38),
+            playerPos.z,
+          );
 
           // Gentle non-locking camera focus when watching Sorting Hat, Compendium 3D pages, Mirror of Desire, or Lake Memory
           if (lakeMemoryActive || (!hasInput && !isDragging)) {
@@ -1786,11 +1992,10 @@ export function createPlayerController(
         }
       }
 
-      // Advance the MagicFlight, MagicMysteryBox, WizardingSchool, CarnivalDistrict & DreamCastle systems
+      // Advance the MagicFlight, MagicMysteryBox, WizardingSchool & DreamCastle systems
       magicFlight.update(dt, elapsedTime);
       mysteryBox.update(dt, elapsedTime);
       wizardingSchool.update(dt, elapsedTime, playerPos);
-      carnivalDistrict.update(dt, elapsedTime, playerPos, camera, keys);
       if (dreamCastle) {
         dreamCastle.update(dt, playerPos);
       }
@@ -1803,17 +2008,38 @@ export function createPlayerController(
         }
       }
 
-      telemetryTimer += dt;
+      // Track idle state (player standing completely still with no camera/input/cinematic activity)
+      const isStandingStill =
+        locomotionState === 'walk' &&
+        keys.size === 0 &&
+        !isDragging &&
+        currentElapsedTime - lastMouseMoveElapsed > 0.35 &&
+        playerVelocity.lengthSq() < 0.0004 &&
+        isGrounded &&
+        !auroraCinematic.isActive() &&
+        !carnivalDistrict.isActive() &&
+        !wizardingSchool.isDialogueActive() &&
+        !dreamCastle?.nav.activeCameraFocus &&
+        !dreamCastle?.nav.isFountainHologramVisible();
+
+      if (isStandingStill) {
+        idleTimer += smoothDt;
+      } else {
+        idleTimer = 0;
+      }
+
+      telemetryTimer += smoothDt;
       if (telemetryTimer >= 0.08) {
         telemetryTimer = 0;
         currentRegion = getRegionAtPosition(playerPos.x, playerPos.z);
-        onTelemetryChange?.(buildTelemetry());
+        emitTelemetryIfDiscreteChanged();
       }
     },
 
     dispose() {
       window.removeEventListener('keydown', onKeyDown);
       window.removeEventListener('keyup', onKeyUp);
+      window.removeEventListener('blur', onWindowBlur);
       domElement.removeEventListener('pointerdown', onPointerDown);
       window.removeEventListener('pointermove', onPointerMove);
       window.removeEventListener('pointerup', onPointerUp);

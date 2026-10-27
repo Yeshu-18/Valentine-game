@@ -646,6 +646,17 @@ export function createCarnivalDistrict(): CarnivalDistrictBundle {
       camera?: THREE.PerspectiveCamera,
       keys?: Set<string>,
     ): void {
+      // Distance simulation gating when not actively riding/playing
+      if (!activeAttraction && playerPos) {
+        const distToCarnival = Math.hypot(
+          playerPos.x - 2.0,
+          playerPos.z - (-62.0),
+        );
+        if (distToCarnival > 90.0) {
+          return;
+        }
+      }
+
       fx.update(dt);
 
       for (const attr of allAttractions) {
@@ -662,27 +673,49 @@ export function createCarnivalDistrict(): CarnivalDistrictBundle {
         activeAttraction = null;
       }
 
-      if (fullFestoonIlluminated) {
+      if (fullFestoonIlluminated && midwayHubLight.visible) {
         midwayHubLight.intensity = 3.0 + Math.sin(elapsedTime * 2.2) * 0.2;
       }
 
       // Smoothly move the dynamic accent light toward the active attraction (or Carousel when idle)
       if (activeAttraction) {
-        activeSpotLight.position.lerp(
-          new THREE.Vector3(
-            activeAttraction.worldPos.x,
-            activeAttraction.worldPos.y + 3.4,
-            activeAttraction.worldPos.z + 1.2,
-          ),
+        activeSpotLight.position.x = THREE.MathUtils.lerp(
+          activeSpotLight.position.x,
+          activeAttraction.worldPos.x,
           1 - Math.exp(-6 * dt),
         );
-        activeSpotLight.intensity = 2.4;
+        activeSpotLight.position.y = THREE.MathUtils.lerp(
+          activeSpotLight.position.y,
+          activeAttraction.worldPos.y + 3.4,
+          1 - Math.exp(-6 * dt),
+        );
+        activeSpotLight.position.z = THREE.MathUtils.lerp(
+          activeSpotLight.position.z,
+          activeAttraction.worldPos.z + 1.2,
+          1 - Math.exp(-6 * dt),
+        );
+        if (activeSpotLight.visible) {
+          activeSpotLight.intensity = 2.4;
+        }
       } else {
-        activeSpotLight.position.lerp(
-          new THREE.Vector3(11.5, centerGroundY + 4.5, -71.5),
+        activeSpotLight.position.x = THREE.MathUtils.lerp(
+          activeSpotLight.position.x,
+          11.5,
           1 - Math.exp(-3 * dt),
         );
-        activeSpotLight.intensity = 1.8 + Math.sin(elapsedTime * 1.8) * 0.15;
+        activeSpotLight.position.y = THREE.MathUtils.lerp(
+          activeSpotLight.position.y,
+          centerGroundY + 4.5,
+          1 - Math.exp(-3 * dt),
+        );
+        activeSpotLight.position.z = THREE.MathUtils.lerp(
+          activeSpotLight.position.z,
+          -71.5,
+          1 - Math.exp(-3 * dt),
+        );
+        if (activeSpotLight.visible) {
+          activeSpotLight.intensity = 1.8 + Math.sin(elapsedTime * 1.8) * 0.15;
+        }
       }
     },
 

@@ -1089,6 +1089,9 @@ export function createAncientForestSystem(): AncientForestBundle {
   group.add(heartwoodSanctuary.group);
   colliders.push(...heartwoodSanctuary.colliders);
 
+  const forestCenterW = castleLocalToWorld(64.0, 12.0);
+  let forestFrameCounter = 0;
+
   return {
     group,
     colliders,
@@ -1112,6 +1115,11 @@ export function createAncientForestSystem(): AncientForestBundle {
     dynamicLightCount: 9 + heartwoodSanctuary.dynamicLightCount, // Total 10 dynamic PointLights <= 12
 
     getRunePrompt: (playerWorldPos: THREE.Vector3) => {
+      const dist = Math.hypot(
+        playerWorldPos.x - forestCenterW.x,
+        playerWorldPos.z - forestCenterW.z,
+      );
+      if (dist > 85.0) return null;
       const runePrompt = ancientRuins.getRunePrompt(playerWorldPos);
       if (runePrompt) {
         return { ...runePrompt, id: 'f3_rune_stone' as const };
@@ -1152,21 +1160,35 @@ export function createAncientForestSystem(): AncientForestBundle {
       elapsedTime: number,
       playerWorldPos: THREE.Vector3,
     ): void {
-      // 1. Update drifting woodland dust motes in the canopy sunbeams
-      const posAttr = dustGeo.getAttribute(
-        'position',
-      ) as THREE.BufferAttribute;
-      for (let i = 0; i < dustCount; i++) {
-        const b = dustBase[i];
-        const a = elapsedTime * 0.38 + b.phase;
-        posAttr.setXYZ(
-          i,
-          b.wx + Math.cos(a) * b.driftR,
-          b.wy + Math.sin(elapsedTime * 0.55 + b.phase) * 0.28,
-          b.wz + Math.sin(a) * b.driftR,
-        );
+      const distToForest = Math.hypot(
+        playerWorldPos.x - forestCenterW.x,
+        playerWorldPos.z - forestCenterW.z,
+      );
+      const isNarrativeActive =
+        ancientRuins.isDialogueActive() ||
+        heartwoodSanctuary.isLakePhotoActive();
+
+      // Distance Simulation Gating: skip all CPU simulation when > 90m away
+      if (distToForest > 90.0 && !isNarrativeActive) {
+        if (dustPoints.visible) {
+          dustPoints.visible = false;
+        }
+        return;
       }
-      posAttr.needsUpdate = true;
+
+      if (!dustPoints.visible) {
+        dustPoints.visible = true;
+      }
+
+      forestFrameCounter = (forestFrameCounter + 1) % 3;
+      const isMidRange = distToForest > 55.0 && !isNarrativeActive;
+
+      // 1. Zero-Buffer-Upload Dust Mote Drift (moves the Points group transform instead of uploading 240 floats/frame)
+      dustPoints.position.set(
+        Math.cos(elapsedTime * 0.38) * 0.36,
+        Math.sin(elapsedTime * 0.55) * 0.26,
+        Math.sin(elapsedTime * 0.38) * 0.36,
+      );
 
       // 2. Subtle shimmer on canopy sun shafts
       sunbeamMat.opacity = 0.38 + Math.sin(elapsedTime * 0.9) * 0.05;
@@ -1175,17 +1197,20 @@ export function createAncientForestSystem(): AncientForestBundle {
       treeSystem.update(elapsedTime);
       floorSystem.update(elapsedTime);
 
-      // 4. Update F3 systems & audio
-      mushroomGrove.update(dt, elapsedTime, playerWorldPos, audio);
-      ancientRuins.update(dt, elapsedTime, playerWorldPos, audio);
-      forestStream.update(dt, elapsedTime, playerWorldPos, audio);
-      treeDetail.update(dt, elapsedTime);
+      // 4. Update F3 systems & audio (throttled every 3rd frame when 55m-90m away)
+      if (!isMidRange || forestFrameCounter === 0) {
+        const effDt = isMidRange ? dt * 3.0 : dt;
+        mushroomGrove.update(effDt, elapsedTime, playerWorldPos, audio);
+        ancientRuins.update(effDt, elapsedTime, playerWorldPos, audio);
+        forestStream.update(effDt, elapsedTime, playerWorldPos, audio);
+        treeDetail.update(effDt, elapsedTime);
 
-      // 5. Update F4 Wildlife System (Butterflies, Birds, Frogs, Owl, Fireflies, Silhouettes)
-      wildlifeSystem.update(dt, elapsedTime, playerWorldPos, audio);
+        // 5. Update F4 Wildlife System (Butterflies, Birds, Frogs, Owl, Fireflies, Silhouettes)
+        wildlifeSystem.update(effDt, elapsedTime, playerWorldPos, audio);
 
-      // 6. Update F5/F6 Heartwood Sanctuary, Hidden Pool & Lake Reveal System
-      heartwoodSanctuary.update(dt, elapsedTime, playerWorldPos, audio);
+        // 6. Update F5/F6 Heartwood Sanctuary, Hidden Pool & Lake Reveal System
+        heartwoodSanctuary.update(effDt, elapsedTime, playerWorldPos, audio);
+      }
     },
 
     dispose(): void {

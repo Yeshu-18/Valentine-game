@@ -57,6 +57,7 @@ export class CastleNavigationController {
 
   // Cinematic / Camera Focus State
   public activeCameraFocus: {
+    mode: 'entrance' | 'rooftop';
     target: THREE.Vector3;
     position: THREE.Vector3;
     fov?: number;
@@ -66,6 +67,16 @@ export class CastleNavigationController {
 
   public hasTriggeredEntranceReveal: boolean = false;
   public hasTriggeredRooftopReveal: boolean = false;
+
+  // Fountain Ripple & Hologram Projector State
+  public fountainRippleTimer: number = 0.0;
+  public fountainRippleDuration: number = 7.0;
+  public fountainHologramActive: boolean = false;
+  public fountainHologramTimer: number = 0.0;
+  public fountainHologramDuration: number = 7.0;
+  public fountainHologramAlpha: number = 0.0;
+  public readonly fountainHologramCaption: string =
+    '"Our favorite place in the world is right beside you. ♡"';
 
   // Audio cues
   private audioCtx: AudioContext | null = null;
@@ -103,6 +114,36 @@ export class CastleNavigationController {
       gain.connect(this.audioCtx.destination);
       osc.start(now);
       osc.stop(now + 0.7);
+    } catch {
+      // Audio fallback
+    }
+  }
+
+  public playMusicBoxMelody() {
+    try {
+      this.initAudio();
+      if (!this.audioCtx) return;
+      if (this.audioCtx.state === 'suspended') {
+        this.audioCtx.resume();
+      }
+      const now = this.audioCtx.currentTime;
+      // Gentle romantic music-box arpeggio (C5 - E5 - G5 - B5 - C6 - E6)
+      const notes = [523.25, 659.25, 783.99, 987.77, 1046.5, 1318.5];
+      notes.forEach((freq, idx) => {
+        if (!this.audioCtx) return;
+        const start = now + idx * 0.16;
+        const osc = this.audioCtx.createOscillator();
+        const gain = this.audioCtx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(freq, start);
+        gain.gain.setValueAtTime(0.001, start);
+        gain.gain.linearRampToValueAtTime(0.065, start + 0.025);
+        gain.gain.exponentialRampToValueAtTime(0.0008, start + 1.15);
+        osc.connect(gain);
+        gain.connect(this.audioCtx.destination);
+        osc.start(start);
+        osc.stop(start + 1.2);
+      });
     } catch {
       // Audio fallback
     }
@@ -151,10 +192,87 @@ export class CastleNavigationController {
     return Math.abs(lx) <= 22.0 && Math.abs(lz) <= 22.0;
   }
 
+  /**
+   * Solid temporary box collision barrier across the doorway threshold while doorState === 'CLOSED'.
+   * Immediately stops blocking once the player presses E and doorState transitions to 'OPENING' / 'OPEN'.
+   */
+  public resolveEntranceDoorBarrier(playerPos: THREE.Vector3, playerRadius = 0.42): boolean {
+    if (this.doorState !== 'CLOSED') {
+      return false;
+    }
+    if (Math.abs(playerPos.y - (this.baseY + 0.25)) > 4.2) {
+      return false;
+    }
+    const { lx, lz } = this.worldToLocal(playerPos.x, playerPos.z);
+    const boxMinX = -2.35;
+    const boxMaxX = 2.35;
+    const boxMinZ = -16.48;
+    const boxMaxZ = -15.52;
+
+    const closestX = THREE.MathUtils.clamp(lx, boxMinX, boxMaxX);
+    const closestZ = THREE.MathUtils.clamp(lz, boxMinZ, boxMaxZ);
+    const dx = lx - closestX;
+    const dz = lz - closestZ;
+    const distSq = dx * dx + dz * dz;
+
+    if (distSq < playerRadius * playerRadius) {
+      // Push player out along Z (toward exterior porch or interior)
+      if (lz <= this.doorCenterLocalZ) {
+        playerPos.z = this.originZ + (boxMinZ - playerRadius);
+      } else {
+        playerPos.z = this.originZ + (boxMaxZ + playerRadius);
+      }
+      return true;
+    }
+    return false;
+  }
+
   public isNearEntranceDoors(playerPos: THREE.Vector3): boolean {
     const { lx, lz } = this.worldToLocal(playerPos.x, playerPos.z);
     const dist = Math.hypot(lx - this.doorCenterLocalX, lz - this.doorCenterLocalZ);
     return dist <= this.doorProximityRange && Math.abs(playerPos.y - (this.baseY + 0.25)) <= 3.5;
+  }
+
+  public isWithinEntranceFramingZone(playerPos: THREE.Vector3): boolean {
+    const { lx, lz } = this.worldToLocal(playerPos.x, playerPos.z);
+    const dist = Math.hypot(lx - this.doorCenterLocalX, lz - this.doorCenterLocalZ);
+    return dist <= 9.8 && lz <= -14.5 && Math.abs(playerPos.y - (this.baseY + 0.25)) <= 4.0;
+  }
+
+  /**
+   * Checks if player is within 2.2m of the central marble fountain basin (radius 2.9m -> center dist <= 5.1m).
+   */
+  public isNearFountain(playerPos: THREE.Vector3): boolean {
+    const { lx, lz } = this.worldToLocal(playerPos.x, playerPos.z);
+    const dist = Math.hypot(lx, lz);
+    return dist <= 5.1 && Math.abs(playerPos.y - (this.baseY + 0.25)) <= 1.8;
+  }
+
+  public triggerFountainRipple(): boolean {
+    if (this.fountainHologramActive && this.fountainHologramTimer < this.fountainHologramDuration - 0.35) {
+      // Pressing E again while active gracefully dissolves the hologram back into water ripples
+      this.fountainHologramActive = false;
+      this.fountainHologramTimer = 0.0;
+      this.fountainRippleTimer = 2.2;
+      this.playChime(659.25, 523.25);
+      return true;
+    }
+    this.fountainHologramActive = true;
+    this.fountainHologramTimer = this.fountainHologramDuration;
+    this.fountainRippleTimer = this.fountainHologramDuration;
+    this.playMusicBoxMelody();
+    return true;
+  }
+
+  public isFountainHologramVisible(): boolean {
+    return this.fountainHologramActive || this.fountainHologramAlpha > 0.01;
+  }
+
+  public getActiveFountainCaption(): string | null {
+    if (this.fountainHologramActive || this.fountainHologramAlpha > 0.15) {
+      return this.fountainHologramCaption;
+    }
+    return null;
   }
 
   public isInsideElevatorCabin(playerPos: THREE.Vector3): boolean {
@@ -203,12 +321,20 @@ export class CastleNavigationController {
     return true;
   }
 
+  public cycleElevatorFloor(): boolean {
+    const order = [1, 2, 3, 4, -1];
+    const idx = order.indexOf(this.elevatorTargetFloorIndex);
+    const nextFloorId = order[(idx + 1) % order.length];
+    return this.callElevatorToFloor(nextFloorId);
+  }
+
   public triggerEntranceCinematicTilt(playerPos: THREE.Vector3) {
     if (this.hasTriggeredEntranceReveal) return;
     this.hasTriggeredEntranceReveal = true;
 
     // Upward tilt showing towering atrium, chandelier, and twin sweeping staircases
     this.activeCameraFocus = {
+      mode: 'entrance',
       position: new THREE.Vector3(playerPos.x, playerPos.y + 1.8, playerPos.z - 2.8),
       target: new THREE.Vector3(this.originX, this.baseY + 9.5, this.originZ + 2.0),
       fov: 64,
@@ -217,14 +343,15 @@ export class CastleNavigationController {
     };
   }
 
-  public triggerRooftopPanoramicPan(playerPos: THREE.Vector3) {
-    if (this.hasTriggeredRooftopReveal) return;
+  public triggerRooftopPanoramicPan(_playerPos: THREE.Vector3, force = false) {
+    if (this.hasTriggeredRooftopReveal && !force) return;
     this.hasTriggeredRooftopReveal = true;
 
-    // Panoramic 360 sweeping pan from the rooftop terrace
+    // Panoramic 3.8s sweeping pan from the rooftop terrace across the island landmarks
     this.activeCameraFocus = {
-      position: new THREE.Vector3(this.originX, this.baseY + 17.5, this.originZ - 5.0),
-      target: new THREE.Vector3(this.originX - 35.0, this.baseY + 12.0, this.originZ + 15.0),
+      mode: 'rooftop',
+      position: new THREE.Vector3(this.originX, this.baseY + 17.8, this.originZ - 6.5),
+      target: new THREE.Vector3(this.originX - 15.5, this.baseY + 26.0, this.originZ - 15.5),
       fov: 65,
       duration: 3.8,
       elapsed: 0,
@@ -236,12 +363,52 @@ export class CastleNavigationController {
   }
 
   public update(delta: number, playerPos: THREE.Vector3) {
+    // 0. Fountain ripple & 7-second hologram projection state machine
+    if (this.fountainRippleTimer > 0) {
+      this.fountainRippleTimer = Math.max(0, this.fountainRippleTimer - delta);
+    }
+
+    if (this.fountainHologramActive) {
+      this.fountainHologramTimer = Math.max(0, this.fountainHologramTimer - delta);
+      const { lx, lz } = this.worldToLocal(playerPos.x, playerPos.z);
+      const distFromFountain = Math.hypot(lx, lz);
+      // Dissolve if 7 seconds elapsed or player walks away from fountain
+      if (
+        this.fountainHologramTimer <= 0 ||
+        distFromFountain > 6.5 ||
+        Math.abs(playerPos.y - (this.baseY + 0.25)) > 2.5
+      ) {
+        this.fountainHologramActive = false;
+        this.fountainHologramTimer = 0;
+      }
+    }
+
+    const shouldShowHologram =
+      this.fountainHologramActive && this.fountainHologramTimer > 0.5;
+    if (shouldShowHologram) {
+      this.fountainHologramAlpha = Math.min(
+        1.0,
+        this.fountainHologramAlpha + delta * 2.2,
+      );
+    } else {
+      this.fountainHologramAlpha = Math.max(
+        0.0,
+        this.fountainHologramAlpha - delta * 1.6,
+      );
+    }
+
     // 1. Door opening state machine
     if (this.doorState === 'OPENING') {
       this.doorOpenRatio = Math.min(1.0, this.doorOpenRatio + delta * 0.65);
-      this.doorHandleAngle = Math.min(0.6, this.doorHandleAngle + delta * 1.8);
+      // Handle rotates down during 0.0s - 0.5s, then springs gently back
+      if (this.doorOpenRatio < 0.35) {
+        this.doorHandleAngle = Math.min(0.65, this.doorHandleAngle + delta * 2.4);
+      } else {
+        this.doorHandleAngle = Math.max(0.0, this.doorHandleAngle - delta * 1.5);
+      }
       if (this.doorOpenRatio >= 1.0) {
         this.doorState = 'OPEN';
+        this.doorHandleAngle = 0.0;
       }
     }
 
@@ -264,6 +431,30 @@ export class CastleNavigationController {
     // Camera cinematic animation progress
     if (this.activeCameraFocus) {
       this.activeCameraFocus.elapsed += delta;
+      if (this.activeCameraFocus.mode === 'rooftop') {
+        // Smoothly sweep target across Castle Spires -> Enchanted Garden -> Central Plaza -> Romantic Carnival -> Aurora Lake -> Sky
+        const t = THREE.MathUtils.clamp(
+          this.activeCameraFocus.elapsed / this.activeCameraFocus.duration,
+          0,
+          1,
+        );
+        const sweepWaypoints = [
+          new THREE.Vector3(this.originX - 15.5, this.baseY + 25.0, this.originZ - 15.5), // Castle Spires
+          new THREE.Vector3(38.0, 12.0, 42.0), // Enchanted Garden
+          new THREE.Vector3(0.0, 11.0, 0.0), // Central Plaza
+          new THREE.Vector3(24.0, 14.0, -56.0), // Romantic Carnival Midway
+          new THREE.Vector3(-42.0, 12.0, -68.0), // Aurora Lake
+          new THREE.Vector3(0.0, 38.0, -30.0), // Starlit Sky above Heart Island
+        ];
+        const scaled = t * (sweepWaypoints.length - 1);
+        const idx = Math.min(Math.floor(scaled), sweepWaypoints.length - 2);
+        const frac = scaled - idx;
+        this.activeCameraFocus.target.lerpVectors(
+          sweepWaypoints[idx],
+          sweepWaypoints[idx + 1],
+          frac,
+        );
+      }
       if (this.activeCameraFocus.elapsed >= this.activeCameraFocus.duration) {
         this.activeCameraFocus = null;
       }

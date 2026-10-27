@@ -56,14 +56,19 @@ interface WoodlandBirdInstance {
   perchB: THREE.Vector3;
   targetPerch: 0 | 1;
   currentPos: THREE.Vector3;
+  flightStart: THREE.Vector3;
+  flightMid: THREE.Vector3;
+  flightEnd: THREE.Vector3;
   isFlying: boolean;
   flightProgress: number;
   flightDuration: number;
-  flightCurve: THREE.CatmullRomCurve3 | null;
   idleTimer: number;
   lookYaw: number;
   colorType: string;
 }
+
+const _tempVecA = new THREE.Vector3();
+const _tempVecB = new THREE.Vector3();
 
 interface WoodlandFrogInstance {
   group: THREE.Group;
@@ -475,10 +480,12 @@ export function createForestWildlifeSystem(): ForestWildlifeBundle {
         perchB: posB,
         targetPerch: bIdx === 0 ? 1 : 0,
         currentPos: startPos.clone(),
+        flightStart: startPos.clone(),
+        flightMid: startPos.clone(),
+        flightEnd: startPos.clone(),
         isFlying: false,
         flightProgress: 0,
         flightDuration: 2.8 + rand() * 1.2,
-        flightCurve: null,
         idleTimer: 8.0 + rand() * 14.0 + (bIdx * 5.0),
         lookYaw: rand() * Math.PI * 2,
         colorType: pairSpec.colorType,
@@ -913,9 +920,10 @@ export function createForestWildlifeSystem(): ForestWildlifeBundle {
       });
 
       // ------------------------------------------------------------------------
-      // 2. UPDATE WOODLAND BIRDS
+      // 2. UPDATE WOODLAND BIRDS (Zero per-frame allocations)
       // ------------------------------------------------------------------------
-      birds.forEach((bird) => {
+      for (let i = 0; i < birds.length; i++) {
+        const bird = birds[i];
         const distToPlayer = bird.currentPos.distanceTo(playerWorldPos);
 
         // Player proximity flight trigger
@@ -926,17 +934,16 @@ export function createForestWildlifeSystem(): ForestWildlifeBundle {
           audio.playBirdChirp(elapsedTime, distToPlayer);
 
           const targetPos = bird.targetPerch === 1 ? bird.perchB : bird.perchA;
-          const midX = (bird.currentPos.x + targetPos.x) * 0.5;
-          const midZ = (bird.currentPos.z + targetPos.z) * 0.5;
-          const midY = Math.max(bird.currentPos.y, targetPos.y) + 2.2;
-          bird.flightCurve = new THREE.CatmullRomCurve3([
-            bird.currentPos.clone(),
-            new THREE.Vector3(midX, midY, midZ),
-            targetPos.clone(),
-          ]);
+          bird.flightStart.copy(bird.currentPos);
+          bird.flightEnd.copy(targetPos);
+          bird.flightMid.set(
+            (bird.currentPos.x + targetPos.x) * 0.5,
+            Math.max(bird.currentPos.y, targetPos.y) + 2.2,
+            (bird.currentPos.z + targetPos.z) * 0.5,
+          );
         }
 
-        if (bird.isFlying && bird.flightCurve) {
+        if (bird.isFlying) {
           bird.flightProgress += dt / bird.flightDuration;
           if (bird.flightProgress >= 1.0) {
             bird.flightProgress = 1.0;
@@ -948,11 +955,26 @@ export function createForestWildlifeSystem(): ForestWildlifeBundle {
             bird.leftWing.rotation.z = 0;
             bird.rightWing.rotation.z = 0;
           } else {
-            const p = bird.flightCurve.getPointAt(bird.flightProgress);
-            const tan = bird.flightCurve.getTangentAt(bird.flightProgress);
-            bird.currentPos.copy(p);
-            bird.group.position.copy(p);
-            bird.group.rotation.y = Math.atan2(tan.x, tan.z);
+            const u = bird.flightProgress;
+            const invU = 1.0 - u;
+            const w0 = invU * invU;
+            const w1 = 2.0 * invU * u;
+            const w2 = u * u;
+
+            _tempVecA.set(
+              w0 * bird.flightStart.x + w1 * bird.flightMid.x + w2 * bird.flightEnd.x,
+              w0 * bird.flightStart.y + w1 * bird.flightMid.y + w2 * bird.flightEnd.y,
+              w0 * bird.flightStart.z + w1 * bird.flightMid.z + w2 * bird.flightEnd.z,
+            );
+            _tempVecB.set(
+              2.0 * invU * (bird.flightMid.x - bird.flightStart.x) + 2.0 * u * (bird.flightEnd.x - bird.flightMid.x),
+              2.0 * invU * (bird.flightMid.y - bird.flightStart.y) + 2.0 * u * (bird.flightEnd.y - bird.flightMid.y),
+              2.0 * invU * (bird.flightMid.z - bird.flightStart.z) + 2.0 * u * (bird.flightEnd.z - bird.flightMid.z),
+            );
+
+            bird.currentPos.copy(_tempVecA);
+            bird.group.position.copy(_tempVecA);
+            bird.group.rotation.y = Math.atan2(_tempVecB.x, _tempVecB.z);
 
             // Flap wings rapidly during flight
             const flap = Math.sin(elapsedTime * 28.0) * 0.65;
@@ -963,18 +985,16 @@ export function createForestWildlifeSystem(): ForestWildlifeBundle {
           // Perched state: periodic tail flick and head glance
           bird.idleTimer -= dt;
           if (bird.idleTimer <= 0) {
-            // Chance to initiate autonomous crossing flight
             bird.isFlying = true;
             bird.flightProgress = 0;
             const targetPos = bird.targetPerch === 1 ? bird.perchB : bird.perchA;
-            const midX = (bird.currentPos.x + targetPos.x) * 0.5;
-            const midZ = (bird.currentPos.z + targetPos.z) * 0.5;
-            const midY = Math.max(bird.currentPos.y, targetPos.y) + 2.4;
-            bird.flightCurve = new THREE.CatmullRomCurve3([
-              bird.currentPos.clone(),
-              new THREE.Vector3(midX, midY, midZ),
-              targetPos.clone(),
-            ]);
+            bird.flightStart.copy(bird.currentPos);
+            bird.flightEnd.copy(targetPos);
+            bird.flightMid.set(
+              (bird.currentPos.x + targetPos.x) * 0.5,
+              Math.max(bird.currentPos.y, targetPos.y) + 2.4,
+              (bird.currentPos.z + targetPos.z) * 0.5,
+            );
             audio.playBirdChirp(elapsedTime, distToPlayer);
           } else {
             // Tiny perched glance
@@ -984,12 +1004,13 @@ export function createForestWildlifeSystem(): ForestWildlifeBundle {
             bird.rightWing.rotation.z = -Math.sin(elapsedTime * 3.5) * 0.04;
           }
         }
-      });
+      }
 
       // ------------------------------------------------------------------------
       // 3. UPDATE WOODLAND FROGS
       // ------------------------------------------------------------------------
-      frogs.forEach((frog) => {
+      for (let i = 0; i < frogs.length; i++) {
+        const frog = frogs[i];
         const distToPlayer = frog.currentPos.distanceTo(playerWorldPos);
 
         // Player approach triggers retreat hop toward water
@@ -1034,7 +1055,6 @@ export function createForestWildlifeSystem(): ForestWildlifeBundle {
             frog.isHopping = true;
             frog.hopProgress = 0;
             frog.hopStart.copy(frog.currentPos);
-            // Hop slightly toward or along water margin
             const wanderAng = frog.facingYaw + (Math.sin(elapsedTime) * 0.4);
             const hopDist = 0.45;
             frog.hopTarget.set(
@@ -1045,7 +1065,7 @@ export function createForestWildlifeSystem(): ForestWildlifeBundle {
             frog.hopTarget.y = getTerrainHeight(frog.hopTarget.x, frog.hopTarget.z) + 0.035;
           }
         }
-      });
+      }
 
       // ------------------------------------------------------------------------
       // 4. UPDATE OCCASIONAL OWL
@@ -1060,12 +1080,10 @@ export function createForestWildlifeSystem(): ForestWildlifeBundle {
       owlTurnTimer -= dt;
       if (owlTurnTimer <= 0) {
         owlTurnTimer = 7.0 + Math.abs(Math.sin(elapsedTime * 0.5)) * 8.0;
-        // Turn head left, right, or center
         const pick = (Math.sin(elapsedTime * 1.3) + 1.0) * 0.5;
-        owlTargetYaw = (pick - 0.5) * 1.8; // Up to ±50 degrees
+        owlTargetYaw = (pick - 0.5) * 1.8;
       }
 
-      // If player is close (< 12m), owl tracks player head glance smoothly
       if (distToOwl < 12.0) {
         const dx = playerWorldPos.x - owlPos.x;
         const dz = playerWorldPos.z - owlPos.z;
@@ -1078,44 +1096,50 @@ export function createForestWildlifeSystem(): ForestWildlifeBundle {
       owlHeadGroup.rotation.y = owlLookYaw;
 
       // ------------------------------------------------------------------------
-      // 5. UPDATE FIREFLIES (Organic Bioluminescent Drift & Phase Blinking)
+      // 5. UPDATE FIREFLIES (Gate CPU buffer upload to close range <= 45m)
       // ------------------------------------------------------------------------
-      const posAttr = fireflyGeo.getAttribute('position') as THREE.BufferAttribute;
-      const colAttr = fireflyGeo.getAttribute('color') as THREE.BufferAttribute;
+      if (distToOwl <= 48.0) {
+        const posAttr = fireflyGeo.getAttribute('position') as THREE.BufferAttribute;
+        const colAttr = fireflyGeo.getAttribute('color') as THREE.BufferAttribute;
 
-      for (let i = 0; i < fireflyCount; i++) {
-        const f = firefliesData[i];
-        const t = elapsedTime * f.speed + f.phase;
+        for (let i = 0; i < fireflyCount; i++) {
+          const f = firefliesData[i];
+          const t = elapsedTime * f.speed + f.phase;
 
-        const fx = f.baseX + Math.sin(t * 0.8) * f.radiusX;
-        const fy = f.baseY + Math.sin(t * 1.4) * f.radiusY;
-        const fz = f.baseZ + Math.cos(t * 0.75) * f.radiusZ;
+          const fx = f.baseX + Math.sin(t * 0.8) * f.radiusX;
+          const fy = f.baseY + Math.sin(t * 1.4) * f.radiusY;
+          const fz = f.baseZ + Math.cos(t * 0.75) * f.radiusZ;
 
-        // Subtle displacement away from walking player
-        const distSq = (fx - playerWorldPos.x) ** 2 + (fz - playerWorldPos.z) ** 2;
-        let pushX = 0;
-        let pushZ = 0;
-        if (distSq < 4.0) {
-          const d = Math.sqrt(distSq) || 0.1;
-          const push = (1.0 - d / 2.0) * 0.65;
-          pushX = ((fx - playerWorldPos.x) / d) * push;
-          pushZ = ((fz - playerWorldPos.z) / d) * push;
+          const distSq = (fx - playerWorldPos.x) ** 2 + (fz - playerWorldPos.z) ** 2;
+          let pushX = 0;
+          let pushZ = 0;
+          if (distSq < 4.0) {
+            const d = Math.sqrt(distSq) || 0.1;
+            const push = (1.0 - d / 2.0) * 0.65;
+            pushX = ((fx - playerWorldPos.x) / d) * push;
+            pushZ = ((fz - playerWorldPos.z) / d) * push;
+          }
+
+          posAttr.setXYZ(i, fx + pushX, fy, fz + pushZ);
+
+          const blinkRaw = Math.sin(elapsedTime * 2.4 + f.phase * 3.0);
+          const blink = THREE.MathUtils.clamp(blinkRaw * 2.2 - 0.4, 0.0, 1.0);
+
+          const baseR = f.colorType === 'cyan' ? 0.35 : f.colorType === 'amber' ? 0.98 : 0.72;
+          const baseG = f.colorType === 'cyan' ? 0.88 : f.colorType === 'amber' ? 0.92 : 0.95;
+          const baseB = f.colorType === 'cyan' ? 0.98 : f.colorType === 'amber' ? 0.45 : 0.35;
+
+          colAttr.setXYZ(i, baseR * blink, baseG * blink, baseB * blink);
         }
-
-        posAttr.setXYZ(i, fx + pushX, fy, fz + pushZ);
-
-        // Realistic organic bioluminescent pulse
-        const blinkRaw = Math.sin(elapsedTime * 2.4 + f.phase * 3.0);
-        const blink = THREE.MathUtils.clamp(blinkRaw * 2.2 - 0.4, 0.0, 1.0);
-
-        const baseR = f.colorType === 'cyan' ? 0.35 : f.colorType === 'amber' ? 0.98 : 0.72;
-        const baseG = f.colorType === 'cyan' ? 0.88 : f.colorType === 'amber' ? 0.92 : 0.95;
-        const baseB = f.colorType === 'cyan' ? 0.98 : f.colorType === 'amber' ? 0.45 : 0.35;
-
-        colAttr.setXYZ(i, baseR * blink, baseG * blink, baseB * blink);
+        posAttr.needsUpdate = true;
+        colAttr.needsUpdate = true;
+      } else {
+        fireflyPoints.position.set(
+          Math.sin(elapsedTime * 0.65) * 0.28,
+          Math.cos(elapsedTime * 0.85) * 0.18,
+          Math.cos(elapsedTime * 0.55) * 0.28,
+        );
       }
-      posAttr.needsUpdate = true;
-      colAttr.needsUpdate = true;
 
       // ------------------------------------------------------------------------
       // 6. UPDATE TINY AMBIENT CREATURES (Flee behind cover on approach)

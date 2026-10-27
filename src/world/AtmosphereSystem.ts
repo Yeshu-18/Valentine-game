@@ -1,6 +1,8 @@
 import * as THREE from 'three';
 
 export interface AtmosphereBundle {
+  registerPointLights: () => void;
+  getActivePointLightCount: () => number;
   update: (
     playerPos: THREE.Vector3,
     delta: number,
@@ -10,11 +12,23 @@ export interface AtmosphereBundle {
   dispose: () => void;
 }
 
+interface TrackedPointLight {
+  light: THREE.PointLight | THREE.SpotLight;
+  baseIntensity: number;
+  worldPos: THREE.Vector3;
+  distSq: number;
+}
+
+const MAX_ACTIVE_POINT_LIGHTS = 10;
+const POINT_LIGHT_CULL_RADIUS = 65.0;
+const POINT_LIGHT_CULL_RADIUS_SQ = POINT_LIGHT_CULL_RADIUS * POINT_LIGHT_CULL_RADIUS;
+
 /**
  * M6 Golden-Hour Lighting & Atmosphere System:
  * - Sun at elevation 28°, azimuth 220°: dir = (-0.567, 0.469, -0.676), #ffd9a0, intensity 2.2
  * - Single shadow-casting DirectionalLight, 2048x2048 shadow map, orthographic frustum ±80m
- *   snapped to texel grid to eliminate shadow shimmer during flight & walking
+ *   snapped to texel grid only when player moves > 2.0m
+ * - Dynamic PointLight Distance Culler: caps active PointLights to <= 10 within 65m
  * - HemisphereLight(sky = #ffcaa6, ground = #3a2d4c, intensity = 0.65)
  * - FogExp2(#e8b89a, 0.0018) so the Castle at 280m retains ~60% contrast
  */
@@ -234,10 +248,84 @@ export function createAtmosphereSystem(
   const surfaceFogColor = new THREE.Color('#e8b89a');
   const undergroundVoidColor = new THREE.Color('#01030a');
 
+  // 8. Dynamic PointLight & SpotLight Distance Culler (35 lights -> max 10 active)
+  const trackedLights: TrackedPointLight[] = [];
+  let activePointLightCount = 0;
+  let lightCullTimer = 0.15;
+  const lastShadowSnapPos = new THREE.Vector3(Infinity, Infinity, Infinity);
+  const _spawnPos = new THREE.Vector3(-16.5, 2.5, 16.0);
+
+  function evaluatePointLightCulling(playerPos: THREE.Vector3) {
+    const n = trackedLights.length;
+    if (n === 0) return;
+
+    for (let i = 0; i < n; i++) {
+      const item = trackedLights[i];
+      const e = item.light.matrixWorld.elements;
+      item.worldPos.set(e[12], e[13], e[14]);
+      const dx = item.worldPos.x - playerPos.x;
+      const dy = item.worldPos.y - playerPos.y;
+      const dz = item.worldPos.z - playerPos.z;
+      item.distSq = dx * dx + dy * dy + dz * dz;
+    }
+
+    trackedLights.sort((a, b) => a.distSq - b.distSq);
+
+    let activeCount = 0;
+    for (let i = 0; i < n; i++) {
+      const item = trackedLights[i];
+      if (
+        activeCount < MAX_ACTIVE_POINT_LIGHTS &&
+        item.distSq <= POINT_LIGHT_CULL_RADIUS_SQ &&
+        item.baseIntensity > 0.01
+      ) {
+        const dist = Math.sqrt(item.distSq);
+        const fade = THREE.MathUtils.clamp(1.0 - dist / POINT_LIGHT_CULL_RADIUS, 0.0, 1.0);
+        item.light.visible = true;
+        item.light.intensity = item.baseIntensity * fade;
+        activeCount++;
+      } else {
+        item.light.visible = false;
+      }
+    }
+    activePointLightCount = activeCount;
+  }
+
+  function registerPointLights() {
+    trackedLights.length = 0;
+    scene.updateMatrixWorld(true);
+    scene.traverse((obj) => {
+      if (obj instanceof THREE.PointLight || obj instanceof THREE.SpotLight) {
+        const worldPos = new THREE.Vector3();
+        obj.getWorldPosition(worldPos);
+        const baseIntensity = obj.intensity > 0 ? obj.intensity : 2.2;
+        obj.userData.baseIntensity = baseIntensity;
+        obj.userData.worldPos = worldPos;
+        obj.castShadow = false; // Ensure point lights never allocate cube shadow maps
+        trackedLights.push({
+          light: obj,
+          baseIntensity,
+          worldPos,
+          distSq: 0,
+        });
+      }
+    });
+    evaluatePointLightCulling(_spawnPos);
+  }
+
   return {
-    update(playerPos: THREE.Vector3, _delta: number, elapsedTime: number) {
+    registerPointLights,
+    getActivePointLightCount: () => activePointLightCount,
+    update(playerPos: THREE.Vector3, delta: number, elapsedTime: number) {
       skyUniforms.uTime.value = elapsedTime;
       skyMesh.position.set(playerPos.x, 0, playerPos.z);
+
+      // Periodic Dynamic PointLight Distance Culler (runs every 0.15s)
+      lightCullTimer += delta;
+      if (lightCullTimer >= 0.15) {
+        lightCullTimer = 0;
+        evaluatePointLightCulling(playerPos);
+      }
 
       // Smoothly transition surface golden-hour atmosphere to pitch-dark void when descending underground
       const surfaceFactor = THREE.MathUtils.smoothstep(
@@ -256,20 +344,23 @@ export function createAtmosphereSystem(
       skyMesh.visible = surfaceFactor > 0.01;
       mountainRingGroup.visible = surfaceFactor > 0.01;
 
-      // M6 Shadow camera tracking player snapped to texel grid (160m / currentShadowRes)
-      const texelWorldSize = 160.0 / currentShadowRes;
-      const snappedX =
-        Math.round(playerPos.x / texelWorldSize) * texelWorldSize;
-      const snappedZ =
-        Math.round(playerPos.z / texelWorldSize) * texelWorldSize;
+      // M6 Shadow camera tracking player snapped to texel grid ONLY when player moved > 2.0m (distSq > 4.0)
+      if (playerPos.distanceToSquared(lastShadowSnapPos) > 4.0) {
+        lastShadowSnapPos.copy(playerPos);
+        const texelWorldSize = 160.0 / currentShadowRes;
+        const snappedX =
+          Math.round(playerPos.x / texelWorldSize) * texelWorldSize;
+        const snappedZ =
+          Math.round(playerPos.z / texelWorldSize) * texelWorldSize;
 
-      sunLight.position.set(
-        snappedX + sunOffset.x,
-        sunOffset.y,
-        snappedZ + sunOffset.z,
-      );
-      sunLight.target.position.set(snappedX, 0, snappedZ);
-      sunLight.target.updateMatrixWorld();
+        sunLight.position.set(
+          snappedX + sunOffset.x,
+          sunOffset.y,
+          snappedZ + sunOffset.z,
+        );
+        sunLight.target.position.set(snappedX, 0, snappedZ);
+        sunLight.target.updateMatrixWorld();
+      }
     },
     setShadowResolution,
     dispose() {
