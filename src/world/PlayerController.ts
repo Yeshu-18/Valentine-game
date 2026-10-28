@@ -850,6 +850,7 @@ export function createPlayerController(
         dreamCastle &&
         (dreamCastle.floor3Rooms.handleKeyAction(e.code) ||
           dreamCastle.floor2Rooms.handleKeyAction(e.code) ||
+          dreamCastle.floor2CreativeWing.handleKeyAction(e.key) ||
           dreamCastle.floor1Rooms.handleKeyAction(e.code))
       ) {
         onTelemetryChange?.(buildTelemetry());
@@ -889,6 +890,15 @@ export function createPlayerController(
         if (dreamCastle?.floor2Rooms.getCameraState().active) {
           e.preventDefault();
           dreamCastle.floor2Rooms.exitActiveCameraMode(playerPos);
+          playerVelocity.set(0, 0, 0);
+          verticalVel = 0;
+          isGrounded = true;
+          onTelemetryChange?.(buildTelemetry());
+          return;
+        }
+        if (dreamCastle?.floor2CreativeWing.getCameraState().active) {
+          e.preventDefault();
+          dreamCastle.floor2CreativeWing.interact(playerPos);
           playerVelocity.set(0, 0, 0);
           verticalVel = 0;
           isGrounded = true;
@@ -1001,6 +1011,7 @@ export function createPlayerController(
       dreamCastle &&
       (dreamCastle.floor3Rooms.handleKeyAction(e.code) ||
         dreamCastle.floor2Rooms.handleKeyAction(e.code) ||
+        dreamCastle.floor2CreativeWing.handleKeyAction(e.key) ||
         dreamCastle.floor1Rooms.handleKeyAction(e.code))
     ) {
       e.preventDefault();
@@ -1097,6 +1108,8 @@ export function createPlayerController(
     const isFloor1CamActive = Boolean(floor1Cam?.active);
     const floor2Cam = dreamCastle?.floor2Rooms.getCameraState();
     const isFloor2CamActive = Boolean(floor2Cam?.active);
+    const creativeCam = dreamCastle?.floor2CreativeWing.getCameraState();
+    const isCreativeCamActive = Boolean(creativeCam?.active);
     const floor3Cam = dreamCastle?.floor3Rooms.getCameraState();
     const isFloor3CamActive = Boolean(floor3Cam?.active);
 
@@ -1136,6 +1149,12 @@ export function createPlayerController(
     }
     if (isFloor2CamActive) {
       dreamCastle?.floor2Rooms.applyLookDelta(
+        lookDx * 0.0044,
+        lookDy * 0.0036,
+      );
+    }
+    if (isCreativeCamActive) {
+      dreamCastle?.floor2CreativeWing.applyLookDelta(
         lookDx * 0.0044,
         lookDy * 0.0036,
       );

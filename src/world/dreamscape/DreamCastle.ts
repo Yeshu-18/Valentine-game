@@ -25,6 +25,11 @@ import {
   createCastleFloor3Rooms,
   Floor3CameraState,
 } from './CastleFloor3Rooms';
+import {
+  CastleFloor2CreativeWingBundle,
+  createCastleFloor2CreativeWing,
+  CreativeWingCameraState,
+} from './CastleFloor2CreativeWing';
 import { CastleGardenBundle, createCastleGarden } from './CastleGarden';
 
 export interface DreamCastleBundle {
@@ -35,6 +40,7 @@ export interface DreamCastleBundle {
   nav: CastleNavigationController;
   floor1Rooms: CastleFloor1RoomsBundle;
   floor2Rooms: CastleFloor2RoomsBundle;
+  floor2CreativeWing: CastleFloor2CreativeWingBundle;
   floor3Rooms: CastleFloor3RoomsBundle;
   rearGarden: CastleGardenBundle;
   getSurfaceHeight: (wx: number, wz: number, playerY: number, defaultGroundY: number) => number;
@@ -3701,6 +3707,21 @@ export function createDreamCastle(): DreamCastleBundle {
     cameraOccluders.push(pm);
   }
 
+  const floor2CreativeWing = createCastleFloor2CreativeWing(
+    tracker,
+    mats,
+    nav.originX,
+    nav.baseY,
+    nav.originZ,
+  );
+  group.add(floor2CreativeWing.group);
+  for (const c of floor2CreativeWing.colliders) {
+    colliders.push(c);
+  }
+  for (const pm of floor2CreativeWing.partitionMeshes) {
+    cameraOccluders.push(pm);
+  }
+
   const floor3Rooms = createCastleFloor3Rooms(
     tracker,
     mats,
@@ -3719,6 +3740,7 @@ export function createDreamCastle(): DreamCastleBundle {
   const allInteriorPartitionMeshes: THREE.Mesh[] = [
     ...floor1Rooms.partitionMeshes,
     ...floor2Rooms.partitionMeshes,
+    ...floor2CreativeWing.partitionMeshes,
     ...floor3Rooms.partitionMeshes,
   ];
 
@@ -3774,6 +3796,7 @@ export function createDreamCastle(): DreamCastleBundle {
     nav,
     floor1Rooms,
     floor2Rooms,
+    floor2CreativeWing,
     floor3Rooms,
     rearGarden,
 
@@ -3810,10 +3833,15 @@ export function createDreamCastle(): DreamCastleBundle {
         return _promptFloor3Room;
       }
 
-      // Priority 4: Floor 2 Rooms (Royal Wardrobe, Pop Stage, Dance Studio, Beauty Vanity)
+      // Priority 4: Floor 2 Rooms & Creative Wing
       const room2Prompt = floor2Rooms.getProximityPrompt(playerPos);
       if (room2Prompt) {
         _promptFloor2Room.prompt = room2Prompt;
+        return _promptFloor2Room;
+      }
+      const creativePrompt = floor2CreativeWing.getProximityPrompt(playerPos);
+      if (creativePrompt) {
+        _promptFloor2Room.prompt = creativePrompt;
         return _promptFloor2Room;
       }
 
@@ -3840,6 +3868,9 @@ export function createDreamCastle(): DreamCastleBundle {
         }
         if (floor2Rooms.getCameraState().active) {
           return floor2Rooms.interact(playerPos);
+        }
+        if (floor2CreativeWing.getCameraState().active) {
+          return floor2CreativeWing.interact(playerPos);
         }
         if (floor1Rooms.getCameraState().active) {
           return floor1Rooms.interact(playerPos);
@@ -3869,8 +3900,11 @@ export function createDreamCastle(): DreamCastleBundle {
           return true;
         }
 
-        // Priority 4: Floor 2 Rooms
+        // Priority 4: Floor 2 Rooms & Creative Wing
         if (floor2Rooms.interact(playerPos)) {
+          return true;
+        }
+        if (floor2CreativeWing.interact(playerPos)) {
           return true;
         }
 
@@ -3932,6 +3966,18 @@ export function createDreamCastle(): DreamCastleBundle {
         _cameraFocusOut.seatYaw = room3Cam.seatYaw;
         return _cameraFocusOut;
       }
+      const creativeCam: CreativeWingCameraState = floor2CreativeWing.getCameraState();
+      if (creativeCam.active) {
+        _cameraFocusOut.target = creativeCam.lookWorldPos;
+        _cameraFocusOut.position = creativeCam.camWorldPos;
+        _cameraFocusOut.fov = 55;
+        _cameraFocusOut.blendAlpha = creativeCam.blendAlpha;
+        _cameraFocusOut.isSitting = false;
+        _cameraFocusOut.isFirstPersonSeated = false;
+        _cameraFocusOut.seatWorldPos = undefined;
+        _cameraFocusOut.seatYaw = undefined;
+        return _cameraFocusOut;
+      }
       const room2Cam: Floor2CameraState = floor2Rooms.getCameraState();
       if (room2Cam.active) {
         _cameraFocusOut.target = room2Cam.lookWorldPos;
@@ -3966,6 +4012,7 @@ export function createDreamCastle(): DreamCastleBundle {
 
       floor1Rooms.update(delta, clockVal, playerPos, inputKeys);
       floor2Rooms.update(delta, clockVal, playerPos, inputKeys);
+      floor2CreativeWing.update(delta, clockVal, playerPos, inputKeys);
       floor3Rooms.update(delta, clockVal, playerPos, inputKeys);
       rearGarden.update(delta, clockVal, playerPos);
 

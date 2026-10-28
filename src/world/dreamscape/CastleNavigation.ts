@@ -531,6 +531,19 @@ export class CastleNavigationController {
       this.pushOutLocalBox(pos, -15.5, -12.8, 5.78, 6.22, playerRadius);
       this.pushOutLocalBox(pos, -10.6, -9.2, 5.78, 6.22, playerRadius);
 
+      // Floor 2 East Wing Creative Wing Partition Walls
+      // South-East wall at lz = -6.2 (doorway at lx in [10.8, 13.2])
+      this.pushOutLocalBox(pos, 8.8, 10.8, -6.38, -5.98, playerRadius);
+      this.pushOutLocalBox(pos, 13.2, 15.5, -6.38, -5.98, playerRadius);
+      // North-East wall at lz = +6.2 (doorway at lx in [10.8, 13.2])
+      this.pushOutLocalBox(pos, 8.8, 10.8, 5.98, 6.38, playerRadius);
+      this.pushOutLocalBox(pos, 13.2, 15.5, 5.98, 6.38, playerRadius);
+      // Doll Playroom west wall (lx = 9.2, lz in [6.2, 14.8])
+      this.pushOutLocalBox(pos, 8.95, 9.42, 6.2, 14.8, playerRadius);
+      // Boutique west facade at lx = 8.8 (doorway at lz in [-1.2, +1.2])
+      this.pushOutLocalBox(pos, 8.58, 9.02, -5.8, -1.2, playerRadius);
+      this.pushOutLocalBox(pos, 8.58, 9.02, 1.2, 5.8, playerRadius);
+
       // Floor 2 Central Atrium Balustrade Guardrails (prevents falling into Grand Hall atrium after exiting elevator)
       this.pushOutLocalBox(pos, -5.3, 5.3, -6.15, -5.85, playerRadius);
       this.pushOutLocalBox(pos, -5.3, 5.3, 3.65, 3.98, playerRadius);

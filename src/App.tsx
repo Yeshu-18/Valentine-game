@@ -1276,6 +1276,34 @@ export default function App() {
                 </button>
               </div>
             </div>
+          ) : telemetry.castlePrompt.includes('Portrait Atelier') ? (
+            <div className="ml-2 flex items-center gap-1.5 flex-wrap">
+              <span className="text-[11px] font-semibold text-pink-300 mr-1">Backdrops:</span>
+              {[
+                { label: '1', name: 'Garden' },
+                { label: '2', name: 'Castle' },
+                { label: '3', name: 'Starry' },
+                { label: '4', name: 'Aurora' },
+                { label: '5', name: 'Cloud' },
+                { label: '6', name: 'Studio' },
+              ].map((b) => (
+                <button
+                  key={b.label}
+                  type="button"
+                  onClick={() => window.dispatchEvent(new KeyboardEvent('keydown', { key: b.label }))}
+                  className="px-2 py-0.5 rounded bg-pink-600/80 hover:bg-pink-500 text-white text-[11px] font-medium border border-pink-300/30 transition-colors cursor-pointer"
+                >
+                  [{b.label}] {b.name}
+                </button>
+              ))}
+              <button
+                type="button"
+                onClick={() => controllerRef.current?.triggerCastleAction()}
+                className="ml-1 px-2.5 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-pink-200 text-xs font-semibold border border-pink-300/30 transition-colors cursor-pointer"
+              >
+                [E] Step Back
+              </button>
+            </div>
           ) : (
             <button
               type="button"
