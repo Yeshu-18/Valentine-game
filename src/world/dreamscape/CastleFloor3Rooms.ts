@@ -321,12 +321,18 @@ export function createCastleFloor3Rooms(
       metalness: 0.15,
     }),
   );
-  const starRugGeo = tracker.trackGeo(new THREE.CylinderGeometry(2.7, 2.7, 0.025, 32));
+  const starRugGeo = tracker.trackGeo(new THREE.CylinderGeometry(2.7, 2.7, 0.024, 32));
   starRugGeo.translate(0, 0.012, 0);
-  const starRug = new THREE.Mesh(starRugGeo, starRugMat);
+  const starRug = new THREE.Mesh(starRugGeo, mats.velvetPlum);
   starRug.position.set(0.0, y0, -11.8);
   starRug.receiveShadow = true;
-  starLoungeGroup.add(starRug);
+  // Use CircleGeometry rotated -PI/2 for top surface so UVs are right-handed and "✦ HARSHA & MANDU ✦" is never mirrored
+  const starRugTopGeo = tracker.trackGeo(new THREE.CircleGeometry(2.66, 32));
+  starRugTopGeo.rotateX(-Math.PI / 2);
+  const starRugTop = new THREE.Mesh(starRugTopGeo, starRugMat);
+  starRugTop.position.set(0.0, y0 + 0.026, -11.8);
+  starRugTop.receiveShadow = true;
+  starLoungeGroup.add(starRug, starRugTop);
 
   // Sculpted Crescent Moon Velvet Loveseat at (0.0, y0, -11.8)
   const crescentLoveseatGroup = new THREE.Group();
@@ -416,6 +422,7 @@ export function createCastleFloor3Rooms(
     drawGalleryCanvas(canvas, mem.title, mem.sub, mem.color);
 
     const memTex = tracker.trackTex(new THREE.CanvasTexture(canvas));
+    memTex.flipY = true;
     memTex.colorSpace = THREE.SRGBColorSpace;
     memTex.needsUpdate = true;
     galleryTextures.push(memTex);
@@ -440,7 +447,9 @@ export function createCastleFloor3Rooms(
       }
     }
 
-    const canvasMat = tracker.trackMat(new THREE.MeshBasicMaterial({ map: memTex }));
+    const canvasMat = tracker.trackMat(
+      new THREE.MeshBasicMaterial({ map: memTex, side: THREE.FrontSide }),
+    );
     const frame = new THREE.Mesh(galleryFrameGeo, mats.champagneGold);
     frame.position.set(14.85, y0, mem.z);
     const canvasMesh = new THREE.Mesh(galleryCanvasGeo, canvasMat);
@@ -460,6 +469,56 @@ export function createCastleFloor3Rooms(
     heartGalleryGroup.add(ped, gem);
     addLocalCollider(10.8, mem.z, 0.42);
   });
+
+  // Section 15 & 22: Heart Gallery Romantic Wall Lettering ("♥ I LOVE YOU, HARSHA — OUR HEART GALLERY ♥")
+  const createRomanticInscriptionTex = (
+    title: string,
+    subtitle: string,
+    bg = '#4a1026',
+    fg = '#fde047',
+  ): THREE.CanvasTexture => {
+    const c = document.createElement('canvas');
+    c.width = 512;
+    c.height = 128;
+    const ctx = c.getContext('2d');
+    if (ctx) {
+      ctx.fillStyle = bg;
+      ctx.fillRect(0, 0, 512, 128);
+      ctx.strokeStyle = fg;
+      ctx.lineWidth = 5;
+      ctx.strokeRect(8, 8, 496, 112);
+      ctx.fillStyle = fg;
+      ctx.font = 'bold 26px Georgia, serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(title, 256, 48);
+      ctx.fillStyle = '#ffe4e6';
+      ctx.font = 'italic 18px Georgia, serif';
+      ctx.fillText(subtitle, 256, 88);
+    }
+    const t = tracker.trackTex(new THREE.CanvasTexture(c));
+    t.flipY = true;
+    t.colorSpace = THREE.SRGBColorSpace;
+    t.needsUpdate = true;
+    return t;
+  };
+
+  const galleryLetteringTex = createRomanticInscriptionTex(
+    '♥ I LOVE YOU, HARSHA ♥',
+    'Every Frame a Memory from Our Heart Gallery',
+  );
+  const galleryLetteringMat = tracker.trackMat(
+    new THREE.MeshBasicMaterial({ map: galleryLetteringTex, side: THREE.FrontSide }),
+  );
+  const galleryLetteringBoardGeo = tracker.trackGeo(new THREE.BoxGeometry(0.06, 0.8, 3.32));
+  const galleryLetteringBoard = new THREE.Mesh(galleryLetteringBoardGeo, mats.champagneGold);
+  galleryLetteringBoard.position.set(14.78, y0 + 3.42, -3.5);
+  const galleryLetteringGeo = tracker.trackGeo(new THREE.PlaneGeometry(3.2, 0.72));
+  // East wall at lx = 14.74: rotation.y = -Math.PI / 2 so +Z normal faces -X (West) toward the gallery viewer!
+  const galleryLetteringMesh = new THREE.Mesh(galleryLetteringGeo, galleryLetteringMat);
+  galleryLetteringMesh.position.set(14.74, y0 + 3.42, -3.5);
+  galleryLetteringMesh.rotation.y = -Math.PI / 2;
+  heartGalleryGroup.add(galleryLetteringBoard, galleryLetteringMesh);
 
   // ============================================================================
   // 3. INFINITE STARLIGHT MIRROR ROOM (NE Chamber: lx in [+9.6, +14.8], lz in [+7.0, +14.8])
@@ -587,6 +646,36 @@ export function createCastleFloor3Rooms(
   const pillowR = new THREE.Mesh(pillowGeo, mats.velvetPlum);
   pillowR.position.x = 0.55;
   bedGroup.add(pillowL, pillowR);
+
+  // Section 15 & 22: Royal Cloud Bedroom Decorative Inscription ("I LOVE YOU, MY PRINCESS HARSHA ♡")
+  const bedroomLoveTex = createRomanticInscriptionTex(
+    'I LOVE YOU, MY PRINCESS HARSHA ♡',
+    'Sweet Dreams Under the Castle Stars — Yeshwanth',
+    '#500724',
+    '#fde047',
+  );
+  const bedroomLoveMat = tracker.trackMat(
+    new THREE.MeshBasicMaterial({ map: bedroomLoveTex, side: THREE.FrontSide }),
+  );
+  const bedroomLoveGeo = tracker.trackGeo(new THREE.PlaneGeometry(2.1, 0.48));
+  const bedroomLoveBoardGeo = tracker.trackGeo(new THREE.BoxGeometry(2.2, 0.54, 0.05));
+  // Canopy front (+Z) and back (-Z, rotation.y = Math.PI) friezes placed outside canopyRimGeo (z = ±1.425) + West bedroom wall crest (rotation.y = Math.PI / 2 facing +X)
+  const canopyLoveFront = new THREE.Mesh(bedroomLoveGeo, bedroomLoveMat);
+  canopyLoveFront.position.set(0, 3.38, 1.46);
+  canopyLoveFront.rotation.y = 0;
+  const canopyLoveBack = new THREE.Mesh(bedroomLoveGeo, bedroomLoveMat);
+  canopyLoveBack.position.set(0, 3.38, -1.46);
+  canopyLoveBack.rotation.y = Math.PI;
+  bedGroup.add(canopyLoveFront, canopyLoveBack);
+
+  const bedroomWallCrestBoard = new THREE.Mesh(bedroomLoveBoardGeo, mats.champagneGold);
+  bedroomWallCrestBoard.position.set(-14.76, y0 + 2.85, -1.5);
+  bedroomWallCrestBoard.rotation.y = Math.PI / 2;
+  const bedroomWallCrest = new THREE.Mesh(bedroomLoveGeo, bedroomLoveMat);
+  bedroomWallCrest.position.set(-14.72, y0 + 2.85, -1.5);
+  bedroomWallCrest.rotation.y = Math.PI / 2;
+  cloudBedroomGroup.add(bedroomWallCrestBoard, bedroomWallCrest);
+
   addLocalCollider(-11.8, -1.5, 1.65);
 
   // Twin Crescent Moon Nightstands with Starlight Lamps

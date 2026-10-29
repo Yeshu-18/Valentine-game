@@ -32,6 +32,11 @@ import {
   CreativeWingCameraState,
 } from './CastleFloor2CreativeWing';
 import { CastleGardenBundle, createCastleGarden } from './CastleGarden';
+import {
+  CastleHeartTreesBundle,
+  createCastleHeartTrees,
+  HeartTreePlacement,
+} from './CastleHeartTrees';
 
 export interface DreamCastleBundle {
   group: THREE.Group;
@@ -45,6 +50,8 @@ export interface DreamCastleBundle {
   floor2CreativeWing: CastleFloor2CreativeWingBundle;
   floor3Rooms: CastleFloor3RoomsBundle;
   rearGarden: CastleGardenBundle;
+  heartTrees: CastleHeartTreesBundle;
+  setAvatarRoseCallback: (cb: (held: boolean) => void) => void;
   getSurfaceHeight: (wx: number, wz: number, playerY: number, defaultGroundY: number) => number;
   isInsideCastle: (wx: number, wz: number) => boolean;
   getProximityPrompt: (playerPos: THREE.Vector3) => { prompt: string; action: 'door' | 'call_elevator' | 'fountain' | 'telescope' | 'floor1_room' | 'floor2_room' | 'floor3_room' | 'none' } | null;
@@ -208,6 +215,7 @@ function createFountainHologramTexture(tracker: ResourceTracker): THREE.CanvasTe
 
   const tex = tracker.trackTex(new THREE.CanvasTexture(canvas));
   tex.colorSpace = THREE.SRGBColorSpace;
+  tex.flipY = true;
   tex.needsUpdate = true;
 
   // Real Image Loader with Cover-Fit Scaling
@@ -581,24 +589,59 @@ export function createDreamCastle(): DreamCastleBundle {
 
     tGroup.add(body, cornice, spire, finial);
 
-    if (tp.name === 'HeartTower') {
-      const heartWinGroup = new THREE.Group();
-      heartWinGroup.position.set(0, 13.5, -3.22);
-      const lobeGeo = tracker.trackGeo(new THREE.SphereGeometry(0.42, 10, 10));
-      const lobeL = new THREE.Mesh(lobeGeo, mats.champagneGold);
-      lobeL.position.set(-0.32, 0.35, 0);
-      const lobeR = new THREE.Mesh(lobeGeo, mats.champagneGold);
-      lobeR.position.set(0.32, 0.35, 0);
-      const pointGeo = tracker.trackGeo(new THREE.ConeGeometry(0.62, 0.95, 10));
-      pointGeo.rotateX(Math.PI);
-      const pointM = new THREE.Mesh(pointGeo, mats.champagneGold);
-      pointM.position.set(0, -0.1, 0);
-      const glassPaneGeo = tracker.trackGeo(new THREE.CircleGeometry(0.55, 12));
-      const glassPane = new THREE.Mesh(glassPaneGeo, mats.warmLanternGlow);
-      glassPane.position.set(0, 0.15, -0.05);
-      heartWinGroup.add(lobeL, lobeR, pointM, glassPane);
-      tGroup.add(heartWinGroup);
+    // Ornamental Crown-Like Top, Crystal Finial, Pastel Pennant & Heart Medallions on ALL 4 Towers (Section 13)
+    const towerCrownRingGeo = tracker.trackGeo(new THREE.TorusGeometry(3.25, 0.14, 10, 24));
+    towerCrownRingGeo.rotateX(Math.PI / 2);
+    towerCrownRingGeo.translate(0, 21.85, 0);
+    tGroup.add(new THREE.Mesh(towerCrownRingGeo, mats.champagneGold));
+
+    const towerCrownSpireGeo = tracker.trackGeo(new THREE.ConeGeometry(0.28, 1.35, 5));
+    towerCrownSpireGeo.translate(0, 0.675, 0);
+    const towerCrownGemGeo = tracker.trackGeo(new THREE.OctahedronGeometry(0.18, 0));
+    for (let tc = 0; tc < 8; tc++) {
+      const cAng = (tc * Math.PI * 2) / 8;
+      const pk = new THREE.Mesh(towerCrownSpireGeo, mats.champagneGold);
+      pk.position.set(Math.cos(cAng) * 3.25, 21.85, Math.sin(cAng) * 3.25);
+      pk.rotation.y = -cAng;
+      const gm = new THREE.Mesh(towerCrownGemGeo, mats.warmLanternGlow);
+      gm.position.set(Math.cos(cAng) * 3.32, 21.75, Math.sin(cAng) * 3.32);
+      tGroup.add(pk, gm);
     }
+
+    // Crystal Finial & Pastel Silk Flag atop the tower spire (y = 30.9..32.6)
+    const finialPole = new THREE.Mesh(
+      tracker.trackGeo(new THREE.CylinderGeometry(0.04, 0.06, 1.8, 8)).translate(0, 31.3, 0),
+      mats.champagneGold,
+    );
+    const finialCrystal = new THREE.Mesh(
+      tracker.trackGeo(new THREE.OctahedronGeometry(0.32, 0)).translate(0, 32.3, 0),
+      mats.crystalGlass,
+    );
+    const flagPennantGeo = tracker.trackGeo(new THREE.ConeGeometry(0.32, 1.35, 4));
+    flagPennantGeo.rotateZ(-Math.PI / 2);
+    flagPennantGeo.translate(0.7, 31.85, 0);
+    const flagPennant = new THREE.Mesh(flagPennantGeo, mats.blushRoseMarble);
+    tGroup.add(finialPole, finialCrystal, flagPennant);
+
+    // Heart Window & Medallion on each tower's outward-facing facade
+    const outZSign = tp.lz < 0 ? -1 : 1;
+    const heartWinGroup = new THREE.Group();
+    heartWinGroup.position.set(0, 13.5, outZSign * 3.22);
+    if (outZSign > 0) heartWinGroup.rotation.y = Math.PI;
+    const lobeGeo = tracker.trackGeo(new THREE.SphereGeometry(0.42, 10, 10));
+    const lobeL = new THREE.Mesh(lobeGeo, mats.champagneGold);
+    lobeL.position.set(-0.32, 0.35, 0);
+    const lobeR = new THREE.Mesh(lobeGeo, mats.champagneGold);
+    lobeR.position.set(0.32, 0.35, 0);
+    const pointGeo = tracker.trackGeo(new THREE.ConeGeometry(0.62, 0.95, 10));
+    pointGeo.rotateX(Math.PI);
+    const pointM = new THREE.Mesh(pointGeo, mats.champagneGold);
+    pointM.position.set(0, -0.1, 0);
+    const glassPaneGeo = tracker.trackGeo(new THREE.CircleGeometry(0.55, 12));
+    const glassPane = new THREE.Mesh(glassPaneGeo, mats.warmLanternGlow);
+    glassPane.position.set(0, 0.15, -0.05);
+    heartWinGroup.add(lobeL, lobeR, pointM, glassPane);
+    tGroup.add(heartWinGroup);
 
     group.add(tGroup);
 
@@ -1325,13 +1368,14 @@ export function createDreamCastle(): DreamCastleBundle {
   hologramGroup.add(hologramBeamMesh);
 
   const hologramTex = createFountainHologramTexture(tracker);
+  // Strictly THREE.FrontSide with front & back planes so 'Yeshwanth & Harsha' is NEVER mirrored
   const hologramPlaneMat = tracker.trackMat(
     new THREE.MeshBasicMaterial({
       map: hologramTex,
       transparent: true,
       opacity: 0.0,
       depthWrite: false,
-      side: THREE.DoubleSide,
+      side: THREE.FrontSide,
       blending: THREE.AdditiveBlending,
     }),
   );
@@ -1341,7 +1385,7 @@ export function createDreamCastle(): DreamCastleBundle {
       transparent: true,
       opacity: 0.0,
       depthWrite: false,
-      side: THREE.DoubleSide,
+      side: THREE.FrontSide,
     }),
   );
 
@@ -1365,13 +1409,16 @@ export function createDreamCastle(): DreamCastleBundle {
       transparent: true,
       opacity: 0.92,
       depthWrite: false,
-      side: THREE.DoubleSide,
+      side: THREE.FrontSide,
       blending: THREE.AdditiveBlending,
     }),
   );
   const hologramBacklightGeo = tracker.trackGeo(new THREE.PlaneGeometry(3.15, 3.75));
   const hologramBacklightMesh = new THREE.Mesh(hologramBacklightGeo, hologramBacklightMat);
-  hologramBacklightMesh.position.z = -0.04;
+  hologramBacklightMesh.position.z = -0.02;
+  const hologramBacklightBackMesh = new THREE.Mesh(hologramBacklightGeo, hologramBacklightMat);
+  hologramBacklightBackMesh.position.z = -0.02;
+  hologramBacklightBackMesh.rotation.y = Math.PI;
 
   const goldFoilFrameMat = tracker.trackMat(
     new THREE.MeshStandardMaterial({
@@ -1410,15 +1457,28 @@ export function createDreamCastle(): DreamCastleBundle {
 
   const hologramPlaneGeo = tracker.trackGeo(new THREE.PlaneGeometry(2.35, 2.95));
   const hologramBackdropMesh = new THREE.Mesh(hologramPlaneGeo, hologramBackdropMat);
+  hologramBackdropMesh.position.z = 0.008;
   const hologramGlowMesh = new THREE.Mesh(hologramPlaneGeo, hologramPlaneMat);
-  hologramGlowMesh.position.z = 0.01;
+  hologramGlowMesh.position.z = 0.016;
+
+  // Back-facing FrontSide pair (rotated Math.PI) so the hologram text reads left-to-right from behind as well
+  const hologramBackdropBackMesh = new THREE.Mesh(hologramPlaneGeo, hologramBackdropMat);
+  hologramBackdropBackMesh.position.z = -0.008;
+  hologramBackdropBackMesh.rotation.y = Math.PI;
+  const hologramGlowBackMesh = new THREE.Mesh(hologramPlaneGeo, hologramPlaneMat);
+  hologramGlowBackMesh.position.z = -0.016;
+  hologramGlowBackMesh.rotation.y = Math.PI;
+
   const hologramPortraitPivot = new THREE.Group();
   // Fixed baseline initial position at Y = 1.85m
   hologramPortraitPivot.position.set(0, 1.85, 0);
   hologramPortraitPivot.add(
     hologramBacklightMesh,
+    hologramBacklightBackMesh,
     hologramBackdropMesh,
     hologramGlowMesh,
+    hologramBackdropBackMesh,
+    hologramGlowBackMesh,
     frameGroup,
   );
   hologramGroup.add(hologramPortraitPivot);
@@ -3344,6 +3404,7 @@ export function createDreamCastle(): DreamCastleBundle {
 
     const rug = new THREE.Mesh(landingRugGeo, welcomeRugMat);
     rug.position.set(elevatorShaftX, f.elevOffset + 0.025, elevatorShaftZ - 2.58);
+    rug.rotation.y = Math.PI; // Orient top UV so text reads right-side-up and left-to-right when approaching elevator (-Z looking +Z)
     reShaftGroup.add(rug);
 
     const headerOuterArch = new THREE.Mesh(
@@ -3763,6 +3824,606 @@ export function createDreamCastle(): DreamCastleBundle {
   }
 
   // ========================================================================
+  // 10C. SIGNATURE 3D HEART TREES, ROMANTIC CASTLE ARCHITECTURE,
+  //      UN-MIRRORED WORLD ENGRAVINGS & YESHWANTH ENTRANCE PRESENTATION
+  // ========================================================================
+  const sampleLocalGroundY = (lx: number, lz: number): number => {
+    return getTerrainHeight(nav.originX + lx, nav.originZ + lz) - nav.baseY;
+  };
+
+  const heartTreePlacements: HeartTreePlacement[] = [
+    // 1. Two Large Framing Heart Trees at the Grand Castle Entrance (Section 10)
+    {
+      lx: -7.6,
+      y: sampleLocalGroundY(-7.6, -19.6),
+      lz: -19.6,
+      scale: 1.32,
+      rotY: 0.25,
+      variant: 'pink',
+      awakeningRole: 'entrance_primary',
+    },
+    {
+      lx: 7.6,
+      y: sampleLocalGroundY(7.6, -19.6),
+      lz: -19.6,
+      scale: 1.32,
+      rotY: -0.25,
+      variant: 'dream',
+      awakeningRole: 'entrance_secondary',
+    },
+    // 2. Main Approach Path Heart Trees
+    {
+      lx: -6.8,
+      y: sampleLocalGroundY(-6.8, -27.2),
+      lz: -27.2,
+      scale: 1.12,
+      rotY: 0.42,
+      variant: 'lavender',
+      awakeningRole: 'ambient',
+    },
+    {
+      lx: 6.8,
+      y: sampleLocalGroundY(6.8, -27.2),
+      lz: -27.2,
+      scale: 1.12,
+      rotY: -0.38,
+      variant: 'golden',
+      awakeningRole: 'ambient',
+    },
+    // 3. Courtyard / Forecourt Viewpoints
+    {
+      lx: -13.6,
+      y: sampleLocalGroundY(-13.6, -22.5),
+      lz: -22.5,
+      scale: 1.05,
+      rotY: 0.55,
+      variant: 'golden',
+      awakeningRole: 'ambient',
+    },
+    {
+      lx: 13.6,
+      y: sampleLocalGroundY(13.6, -22.5),
+      lz: -22.5,
+      scale: 1.05,
+      rotY: -0.55,
+      variant: 'lavender',
+      awakeningRole: 'ambient',
+    },
+    // 4. Central Garden, Reflective Pond & Love Garden (Rear Castle Garden)
+    {
+      lx: -8.4,
+      y: sampleLocalGroundY(-8.4, 22.4),
+      lz: 22.4,
+      scale: 1.18,
+      rotY: 0.18,
+      variant: 'pink',
+      awakeningRole: 'ambient',
+    },
+    {
+      lx: 8.4,
+      y: sampleLocalGroundY(8.4, 22.4),
+      lz: 22.4,
+      scale: 1.18,
+      rotY: -0.18,
+      variant: 'dream',
+      awakeningRole: 'ambient',
+    },
+    {
+      lx: -7.5,
+      y: sampleLocalGroundY(-7.5, 31.8),
+      lz: 31.8,
+      scale: 1.14,
+      rotY: 0.35,
+      variant: 'lavender',
+      awakeningRole: 'ambient',
+    },
+    {
+      lx: 7.5,
+      y: sampleLocalGroundY(7.5, 31.8),
+      lz: 31.8,
+      scale: 1.14,
+      rotY: -0.35,
+      variant: 'golden',
+      awakeningRole: 'ambient',
+    },
+    {
+      lx: -13.2,
+      y: sampleLocalGroundY(-13.2, 26.6),
+      lz: 26.6,
+      scale: 1.06,
+      rotY: 0.22,
+      variant: 'dream',
+      awakeningRole: 'ambient',
+    },
+    {
+      lx: 13.2,
+      y: sampleLocalGroundY(13.2, 26.6),
+      lz: 26.6,
+      scale: 1.06,
+      rotY: -0.22,
+      variant: 'pink',
+      awakeningRole: 'ambient',
+    },
+    // 5. Balcony Viewpoint & Rooftop Observatory Heart Trees
+    {
+      lx: -12.6,
+      y: 15.25,
+      lz: -12.6,
+      scale: 0.56,
+      rotY: 0.3,
+      variant: 'golden',
+      awakeningRole: 'ambient',
+      skipCollider: true,
+    },
+    {
+      lx: 12.6,
+      y: 15.25,
+      lz: -12.6,
+      scale: 0.56,
+      rotY: -0.3,
+      variant: 'dream',
+      awakeningRole: 'ambient',
+      skipCollider: true,
+    },
+  ];
+
+  const heartTrees = createCastleHeartTrees(tracker, mats, heartTreePlacements);
+  group.add(heartTrees.group);
+  for (const tc of heartTrees.localColliders) {
+    colliders.push({
+      x: nav.originX + tc.lx,
+      z: nav.originZ + tc.lz,
+      radius: tc.radius,
+    });
+  }
+
+  // --- Helper for Un-Mirrored Engraved Gold Plaques (Strictly THREE.FrontSide + flipY = true) ---
+  const createRomanticEngravingTex = (
+    headline: string,
+    subline: string,
+    bgStyle: 'gold' | 'blush' = 'gold',
+  ): THREE.CanvasTexture => {
+    const canvas = document.createElement('canvas');
+    canvas.width = 768;
+    canvas.height = 220;
+    const ctx = canvas.getContext('2d');
+    if (ctx) {
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.clearRect(0, 0, 768, 220);
+
+      const grad = ctx.createLinearGradient(0, 0, 768, 220);
+      if (bgStyle === 'gold') {
+        grad.addColorStop(0, '#fffdf7');
+        grad.addColorStop(0.5, '#fef3c7');
+        grad.addColorStop(1, '#fde68a');
+      } else {
+        grad.addColorStop(0, '#fff1f2');
+        grad.addColorStop(0.5, '#fce7f3');
+        grad.addColorStop(1, '#fbcfe8');
+      }
+      ctx.fillStyle = grad;
+      ctx.fillRect(8, 8, 752, 204);
+
+      ctx.strokeStyle = '#d4af37';
+      ctx.lineWidth = 7;
+      ctx.strokeRect(14, 14, 740, 192);
+      ctx.strokeStyle = '#be185d';
+      ctx.lineWidth = 2.5;
+      ctx.strokeRect(24, 24, 720, 172);
+
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillStyle = '#9d174d';
+      ctx.font = 'bold 42px Georgia, serif';
+      ctx.fillText(headline, 384, 84);
+
+      ctx.fillStyle = '#78350f';
+      ctx.font = 'italic 25px Georgia, serif';
+      ctx.fillText(subline, 384, 148);
+    }
+    const tex = tracker.trackTex(new THREE.CanvasTexture(canvas));
+    tex.colorSpace = THREE.SRGBColorSpace;
+    tex.flipY = true;
+    tex.needsUpdate = true;
+    return tex;
+  };
+
+  // 1. CASTLE ENTRANCE FRAME & GOLD ENGRAVING (Sections 10, 15, 22)
+  const entranceFrameGroup = new THREE.Group();
+  entranceFrameGroup.name = 'RomanticCastleEntranceFrame';
+  group.add(entranceFrameGroup);
+
+  const entranceEngravingMat = tracker.trackMat(
+    new THREE.MeshBasicMaterial({
+      map: createRomanticEngravingTex(
+        '♥ I LOVE YOU, HARSHA ♥',
+        'Welcome to your Dream Castle on Heart Island',
+        'gold',
+      ),
+      side: THREE.FrontSide,
+    }),
+  );
+  const entranceFriezeBoardGeo = tracker.trackGeo(new THREE.BoxGeometry(5.2, 1.15, 0.14));
+  const entranceFriezePlaneGeo = tracker.trackGeo(new THREE.PlaneGeometry(4.95, 0.98));
+
+  const entranceFriezeBoard = new THREE.Mesh(entranceFriezeBoardGeo, mats.champagneGold);
+  entranceFriezeBoard.position.set(0, 6.45, -16.92);
+  // Front plaque facing South (-Z) toward approaching player & entrance camera (rotation.y = Math.PI)
+  const entranceFriezeFront = new THREE.Mesh(entranceFriezePlaneGeo, entranceEngravingMat);
+  entranceFriezeFront.position.set(0, 6.45, -17.0);
+  entranceFriezeFront.rotation.y = Math.PI;
+  // Interior backing board & plaque facing North (+Z) toward the Grand Hall (rotation.y = 0)
+  const entranceFriezeInnerBoard = new THREE.Mesh(entranceFriezeBoardGeo, mats.champagneGold);
+  entranceFriezeInnerBoard.position.set(0, 6.45, -15.39);
+  const entranceFriezeBack = new THREE.Mesh(entranceFriezePlaneGeo, entranceEngravingMat);
+  entranceFriezeBack.position.set(0, 6.45, -15.31);
+  entranceFriezeBack.rotation.y = 0;
+  entranceFrameGroup.add(
+    entranceFriezeBoard,
+    entranceFriezeFront,
+    entranceFriezeInnerBoard,
+    entranceFriezeBack,
+  );
+
+  // Climbing Rose Vines, Flowing Ribbons, Golden Lanterns & Foreground Rose Bushes on the Entrance Columns
+  const vineLeafMat = tracker.trackMat(
+    new THREE.MeshStandardMaterial({
+      color: new THREE.Color('#15803d'),
+      roughness: 0.55,
+    }),
+  );
+  const vineBlossomGeo = tracker.trackGeo(new THREE.SphereGeometry(0.11, 8, 8));
+  const hangingRibbonGeo = tracker.trackGeo(new THREE.BoxGeometry(0.18, 2.2, 0.03));
+  const entranceLanternOrbGeo = tracker.trackGeo(new THREE.SphereGeometry(0.24, 10, 10));
+
+  const awakeningWindowGlowMat = tracker.trackMat(
+    new THREE.MeshStandardMaterial({
+      color: new THREE.Color('#fef3c7'),
+      emissive: new THREE.Color('#fbbf24'),
+      emissiveIntensity: 0.75,
+      roughness: 0.18,
+    }),
+  );
+
+  [-3.8, -1.9, 1.9, 3.8].forEach((cx, cIdx) => {
+    // Climbing spiral floral vine around each entrance column
+    const vinePts: THREE.Vector3[] = [];
+    for (let v = 0; v <= 16; v++) {
+      const vt = v / 16;
+      const vang = vt * Math.PI * 4.0 + cIdx;
+      vinePts.push(
+        new THREE.Vector3(
+          cx + Math.cos(vang) * 0.42,
+          0.35 + vt * 6.2,
+          -16.8 + Math.sin(vang) * 0.42,
+        ),
+      );
+      if (v % 2 === 0) {
+        const rose = new THREE.Mesh(
+          vineBlossomGeo,
+          v % 4 === 0 ? barbiePinkMat : pastelBlushMat,
+        );
+        rose.position.set(
+          cx + Math.cos(vang) * 0.47,
+          0.35 + vt * 6.2,
+          -16.8 + Math.sin(vang) * 0.47,
+        );
+        entranceFrameGroup.add(rose);
+      }
+    }
+    const vineCurve = new THREE.CatmullRomCurve3(vinePts);
+    const vineTube = new THREE.Mesh(
+      tracker.trackGeo(new THREE.TubeGeometry(vineCurve, 24, 0.035, 6, false)),
+      vineLeafMat,
+    );
+    entranceFrameGroup.add(vineTube);
+
+    // Flowing silk ribbon & warm golden lantern suspended from the column capital
+    const ribbon = new THREE.Mesh(hangingRibbonGeo, loveRibbonPinkMat);
+    ribbon.position.set(cx, 5.65, -17.28);
+    ribbon.rotation.z = (cIdx < 2 ? 1 : -1) * 0.08;
+    const lanternOrb = new THREE.Mesh(entranceLanternOrbGeo, awakeningWindowGlowMat);
+    lanternOrb.position.set(cx, 5.15, -17.42);
+    entranceFrameGroup.add(ribbon, lanternOrb);
+  });
+
+  // Foreground Rose Bushes & Crystal Heart Ornaments framing the Entrance Steps (lz = -17.5 .. -21.5)
+  const forecourtBushGeo = tracker.trackGeo(new THREE.SphereGeometry(0.62, 10, 8));
+  forecourtBushGeo.scale(1.45, 0.72, 1.15);
+  [
+    { x: -5.4, z: -17.8 },
+    { x: 5.4, z: -17.8 },
+    { x: -4.8, z: -20.6 },
+    { x: 4.8, z: -20.6 },
+    { x: -6.2, z: -22.2 },
+    { x: 6.2, z: -22.2 },
+  ].forEach((fb, idx) => {
+    const fy = sampleLocalGroundY(fb.x, fb.z);
+    const bush = new THREE.Mesh(forecourtBushGeo, vineLeafMat);
+    bush.position.set(fb.x, fy + 0.28, fb.z);
+    entranceFrameGroup.add(bush);
+    for (let b = 0; b < 5; b++) {
+      const bAng = (b * Math.PI * 2) / 5 + idx;
+      const bud = new THREE.Mesh(
+        vineBlossomGeo,
+        b % 2 === 0 ? barbiePinkMat : mats.champagneGold,
+      );
+      bud.position.set(
+        fb.x + Math.cos(bAng) * 0.55,
+        fy + 0.52,
+        fb.z + Math.sin(bAng) * 0.45,
+      );
+      entranceFrameGroup.add(bud);
+    }
+  });
+
+  // 2. ARCHED EXTERIOR WINDOWS & ROUNDED FLOWER BALCONIES (Sections 11 & 12)
+  const winPaneGeo = tracker.trackGeo(new THREE.BoxGeometry(1.38, 2.25, 0.08));
+  const winArchCrownGeo = tracker.trackGeo(
+    new THREE.TorusGeometry(0.69, 0.075, 8, 18, Math.PI),
+  );
+  const winFrameSideGeo = tracker.trackGeo(new THREE.BoxGeometry(0.09, 2.25, 0.14));
+  const winSillBoxGeo = tracker.trackGeo(new THREE.BoxGeometry(1.62, 0.28, 0.42));
+
+  const buildExteriorRomanticWindow = (
+    x: number,
+    y: number,
+    z: number,
+    rotY: number,
+  ) => {
+    const wg = new THREE.Group();
+    wg.position.set(x, y, z);
+    wg.rotation.y = rotY;
+
+    const pane = new THREE.Mesh(winPaneGeo, awakeningWindowGlowMat);
+    const arch = new THREE.Mesh(winArchCrownGeo, mats.champagneGold);
+    arch.position.set(0, 1.12, 0.04);
+    const stL = new THREE.Mesh(winFrameSideGeo, mats.champagneGold);
+    stL.position.set(-0.69, 0, 0.04);
+    const stR = new THREE.Mesh(winFrameSideGeo, mats.champagneGold);
+    stR.position.set(0.69, 0, 0.04);
+    const sill = new THREE.Mesh(winSillBoxGeo, mats.pearlWhite);
+    sill.position.set(0, -1.22, 0.16);
+
+    const heartMotif = buildSculptedHeart(0.95, mats.champagneGold);
+    heartMotif.position.set(0, 0.85, 0.08);
+
+    // Flower-box roses along the window sill
+    for (let f = -2; f <= 2; f++) {
+      const fl = new THREE.Mesh(
+        vineBlossomGeo,
+        f % 2 === 0 ? barbiePinkMat : mats.softLavender,
+      );
+      fl.position.set(f * 0.28, -1.04, 0.22);
+      wg.add(fl);
+    }
+
+    wg.add(pane, arch, stL, stR, sill, heartMotif);
+    group.add(wg);
+  };
+
+  // Place arched romantic windows across Front (-Z), Rear (+Z), West (-X), and East (+X) walls
+  [-11.2, -7.2, 7.2, 11.2].forEach((wx) => {
+    [2.85, 7.85, 12.65].forEach((wy) => {
+      buildExteriorRomanticWindow(wx, wy, -16.64, Math.PI); // Front South facade
+      buildExteriorRomanticWindow(wx, wy, 16.64, 0); // Rear North facade
+    });
+  });
+  [-10.5, -5.2, 0.0, 5.2, 10.5].forEach((wz) => {
+    [2.85, 7.85, 12.65].forEach((wy) => {
+      buildExteriorRomanticWindow(-16.64, wy, wz, -Math.PI / 2); // West facade
+      buildExteriorRomanticWindow(16.64, wy, wz, Math.PI / 2); // East facade
+    });
+  });
+
+  // Rounded Exterior Flower & Heart Balconies on Front & Rear Upper Facades (Section 12)
+  const extBalconySlabGeo = tracker.trackGeo(
+    new THREE.CylinderGeometry(2.45, 2.15, 0.32, 20, 1, false, 0, Math.PI),
+  );
+  const extBalconyRailGeo = tracker.trackGeo(
+    new THREE.TorusGeometry(2.35, 0.065, 8, 24, Math.PI),
+  );
+  extBalconyRailGeo.rotateX(Math.PI / 2);
+
+  [
+    { x: -9.2, y: 5.25, z: -16.6, rotY: Math.PI },
+    { x: 9.2, y: 5.25, z: -16.6, rotY: Math.PI },
+    { x: 0.0, y: 10.25, z: -16.6, rotY: Math.PI },
+    { x: 0.0, y: 10.25, z: 16.6, rotY: 0 },
+  ].forEach((bCfg) => {
+    const bg = new THREE.Group();
+    bg.position.set(bCfg.x, bCfg.y, bCfg.z);
+    bg.rotation.y = bCfg.rotY;
+
+    const slab = new THREE.Mesh(extBalconySlabGeo, mats.pearlWhite);
+    const rail = new THREE.Mesh(extBalconyRailGeo, mats.champagneGold);
+    rail.position.y = 0.92;
+    bg.add(slab, rail);
+
+    for (let k = 1; k <= 5; k++) {
+      const ang = (k / 6) * Math.PI;
+      const rx = Math.cos(ang) * 2.32;
+      const rz = Math.sin(ang) * 2.32;
+      const hBal = buildSculptedHeart(0.85, mats.champagneGold);
+      hBal.position.set(rx, 0.52, rz);
+      hBal.rotation.y = -ang + Math.PI / 2;
+      const fl = new THREE.Mesh(
+        vineBlossomGeo,
+        k % 2 === 0 ? barbiePinkMat : pastelBlushMat,
+      );
+      fl.position.set(rx, 0.98, rz);
+      bg.add(hBal, fl);
+    }
+    group.add(bg);
+  });
+
+  // 3. STAIRCASE ENGRAVED PLAQUE & HIDDEN BASEMENT SECRET SHRINE (Sections 15 & 22)
+  const stairPlaqueMat = tracker.trackMat(
+    new THREE.MeshBasicMaterial({
+      map: createRomanticEngravingTex(
+        '♥ I LOVE YOU, HARSHA ♥',
+        'Every step of this staircase leads closer to my heart',
+        'blush',
+      ),
+      side: THREE.FrontSide,
+    }),
+  );
+  const stairPlaqueBoard = new THREE.Mesh(
+    tracker.trackGeo(new THREE.BoxGeometry(2.85, 0.68, 0.08)),
+    mats.champagneGold,
+  );
+  stairPlaqueBoard.position.set(0, 5.72, -6.0);
+  const stairPlaqueSouth = new THREE.Mesh(
+    tracker.trackGeo(new THREE.PlaneGeometry(2.72, 0.58)),
+    stairPlaqueMat,
+  );
+  stairPlaqueSouth.position.set(0, 5.72, -6.05);
+  stairPlaqueSouth.rotation.y = Math.PI; // Faces -Z (Grand Hall & Staircase approach)
+  const stairPlaqueNorth = new THREE.Mesh(
+    tracker.trackGeo(new THREE.PlaneGeometry(2.72, 0.58)),
+    stairPlaqueMat,
+  );
+  stairPlaqueNorth.position.set(0, 5.72, -5.95);
+  stairPlaqueNorth.rotation.y = 0; // Faces +Z (Mezzanine Gallery)
+  group.add(stairPlaqueBoard, stairPlaqueSouth, stairPlaqueNorth);
+
+  // Hidden Basement Secret Romantic Shrine (y = -4.5m, lz = -11.5m)
+  const secretVaultShrineGroup = new THREE.Group();
+  secretVaultShrineGroup.position.set(0, -4.5, -11.5);
+  const shrinePedestal = new THREE.Mesh(
+    tracker.trackGeo(new THREE.CylinderGeometry(1.15, 1.35, 0.92, 16)).translate(0, 0.46, 0),
+    mats.blushRoseMarble,
+  );
+  const shrineHeartCrystal = buildSculptedHeart(2.2, chWarmCrystalHeartMat);
+  shrineHeartCrystal.position.set(0, 1.48, 0);
+  const secretPlaqueMat = tracker.trackMat(
+    new THREE.MeshBasicMaterial({
+      map: createRomanticEngravingTex(
+        '♥ I LOVE YOU FOREVER — Y ♥ H ♥',
+        'Even in the quietest hidden corners of our world, my heart is yours',
+        'gold',
+      ),
+      side: THREE.FrontSide,
+    }),
+  );
+  const secretPlaqueBoard = new THREE.Mesh(
+    tracker.trackGeo(new THREE.BoxGeometry(2.45, 0.65, 0.08)),
+    mats.champagneGold,
+  );
+  secretPlaqueBoard.position.set(0, 2.25, -1.2);
+  const secretPlaquePlaneGeo = tracker.trackGeo(new THREE.PlaneGeometry(2.32, 0.56));
+  const secretPlaqueFront = new THREE.Mesh(secretPlaquePlaneGeo, secretPlaqueMat);
+  secretPlaqueFront.position.set(0, 2.25, -1.15);
+  secretPlaqueFront.rotation.y = 0; // Faces +Z into the Basement Vault
+  const secretPlaqueBack = new THREE.Mesh(secretPlaquePlaneGeo, secretPlaqueMat);
+  secretPlaqueBack.position.set(0, 2.25, -1.25);
+  secretPlaqueBack.rotation.y = Math.PI; // Faces -Z (rear of shrine)
+  secretVaultShrineGroup.add(
+    shrinePedestal,
+    shrineHeartCrystal,
+    secretPlaqueBoard,
+    secretPlaqueFront,
+    secretPlaqueBack,
+  );
+  group.add(secretVaultShrineGroup);
+
+  // 4. YESHWANTH AT THE GRAND CASTLE ENTRANCE WITH CRIMSON-GOLD ROSE (Sections 23, 24, 25)
+  const yeshwanthEntranceGroup = new THREE.Group();
+  yeshwanthEntranceGroup.name = 'YeshwanthEntranceHost';
+  yeshwanthEntranceGroup.position.set(0.52, 0.25, -15.4);
+  yeshwanthEntranceGroup.rotation.y = Math.PI; // Facing South (-Z) toward Harsha at the entrance
+
+  const ySkinMat = tracker.trackMat(
+    new THREE.MeshStandardMaterial({ color: new THREE.Color('#f1c27d'), roughness: 0.45 }),
+  );
+  const yHairMat = tracker.trackMat(
+    new THREE.MeshStandardMaterial({ color: new THREE.Color('#1c1917'), roughness: 0.55 }),
+  );
+  const ySuitMat = tracker.trackMat(
+    new THREE.MeshStandardMaterial({
+      color: new THREE.Color('#1e293b'),
+      roughness: 0.35,
+      metalness: 0.15,
+    }),
+  );
+  const yTrouserMat = tracker.trackMat(
+    new THREE.MeshStandardMaterial({ color: new THREE.Color('#0f172a'), roughness: 0.45 }),
+  );
+
+  const yLegGeo = tracker.trackGeo(new THREE.CylinderGeometry(0.068, 0.056, 0.72, 10));
+  yLegGeo.translate(0, -0.36, 0);
+  const yLeftLeg = new THREE.Mesh(yLegGeo, yTrouserMat);
+  yLeftLeg.position.set(-0.1, 0.72, 0);
+  const yRightLeg = new THREE.Mesh(yLegGeo, yTrouserMat);
+  yRightLeg.position.set(0.1, 0.72, 0);
+
+  const yTorso = new THREE.Mesh(
+    tracker.trackGeo(new THREE.CylinderGeometry(0.19, 0.15, 0.62, 12)).translate(0, 1.03, 0),
+    ySuitMat,
+  );
+  const yGoldSash = new THREE.Mesh(
+    tracker.trackGeo(new THREE.TorusGeometry(0.17, 0.025, 8, 16))
+      .rotateY(Math.PI / 2)
+      .rotateZ(0.55)
+      .translate(0, 1.05, 0),
+    mats.champagneGold,
+  );
+  const yHead = new THREE.Mesh(
+    tracker.trackGeo(new THREE.SphereGeometry(0.145, 14, 14)).translate(0, 1.48, 0),
+    ySkinMat,
+  );
+  const yHair = new THREE.Mesh(
+    tracker.trackGeo(new THREE.SphereGeometry(0.152, 12, 12))
+      .scale(1.0, 0.85, 1.02)
+      .translate(0, 1.54, -0.015),
+    yHairMat,
+  );
+  const yCrown = buildMiniGoldenCrown(0.58);
+  yCrown.position.set(0, 1.65, 0);
+
+  const yArmGeo = tracker.trackGeo(new THREE.CylinderGeometry(0.048, 0.04, 0.54, 10));
+  yArmGeo.translate(0, -0.27, 0);
+  const yLeftArmPivot = new THREE.Group();
+  yLeftArmPivot.position.set(-0.23, 1.28, 0);
+  yLeftArmPivot.add(new THREE.Mesh(yArmGeo, ySuitMat));
+
+  const yRightArmPivot = new THREE.Group();
+  yRightArmPivot.position.set(0.23, 1.28, 0);
+  yRightArmPivot.add(new THREE.Mesh(yArmGeo, ySuitMat));
+
+  // Romantic 3D Rose held in Yeshwanth's right hand (offered to Harsha during Beat 6)
+  const yRoseGroup = new THREE.Group();
+  yRoseGroup.position.set(0, -0.52, 0.08);
+  yRoseGroup.rotation.x = Math.PI / 3;
+  const yRoseStem = new THREE.Mesh(
+    tracker.trackGeo(new THREE.CylinderGeometry(0.01, 0.01, 0.34, 6)).translate(0, 0.14, 0),
+    vineLeafMat,
+  );
+  const yRoseBloom = new THREE.Mesh(
+    tracker.trackGeo(new THREE.DodecahedronGeometry(0.075, 1)).translate(0, 0.32, 0),
+    barbiePinkMat,
+  );
+  const yRoseGoldHalo = new THREE.Mesh(
+    tracker.trackGeo(new THREE.TorusGeometry(0.095, 0.012, 6, 16)).translate(0, 0.32, 0),
+    mats.champagneGold,
+  );
+  yRoseGroup.add(yRoseStem, yRoseBloom, yRoseGoldHalo);
+  yRightArmPivot.add(yRoseGroup);
+
+  yeshwanthEntranceGroup.add(
+    yLeftLeg,
+    yRightLeg,
+    yTorso,
+    yGoldSash,
+    yHead,
+    yHair,
+    yCrown,
+    yLeftArmPivot,
+    yRightArmPivot,
+  );
+  group.add(yeshwanthEntranceGroup);
+
+  // ========================================================================
   // 11. PREALLOCATED PROMPTS & CAMERA FOCUS OBJECTS (ZERO PER-FRAME ALLOCATION)
   // ========================================================================
   const _promptDoor = { prompt: '[E] Open the Grand Palace Doors', action: 'door' as const };
@@ -3806,6 +4467,11 @@ export function createDreamCastle(): DreamCastleBundle {
     floor2CreativeWing,
     floor3Rooms,
     rearGarden,
+    heartTrees,
+
+    setAvatarRoseCallback: (cb: (held: boolean) => void) => {
+      nav.setEntranceRoseCallback(cb);
+    },
 
     getSurfaceHeight: (wx: number, wz: number, playerY: number, defaultGroundY: number) => {
       return nav.getSurfaceHeight(wx, wz, playerY, defaultGroundY);
@@ -3868,6 +4534,11 @@ export function createDreamCastle(): DreamCastleBundle {
     },
 
     interact: (playerPos?: THREE.Vector3) => {
+      // If the Grand Castle Entrance cinematic is currently playing, [E] advances to the next beat
+      if (nav.activeCameraFocus?.mode === 'entrance') {
+        return nav.advanceEntranceCinematicBeat();
+      }
+
       if (playerPos) {
         // Priority 0: If currently inside an active Floor 3, Floor 2, or Floor 1 camera mode, interact cleanly exits/toggles it
         if (floor3Rooms.getCameraState().active) {
@@ -3957,8 +4628,8 @@ export function createDreamCastle(): DreamCastleBundle {
         _cameraFocusOut.blendAlpha = nav.activeCameraFocus.blendAlpha;
         _cameraFocusOut.isSitting = false;
         _cameraFocusOut.isFirstPersonSeated = false;
-        _cameraFocusOut.seatWorldPos = undefined;
-        _cameraFocusOut.seatYaw = undefined;
+        _cameraFocusOut.seatWorldPos = nav.activeCameraFocus.seatWorldPos;
+        _cameraFocusOut.seatYaw = nav.activeCameraFocus.seatYaw;
         return _cameraFocusOut;
       }
       const room3Cam: Floor3CameraState = floor3Rooms.getCameraState();
@@ -3977,12 +4648,12 @@ export function createDreamCastle(): DreamCastleBundle {
       if (creativeCam.active) {
         _cameraFocusOut.target = creativeCam.lookWorldPos;
         _cameraFocusOut.position = creativeCam.camWorldPos;
-        _cameraFocusOut.fov = 55;
+        _cameraFocusOut.fov = creativeCam.fov ?? 55;
         _cameraFocusOut.blendAlpha = creativeCam.blendAlpha;
         _cameraFocusOut.isSitting = false;
         _cameraFocusOut.isFirstPersonSeated = false;
-        _cameraFocusOut.seatWorldPos = undefined;
-        _cameraFocusOut.seatYaw = undefined;
+        _cameraFocusOut.seatWorldPos = creativeCam.seatWorldPos;
+        _cameraFocusOut.seatYaw = creativeCam.seatYaw;
         return _cameraFocusOut;
       }
       const room2Cam: Floor2CameraState = floor2Rooms.getCameraState();
@@ -4023,13 +4694,50 @@ export function createDreamCastle(): DreamCastleBundle {
       floor3Rooms.update(delta, clockVal, playerPos, inputKeys);
       rearGarden.update(delta, clockVal, playerPos);
 
-      // Section 17: Temporarily hide upper doorway transom/pediment/mezzanine front plate during Entrance Camera Reveal
+      // Update Signature Heart Trees & Castle Window Awakening
       const isEntranceReveal = nav.activeCameraFocus?.mode === 'entrance';
-      wallDUT.visible = !isEntranceReveal;
-      pediment.visible = !isEntranceReveal;
-      transomGroup.visible = !isEntranceReveal;
-      if (mezFrontPlate) {
-        mezFrontPlate.visible = !isEntranceReveal;
+      const primaryTreeAwake = isEntranceReveal || nav.hasTriggeredEntranceReveal
+        ? nav.primaryTreeAwake
+        : 0.45;
+      const secondaryTreeAwake = isEntranceReveal || nav.hasTriggeredEntranceReveal
+        ? nav.secondaryTreeAwake
+        : 0.45;
+      const winAwake = isEntranceReveal || nav.hasTriggeredEntranceReveal
+        ? nav.castleWindowsAwake
+        : 0.35;
+
+      heartTrees.update(delta, clockVal, primaryTreeAwake, secondaryTreeAwake, 0.82);
+      awakeningWindowGlowMat.emissiveIntensity =
+        0.35 + winAwake * 1.45 + Math.sin(clockVal * 2.4) * 0.1;
+
+      // Animate Yeshwanth at the Grand Castle Entrance
+      const yWalk = nav.yeshwanthWalkProgress;
+      const yRoseExt = nav.yeshwanthRoseExtend;
+      if (isEntranceReveal) {
+        yeshwanthEntranceGroup.visible = nav.doorOpenRatio > 0.08 || yWalk > 0.01;
+        const yZ = THREE.MathUtils.lerp(-15.4, -18.35, yWalk);
+        const yY = THREE.MathUtils.lerp(0.25, 0.19, yWalk);
+        yeshwanthEntranceGroup.position.set(0.52, yY, yZ);
+        yeshwanthEntranceGroup.rotation.y = Math.PI + 0.25; // Facing Harsha at (-0.52, -19.25)
+
+        const isWalking = yWalk > 0.01 && yWalk < 0.99;
+        const stride = isWalking ? Math.sin(clockVal * 7.5) * 0.38 : 0.0;
+        yLeftLeg.rotation.x = stride;
+        yRightLeg.rotation.x = -stride;
+        yLeftArmPivot.rotation.x = -stride * 0.6;
+        yRightArmPivot.rotation.x = THREE.MathUtils.lerp(-stride * 0.5, -1.18, yRoseExt);
+        yRoseGroup.visible = !nav.entranceRosePresented;
+      } else if (nav.hasTriggeredEntranceReveal) {
+        yeshwanthEntranceGroup.visible = true;
+        yeshwanthEntranceGroup.position.set(1.45, 0.25, -17.2);
+        yeshwanthEntranceGroup.rotation.y = Math.PI + Math.sin(clockVal * 0.8) * 0.12;
+        yLeftLeg.rotation.x = 0;
+        yRightLeg.rotation.x = 0;
+        yLeftArmPivot.rotation.x = 0;
+        yRightArmPivot.rotation.x = -0.35;
+        yRoseGroup.visible = false;
+      } else {
+        yeshwanthEntranceGroup.visible = false;
       }
 
       // Remove doorway barrier once doors begin opening

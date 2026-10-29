@@ -1139,9 +1139,9 @@ export class MicroPropLibrary {
     c.place('miniature_lamp', { x: 14.4, y: y0, z: -12.4, scale: 1.8 });
     c.place('miniature_lamp', { x: 14.4, y: y0, z: -8.8, scale: 1.8 });
 
-    // Photographer's Side Utility Table beside Tripod (film canisters, lens caps, notebook, gold scissors)
-    c.place('miniature_table', { x: 10.2, y: y0, z: -11.45, scale: 3.6, color: '#fff1f2' });
-    c.placeCluster(10.2, y0 + 0.39, -11.45, [
+    // Photographer's Side Utility Table tucked along South-West Wall beside Custom Backdrop Case
+    c.place('miniature_table', { x: 11.55, y: y0, z: -14.55, scale: 3.6, color: '#fff1f2' });
+    c.placeCluster(11.55, y0 + 0.39, -14.55, [
       { type: 'camera_accessory', dx: -0.12, dz: -0.06, color: '#1e1b4b' },
       { type: 'camera_accessory', dx: 0.06, dz: -0.08, rotY: 0.9, color: '#831843' },
       { type: 'small_book', dx: 0.1, dz: 0.08, rotZ: Math.PI / 2, scale: 0.85, color: '#f472b6' },
@@ -1149,7 +1149,7 @@ export class MicroPropLibrary {
     ]);
 
     // Makeup & Preparation Vanity Stool + Tabletop Cosmetics & Perfume Vignette
-    c.place('miniature_chair', { x: 13.6, y: y0, z: -13.95, rotY: Math.PI, scale: 3.4, color: '#e3d7f4' });
+    c.place('miniature_chair', { x: 13.6, y: y0, z: -14.12, rotY: Math.PI, scale: 3.4, color: '#e3d7f4' });
     c.placeCluster(13.6, y0 + 0.76, -14.6, [
       { type: 'perfume_bottle', dx: -0.62, dz: 0.06, scale: 1.15, color: '#f43f5e' },
       { type: 'perfume_bottle', dx: -0.48, dz: 0.12, rotY: 0.4, scale: 0.95, color: '#c084fc' },
@@ -1163,23 +1163,23 @@ export class MicroPropLibrary {
       { type: 'craft_supply', dx: 0.68, dz: 0.12, rotY: 0.8, scale: 0.95, color: '#fb7185' },
     ]);
 
-    // Wardrobe Corner Hangers, Couture Handbags, Heeled Shoes & Hat Box
+    // Wardrobe Corner Hangers, Couture Handbags, Heeled Shoes & Hat Box (North-East wall corner)
     const dressColors = ['#f472b6', '#c084fc', '#38bdf8', '#fbcfe8', '#fef08a', '#be185d'];
     for (let d = 0; d < 6; d++) {
       c.place('clothing_hanger', {
-        x: 10.0 - 0.7 + d * 0.27,
+        x: 14.2 - 0.6 + d * 0.24,
         y: y0 + 1.44,
-        z: -6.9,
+        z: -6.72,
         color: dressColors[d],
       });
     }
-    c.place('handbag', { x: 10.65, y: y0, z: -6.72, rotY: -0.3, scale: 1.15, color: '#f43f5e' });
-    c.place('shoe_pair', { x: 9.45, y: y0, z: -6.72, rotY: 0.15, scale: 1.1, color: '#fbcfe8' });
-    c.place('shoe_pair', { x: 9.75, y: y0, z: -6.72, rotY: -0.1, scale: 1.1, color: '#fde047' });
-    c.place('gift_box', { x: 10.35, y: y0, z: -6.75, rotY: 0.25, scale: 0.95, color: '#ddd6fe' });
+    c.place('handbag', { x: 14.75, y: y0, z: -6.65, rotY: -0.3, scale: 1.15, color: '#f43f5e' });
+    c.place('shoe_pair', { x: 13.65, y: y0, z: -6.65, rotY: 0.15, scale: 1.1, color: '#fbcfe8' });
+    c.place('shoe_pair', { x: 13.95, y: y0, z: -6.65, rotY: -0.1, scale: 1.1, color: '#fde047' });
+    c.place('gift_box', { x: 14.45, y: y0, z: -6.68, rotY: 0.25, scale: 0.95, color: '#ddd6fe' });
 
     // Equipment Storage Cabinet Top Rolled Backdrops, Cases & Film Rolls
-    c.placeCluster(10.4, y0 + 1.85, -14.6, [
+    c.placeCluster(10.2, y0 + 1.85, -14.6, [
       { type: 'fabric_roll', dx: -0.52, dz: 0, rotY: 0.08, scale: 1.1, color: '#f43f5e' },
       { type: 'fabric_roll', dx: 0.12, dz: 0.04, rotY: -0.12, scale: 1.05, color: '#c084fc' },
       { type: 'fabric_roll', dx: 0.55, dz: -0.04, rotY: 0.2, scale: 0.95, color: '#38bdf8' },
@@ -1355,50 +1355,50 @@ export class MicroPropLibrary {
       c.place('crystal_sconce', { x: cx + 0.1, y: yCeil - 0.8, z: cz, scale: 1.25 });
     });
 
-    // Tabletop Miniature Castle & Village Ring of Miniature Trees & Lamp Posts
+    // Tabletop Miniature Castle & Village Ring of Miniature Trees & Lamp Posts (Centered at 12.85, 11.85)
     c.placeRing('miniature_tree', {
-      centerX: 12.25,
+      centerX: 12.85,
       centerY: y0 + 0.55,
-      centerZ: 10.6,
-      radius: 1.28,
+      centerZ: 11.85,
+      radius: 0.96,
       count: 10,
-      baseScale: 1.05,
+      baseScale: 1.02,
       scaleVariation: 0.15,
       palette: ['#a7f3d0', '#fbcfe8', '#c084fc', '#86efac', '#fda4af'],
     });
     c.placeRing('miniature_lamp', {
-      centerX: 12.25,
+      centerX: 12.85,
       centerY: y0 + 0.55,
-      centerZ: 10.6,
-      radius: 0.72,
+      centerZ: 11.85,
+      radius: 0.62,
       count: 6,
       baseScale: 0.9,
       palette: CREATIVE_WING_PASTEL_PALETTE,
       startAngle: 0.3,
     });
 
-    // 4-Room Open Dollhouse Interior Furniture (Living Room, Kitchen, Bedroom, Bathroom)
-    c.placeCluster(14.72, y0 + 0.06, 10.0, [
+    // 4-Room Open Dollhouse Interior Furniture along West Wall (lx = 9.68, lz = 10.4)
+    c.placeCluster(9.68, y0 + 0.06, 9.85, [
       { type: 'miniature_table', dx: 0, dz: 0, scale: 1.5, color: '#fff1f2' },
       { type: 'miniature_chair', dx: 0, dz: -0.25, rotY: 0, scale: 1.4, color: '#f472b6' },
       { type: 'miniature_chair', dx: 0, dz: 0.25, rotY: Math.PI, scale: 1.4, color: '#f472b6' },
-      { type: 'miniature_lamp', dx: -0.1, dz: -0.42, scale: 1.25 },
+      { type: 'miniature_lamp', dx: 0.1, dz: -0.42, scale: 1.25 },
       { type: 'flower_vase', dx: 0, dy: 0.16, dz: 0, scale: 0.65, color: '#fb7185' },
     ]);
-    c.placeCluster(14.72, y0 + 0.06, 11.2, [
+    c.placeCluster(9.68, y0 + 0.06, 10.95, [
       { type: 'miniature_table', dx: 0, dz: -0.15, scale: 1.45, color: '#fef08a' },
       { type: 'miniature_chair', dx: 0, dz: 0.15, rotY: Math.PI, scale: 1.35, color: '#38bdf8' },
       { type: 'cosmetic_bottle', dx: 0, dy: 0.15, dz: -0.15, scale: 0.85, color: '#f43f5e' },
-      { type: 'gift_box', dx: -0.08, dz: 0.42, scale: 0.9, color: '#a7f3d0' },
+      { type: 'gift_box', dx: 0.08, dz: 0.42, scale: 0.9, color: '#a7f3d0' },
     ]);
-    c.placeCluster(14.72, y0 + 0.93, 10.0, [
+    c.placeCluster(9.68, y0 + 0.93, 9.85, [
       { type: 'gift_box', dx: 0, dz: -0.15, scale: 1.35, color: '#c084fc' },
-      { type: 'teddy_bear', dx: 0.04, dy: 0.18, dz: -0.15, rotY: -Math.PI / 2, scale: 0.75, color: '#fbcfe8' },
-      { type: 'miniature_lamp', dx: -0.08, dz: 0.28, scale: 1.15 },
-      { type: 'decorative_mirror', dx: -0.05, dz: 0.44, rotY: -Math.PI / 2, scale: 0.95 },
+      { type: 'teddy_bear', dx: -0.04, dy: 0.18, dz: -0.15, rotY: Math.PI / 2, scale: 0.75, color: '#fbcfe8' },
+      { type: 'miniature_lamp', dx: 0.08, dz: 0.28, scale: 1.15 },
+      { type: 'decorative_mirror', dx: 0.05, dz: 0.44, rotY: Math.PI / 2, scale: 0.95 },
     ]);
-    c.placeCluster(14.72, y0 + 0.93, 11.2, [
-      { type: 'decorative_mirror', dx: -0.06, dz: -0.22, rotY: -Math.PI / 2, scale: 1.15 },
+    c.placeCluster(9.68, y0 + 0.93, 10.95, [
+      { type: 'decorative_mirror', dx: 0.06, dz: -0.22, rotY: Math.PI / 2, scale: 1.15 },
       { type: 'perfume_bottle', dx: 0, dz: 0.08, scale: 0.95, color: '#38bdf8' },
       { type: 'cosmetic_bottle', dx: 0, dz: 0.24, scale: 0.95, color: '#fbcfe8' },
     ]);

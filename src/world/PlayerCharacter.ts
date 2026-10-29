@@ -126,6 +126,9 @@ export interface PlayerAvatarBundle {
     crownEquipped: boolean;
     allThreeWorn: boolean;
   };
+  setRaisingHand: (raising: boolean) => void;
+  setRoseHeld: (held: boolean) => void;
+  isRoseHeld: () => boolean;
   dispose: () => void;
 }
 
@@ -509,6 +512,58 @@ export function createPlayerAvatar(): PlayerAvatarBundle {
   comboHeartOrb.add(chOrbCore, chOrbL, chOrbR);
   bodyGroup.add(comboHeartOrb);
 
+  // 10. Wearable Golden-Rimmed Rose on Right Hand (for Little Dream World Rose Handoff)
+  const heldRoseGroup = new THREE.Group();
+  heldRoseGroup.name = 'HeldGoldenRoseGroup';
+  heldRoseGroup.position.set(0.01, -0.02, 0.045);
+  heldRoseGroup.rotation.set(Math.PI * 0.35, 0, -0.15);
+  heldRoseGroup.visible = false;
+  rightHandAnchor.add(heldRoseGroup);
+
+  const roseStemGeo = new THREE.CylinderGeometry(0.0045, 0.0055, 0.22, 8);
+  roseStemGeo.translate(0, 0.08, 0);
+  const roseStemMat = new THREE.MeshStandardMaterial({
+    color: new THREE.Color('#10b981'),
+    roughness: 0.45,
+    metalness: 0.1,
+  });
+  const rosePetalMat = new THREE.MeshStandardMaterial({
+    color: new THREE.Color('#f43f5e'),
+    emissive: new THREE.Color('#fbbf24'),
+    emissiveIntensity: 0.45,
+    roughness: 0.22,
+    metalness: 0.25,
+  });
+  materials.push(roseStemMat, rosePetalMat);
+
+  const roseBudCoreGeo = new THREE.ConeGeometry(0.022, 0.045, 10);
+  roseBudCoreGeo.rotateX(Math.PI);
+  roseBudCoreGeo.translate(0, 0.2, 0);
+  const roseOuterPetalGeo = new THREE.SphereGeometry(0.026, 10, 8);
+  roseOuterPetalGeo.scale(1.15, 0.85, 1.15);
+  roseOuterPetalGeo.translate(0, 0.195, 0);
+  const roseLeafGeo = new THREE.SphereGeometry(0.014, 8, 6);
+  roseLeafGeo.scale(1.6, 0.35, 0.75);
+
+  const leafL = new THREE.Mesh(roseLeafGeo, roseStemMat);
+  leafL.position.set(-0.016, 0.11, 0);
+  leafL.rotation.z = 0.45;
+  const leafR = new THREE.Mesh(roseLeafGeo, roseStemMat);
+  leafR.position.set(0.016, 0.13, 0);
+  leafR.rotation.z = -0.45;
+  const goldRimHalo = new THREE.Mesh(ringBandGeo, ribbonGoldMat);
+  goldRimHalo.scale.setScalar(1.25);
+  goldRimHalo.position.set(0, 0.2, 0);
+
+  heldRoseGroup.add(
+    new THREE.Mesh(roseStemGeo, roseStemMat),
+    new THREE.Mesh(roseOuterPetalGeo, rosePetalMat),
+    new THREE.Mesh(roseBudCoreGeo, ribbonGoldMat),
+    leafL,
+    leafR,
+    goldRimHalo,
+  );
+
   geometries.push(
     headGeo,
     hairCapGeo,
@@ -522,6 +577,10 @@ export function createPlayerAvatar(): PlayerAvatarBundle {
     pearlTinyGeo,
     neckChainGeo,
     ringBandGeo,
+    roseStemGeo,
+    roseBudCoreGeo,
+    roseOuterPetalGeo,
+    roseLeafGeo,
   );
 
   let walkPhase = 0;
@@ -531,6 +590,8 @@ export function createPlayerAvatar(): PlayerAvatarBundle {
   let equippedRingIndex: number | null = null;
   let equippedNecklaceIndex: number | null = null;
   let activityPose: AvatarActivityPose = 'none';
+  let raisingHandForGift = false;
+  let roseHeld = false;
 
   const RING_COLORS = ['#f43f5e', '#fde047', '#38bdf8', '#c084fc', '#f472b6'];
   const NECKLACE_COLORS = ['#ec4899', '#fbbf24', '#38bdf8', '#a855f7', '#fb7185'];
@@ -1325,15 +1386,16 @@ export function createPlayerAvatar(): PlayerAvatarBundle {
         10,
         delta,
       );
+      const handGiftPose = Boolean(isReceivingKey || raisingHandForGift);
       rightArmPivot.rotation.z = THREE.MathUtils.damp(
         rightArmPivot.rotation.z,
-        isReceivingKey ? 0.18 : -0.14,
+        handGiftPose ? 0.18 : roseHeld ? 0.08 : -0.14,
         10,
         delta,
       );
       headPivot.rotation.x = THREE.MathUtils.damp(
         headPivot.rotation.x,
-        0,
+        handGiftPose ? 0.12 : 0,
         10,
         delta,
       );
@@ -1356,9 +1418,11 @@ export function createPlayerAvatar(): PlayerAvatarBundle {
         rightLegPivot.rotation.x = -Math.sin(walkPhase) * swingAmp;
 
         leftArmPivot.rotation.x = -Math.sin(walkPhase) * swingAmp * 0.82;
-        rightArmPivot.rotation.x = isReceivingKey
+        rightArmPivot.rotation.x = handGiftPose
           ? THREE.MathUtils.damp(rightArmPivot.rotation.x, -1.25, 10, delta)
-          : Math.sin(walkPhase) * swingAmp * 0.82;
+          : roseHeld
+            ? THREE.MathUtils.damp(rightArmPivot.rotation.x, -0.68, 10, delta)
+            : Math.sin(walkPhase) * swingAmp * 0.82;
 
         bodyGroup.position.y = Math.abs(Math.sin(walkPhase)) * 0.055;
         const targetLean = isSprinting ? 0.14 : 0.06;
@@ -1392,7 +1456,7 @@ export function createPlayerAvatar(): PlayerAvatarBundle {
         );
         rightArmPivot.rotation.x = THREE.MathUtils.damp(
           rightArmPivot.rotation.x,
-          isReceivingKey ? -1.25 : -Math.sin(elapsedTime * 1.8) * 0.03,
+          handGiftPose ? -1.25 : roseHeld ? -0.72 : -Math.sin(elapsedTime * 1.8) * 0.03,
           10,
           delta,
         );
@@ -1563,6 +1627,16 @@ export function createPlayerAvatar(): PlayerAvatarBundle {
           equippedNecklaceIndex !== null &&
           tiaraVisible,
       };
+    },
+    setRaisingHand(raising: boolean) {
+      raisingHandForGift = raising;
+    },
+    setRoseHeld(held: boolean) {
+      roseHeld = held;
+      heldRoseGroup.visible = held;
+    },
+    isRoseHeld() {
+      return roseHeld;
     },
     dispose() {
       geometries.forEach((g) => g.dispose());

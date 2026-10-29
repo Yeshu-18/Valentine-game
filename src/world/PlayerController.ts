@@ -192,7 +192,13 @@ export function createPlayerController(
       getCrownAttachmentWorldPos: (out) => avatar.getCrownAttachmentWorldPos(out),
       setJewelleryEquipped: (state) => avatar.setJewelleryEquipped(state),
       getJewelleryEquipped: () => avatar.getJewelleryEquipped(),
+      setRaisingHand: (raising) => avatar.setRaisingHand(raising),
+      setRoseHeld: (held) => avatar.setRoseHeld(held),
+      isRoseHeld: () => avatar.isRoseHeld(),
+      setActivityPose: (pose) => avatar.setActivityPose(pose),
+      resetNeutralPose: () => avatar.resetNeutralPose?.(),
     });
+    dreamCastle.setAvatarRoseCallback((held) => avatar.setRoseHeld(held));
   }
 
   // Spawn at the NW edge of Central Plaza (-16, +16), facing the NW Ancient Realm Gateway,
@@ -777,6 +783,13 @@ export function createPlayerController(
       dreamCastle.floor2Rooms.getCameraState().active ||
       dreamCastle.floor2CreativeWing.getCameraState().active ||
       dreamCastle.floor3Rooms.getCameraState().active;
+    dreamCastle.floor2CreativeWing.capturePlayerPose(
+      playerPos,
+      currentCamPos,
+      currentLookAt,
+      facingYaw,
+      cameraPitch,
+    );
     if (dreamCastle.interact(playerPos)) {
       const nowCamActive =
         dreamCastle.floor1Rooms.getCameraState().active ||
@@ -885,6 +898,15 @@ export function createPlayerController(
       if (dreamCastle?.nav.activeCameraFocus) {
         dreamCastle.nav.skipCameraFocus();
         return;
+      }
+      if (dreamCastle) {
+        dreamCastle.floor2CreativeWing.capturePlayerPose(
+          playerPos,
+          currentCamPos,
+          currentLookAt,
+          facingYaw,
+          cameraPitch,
+        );
       }
       if (
         dreamCastle &&
@@ -1037,14 +1059,30 @@ export function createPlayerController(
     } else if (e.code === 'Space' && dreamCastle?.nav.activeCameraFocus) {
       e.preventDefault();
       dreamCastle.nav.skipCameraFocus();
+      restoreExplorationControls();
+      onTelemetryChange?.(buildTelemetry());
     } else if (
       dreamCastle &&
-      (dreamCastle.floor3Rooms.handleKeyAction(e.code) ||
-        dreamCastle.floor2Rooms.handleKeyAction(e.code) ||
-        dreamCastle.floor2CreativeWing.handleKeyAction(e.key) ||
-        dreamCastle.floor1Rooms.handleKeyAction(e.code))
+      (() => {
+        dreamCastle.floor2CreativeWing.capturePlayerPose(
+          playerPos,
+          currentCamPos,
+          currentLookAt,
+          facingYaw,
+          cameraPitch,
+        );
+        return (
+          dreamCastle.floor3Rooms.handleKeyAction(e.code) ||
+          dreamCastle.floor2Rooms.handleKeyAction(e.code) ||
+          dreamCastle.floor2CreativeWing.handleKeyAction(e.key) ||
+          dreamCastle.floor1Rooms.handleKeyAction(e.code)
+        );
+      })()
     ) {
       e.preventDefault();
+      if (!dreamCastle.floor2CreativeWing.getCameraState().active) {
+        restoreExplorationControls();
+      }
       onTelemetryChange?.(buildTelemetry());
     } else if (e.code === 'Space' && locomotionState === 'walk' && isGrounded) {
       e.preventDefault();
@@ -1593,6 +1631,13 @@ export function createPlayerController(
     },
     triggerTakePortrait: () => {
       if (!dreamCastle) return false;
+      dreamCastle.floor2CreativeWing.capturePlayerPose(
+        playerPos,
+        currentCamPos,
+        currentLookAt,
+        facingYaw,
+        cameraPitch,
+      );
       const ok = dreamCastle.floor2CreativeWing.triggerTakePortrait();
       if (ok) {
         onTelemetryChange?.(buildTelemetry());
@@ -1601,6 +1646,13 @@ export function createPlayerController(
     },
     interactCreativeWingKey: (key: string) => {
       if (!dreamCastle) return false;
+      dreamCastle.floor2CreativeWing.capturePlayerPose(
+        playerPos,
+        currentCamPos,
+        currentLookAt,
+        facingYaw,
+        cameraPitch,
+      );
       const ok = dreamCastle.floor2CreativeWing.handleKeyAction(key);
       if (ok) {
         onTelemetryChange?.(buildTelemetry());
@@ -2108,6 +2160,23 @@ export function createPlayerController(
               playerPos.z - Math.cos(cameraYaw) * horizDist,
             );
             currentLookAt.set(playerPos.x, playerPos.y + 1.38, playerPos.z);
+            camera.position.copy(currentCamPos);
+            camera.lookAt(currentLookAt);
+            onTelemetryChange?.(buildTelemetry());
+          }
+
+          const pendingPhotoCtx =
+            dreamCastle.floor2CreativeWing.consumePendingPhotoReturn();
+          if (pendingPhotoCtx) {
+            playerPos.copy(pendingPhotoCtx.worldPosition);
+            facingYaw = pendingPhotoCtx.playerYaw;
+            cameraYaw = pendingPhotoCtx.playerYaw;
+            cameraPitch = pendingPhotoCtx.playerPitch;
+            restoreExplorationControls();
+            avatar.group.position.copy(playerPos);
+            avatar.group.rotation.set(0, facingYaw, 0);
+            currentCamPos.copy(pendingPhotoCtx.cameraPosition);
+            currentLookAt.copy(pendingPhotoCtx.cameraTarget);
             camera.position.copy(currentCamPos);
             camera.lookAt(currentLookAt);
             onTelemetryChange?.(buildTelemetry());

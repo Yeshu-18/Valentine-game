@@ -1394,7 +1394,7 @@ export function createWizardingSchoolSystem(): WizardingSchoolBundle {
       map: realmRevealTex ?? undefined,
       transparent: true,
       opacity: 0.0,
-      side: THREE.DoubleSide,
+      side: THREE.FrontSide,
       depthWrite: false,
     }),
   );
@@ -1402,6 +1402,10 @@ export function createWizardingSchoolSystem(): WizardingSchoolBundle {
   const realmRevealMesh = new THREE.Mesh(realmRevealGeo, realmRevealMat);
   realmRevealMesh.position.set(0, 2.85, 0.6);
   realmRevealMesh.rotation.y = Math.PI; // Faces toward the Castle Gate entrance
+  const realmRevealBackMesh = new THREE.Mesh(realmRevealGeo, realmRevealMat);
+  realmRevealBackMesh.position.z = -0.01;
+  realmRevealBackMesh.rotation.y = Math.PI;
+  realmRevealMesh.add(realmRevealBackMesh);
   sortingStationGroup.add(realmRevealMesh);
 
   // Sorting Hat & Goblet Spark Particles (54 gold/azure motes)
@@ -1854,7 +1858,7 @@ export function createWizardingSchoolSystem(): WizardingSchoolBundle {
       map: pensieveWordsTex ?? undefined,
       transparent: true,
       opacity: 0.0,
-      side: THREE.DoubleSide,
+      side: THREE.FrontSide,
       depthWrite: false,
     }),
   );
@@ -1862,6 +1866,10 @@ export function createWizardingSchoolSystem(): WizardingSchoolBundle {
   const pensieveWordsMesh = new THREE.Mesh(pensieveWordsGeo, pensieveWordsMat);
   pensieveWordsMesh.position.set(0, 1.95, 0);
   pensieveWordsMesh.rotation.y = Math.PI / 2;
+  const pensieveWordsBackMesh = new THREE.Mesh(pensieveWordsGeo, pensieveWordsMat);
+  pensieveWordsBackMesh.position.z = -0.01;
+  pensieveWordsBackMesh.rotation.y = Math.PI;
+  pensieveWordsMesh.add(pensieveWordsBackMesh);
   pensieveGroup.add(pensieveWordsMesh);
 
   // Playful Bouncing Memory Orb ("And the completely stupid little things.")
@@ -2192,7 +2200,7 @@ export function createWizardingSchoolSystem(): WizardingSchoolBundle {
       map: patronusSkyTextTex ?? undefined,
       transparent: true,
       opacity: 0.0,
-      side: THREE.DoubleSide,
+      side: THREE.FrontSide,
       depthWrite: false,
     }),
   );
@@ -2202,6 +2210,13 @@ export function createWizardingSchoolSystem(): WizardingSchoolBundle {
     patronusSkyTextMat,
   );
   patronusSkyTextMesh.position.set(0, 5.2, 13.5);
+  const patronusSkyTextBackMesh = new THREE.Mesh(
+    patronusSkyTextGeo,
+    patronusSkyTextMat,
+  );
+  patronusSkyTextBackMesh.position.z = -0.01;
+  patronusSkyTextBackMesh.rotation.y = Math.PI;
+  patronusSkyTextMesh.add(patronusSkyTextBackMesh);
   schoolRoot.add(patronusSkyTextMesh);
 
   const patronusFlightCurve = new THREE.CatmullRomCurve3(

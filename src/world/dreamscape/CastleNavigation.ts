@@ -218,10 +218,27 @@ export class CastleNavigationController {
     duration: number;
     elapsed: number;
     blendAlpha: number;
+    seatWorldPos?: THREE.Vector3;
+    seatYaw?: number;
   } | null = null;
 
   public hasTriggeredEntranceReveal: boolean = false;
   public hasTriggeredRooftopReveal: boolean = false;
+
+  // Grand Castle Entrance Awakening & Romantic Reveal State (Sections 7, 23, 24, 25)
+  public primaryTreeAwake: number = 0.0;
+  public secondaryTreeAwake: number = 0.0;
+  public castleWindowsAwake: number = 0.0;
+  public yeshwanthWalkProgress: number = 0.0;
+  public yeshwanthRoseExtend: number = 0.0;
+  public entranceRosePresented: boolean = false;
+  public activeEntranceCaption: string | null = null;
+  private playedPrimaryTreeChime: boolean = false;
+  private playedSecondaryTreeChime: boolean = false;
+  private playedWindowsChime: boolean = false;
+  private playedDoorsCreak: boolean = false;
+  private playedRoseMelody: boolean = false;
+  private onEntranceRosePresentedCallback: ((held: boolean) => void) | null = null;
 
   // Fountain Ripple & Hologram Projector State
   public fountainRippleTimer: number = 0.0;
@@ -233,10 +250,11 @@ export class CastleNavigationController {
   public readonly fountainHologramCaption: string =
     '"Our favorite place in the world is right beside you. ♡"';
 
-  // Preallocated rooftop sweep waypoints (Zero Per-Frame Allocations)
+  // Preallocated rooftop sweep waypoints & entrance pose vectors (Zero Per-Frame Allocations)
   private readonly rooftopSweepWaypoints: THREE.Vector3[];
   private readonly focusCamPos = new THREE.Vector3();
   private readonly focusTargetPos = new THREE.Vector3();
+  private readonly entranceSeatWorldPos = new THREE.Vector3();
 
   // Audio cues
   private audioCtx: AudioContext | null = null;
@@ -683,10 +701,17 @@ export class CastleNavigationController {
   }
 
   public getActiveFountainCaption(): string | null {
+    if (this.activeEntranceCaption) {
+      return this.activeEntranceCaption;
+    }
     if (this.fountainHologramActive || this.fountainHologramAlpha > 0.15) {
       return this.fountainHologramCaption;
     }
     return null;
+  }
+
+  public setEntranceRoseCallback(cb: (held: boolean) => void) {
+    this.onEntranceRosePresentedCallback = cb;
   }
 
   public isInsideElevatorCabin(playerPos: THREE.Vector3): boolean {
@@ -789,13 +814,32 @@ export class CastleNavigationController {
   }
 
   public openEntranceDoors(): boolean {
-    if (this.doorState === 'CLOSED') {
-      this.doorState = 'OPENING';
-      this.playDoorCreak();
+    if (this.doorState === 'CLOSED' && !this.hasTriggeredEntranceReveal) {
       this.triggerEntranceCinematicTilt();
       return true;
     }
+    if (this.doorState === 'CLOSED') {
+      this.doorState = 'OPENING';
+      this.playDoorCreak();
+      return true;
+    }
     return false;
+  }
+
+  public advanceEntranceCinematicBeat(): boolean {
+    if (!this.activeCameraFocus || this.activeCameraFocus.mode !== 'entrance') {
+      return false;
+    }
+    const e = this.activeCameraFocus.elapsed;
+    const beats = [2.2, 5.2, 7.6, 10.2, 12.6, 14.0, 16.1];
+    for (let i = 0; i < beats.length; i++) {
+      if (e < beats[i] - 0.15) {
+        this.activeCameraFocus.elapsed = beats[i];
+        return true;
+      }
+    }
+    this.skipCameraFocus();
+    return true;
   }
 
   public callElevatorToFloor(floorId: number): boolean {
@@ -848,16 +892,19 @@ export class CastleNavigationController {
     this.focusYawOffset = 0;
     this.focusPitchOffset = 0;
 
-    this.focusCamPos.set(this.originX, this.baseY + 2.1, this.originZ - 14.2);
-    this.focusTargetPos.set(this.originX, this.baseY + 2.0, this.originZ - 4.0);
+    this.entranceSeatWorldPos.set(this.originX - 0.52, this.baseY + 0.18, this.originZ - 19.25);
+    this.focusCamPos.set(this.originX - 2.2, this.baseY + 2.1, this.originZ - 24.5);
+    this.focusTargetPos.set(this.originX, this.baseY + 2.8, this.originZ - 16.0);
     this.activeCameraFocus = {
       mode: 'entrance',
       position: this.focusCamPos,
       target: this.focusTargetPos,
-      fov: 62,
-      duration: 2.8,
+      fov: 56,
+      duration: 16.5,
       elapsed: 0,
       blendAlpha: 0,
+      seatWorldPos: this.entranceSeatWorldPos,
+      seatYaw: 0.28,
     };
   }
 
@@ -880,8 +927,29 @@ export class CastleNavigationController {
     };
   }
 
+  private finalizeEntranceAwakeningState() {
+    this.primaryTreeAwake = 1.0;
+    this.secondaryTreeAwake = 1.0;
+    this.castleWindowsAwake = 1.0;
+    this.doorState = 'OPEN';
+    this.doorOpenRatio = 1.0;
+    this.doorHandleAngle = 0.0;
+    this.yeshwanthWalkProgress = 1.0;
+    this.yeshwanthRoseExtend = 0.35;
+    this.activeEntranceCaption = null;
+    if (!this.entranceRosePresented) {
+      this.entranceRosePresented = true;
+      if (this.onEntranceRosePresentedCallback) {
+        this.onEntranceRosePresentedCallback(true);
+      }
+    }
+  }
+
   public skipCameraFocus() {
     if (!this.activeCameraFocus) return;
+    if (this.activeCameraFocus.mode === 'entrance') {
+      this.finalizeEntranceAwakeningState();
+    }
     this.activeCameraFocus.elapsed = Math.max(
       this.activeCameraFocus.elapsed,
       this.activeCameraFocus.duration - 0.4,
@@ -926,7 +994,7 @@ export class CastleNavigationController {
 
     // 1. Door opening state machine
     if (this.doorState === 'OPENING') {
-      this.doorOpenRatio = Math.min(1.0, this.doorOpenRatio + delta * 0.65);
+      this.doorOpenRatio = Math.min(1.0, this.doorOpenRatio + delta * 0.52);
       if (this.doorOpenRatio < 0.35) {
         this.doorHandleAngle = Math.min(0.65, this.doorHandleAngle + delta * 2.4);
       } else {
@@ -935,13 +1003,6 @@ export class CastleNavigationController {
       if (this.doorOpenRatio >= 1.0) {
         this.doorState = 'OPEN';
         this.doorHandleAngle = 0.0;
-      }
-    }
-
-    // Check first entry threshold for entrance cinematic reveal
-    if (!this.hasTriggeredEntranceReveal && this.doorOpenRatio > 0.4) {
-      if (Math.abs(lx) <= 6.0 && lz >= -15.5 && lz <= -10.0) {
-        this.triggerEntranceCinematicTilt(playerPos);
       }
     }
 
@@ -956,29 +1017,180 @@ export class CastleNavigationController {
     if (this.activeCameraFocus) {
       this.activeCameraFocus.elapsed += delta;
       const totalDur = this.activeCameraFocus.duration;
-      const u = THREE.MathUtils.clamp(this.activeCameraFocus.elapsed / totalDur, 0, 1);
+      const e = this.activeCameraFocus.elapsed;
+      const u = THREE.MathUtils.clamp(e / totalDur, 0, 1);
 
-      const entryAlpha = smoothStep01(this.activeCameraFocus.elapsed / 0.38);
-      const remaining = Math.max(0, totalDur - this.activeCameraFocus.elapsed);
-      const exitAlpha = smoothStep01(remaining / 0.4);
+      const entryAlpha = smoothStep01(e / 0.55);
+      const remaining = Math.max(0, totalDur - e);
+      const exitAlpha = smoothStep01(remaining / 0.65);
       this.activeCameraFocus.blendAlpha = Math.min(entryAlpha, exitAlpha);
 
       if (this.activeCameraFocus.mode === 'entrance') {
-        const camZ = THREE.MathUtils.lerp(this.originZ - 14.2, this.originZ - 11.5, smoothStep01(u));
-        this.activeCameraFocus.position.set(this.originX, this.baseY + 2.1, camZ);
+        // Multi-beat Romantic Grand Castle Entrance Sequence (16.5s total)
+        this.primaryTreeAwake = smoothStep01((e - 2.1) / 1.4);
+        this.secondaryTreeAwake = smoothStep01((e - 3.5) / 1.4);
+        this.castleWindowsAwake = smoothStep01((e - 5.1) / 2.2);
 
-        let targetY: number;
-        let targetZ: number;
-        if (u <= 0.58) {
-          const uUp = smoothStep01(u / 0.58);
-          targetY = THREE.MathUtils.lerp(this.baseY + 2.0, this.baseY + 7.2, uUp);
-          targetZ = THREE.MathUtils.lerp(this.originZ - 4.0, this.originZ, uUp);
-        } else {
-          const uDown = smoothStep01((u - 0.58) / 0.42);
-          targetY = THREE.MathUtils.lerp(this.baseY + 7.2, this.baseY + 1.65, uDown);
-          targetZ = this.originZ;
+        if (e >= 2.2 && !this.playedPrimaryTreeChime) {
+          this.playedPrimaryTreeChime = true;
+          this.playChime(523.25, 659.25);
         }
-        this.activeCameraFocus.target.set(this.originX, targetY, targetZ);
+        if (e >= 3.6 && !this.playedSecondaryTreeChime) {
+          this.playedSecondaryTreeChime = true;
+          this.playChime(659.25, 783.99);
+        }
+        if (e >= 5.2 && !this.playedWindowsChime) {
+          this.playedWindowsChime = true;
+          this.playChime(783.99, 1046.5);
+        }
+        if (e >= 7.5 && !this.playedDoorsCreak) {
+          this.playedDoorsCreak = true;
+          if (this.doorState === 'CLOSED') {
+            this.doorState = 'OPENING';
+            this.playDoorCreak();
+          }
+        }
+
+        // Yeshwanth walks from Grand Hall threshold (lz = -15.4) to entrance steps (lz = -18.35)
+        this.yeshwanthWalkProgress = smoothStep01((e - 9.8) / 2.4);
+
+        // Rose presentation gesture (12.4s -> 14.0s, then subtle hold)
+        if (e < 12.4) {
+          this.yeshwanthRoseExtend = 0.0;
+        } else if (e < 14.2) {
+          this.yeshwanthRoseExtend = smoothStep01((e - 12.4) / 1.1);
+        } else {
+          this.yeshwanthRoseExtend = THREE.MathUtils.lerp(1.0, 0.35, smoothStep01((e - 14.2) / 1.2));
+        }
+
+        if (e >= 13.2 && !this.entranceRosePresented) {
+          this.entranceRosePresented = true;
+          if (!this.playedRoseMelody) {
+            this.playedRoseMelody = true;
+            this.playMusicBoxMelody();
+          }
+          if (this.onEntranceRosePresentedCallback) {
+            this.onEntranceRosePresentedCallback(true);
+          }
+        }
+
+        // Camera & Caption Choreography across the 7 romantic beats:
+        let camLX = 0;
+        let camLY = 2.2;
+        let camLZ = -24.5;
+        let lookLX = 0;
+        let lookLY = 2.8;
+        let lookLZ = -16.0;
+        let fov = 56;
+
+        if (e < 2.2) {
+          // Beat 1: CASTLE APPROACH (0.0s - 2.2s)
+          const b = smoothStep01(e / 2.2);
+          camLX = THREE.MathUtils.lerp(-2.4, -3.2, b);
+          camLY = THREE.MathUtils.lerp(2.05, 2.35, b);
+          camLZ = THREE.MathUtils.lerp(-24.8, -23.8, b);
+          lookLX = THREE.MathUtils.lerp(-0.3, -1.8, b);
+          lookLY = THREE.MathUtils.lerp(2.2, 3.4, b);
+          lookLZ = THREE.MathUtils.lerp(-18.2, -17.5, b);
+          fov = 56;
+          this.activeEntranceCaption =
+            '✦ Harsha arrives before the Grand Palace of Heart Island... [E] Next Beat · [Space] Skip ✦';
+        } else if (e < 5.2) {
+          // Beat 2: HEART TREE AWAKENING (2.2s - 5.2s: Left Pink Tree -> Right Dream Tree)
+          if (e < 3.7) {
+            const b = smoothStep01((e - 2.2) / 1.5);
+            camLX = THREE.MathUtils.lerp(-3.2, -2.6, b);
+            camLY = THREE.MathUtils.lerp(2.35, 2.65, b);
+            camLZ = THREE.MathUtils.lerp(-23.8, -25.4, b);
+            lookLX = THREE.MathUtils.lerp(-1.8, -6.8, b);
+            lookLY = THREE.MathUtils.lerp(3.4, 4.4, b);
+            lookLZ = THREE.MathUtils.lerp(-17.5, -19.4, b);
+          } else {
+            const b = smoothStep01((e - 3.7) / 1.5);
+            camLX = THREE.MathUtils.lerp(-2.6, 2.6, b);
+            camLY = THREE.MathUtils.lerp(2.65, 2.75, b);
+            camLZ = THREE.MathUtils.lerp(-25.4, -25.4, b);
+            lookLX = THREE.MathUtils.lerp(-6.8, 6.8, b);
+            lookLY = THREE.MathUtils.lerp(4.4, 4.4, b);
+            lookLZ = THREE.MathUtils.lerp(-19.4, -19.4, b);
+          }
+          fov = 55;
+          this.activeEntranceCaption =
+            '✦ The twin Heart Trees awaken in warm blossom light, drifting petals around Harsha... ✦';
+        } else if (e < 7.6) {
+          // Beat 3: CASTLE AWAKENING (5.2s - 7.6s: Arched windows & golden 'I LOVE YOU, HARSHA' frieze illuminate)
+          const b = smoothStep01((e - 5.2) / 2.4);
+          camLX = THREE.MathUtils.lerp(2.6, 0.0, b);
+          camLY = THREE.MathUtils.lerp(2.75, 3.65, b);
+          camLZ = THREE.MathUtils.lerp(-25.4, -25.8, b);
+          lookLX = THREE.MathUtils.lerp(6.8, 0.0, b);
+          lookLY = THREE.MathUtils.lerp(4.4, 6.8, b);
+          lookLZ = THREE.MathUtils.lerp(-19.4, -16.2, b);
+          fov = 56;
+          this.activeEntranceCaption =
+            '✦ Every arched crystal window and golden heart crest across the Dream Castle illuminates... ✦';
+        } else if (e < 10.2) {
+          // Beat 4: DOORS OPEN & INTERIOR REVEAL (7.6s - 10.2s)
+          const b = smoothStep01((e - 7.6) / 2.6);
+          camLX = THREE.MathUtils.lerp(0.0, -1.65, b);
+          camLY = THREE.MathUtils.lerp(3.65, 2.25, b);
+          camLZ = THREE.MathUtils.lerp(-25.8, -21.2, b);
+          lookLX = THREE.MathUtils.lerp(0.0, 0.0, b);
+          lookLY = THREE.MathUtils.lerp(6.8, 2.65, b);
+          lookLZ = THREE.MathUtils.lerp(-16.2, -6.0, b);
+          fov = 54;
+          this.activeEntranceCaption =
+            '✦ The Grand Palace Doors swing open, revealing the Chandelier Hall within... ✦';
+        } else if (e < 12.6) {
+          // Beat 5: Yeshwanth APPEARS & DIALOGUE (10.2s - 12.6s)
+          const b = smoothStep01((e - 10.2) / 2.4);
+          camLX = THREE.MathUtils.lerp(-1.65, -2.35, b);
+          camLY = THREE.MathUtils.lerp(2.25, 1.92, b);
+          camLZ = THREE.MathUtils.lerp(-21.2, -20.4, b);
+          lookLX = THREE.MathUtils.lerp(0.0, 0.1, b);
+          lookLY = THREE.MathUtils.lerp(2.65, 1.62, b);
+          lookLZ = THREE.MathUtils.lerp(-6.0, -18.5, b);
+          fov = 50;
+          this.activeEntranceCaption =
+            'Yeshwanth: "Welcome to your Dream Castle, Harsha... Every flower and heart here was made for you."';
+        } else if (e < 14.0) {
+          // Beat 6: ROSE PRESENTATION (12.6s - 14.0s)
+          const b = smoothStep01((e - 12.6) / 1.4);
+          camLX = THREE.MathUtils.lerp(-2.35, -1.75, b);
+          camLY = THREE.MathUtils.lerp(1.92, 1.78, b);
+          camLZ = THREE.MathUtils.lerp(-20.4, -19.85, b);
+          lookLX = THREE.MathUtils.lerp(0.1, 0.0, b);
+          lookLY = THREE.MathUtils.lerp(1.62, 1.48, b);
+          lookLZ = THREE.MathUtils.lerp(-18.5, -18.75, b);
+          fov = 46;
+          this.activeEntranceCaption =
+            'Yeshwanth: "This rose—and my heart—are yours forever. I love you, Harsha. ♥"';
+        } else {
+          // Beat 7: FINAL ROMANTIC SHOT (14.0s - 16.5s, 2.5s wide romantic hero hold)
+          // Frames Harsha, Yeshwanth, the rose, the open castle entrance, the Heart Trees, and foreground flowers
+          const b = smoothStep01((e - 14.0) / 1.1);
+          camLX = THREE.MathUtils.lerp(-1.75, 0.0, b);
+          camLY = THREE.MathUtils.lerp(1.78, 2.55, b);
+          camLZ = THREE.MathUtils.lerp(-19.85, -26.8, b);
+          lookLX = 0.0;
+          lookLY = THREE.MathUtils.lerp(1.48, 3.35, b);
+          lookLZ = THREE.MathUtils.lerp(-18.75, -16.8, b);
+          fov = THREE.MathUtils.lerp(46, 55, b);
+          this.activeEntranceCaption =
+            '♥ Yeshwanth & Harsha — Welcome to the Dream Castle of Heart Island ♥';
+        }
+
+        this.activeCameraFocus.position.set(
+          this.originX + camLX,
+          this.baseY + camLY,
+          this.originZ + camLZ,
+        );
+        this.activeCameraFocus.target.set(
+          this.originX + lookLX,
+          this.baseY + lookLY,
+          this.originZ + lookLZ,
+        );
+        this.activeCameraFocus.fov = fov;
       } else if (this.activeCameraFocus.mode === 'rooftop') {
         const sweepEase = smoothStep01(u);
         const wpLen = this.rooftopSweepWaypoints.length;
@@ -1009,6 +1221,9 @@ export class CastleNavigationController {
       }
 
       if (this.activeCameraFocus.elapsed >= totalDur) {
+        if (this.activeCameraFocus.mode === 'entrance') {
+          this.finalizeEntranceAwakeningState();
+        }
         this.activeCameraFocus = null;
         this.focusYawOffset = 0;
         this.focusPitchOffset = 0;

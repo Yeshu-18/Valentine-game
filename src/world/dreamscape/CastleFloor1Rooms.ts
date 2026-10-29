@@ -1484,21 +1484,33 @@ export function createCastleFloor1Rooms(
     diningGroup.add(rose);
   });
 
-  // Place settings & engraved place card for Yeshwanth & Harsha
+  // Place settings & engraved place card for Yeshwanth & Harsha (strictly FrontSide on both faces, never mirrored)
   const placeCardTex = createPlaceCardTexture(tracker);
-  const placeCardMat = tracker.trackMat(new THREE.MeshBasicMaterial({ map: placeCardTex, side: THREE.DoubleSide }));
+  placeCardTex.flipY = true;
+  const placeCardMat = tracker.trackMat(
+    new THREE.MeshBasicMaterial({ map: placeCardTex, side: THREE.FrontSide }),
+  );
   const placeCardGeo = tracker.trackGeo(new THREE.PlaneGeometry(0.38, 0.19));
 
-  [-1.35, 1.35].forEach((pz, idx) => {
+  [-1.35, 1.35].forEach((pz) => {
     const plate = new THREE.Mesh(plateGeo, mats.pearlWhite);
     plate.position.set(diningTableX, 1.095, pz);
     const goblet = new THREE.Mesh(gobletGeo, mats.crystalGlass);
     goblet.position.set(diningTableX + 0.26, 1.18, pz);
-    const card = new THREE.Mesh(placeCardGeo, placeCardMat);
-    card.position.set(diningTableX, 1.18, pz * 0.62);
-    card.rotation.y = idx === 0 ? Math.PI : 0;
-    card.rotation.x = idx === 0 ? 0.35 : -0.35;
-    diningGroup.add(plate, goblet, card);
+    const cardZ = pz * 0.62;
+    // South-facing (-Z) tent leaf: rotation.y = Math.PI, offset to -0.034 so the two leaves meet at the top ridge (/\) without intersecting!
+    const cardFront = new THREE.Mesh(placeCardGeo, placeCardMat);
+    cardFront.position.set(diningTableX, 1.18, cardZ - 0.034);
+    cardFront.rotation.order = 'YXZ';
+    cardFront.rotation.y = Math.PI;
+    cardFront.rotation.x = -0.35;
+    // North-facing (+Z) tent leaf: rotation.y = 0, offset to +0.034
+    const cardBack = new THREE.Mesh(placeCardGeo, placeCardMat);
+    cardBack.position.set(diningTableX, 1.18, cardZ + 0.034);
+    cardBack.rotation.order = 'YXZ';
+    cardBack.rotation.y = 0;
+    cardBack.rotation.x = -0.35;
+    diningGroup.add(plate, goblet, cardFront, cardBack);
   });
 
   floor1RoomsGroup.add(diningGroup);
@@ -1883,10 +1895,11 @@ export function createCastleFloor1Rooms(
     lpCtx.fillText('♡ BARBIE LOVE ♡', 128, 34);
   }
   const lovePlateTex = tracker.trackTex(new THREE.CanvasTexture(lovePlateCanvas));
+  lovePlateTex.flipY = true;
   lovePlateTex.colorSpace = THREE.SRGBColorSpace;
   const lovePlateMesh = new THREE.Mesh(
     tracker.trackGeo(new THREE.PlaneGeometry(0.18, 0.045)),
-    tracker.trackMat(new THREE.MeshBasicMaterial({ map: lovePlateTex })),
+    tracker.trackMat(new THREE.MeshBasicMaterial({ map: lovePlateTex, side: THREE.FrontSide })),
   );
   lovePlateMesh.position.set(0, 1.035, 0.232);
   baseCabinetGroup.add(knobVol, knobSpeed, indicatorLamp, lovePlateMesh);
@@ -1956,10 +1969,12 @@ export function createCastleFloor1Rooms(
     lbCtx.fill();
   }
   const vinylLabelTex = tracker.trackTex(new THREE.CanvasTexture(labelCanvas));
+  vinylLabelTex.flipY = true;
   vinylLabelTex.colorSpace = THREE.SRGBColorSpace;
+  // Use CircleGeometry rotated -PI/2 so UVs are right-handed and "♥ BARBIE ♥ / Dream Waltz" is never mirrored
   const vinylLabel = new THREE.Mesh(
-    tracker.trackGeo(new THREE.CylinderGeometry(0.072, 0.072, 0.013, 20)),
-    tracker.trackMat(new THREE.MeshBasicMaterial({ map: vinylLabelTex })),
+    tracker.trackGeo(new THREE.CircleGeometry(0.072, 24)).rotateX(-Math.PI / 2).translate(0, 0.0066, 0),
+    tracker.trackMat(new THREE.MeshBasicMaterial({ map: vinylLabelTex, side: THREE.FrontSide })),
   );
   vinylLabel.name = 'CenterLabel';
   vinylDiscPivot.add(vinylDisc, vinylLabel);
@@ -2433,24 +2448,26 @@ export function createCastleFloor1Rooms(
   }
 
   const guideBoardTex = tracker.trackTex(new THREE.CanvasTexture(guideBoardCanvas));
+  guideBoardTex.flipY = true;
   guideBoardTex.colorSpace = THREE.SRGBColorSpace;
   const guideBoardMat = tracker.trackMat(
     new THREE.MeshBasicMaterial({
       map: guideBoardTex,
       transparent: true,
       opacity: 0.95,
-      side: THREE.DoubleSide,
+      side: THREE.FrontSide,
     }),
   );
-  const guideBoardMesh = new THREE.Mesh(
-    tracker.trackGeo(new THREE.PlaneGeometry(0.76, 0.76)),
-    guideBoardMat,
-  );
+  const guideBoardGeo = tracker.trackGeo(new THREE.PlaneGeometry(0.76, 0.76));
+  const guideBoardMesh = new THREE.Mesh(guideBoardGeo, guideBoardMat);
+  const guideBoardBackMesh = new THREE.Mesh(guideBoardGeo, guideBoardMat);
+  guideBoardBackMesh.position.z = -0.026;
+  guideBoardBackMesh.rotation.y = Math.PI;
   const guideBoardFrame = new THREE.Mesh(
-    tracker.trackGeo(new THREE.BoxGeometry(0.8, 0.8, 0.02)).translate(0, 0, -0.015),
+    tracker.trackGeo(new THREE.BoxGeometry(0.8, 0.8, 0.02)).translate(0, 0, -0.013),
     mats.champagneGold,
   );
-  guitarGuideGroup.add(guideBoardFrame, guideBoardMesh);
+  guitarGuideGroup.add(guideBoardFrame, guideBoardMesh, guideBoardBackMesh);
 
   // 5 Plucking Line Target Rings (at y = -0.18 on the 0.76x0.76 board)
   const pluckTargetRingGeo = tracker.trackGeo(new THREE.RingGeometry(0.022, 0.038, 16));
@@ -2702,12 +2719,14 @@ export function createCastleFloor1Rooms(
   }
 
   const orchidLoveTex = tracker.trackTex(new THREE.CanvasTexture(orchidLoveCanvas));
+  orchidLoveTex.flipY = true;
   orchidLoveTex.colorSpace = THREE.SRGBColorSpace;
   const orchidLovePlaqueMat = tracker.trackMat(
     new THREE.MeshBasicMaterial({
       map: orchidLoveTex,
       transparent: true,
       opacity: 0.0,
+      side: THREE.FrontSide,
       polygonOffset: true,
       polygonOffsetFactor: -2,
       polygonOffsetUnits: -2,

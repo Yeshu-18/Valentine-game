@@ -386,6 +386,267 @@ export function createCastleGarden(
     });
   }
 
+  // ==========================================================================
+  // 5. ROMANTIC GARDEN ADDITIONS: "I ♥ YOU" FLORAL PARTERRE, HEART TOPIARIES,
+  //    HEART STEPPING STONES, FLORAL RIBBON ARCHES & SIDE FOUNTAINS
+  // ==========================================================================
+  // 5A. Heart-Shaped Stepping Stones inlaid along the promenade (lz = 18.8 .. 23.6)
+  const heartStoneShape = new THREE.Shape();
+  heartStoneShape.moveTo(0, -0.26);
+  heartStoneShape.bezierCurveTo(-0.34, -0.02, -0.38, 0.24, -0.18, 0.32);
+  heartStoneShape.bezierCurveTo(-0.06, 0.36, 0, 0.24, 0, 0.16);
+  heartStoneShape.bezierCurveTo(0, 0.24, 0.06, 0.36, 0.18, 0.32);
+  heartStoneShape.bezierCurveTo(0.38, 0.24, 0.34, -0.02, 0, -0.26);
+  const heartStoneGeo = tracker.trackGeo(
+    new THREE.ExtrudeGeometry(heartStoneShape, {
+      depth: 0.04,
+      bevelEnabled: true,
+      bevelSegments: 2,
+      steps: 1,
+      bevelSize: 0.015,
+      bevelThickness: 0.012,
+    }),
+  );
+  heartStoneGeo.rotateX(-Math.PI / 2);
+
+  [19.0, 20.1, 21.2, 22.3, 23.4, 29.8, 30.8].forEach((sz, idx) => {
+    const sy = localGroundY(0, sz);
+    const stone = new THREE.Mesh(
+      heartStoneGeo,
+      idx % 2 === 0 ? mats.champagneGold : mats.pearlWhite,
+    );
+    stone.position.set(0, sy + 0.055, sz);
+    stone.scale.setScalar(1.15);
+    gardenGroup.add(stone);
+  });
+
+  // 5B. Decorative Golden Heart & Rose Floral Arches over the Promenade (lz = 19.2 & lz = 29.8)
+  const gardenArchTubeGeo = tracker.trackGeo(
+    new THREE.TorusGeometry(2.15, 0.09, 10, 28, Math.PI),
+  );
+  const gardenArchPillarGeo = tracker.trackGeo(
+    new THREE.CylinderGeometry(0.11, 0.13, 2.25, 10),
+  );
+  gardenArchPillarGeo.translate(0, 1.125, 0);
+  const archRoseClusterGeo = tracker.trackGeo(new THREE.DodecahedronGeometry(0.18, 1));
+
+  [19.2, 29.8].forEach((az) => {
+    const ay = localGroundY(0, az);
+    const archGrp = new THREE.Group();
+    archGrp.position.set(0, ay, az);
+
+    const pL = new THREE.Mesh(gardenArchPillarGeo, mats.pearlWhite);
+    pL.position.set(-2.15, 0, 0);
+    const pR = new THREE.Mesh(gardenArchPillarGeo, mats.pearlWhite);
+    pR.position.set(2.15, 0, 0);
+    const crown = new THREE.Mesh(gardenArchTubeGeo, mats.champagneGold);
+    crown.position.set(0, 2.25, 0);
+    archGrp.add(pL, pR, crown);
+
+    for (let r = 0; r <= 6; r++) {
+      const ang = (r / 6) * Math.PI;
+      const rx = Math.cos(ang) * 2.15;
+      const ry = 2.25 + Math.sin(ang) * 2.15;
+      const rose = new THREE.Mesh(
+        archRoseClusterGeo,
+        r % 2 === 0 ? crimsonRoseMat : blushRosePetalMat,
+      );
+      rose.position.set(rx, ry, 0.08);
+      archGrp.add(rose);
+    }
+
+    // Top sculpted heart finial on the floral arch
+    const topHeart = new THREE.Mesh(heartStoneGeo, mats.champagneGold);
+    topHeart.rotation.x = Math.PI / 2;
+    topHeart.position.set(0, 4.55, 0);
+    topHeart.scale.setScalar(0.95);
+    archGrp.add(topHeart);
+
+    gardenGroup.add(archGrp);
+  });
+
+  // 5C. Sculpted 3D "I ♥ YOU" Floral Parterre & Un-Mirrored Dedication Plaque
+  // Placed in twin floral parterres flanking the promenade at (lx = ±3.25, lz = 21.6)
+  const parterreRimGeo = tracker.trackGeo(new THREE.BoxGeometry(2.85, 0.24, 1.35));
+  const parterreLawnGeo = tracker.trackGeo(new THREE.BoxGeometry(2.65, 0.26, 1.15));
+  const floralRoseBudGeo = tracker.trackGeo(new THREE.SphereGeometry(0.085, 8, 8));
+
+  const createGardenLovePlaqueTex = (): THREE.CanvasTexture => {
+    const canvas = document.createElement('canvas');
+    canvas.width = 512;
+    canvas.height = 192;
+    const ctx = canvas.getContext('2d');
+    if (ctx) {
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.clearRect(0, 0, 512, 192);
+      const grad = ctx.createLinearGradient(0, 0, 512, 192);
+      grad.addColorStop(0, '#fffdf9');
+      grad.addColorStop(0.5, '#fdf2f8');
+      grad.addColorStop(1, '#fce7f3');
+      ctx.fillStyle = grad;
+      ctx.fillRect(8, 8, 496, 176);
+
+      ctx.strokeStyle = '#d4af37';
+      ctx.lineWidth = 6;
+      ctx.strokeRect(12, 12, 488, 168);
+      ctx.strokeStyle = '#f472b6';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(20, 20, 472, 152);
+
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillStyle = '#be185d';
+      ctx.font = 'bold 34px Georgia, serif';
+      ctx.fillText('♥ I LOVE YOU, HARSHA ♥', 256, 74);
+
+      ctx.fillStyle = '#9d174d';
+      ctx.font = 'italic 22px Georgia, serif';
+      ctx.fillText('Every blossom in this garden blooms for you', 256, 128);
+    }
+    const tex = tracker.trackTex(new THREE.CanvasTexture(canvas));
+    tex.colorSpace = THREE.SRGBColorSpace;
+    tex.flipY = true;
+    tex.needsUpdate = true;
+    return tex;
+  };
+
+  const gardenPlaqueMat = tracker.trackMat(
+    new THREE.MeshBasicMaterial({
+      map: createGardenLovePlaqueTex(),
+      side: THREE.FrontSide,
+    }),
+  );
+  const gardenPlaquePlaneGeo = tracker.trackGeo(new THREE.PlaneGeometry(1.42, 0.52));
+  const gardenPlaqueBackingGeo = tracker.trackGeo(new THREE.BoxGeometry(1.5, 0.6, 0.06));
+
+  [-3.35, 3.35].forEach((px) => {
+    const pz = 21.6;
+    const py = localGroundY(px, pz);
+    const parterreGrp = new THREE.Group();
+    parterreGrp.position.set(px, py, pz);
+
+    const rim = new THREE.Mesh(parterreRimGeo, mats.pearlWhite);
+    rim.position.y = 0.12;
+    const lawn = new THREE.Mesh(parterreLawnGeo, foliageEmeraldMat);
+    lawn.position.y = 0.14;
+    parterreGrp.add(rim, lawn);
+
+    // 3D Rose Buds spelling "I ♥ U" on top of the emerald parterre bed
+    // Oriented for player approaching from castle (-Z looking +Z: +X is screen-left, -X is screen-right, +Z is top, -Z is bottom)
+    const letterPoints: Array<{ x: number; z: number; isHeart?: boolean }> = [
+      // 'I' (screen-left, +X)
+      { x: 0.82, z: 0.28 },
+      { x: 0.82, z: 0.14 },
+      { x: 0.82, z: 0.0 },
+      { x: 0.82, z: -0.14 },
+      { x: 0.82, z: -0.28 },
+      // '♥' (center: upper lobes at +Z, lower tip at -Z)
+      { x: 0.14, z: 0.22, isHeart: true },
+      { x: -0.14, z: 0.22, isHeart: true },
+      { x: 0.24, z: 0.06, isHeart: true },
+      { x: 0.0, z: 0.08, isHeart: true },
+      { x: -0.24, z: 0.06, isHeart: true },
+      { x: 0.14, z: -0.12, isHeart: true },
+      { x: -0.14, z: -0.12, isHeart: true },
+      { x: 0.0, z: -0.28, isHeart: true },
+      // 'U' (screen-right, -X: top stems at +Z, bottom curve at -Z)
+      { x: -0.64, z: 0.26 },
+      { x: -0.64, z: 0.08 },
+      { x: -0.64, z: -0.12 },
+      { x: -0.78, z: -0.26 },
+      { x: -0.92, z: -0.12 },
+      { x: -0.92, z: 0.08 },
+      { x: -0.92, z: 0.26 },
+    ];
+    letterPoints.forEach((pt) => {
+      const bud = new THREE.Mesh(
+        floralRoseBudGeo,
+        pt.isHeart ? crimsonRoseMat : mats.champagneGold,
+      );
+      bud.position.set(pt.x, 0.31, pt.z);
+      parterreGrp.add(bud);
+    });
+
+    // Double-sided un-mirrored dedication plaque stand at rear (+Z) edge of parterre (FrontSide on both -Z and +Z faces)
+    const standZ = 0.62;
+    const standBacking = new THREE.Mesh(gardenPlaqueBackingGeo, mats.champagneGold);
+    standBacking.position.set(0, 0.56, standZ);
+    parterreGrp.add(standBacking);
+
+    const plaqueFront = new THREE.Mesh(gardenPlaquePlaneGeo, gardenPlaqueMat);
+    plaqueFront.position.set(0, 0.56, standZ - 0.035);
+    plaqueFront.rotation.y = Math.PI; // Faces -Z (approaching player from castle)
+
+    const plaqueBack = new THREE.Mesh(gardenPlaquePlaneGeo, gardenPlaqueMat);
+    plaqueBack.position.set(0, 0.56, standZ + 0.035);
+    plaqueBack.rotation.y = 0; // Faces +Z (returning player from gazebo)
+
+    parterreGrp.add(plaqueFront, plaqueBack);
+    gardenGroup.add(parterreGrp);
+  });
+
+  // 5D. Sculpted 3D Heart-Shaped Topiary Hedges & Side Rose-Marble Tiered Fountains
+  const topiaryStemGeo = tracker.trackGeo(new THREE.CylinderGeometry(0.11, 0.15, 0.85, 8));
+  topiaryStemGeo.translate(0, 0.425, 0);
+  const topiaryPedestalGeo = tracker.trackGeo(new THREE.CylinderGeometry(0.45, 0.52, 0.38, 12));
+  topiaryPedestalGeo.translate(0, 0.19, 0);
+
+  [
+    { lx: -5.4, lz: 19.6 },
+    { lx: 5.4, lz: 19.6 },
+    { lx: -5.8, lz: 30.8 },
+    { lx: 5.8, lz: 30.8 },
+  ].forEach((ht) => {
+    const hy = localGroundY(ht.lx, ht.lz);
+    const topiaryGrp = new THREE.Group();
+    topiaryGrp.position.set(ht.lx, hy, ht.lz);
+
+    const ped = new THREE.Mesh(topiaryPedestalGeo, mats.pearlWhite);
+    const stem = new THREE.Mesh(topiaryStemGeo, warmCedarBridgeMat);
+    stem.position.y = 0.35;
+    const heartCrown = new THREE.Mesh(heartStoneGeo, foliageEmeraldMat);
+    heartCrown.rotation.x = Math.PI / 2;
+    heartCrown.position.set(0, 1.48, 0);
+    heartCrown.scale.set(2.3, 2.3, 3.2);
+
+    const goldBow = new THREE.Mesh(
+      tracker.trackGeo(new THREE.OctahedronGeometry(0.14, 0)),
+      mats.champagneGold,
+    );
+    goldBow.position.set(0, 1.05, 0.14);
+
+    topiaryGrp.add(ped, stem, heartCrown, goldBow);
+    gardenGroup.add(topiaryGrp);
+    colliders.push({ x: originX + ht.lx, z: originZ + ht.lz, radius: 0.65 });
+  });
+
+  // Small Side Tiered Rose-Marble Fountains flanking the Reflective Pond (lx = ±7.8, lz = 26.6)
+  const sideFountainBasinGeo = tracker.trackGeo(new THREE.CylinderGeometry(1.15, 1.32, 0.42, 16));
+  sideFountainBasinGeo.translate(0, 0.21, 0);
+  const sideFountainStemGeo = tracker.trackGeo(new THREE.CylinderGeometry(0.22, 0.3, 0.95, 12));
+  sideFountainStemGeo.translate(0, 0.68, 0);
+  const sideFountainUpperBowlGeo = tracker.trackGeo(new THREE.CylinderGeometry(0.65, 0.32, 0.24, 14));
+  sideFountainUpperBowlGeo.translate(0, 1.18, 0);
+
+  [-7.8, 7.8].forEach((fx) => {
+    const fz = 26.6;
+    const fy = localGroundY(fx, fz);
+    const sfGrp = new THREE.Group();
+    sfGrp.position.set(fx, fy, fz);
+
+    const basin = new THREE.Mesh(sideFountainBasinGeo, mats.blushRoseMarble);
+    const stem = new THREE.Mesh(sideFountainStemGeo, mats.pearlWhite);
+    const upperBowl = new THREE.Mesh(sideFountainUpperBowlGeo, mats.champagneGold);
+    const heartFinial = new THREE.Mesh(heartStoneGeo, mats.fountainWater);
+    heartFinial.rotation.x = Math.PI / 2;
+    heartFinial.position.set(0, 1.52, 0);
+    heartFinial.scale.setScalar(0.95);
+
+    sfGrp.add(basin, stem, upperBowl, heartFinial);
+    gardenGroup.add(sfGrp);
+    colliders.push({ x: originX + fx, z: originZ + fz, radius: 1.25 });
+  });
+
   // Lock all static garden geometry matrices
   lockStaticGardenMeshes(gardenGroup, dynamicObjects);
 

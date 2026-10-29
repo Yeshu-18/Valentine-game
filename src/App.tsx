@@ -22,7 +22,6 @@ import {
   MapPin,
   MousePointerClick,
   Sparkles,
-  Upload,
   Wand2,
   Wind,
 } from 'lucide-react';
@@ -300,6 +299,9 @@ export default function App() {
     scene.add(carnivalDistrict.group);
 
     const dreamCastle = createDreamCastle();
+    dreamCastle.floor2CreativeWing.setOpenCustomBackdropPickerCallback(() => {
+      portraitFileInputRef.current?.click();
+    });
     scene.add(dreamCastle.group);
 
     const allColliders = [
@@ -1264,117 +1266,6 @@ export default function App() {
                 className="ml-1 px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-pink-200 text-xs font-semibold border border-pink-300/30 transition-colors cursor-pointer"
               >
                 [E] View / Return
-              </button>
-            </div>
-          ) : telemetry.castlePrompt.includes('Film Strip') ? (
-            <div className="ml-2 flex items-center gap-1.5 flex-wrap">
-              <button
-                type="button"
-                onClick={() => controllerRef.current?.interactCreativeWingKey('k')}
-                className="px-2.5 py-0.5 rounded bg-rose-500 hover:bg-rose-400 text-white text-[11px] font-semibold flex items-center gap-1 transition-colors cursor-pointer"
-              >
-                [E] Keep Memory
-              </button>
-              <button
-                type="button"
-                onClick={() => controllerRef.current?.interactCreativeWingKey('f')}
-                className="px-2.5 py-0.5 rounded bg-amber-500 hover:bg-amber-400 text-slate-950 text-[11px] font-semibold transition-colors cursor-pointer"
-              >
-                [F] Close-Up / Front View
-              </button>
-              <button
-                type="button"
-                onClick={() => controllerRef.current?.triggerCastleAction()}
-                className="ml-1 px-2.5 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-pink-200 text-xs font-semibold border border-pink-300/30 transition-colors cursor-pointer"
-              >
-                [Esc] Step Back
-              </button>
-            </div>
-          ) : telemetry.castlePrompt.includes('Portrait Atelier') ? (
-            <div className="ml-2 flex items-center gap-1.5 flex-wrap">
-              <span className="text-[11px] font-semibold text-pink-300 mr-1">Backdrops:</span>
-              {[
-                { label: '1', name: 'Garden' },
-                { label: '2', name: 'Castle' },
-                { label: '3', name: 'Starry' },
-                { label: '4', name: 'Aurora' },
-                { label: '5', name: 'Cloud' },
-                { label: '6', name: 'Studio' },
-              ].map((b) => (
-                <button
-                  key={b.label}
-                  type="button"
-                  onClick={() => controllerRef.current?.interactCreativeWingKey(b.label)}
-                  className="px-2 py-0.5 rounded bg-pink-600/80 hover:bg-pink-500 text-white text-[11px] font-medium border border-pink-300/30 transition-colors cursor-pointer"
-                >
-                  [{b.label}] {b.name}
-                </button>
-              ))}
-              <button
-                type="button"
-                onClick={() => portraitFileInputRef.current?.click()}
-                className="px-2.5 py-0.5 rounded bg-amber-500 hover:bg-amber-400 text-slate-950 text-[11px] font-semibold flex items-center gap-1 transition-colors cursor-pointer"
-              >
-                <Upload className="w-3 h-3" /> [U] Upload Photo
-              </button>
-              <button
-                type="button"
-                onClick={() => controllerRef.current?.triggerTakePortrait()}
-                className="px-2.5 py-0.5 rounded bg-rose-500 hover:bg-rose-400 text-white text-[11px] font-semibold flex items-center gap-1 transition-colors cursor-pointer"
-              >
-                <Camera className="w-3 h-3" /> [C] Take Portrait
-              </button>
-              <button
-                type="button"
-                onClick={() => controllerRef.current?.interactCreativeWingKey('i')}
-                className="px-2.5 py-0.5 rounded bg-pink-500 hover:bg-pink-400 text-white text-[11px] font-semibold transition-colors cursor-pointer"
-              >
-                [I] Inspect Photo
-              </button>
-              <button
-                type="button"
-                onClick={() => controllerRef.current?.interactCreativeWingKey('k')}
-                className="px-2.5 py-0.5 rounded bg-fuchsia-600 hover:bg-fuchsia-500 text-white text-[11px] font-semibold transition-colors cursor-pointer"
-              >
-                [K] Keep Memory
-              </button>
-              <button
-                type="button"
-                onClick={() => controllerRef.current?.triggerCastleAction()}
-                className="ml-1 px-2.5 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-pink-200 text-xs font-semibold border border-pink-300/30 transition-colors cursor-pointer"
-              >
-                [E] Step Back
-              </button>
-            </div>
-          ) : telemetry.castlePrompt.includes('Jewellery Atelier') ? (
-            <div className="ml-2 flex items-center gap-1.5 flex-wrap">
-              <button
-                type="button"
-                onClick={() => controllerRef.current?.interactCreativeWingKey('1')}
-                className="px-2.5 py-0.5 rounded bg-pink-600/80 hover:bg-pink-500 text-white text-[11px] font-semibold border border-pink-300/30 transition-colors cursor-pointer"
-              >
-                [1] Try Ring
-              </button>
-              <button
-                type="button"
-                onClick={() => controllerRef.current?.interactCreativeWingKey('2')}
-                className="px-2.5 py-0.5 rounded bg-pink-600/80 hover:bg-pink-500 text-white text-[11px] font-semibold border border-pink-300/30 transition-colors cursor-pointer"
-              >
-                [2] Try Necklace
-              </button>
-              <button
-                type="button"
-                onClick={() => controllerRef.current?.interactCreativeWingKey('3')}
-                className="px-2.5 py-0.5 rounded bg-amber-500 hover:bg-amber-400 text-slate-950 text-[11px] font-semibold transition-colors cursor-pointer"
-              >
-                [3] Harsha&apos;s Crown 👑
-              </button>
-              <button
-                type="button"
-                onClick={() => controllerRef.current?.triggerCastleAction()}
-                className="ml-1 px-2.5 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-pink-200 text-xs font-semibold border border-pink-300/30 transition-colors cursor-pointer"
-              >
-                [E] Step Back
               </button>
             </div>
           ) : (
