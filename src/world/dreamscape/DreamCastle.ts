@@ -3739,6 +3739,10 @@ export function createDreamCastle(): DreamCastleBundle {
     cameraOccluders.push(pm);
   }
 
+  floor2CreativeWing.setKeepMemoryCallback((portraitDataUrl, portraitIndex) => {
+    floor3Rooms.setGalleryFrameImage((portraitIndex - 1) % 5, portraitDataUrl);
+  });
+
   const allInteriorPartitionMeshes: THREE.Mesh[] = [
     ...floor1Rooms.partitionMeshes,
     ...floor2Rooms.partitionMeshes,

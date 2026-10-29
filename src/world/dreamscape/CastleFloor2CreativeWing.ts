@@ -9,8 +9,17 @@ import { CastleTabletopWorld } from './CastleTabletopWorld';
 export type CreativeWingActiveCameraMode =
   | 'none'
   | 'portrait_atelier'
+  | 'film_strip_developing'
+  | 'film_strip_inspect'
   | 'couture_boutique'
   | 'doll_playroom';
+
+export type FilmStripStage =
+  | 'idle'
+  | 'developing'
+  | 'developed_ready_to_inspect'
+  | 'inspecting'
+  | 'memory_kept';
 
 export interface CreativeWingCameraState {
   active: boolean;
@@ -28,8 +37,11 @@ export interface CastleFloor2CreativeWingBundle {
   jewelleryAtelier: CastleJewelleryAtelier;
   tabletopWorld: CastleTabletopWorld;
   setAvatarBridge: (bridge: JewelleryAvatarBridge) => void;
+  setKeepMemoryCallback: (cb: (portraitDataUrl: string, portraitIndex: number) => void) => void;
   setCustomPhotoBackdrop: (imageSource: string) => void;
   triggerTakePortrait: () => boolean;
+  inspectFilmStrip: () => boolean;
+  keepCapturedMemory: () => boolean;
   exitActiveCameraMode: () => void;
   getProximityPrompt: (playerPos: THREE.Vector3) => string | null;
   getActiveRoomCaption: () => string | null;
@@ -325,8 +337,30 @@ export class CreativeWing implements CastleFloor2CreativeWingBundle {
   private shutterFlashMesh!: THREE.Mesh;
   private shutterFlashMat!: THREE.MeshBasicMaterial;
   private shutterFlashTimer = 0.0;
-  private portraitCaptureFramingTimer = 0.0;
+  private cameraShutterAnimTimer = 0.0;
+  private cameraFocusRingMesh!: THREE.Mesh;
+  private cameraLedMat!: THREE.MeshStandardMaterial;
+
+  // Physical Film Strip & Memory Film Display State
+  private filmStripStage: FilmStripStage = 'idle';
+  private filmStripDevelopElapsed = 0.0;
+  private readonly FILM_DEVELOP_TOTAL_DUR = 2.35;
+  private lastRedrawnDevelopBucket = -1;
+  private filmStripCanvas!: HTMLCanvasElement;
+  private filmStripTex!: THREE.CanvasTexture;
+  private filmStripMat!: THREE.MeshStandardMaterial;
+  private heroFilmStripGroup!: THREE.Group;
+  private archivalStrip1Group!: THREE.Group;
+  private archivalStrip2Group!: THREE.Group;
+  private filmRackLightMat!: THREE.MeshStandardMaterial;
+  private latestPortraitCanvas: HTMLCanvasElement | null = null;
+  private latestPortraitTex: THREE.CanvasTexture | null = null;
+  private isFilmCloseUpView = false;
+  private keepMemoryCallback: ((portraitDataUrl: string, portraitIndex: number) => void) | null =
+    null;
+
   private portraitCount = 0;
+  private keptMemoriesCount = 0;
   private audioCtx: AudioContext | null = null;
 
   private activeBackdropIndex = 0;
@@ -441,6 +475,12 @@ export class CreativeWing implements CastleFloor2CreativeWingBundle {
 
   public setAvatarBridge(bridge: JewelleryAvatarBridge): void {
     this.jewelleryAtelier.setAvatarBridge(bridge);
+  }
+
+  public setKeepMemoryCallback(
+    cb: (portraitDataUrl: string, portraitIndex: number) => void,
+  ): void {
+    this.keepMemoryCallback = cb;
   }
 
   private addLocalCollider(lx: number, lz: number, radius: number): void {
@@ -1016,7 +1056,10 @@ export class CreativeWing implements CastleFloor2CreativeWingBundle {
     camLensGeo.rotateX(Math.PI / 2);
     camLensGeo.translate(0, 1.4, 0.18);
     const focusRingGeo = tracker.trackGeo(new THREE.TorusGeometry(0.082, 0.012, 8, 16));
-    focusRingGeo.translate(0, 1.4, 0.22);
+    this.cameraFocusRingMesh = new THREE.Mesh(focusRingGeo, mats.velvetPlum);
+    this.cameraFocusRingMesh.position.set(0, 1.4, 0.22);
+    this.dynamicObjects.add(this.cameraFocusRingMesh);
+
     const camViewfinderGeo = tracker.trackGeo(new THREE.BoxGeometry(0.08, 0.08, 0.06));
     camViewfinderGeo.translate(0, 1.54, -0.04);
     const cableCoilGeo = tracker.trackGeo(new THREE.TorusGeometry(0.22, 0.015, 6, 16));
@@ -1024,7 +1067,7 @@ export class CreativeWing implements CastleFloor2CreativeWingBundle {
     cableCoilGeo.translate(0.18, 0.02, -0.15);
     const camLedGeo = tracker.trackGeo(new THREE.SphereGeometry(0.018, 8, 8));
     camLedGeo.translate(0.12, 1.46, 0.09);
-    const camLedMat = tracker.trackMat(
+    this.cameraLedMat = tracker.trackMat(
       new THREE.MeshStandardMaterial({
         color: '#ef4444',
         emissive: '#ef4444',
@@ -1032,16 +1075,205 @@ export class CreativeWing implements CastleFloor2CreativeWingBundle {
         roughness: 0.2,
       }),
     );
+    const camLedMesh = new THREE.Mesh(camLedGeo, this.cameraLedMat);
+    this.dynamicObjects.add(camLedMesh);
+
     cameraRig.add(
       new THREE.Mesh(camBodyGeo, mats.velvetPlum),
       new THREE.Mesh(camLensGeo, goldTrimMat),
-      new THREE.Mesh(focusRingGeo, mats.velvetPlum),
+      this.cameraFocusRingMesh,
       new THREE.Mesh(camViewfinderGeo, mats.champagneGold),
       new THREE.Mesh(cableCoilGeo, mats.velvetPlum),
-      new THREE.Mesh(camLedGeo, camLedMat),
+      camLedMesh,
     );
     photoGroup.add(cameraRig);
     this.addLocalCollider(10.2, -10.6, 0.45);
+
+    // ========================================================================
+    // MEMORY FILM DISPLAY RACK (Beside Studio Camera at lx = 10.2, lz = -12.05)
+    // ========================================================================
+    const memoryRackGroup = new THREE.Group();
+    memoryRackGroup.name = 'MemoryFilmDisplayRack';
+    memoryRackGroup.position.set(10.2, y0, -12.05);
+    memoryRackGroup.rotation.y = Math.PI * 0.35;
+
+    const woodFrameMat = tracker.trackMat(
+      new THREE.MeshStandardMaterial({
+        color: '#5c2c35',
+        roughness: 0.42,
+        metalness: 0.14,
+      }),
+    );
+    const rackBaseGeo = tracker.trackGeo(new THREE.BoxGeometry(0.96, 0.12, 0.44));
+    rackBaseGeo.translate(0, 0.06, 0);
+    const rackBaseTrimGeo = tracker.trackGeo(new THREE.BoxGeometry(1.0, 0.04, 0.48));
+    rackBaseTrimGeo.translate(0, 0.02, 0);
+    memoryRackGroup.add(
+      new THREE.Mesh(rackBaseGeo, woodFrameMat),
+      new THREE.Mesh(rackBaseTrimGeo, goldTrimMat),
+    );
+
+    // Twin Vertical Wooden/Champagne-Gold Uprights & Arched Header
+    const filmRackPostGeo = tracker.trackGeo(new THREE.CylinderGeometry(0.022, 0.026, 1.72, 10));
+    filmRackPostGeo.translate(0, 0.86, 0);
+    [-0.44, 0.44].forEach((px) => {
+      const post = new THREE.Mesh(filmRackPostGeo, goldTrimMat);
+      post.position.x = px;
+      memoryRackGroup.add(post);
+    });
+
+    const rackHeaderWoodGeo = tracker.trackGeo(new THREE.BoxGeometry(0.96, 0.12, 0.08));
+    rackHeaderWoodGeo.translate(0, 1.74, 0);
+    const rackHeaderArchGeo = tracker.trackGeo(
+      new THREE.TorusGeometry(0.44, 0.022, 8, 20, Math.PI),
+    );
+    rackHeaderArchGeo.translate(0, 1.78, 0);
+    memoryRackGroup.add(
+      new THREE.Mesh(rackHeaderWoodGeo, woodFrameMat),
+      new THREE.Mesh(rackHeaderArchGeo, goldTrimMat),
+    );
+
+    const rackPlaqueTex = createPlaqueTexture(
+      tracker,
+      '✦ MEMORY FILM DISPLAY ✦',
+      '#4a1525',
+      '#fde047',
+    );
+    const rackPlaqueGeo = tracker.trackGeo(new THREE.PlaneGeometry(0.58, 0.11));
+    const rackPlaqueMesh = new THREE.Mesh(
+      rackPlaqueGeo,
+      tracker.trackMat(new THREE.MeshBasicMaterial({ map: rackPlaqueTex })),
+    );
+    rackPlaqueMesh.position.set(0, 1.74, 0.045);
+    memoryRackGroup.add(rackPlaqueMesh);
+
+    // Two Horizontal Film Hanging Bars & 8 Metallic Clips
+    const hangingBarGeo = tracker.trackGeo(new THREE.CylinderGeometry(0.01, 0.01, 0.88, 8));
+    hangingBarGeo.rotateZ(Math.PI / 2);
+    [1.62, 1.12].forEach((barY) => {
+      const bar = new THREE.Mesh(hangingBarGeo, goldTrimMat);
+      bar.position.set(0, barY, 0.02);
+      memoryRackGroup.add(bar);
+    });
+
+    const clipGeo = tracker.trackGeo(new THREE.BoxGeometry(0.028, 0.055, 0.028));
+    [-0.34, -0.14, 0.14, 0.34].forEach((cx) => {
+      const clipTop = new THREE.Mesh(clipGeo, goldTrimMat);
+      clipTop.position.set(cx, 1.6, 0.025);
+      const clipMid = new THREE.Mesh(clipGeo, goldTrimMat);
+      clipMid.position.set(cx, 1.1, 0.025);
+      memoryRackGroup.add(clipTop, clipMid);
+    });
+
+    // Tiny Warm Studio Light Bar & Translucent Lightbox Diffuser Behind Film
+    this.filmRackLightMat = tracker.trackMat(
+      new THREE.MeshStandardMaterial({
+        color: '#fffbeb',
+        emissive: '#fbbf24',
+        emissiveIntensity: 1.45,
+        roughness: 0.15,
+      }),
+    );
+    const tinyLightBarGeo = tracker.trackGeo(new THREE.CylinderGeometry(0.018, 0.018, 0.68, 10));
+    tinyLightBarGeo.rotateZ(Math.PI / 2);
+    const tinyLightBarMesh = new THREE.Mesh(tinyLightBarGeo, this.filmRackLightMat);
+    tinyLightBarMesh.position.set(0, 1.66, 0.06);
+    this.dynamicObjects.add(tinyLightBarMesh);
+    memoryRackGroup.add(tinyLightBarMesh);
+
+    const diffuserBackGeo = tracker.trackGeo(new THREE.PlaneGeometry(0.84, 0.42));
+    const diffuserBackMat = tracker.trackMat(
+      new THREE.MeshStandardMaterial({
+        color: '#fff7ed',
+        emissive: '#fde68a',
+        emissiveIntensity: 0.45,
+        roughness: 0.3,
+        side: THREE.DoubleSide,
+      }),
+    );
+    const diffuserBack = new THREE.Mesh(diffuserBackGeo, diffuserBackMat);
+    diffuserBack.position.set(0, 1.38, -0.015);
+    memoryRackGroup.add(diffuserBack);
+
+    // Subtle Decorative Flowers at Base of Memory Film Display Rack
+    const flowerPotGeo = tracker.trackGeo(new THREE.CylinderGeometry(0.09, 0.07, 0.12, 10));
+    flowerPotGeo.translate(0, 0.18, 0.12);
+    memoryRackGroup.add(new THREE.Mesh(flowerPotGeo, goldTrimMat));
+    [-0.06, 0, 0.06].forEach((fx, fIdx) => {
+      const blossom = new THREE.Mesh(
+        this.heartSphereGeo,
+        fIdx === 1 ? this.roseAccentMat : this.pinkGlowMat,
+      );
+      blossom.scale.setScalar(0.62);
+      blossom.position.set(fx, 0.27 + (fIdx === 1 ? 0.02 : 0), 0.12);
+      memoryRackGroup.add(blossom);
+    });
+
+    // Two Lower Archival Hanging Film Strips (Studio Memory Collection)
+    const archStripGeo = tracker.trackGeo(new THREE.PlaneGeometry(0.18, 0.48));
+    const archStripMat = tracker.trackMat(
+      new THREE.MeshStandardMaterial({
+        map: createSampleArtworkTexture(tracker, 'contact_sheet'),
+        roughness: 0.25,
+        metalness: 0.08,
+        transparent: true,
+        opacity: 0.92,
+        side: THREE.DoubleSide,
+      }),
+    );
+    this.archivalStrip1Group = new THREE.Group();
+    this.archivalStrip1Group.position.set(-0.28, 0.84, 0.025);
+    this.archivalStrip1Group.rotation.z = -0.03;
+    this.archivalStrip1Group.add(new THREE.Mesh(archStripGeo, archStripMat));
+    this.dynamicObjects.add(this.archivalStrip1Group);
+
+    this.archivalStrip2Group = new THREE.Group();
+    this.archivalStrip2Group.position.set(0.28, 0.84, 0.025);
+    this.archivalStrip2Group.rotation.z = 0.035;
+    this.archivalStrip2Group.add(new THREE.Mesh(archStripGeo, archStripMat));
+    this.dynamicObjects.add(this.archivalStrip2Group);
+    memoryRackGroup.add(this.archivalStrip1Group, this.archivalStrip2Group);
+
+    // HERO 4-FRAME DEVELOPED FILM STRIP ON RACK (1024x320 Procedural CanvasTexture)
+    this.filmStripCanvas = document.createElement('canvas');
+    this.filmStripCanvas.width = 1024;
+    this.filmStripCanvas.height = 320;
+    this.filmStripTex = tracker.trackTex(new THREE.CanvasTexture(this.filmStripCanvas));
+    this.filmStripTex.colorSpace = THREE.SRGBColorSpace;
+    this.filmStripMat = tracker.trackMat(
+      new THREE.MeshStandardMaterial({
+        map: this.filmStripTex,
+        roughness: 0.22,
+        metalness: 0.08,
+        transparent: true,
+        opacity: 0.96,
+        side: THREE.DoubleSide,
+      }),
+    );
+    this.drawFilmStripCanvas(1.0);
+
+    this.heroFilmStripGroup = new THREE.Group();
+    this.heroFilmStripGroup.position.set(0, 1.38, 0.03);
+    const heroStripPlaneGeo = tracker.trackGeo(new THREE.PlaneGeometry(0.86, 0.27));
+    const heroStripBackingGeo = tracker.trackGeo(new THREE.BoxGeometry(0.88, 0.285, 0.006));
+    const darkCelluloidMat = tracker.trackMat(
+      new THREE.MeshStandardMaterial({
+        color: '#181016',
+        roughness: 0.28,
+        metalness: 0.15,
+        transparent: true,
+        opacity: 0.88,
+      }),
+    );
+    const heroStripFront = new THREE.Mesh(heroStripPlaneGeo, this.filmStripMat);
+    heroStripFront.position.z = 0.004;
+    const heroStripBack = new THREE.Mesh(heroStripBackingGeo, darkCelluloidMat);
+    this.heroFilmStripGroup.add(heroStripBack, heroStripFront);
+    this.dynamicObjects.add(this.heroFilmStripGroup);
+    memoryRackGroup.add(this.heroFilmStripGroup);
+
+    photoGroup.add(memoryRackGroup);
+    this.addLocalCollider(10.2, -12.05, 0.48);
 
     // Studio Lighting Equipment (Key Light, Fill Light, Rim Light Strip, Reflector)
     const softboxGeo = tracker.trackGeo(new THREE.BoxGeometry(0.68, 0.95, 0.18));
@@ -1787,19 +2019,233 @@ export class CreativeWing implements CastleFloor2CreativeWingBundle {
   }
 
   /**
-   * Section 11: `[E] TAKE PORTRAIT`
-   * Triggers a brief camera framing, subtle shutter animation, studio flash, and shutter sound,
-   * renders the captured portrait onto the studio's physical photo frame & Tabletop Castle Memory Path,
-   * and returns the player cleanly to normal exploration camera!
+   * Renders the 4-frame photographic film strip (`1024x320`) with:
+   * - Dark celluloid border & subtle translucent film sheen
+   * - Top & bottom sprocket perforations + amber negative edge codes (`01A`–`04A`)
+   * - Frame 1: Primary captured portrait
+   * - Frame 2: Tasteful close-up portrait crop
+   * - Frame 3: Soft-focus rose-gold dream frame with subtle heart/light motif
+   * - Frame 4: Final decorative memory frame with Y + H crest
+   * - Subtle bottom-edge physical inscription: `Y + H  •  A memory from our little world`
+   * - Gradual chemical development progression (`developProgress` in `[0.0, 1.0]`)
+   */
+  private drawFilmStripCanvas(developProgress: number): void {
+    if (!this.filmStripCanvas) return;
+    const ctx = this.filmStripCanvas.getContext('2d');
+    if (!ctx) return;
+
+    const w = this.filmStripCanvas.width; // 1024
+    const h = this.filmStripCanvas.height; // 320
+    const dev = THREE.MathUtils.clamp(developProgress, 0, 1);
+
+    // 1. Dark translucent celluloid film base
+    const baseGrad = ctx.createLinearGradient(0, 0, 0, h);
+    baseGrad.addColorStop(0, '#130c12');
+    baseGrad.addColorStop(0.5, '#1d121b');
+    baseGrad.addColorStop(1, '#120b10');
+    ctx.fillStyle = baseGrad;
+    ctx.fillRect(0, 0, w, h);
+
+    // Subtle horizontal film strip edge highlight lines
+    ctx.strokeStyle = 'rgba(253, 224, 71, 0.16)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(0, 4);
+    ctx.lineTo(w, 4);
+    ctx.moveTo(0, h - 4);
+    ctx.lineTo(w, h - 4);
+    ctx.stroke();
+
+    // 2. Top & Bottom Sprocket Holes (24 perforations per edge)
+    for (let i = 0; i < 24; i++) {
+      const sx = 18 + i * 42;
+      // Warm backlit glow through sprocket holes
+      ctx.fillStyle = '#fef3c7';
+      ctx.beginPath();
+      ctx.roundRect(sx, 12, 22, 15, 3);
+      ctx.roundRect(sx, h - 29, 22, 15, 3);
+      ctx.fill();
+
+      ctx.strokeStyle = 'rgba(217, 119, 6, 0.45)';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+    }
+
+    // 3. Draw the 4 Film Frames
+    const srcImg =
+      this.latestPortraitCanvas ??
+      (this.backdropTextures[this.activeBackdropIndex]?.image as HTMLCanvasElement | undefined);
+    const frameW = 222;
+    const frameH = 204;
+    const frameY = 48;
+    const frameLabels = ['01A • PORTRAIT', '02A • CLOSE-UP', '03A • HEART LIGHT', '04A • MEMORY'];
+
+    const drawHeartMotif = (cx: number, cy: number, size: number, color: string) => {
+      ctx.save();
+      ctx.beginPath();
+      ctx.moveTo(cx, cy + size * 0.35);
+      ctx.bezierCurveTo(
+        cx - size,
+        cy - size * 0.25,
+        cx - size * 0.55,
+        cy - size * 0.95,
+        cx,
+        cy - size * 0.4,
+      );
+      ctx.bezierCurveTo(
+        cx + size * 0.55,
+        cy - size * 0.95,
+        cx + size,
+        cy - size * 0.25,
+        cx,
+        cy + size * 0.35,
+      );
+      ctx.closePath();
+      ctx.fillStyle = color;
+      ctx.fill();
+      ctx.restore();
+    };
+
+    for (let f = 0; f < 4; f++) {
+      const fx = 24 + f * 248;
+
+      // Top film edge frame code
+      ctx.fillStyle = 'rgba(251, 191, 36, 0.72)';
+      ctx.font = 'bold 10px monospace';
+      ctx.textAlign = 'left';
+      ctx.fillText(frameLabels[f], fx + 4, 41);
+
+      // Frame recess
+      ctx.save();
+      ctx.beginPath();
+      ctx.roundRect(fx, frameY, frameW, frameH, 4);
+      ctx.clip();
+
+      // Unexposed dark negative base inside frame
+      ctx.fillStyle = '#1f1019';
+      ctx.fillRect(fx, frameY, frameW, frameH);
+
+      // Staggered per-frame development reveal so Frame 1 -> Frame 4 develop organically
+      const frameDev = THREE.MathUtils.clamp((dev - f * 0.08) / 0.76, 0, 1);
+
+      if (frameDev > 0.02 && srcImg) {
+        ctx.save();
+        ctx.globalAlpha = smoothStep01(frameDev);
+
+        if (f === 0) {
+          // Frame 1: Primary Captured Portrait
+          ctx.drawImage(srcImg, 0, 0, srcImg.width, srcImg.height, fx, frameY, frameW, frameH);
+        } else if (f === 1) {
+          // Frame 2: Tasteful Close-Up Portrait Crop (upper-center crop of actual captured portrait)
+          const sw = srcImg.width * 0.68;
+          const sh = srcImg.height * 0.68;
+          const sx = (srcImg.width - sw) * 0.5;
+          const sy = srcImg.height * 0.08;
+          ctx.drawImage(srcImg, sx, sy, sw, sh, fx, frameY, frameW, frameH);
+        } else if (f === 2) {
+          // Frame 3: Soft-focus / warm rose-gold tone + subtle heart & starlight bokeh motif
+          ctx.drawImage(srcImg, 0, 0, srcImg.width, srcImg.height, fx, frameY, frameW, frameH);
+          const warmOverlay = ctx.createRadialGradient(
+            fx + frameW * 0.5,
+            frameY + frameH * 0.45,
+            12,
+            fx + frameW * 0.5,
+            frameY + frameH * 0.5,
+            frameW * 0.65,
+          );
+          warmOverlay.addColorStop(0, 'rgba(254, 240, 138, 0.28)');
+          warmOverlay.addColorStop(0.6, 'rgba(244, 114, 182, 0.26)');
+          warmOverlay.addColorStop(1, 'rgba(88, 28, 135, 0.38)');
+          ctx.fillStyle = warmOverlay;
+          ctx.fillRect(fx, frameY, frameW, frameH);
+
+          drawHeartMotif(fx + frameW * 0.5, frameY + frameH * 0.52, 34, 'rgba(254, 240, 138, 0.52)');
+          drawHeartMotif(fx + frameW * 0.25, frameY + frameH * 0.28, 12, 'rgba(251, 207, 232, 0.65)');
+          drawHeartMotif(fx + frameW * 0.76, frameY + frameH * 0.32, 14, 'rgba(251, 207, 232, 0.65)');
+        } else {
+          // Frame 4: Final Memory Frame with warm vignette & Y + H crest
+          ctx.drawImage(srcImg, 0, 0, srcImg.width, srcImg.height, fx, frameY, frameW, frameH);
+          const vig = ctx.createRadialGradient(
+            fx + frameW * 0.5,
+            frameY + frameH * 0.5,
+            frameW * 0.18,
+            fx + frameW * 0.5,
+            frameY + frameH * 0.5,
+            frameW * 0.68,
+          );
+          vig.addColorStop(0, 'rgba(255, 241, 242, 0.05)');
+          vig.addColorStop(1, 'rgba(46, 10, 26, 0.72)');
+          ctx.fillStyle = vig;
+          ctx.fillRect(fx, frameY, frameW, frameH);
+
+          ctx.strokeStyle = 'rgba(253, 224, 71, 0.78)';
+          ctx.lineWidth = 2;
+          ctx.strokeRect(fx + 10, frameY + 10, frameW - 20, frameH - 20);
+          ctx.fillStyle = '#fde047';
+          ctx.font = 'italic bold 13px Georgia, serif';
+          ctx.textAlign = 'center';
+          ctx.fillText('Forever • Y + H ♡', fx + frameW * 0.5, frameY + frameH - 18);
+        }
+        ctx.restore();
+
+        // Chemical silver-amber developing wash during mid-development (0.05 < frameDev < 0.88)
+        if (frameDev < 0.88) {
+          const washAlpha = Math.sin(frameDev * Math.PI) * 0.42;
+          ctx.fillStyle = `rgba(217, 119, 6, ${washAlpha.toFixed(3)})`;
+          ctx.fillRect(fx, frameY, frameW, frameH);
+        }
+      }
+
+      // Subtle photographic grain dots inside each frame
+      ctx.fillStyle = 'rgba(255, 250, 240, 0.055)';
+      for (let g = 0; g < 28; g++) {
+        const gx = fx + ((g * 47 + f * 31) % (frameW - 4));
+        const gy = frameY + ((g * 61 + f * 19) % (frameH - 4));
+        ctx.fillRect(gx, gy, 1.5, 1.5);
+      }
+
+      ctx.restore();
+
+      // Thin dark-gold emulsion frame border
+      ctx.strokeStyle = 'rgba(251, 191, 36, 0.34)';
+      ctx.lineWidth = 1.5;
+      ctx.strokeRect(fx, frameY, frameW, frameH);
+    }
+
+    // 4. Section 8: Subtle physical inscription along the bottom edge of the film strip
+    ctx.fillStyle = 'rgba(253, 224, 71, 0.78)';
+    ctx.font = 'italic 11px Georgia, serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(
+      `Y + H   •   A memory from our little world   •   ATELIER FILM NO. ${Math.max(1, this.portraitCount)}`,
+      w * 0.5,
+      h - 34,
+    );
+
+    if (this.filmStripTex) {
+      this.filmStripTex.needsUpdate = true;
+    }
+  }
+
+  /**
+   * Section 1–4: `[E] TAKE PORTRAIT`
+   * Performs:
+   * 1. Camera shutter animation
+   * 2. Brief camera flash
+   * 3. Short shutter sound
+   * 4. Very brief cinematic pause
+   * 5. Captured portrait generated from the actual portrait camera/backdrop result
+   * 6. Physical 4-frame film strip presentation & gradual development begins on the Memory Film Display
    */
   public triggerTakePortrait(): boolean {
     this.playShutterSound();
     this.shutterFlashTimer = 0.45;
+    this.cameraShutterAnimTimer = 0.65;
     this.shutterFlashMesh.visible = true;
     this.shutterFlashMat.opacity = 0.95;
     this.portraitCount += 1;
 
-    // Render composite portrait onto a 256x320 canvas for the studio wall frame & Tabletop Memory Path
+    // Generate the actual captured portrait canvas from the studio's active backdrop & subject
     const activeTex = this.backdropTextures[this.activeBackdropIndex];
     const srcCanvas = activeTex?.image as HTMLCanvasElement | undefined;
     const pCanvas = document.createElement('canvas');
@@ -1814,7 +2260,7 @@ export class CreativeWing implements CastleFloor2CreativeWingBundle {
         ctx.fillRect(0, 0, 256, 320);
       }
 
-      // If using a preset backdrop, overlay stylized royal silhouette of Harsha in her crown
+      // Overlay stylized royal portrait of Harsha in her crown when using a studio scene backdrop
       if (this.activeBackdropIndex < 6) {
         ctx.fillStyle = 'rgba(255, 241, 242, 0.92)';
         ctx.beginPath();
@@ -1838,45 +2284,122 @@ export class CreativeWing implements CastleFloor2CreativeWingBundle {
         ctx.fill();
       }
 
-      // Gold Atelier Frame & Caption
-      ctx.strokeStyle = '#fde047';
-      ctx.lineWidth = 8;
+      // Warm studio rim highlight & subtle vignette
+      ctx.strokeStyle = 'rgba(253, 224, 71, 0.75)';
+      ctx.lineWidth = 4;
       ctx.strokeRect(4, 4, 248, 312);
-      ctx.fillStyle = 'rgba(76, 5, 25, 0.82)';
-      ctx.fillRect(8, 272, 240, 40);
-      ctx.fillStyle = '#fde047';
-      ctx.font = 'bold 14px Georgia, serif';
-      ctx.textAlign = 'center';
-      ctx.fillText(`PORTRAIT #${this.portraitCount} • Y + H ♡`, 128, 296);
     }
 
+    this.latestPortraitCanvas = pCanvas;
     const newPortraitTex = this.tracker.trackTex(new THREE.CanvasTexture(pCanvas));
     newPortraitTex.colorSpace = THREE.SRGBColorSpace;
     newPortraitTex.needsUpdate = true;
+    this.latestPortraitTex = newPortraitTex;
 
+    // Update studio wall portrait frame
     if (this.capturedPortraitMat) {
       this.capturedPortraitMat.map = newPortraitTex;
       this.capturedPortraitMat.needsUpdate = true;
     }
-    this.tabletopWorld.addCapturedPortraitToMemoryPath(newPortraitTex);
 
-    // Brief 0.65s portrait framing if not already in camera mode, then auto-return to exploration!
-    if (this.activeCameraMode === 'none') {
-      this.activeCameraMode = 'portrait_atelier';
-      this.cameraTransitionElapsed = this.CAMERA_TRANSITION_DUR;
-      this.portraitCaptureFramingTimer = 0.68;
-    } else {
-      this.portraitCaptureFramingTimer = 0.55;
+    // Begin Physical Film Strip Slide-In & Chemical Development Sequence
+    this.filmStripStage = 'developing';
+    this.filmStripDevelopElapsed = 0.0;
+    this.lastRedrawnDevelopBucket = -1;
+    this.drawFilmStripCanvas(0.0);
+
+    // Position hero film strip slightly offset so it slides smoothly onto the Memory Film Display rack
+    this.heroFilmStripGroup.position.set(0.38, 1.46, 0.16);
+    this.heroFilmStripGroup.rotation.set(-0.08, 0.18, 0.05);
+
+    this.activeCameraMode = 'film_strip_developing';
+    this.cameraTransitionElapsed = 0.0;
+    this.camLookYaw = 0.0;
+    this.camLookPitch = 0.0;
+    this.activeCaption =
+      'Portrait Captured! ✧ Developing 4-Frame Film Strip on the Memory Film Display…';
+    return true;
+  }
+
+  /**
+   * Section 6: `[E] INSPECT PHOTO`
+   * Allows close-up / front view and unrestricted 360° camera look around the Memory Film Display.
+   */
+  public inspectFilmStrip(): boolean {
+    if (this.portraitCount <= 0) {
+      this.drawFilmStripCanvas(1.0);
     }
-    this.activeCaption = `Portrait Captured! ✧ Displayed in Atelier Frame & Tabletop Memory Path`;
+    this.filmStripStage =
+      this.filmStripStage === 'memory_kept' ? 'memory_kept' : 'inspecting';
+    this.activeCameraMode = 'film_strip_inspect';
+    this.cameraTransitionElapsed = 0.0;
+    this.camLookYaw = 0.0;
+    this.camLookPitch = 0.0;
+    this.isFilmCloseUpView = false;
+    this.activeCaption =
+      'Memory Film Display ✧ 4-Frame Negative & Positives ("Y + H • A memory from our little world")';
+    return true;
+  }
+
+  /**
+   * Section 7: `[E] KEEP MEMORY`
+   * Permanently attaches the developed film strip to the Memory Film Display collection,
+   * updates the Tabletop Castle Memory Path, and sends the captured memory directly to the
+   * Floor 3 Heart Gallery without any upload modal or file browser.
+   */
+  public keepCapturedMemory(): boolean {
+    if (!this.latestPortraitCanvas || !this.latestPortraitTex) {
+      this.triggerTakePortrait();
+    }
+    this.keptMemoriesCount += 1;
+    this.filmStripStage = 'memory_kept';
+    this.drawFilmStripCanvas(1.0);
+
+    // Update contact sheet & archival hanging strip on the Memory Film Display rack
+    if (this.contactSheetMat) {
+      this.contactSheetMat.map = this.filmStripTex;
+      this.contactSheetMat.needsUpdate = true;
+    }
+    this.archivalStrip1Group.rotation.z = -0.02 + (this.keptMemoriesCount % 3) * 0.015;
+    this.archivalStrip2Group.rotation.z = 0.025 - (this.keptMemoriesCount % 2) * 0.015;
+
+    // Connect to Tabletop Castle Memory Path
+    if (this.latestPortraitTex) {
+      this.tabletopWorld.addCapturedPortraitToMemoryPath(this.latestPortraitTex);
+    }
+
+    // Connect automatically to Floor 3 Heart Gallery
+    if (this.keepMemoryCallback && this.latestPortraitCanvas) {
+      try {
+        const dataUrl = this.latestPortraitCanvas.toDataURL('image/png');
+        this.keepMemoryCallback(dataUrl, this.keptMemoriesCount);
+      } catch {
+        // Ignore security taint fallback
+      }
+    }
+
+    // Play warm crystal memory-kept chord
+    this.playShutterSound();
+
+    // Immediately restore free exploration camera & player controls
+    this.exitActiveCameraMode();
+    this.activeCaption =
+      'Memory Preserved! ♡ Film Strip Pinned to Display & Added to Heart Gallery';
     return true;
   }
 
   public exitActiveCameraMode(): void {
+    if (this.filmStripStage === 'developing') {
+      // Ensure film strip finishes developing cleanly on the rack if player exits early
+      this.drawFilmStripCanvas(1.0);
+      this.heroFilmStripGroup.position.set(0, 1.38, 0.03);
+      this.heroFilmStripGroup.rotation.set(0, 0, 0);
+      this.filmStripStage = 'developed_ready_to_inspect';
+    } else if (this.filmStripStage === 'inspecting') {
+      this.filmStripStage = 'developed_ready_to_inspect';
+    }
     this.activeCameraMode = 'none';
     this.cameraTransitionElapsed = 0.0;
-    this.portraitCaptureFramingTimer = 0.0;
-    this.activeCaption = null;
     this.camLookYaw = 0.0;
     this.camLookPitch = 0.0;
   }
@@ -1911,28 +2434,84 @@ export class CreativeWing implements CastleFloor2CreativeWingBundle {
     );
     const alpha = smoothStep01(t);
 
-    // Full 360° horizontal look support in all Creative Wing inspection modes (Sections 38–42)
+    // Full 360° horizontal look support in all Creative Wing inspection modes
     const dirX = Math.cos(this.camLookYaw) * Math.cos(this.camLookPitch);
     const dirY = Math.sin(this.camLookPitch);
     const dirZ = Math.sin(this.camLookYaw) * Math.cos(this.camLookPitch);
 
     if (this.activeCameraMode === 'portrait_atelier') {
-      _scratchCamWorldPos.set(this.originX + 10.2, this.baseY + this.y0 + 1.65, this.originZ - 10.6);
+      _scratchCamWorldPos.set(
+        this.originX + 10.2,
+        this.baseY + this.y0 + 1.65,
+        this.originZ - 10.6,
+      );
       _scratchLookWorldPos.set(
         _scratchCamWorldPos.x + dirX * 4.95,
         _scratchCamWorldPos.y + dirY * 3.5 + 0.12,
         _scratchCamWorldPos.z + dirZ * 4.95,
       );
+    } else if (
+      this.activeCameraMode === 'film_strip_developing' ||
+      this.activeCameraMode === 'film_strip_inspect'
+    ) {
+      // Memory Film Display is at (10.2, y0 + 1.38, -12.05) with normal along (sin(0.35π), 0, cos(0.35π))
+      const rackWorldX = this.originX + 10.2;
+      const rackWorldY = this.baseY + this.y0 + 1.38;
+      const rackWorldZ = this.originZ - 12.05;
+      const rackAngle = Math.PI * 0.35 + this.camLookYaw * 0.65;
+      const viewDist =
+        this.activeCameraMode === 'film_strip_inspect' && this.isFilmCloseUpView
+          ? 0.56
+          : 0.92;
+
+      // During the first 0.28s of capture, hold near the studio camera before gliding to the Film Display
+      const glideT =
+        this.activeCameraMode === 'film_strip_developing'
+          ? smoothStep01(
+              THREE.MathUtils.clamp((this.filmStripDevelopElapsed - 0.22) / 0.52, 0, 1),
+            )
+          : 1.0;
+
+      const studioCamX = this.originX + 10.2;
+      const studioCamY = this.baseY + this.y0 + 1.62;
+      const studioCamZ = this.originZ - 10.6;
+
+      const displayCamX = rackWorldX + Math.sin(rackAngle) * viewDist;
+      const displayCamY = rackWorldY + 0.04 - this.camLookPitch * 0.35;
+      const displayCamZ = rackWorldZ + Math.cos(rackAngle) * viewDist;
+
+      _scratchCamWorldPos.set(
+        THREE.MathUtils.lerp(studioCamX, displayCamX, glideT),
+        THREE.MathUtils.lerp(studioCamY, displayCamY, glideT),
+        THREE.MathUtils.lerp(studioCamZ, displayCamZ, glideT),
+      );
+      _scratchLookWorldPos.set(
+        THREE.MathUtils.lerp(this.originX + 15.1, rackWorldX - this.camLookYaw * 0.18, glideT),
+        THREE.MathUtils.lerp(
+          this.baseY + this.y0 + 1.75,
+          rackWorldY + this.camLookPitch * 0.25,
+          glideT,
+        ),
+        THREE.MathUtils.lerp(this.originZ - 10.6, rackWorldZ + this.camLookYaw * 0.18, glideT),
+      );
     } else if (this.activeCameraMode === 'couture_boutique') {
       // Orbit / 360° look centered in the Jewellery Atelier
-      _scratchCamWorldPos.set(this.originX + 10.6, this.baseY + this.y0 + 1.58, this.originZ + 0.15);
+      _scratchCamWorldPos.set(
+        this.originX + 10.6,
+        this.baseY + this.y0 + 1.58,
+        this.originZ + 0.15,
+      );
       _scratchLookWorldPos.set(
         _scratchCamWorldPos.x + dirX * 3.2,
         _scratchCamWorldPos.y + dirY * 2.5 - 0.18,
         _scratchCamWorldPos.z + dirZ * 3.2,
       );
     } else if (this.activeCameraMode === 'doll_playroom') {
-      _scratchCamWorldPos.set(this.originX + 10.35, this.baseY + this.y0 + 1.78, this.originZ + 10.6);
+      _scratchCamWorldPos.set(
+        this.originX + 10.35,
+        this.baseY + this.y0 + 1.78,
+        this.originZ + 10.6,
+      );
       _scratchLookWorldPos.set(
         _scratchCamWorldPos.x + dirX * 2.4,
         _scratchCamWorldPos.y + dirY * 2.0 - 0.42,
@@ -1965,11 +2544,21 @@ export class CreativeWing implements CastleFloor2CreativeWingBundle {
     }
 
     if (this.activeCameraMode !== 'none') {
+      if (this.activeCameraMode === 'film_strip_developing') {
+        return 'Portrait Atelier ✧ Film Strip Developing… · [Esc] Return to Exploration';
+      }
+      if (this.activeCameraMode === 'film_strip_inspect') {
+        return (
+          'Portrait Atelier Film Strip ✧ [E] KEEP MEMORY · [F] ' +
+          (this.isFilmCloseUpView ? 'Front View' : 'Close-Up View') +
+          ' · Drag/Touchpad 360° Look · [Esc] Step Back'
+        );
+      }
       if (this.activeCameraMode === 'portrait_atelier') {
         return (
-          'Portrait Atelier ✧ [1-6] Backdrops (' +
+          'Portrait Atelier ✧ [C] TAKE PORTRAIT · [1-6] Backdrops (' +
           BACKDROP_NAMES[this.activeBackdropIndex] +
-          ') · [U] Upload Photo · [C] Take Portrait · [E] Exit'
+          ') · [U] Custom Backdrop · [E] Exit'
         );
       }
       if (this.activeCameraMode === 'couture_boutique') {
@@ -1980,12 +2569,20 @@ export class CreativeWing implements CastleFloor2CreativeWingBundle {
 
     // Room 1: Portrait Atelier (lx in [8.8, 15.3], lz in [-14.8, -6.4])
     if (lx >= 8.8 && lx <= 15.3 && lz >= -14.8 && lz <= -6.4) {
+      // If a newly developed film strip is ready to inspect on the Memory Film Display
+      if (this.filmStripStage === 'developed_ready_to_inspect') {
+        return 'Portrait Atelier ✧ [E] INSPECT PHOTO (Developed Film Strip) · [K] KEEP MEMORY · [C] Take Portrait';
+      }
+      // Near Memory Film Display Rack (10.2, -12.05)
+      if (Math.hypot(lx - 10.2, lz - (-12.05)) <= 1.35) {
+        return 'Portrait Atelier ✧ [E] INSPECT PHOTO (Memory Film Display) · [K] KEEP MEMORY · [C] Take Portrait';
+      }
       // Near Portrait Position Floor Marker (13.35, -10.6) -> [E] TAKE PORTRAIT
-      if (Math.hypot(lx - 13.35, lz - (-10.6)) <= 1.25) {
-        return '[E] TAKE PORTRAIT · [1-6] Switch Backdrop · [U] Upload Custom Photo';
+      if (Math.hypot(lx - 13.35, lz - (-10.6)) <= 1.35) {
+        return 'Portrait Atelier ✧ [E] TAKE PORTRAIT · [1-6] Switch Backdrop · [U] Custom Backdrop';
       }
       // Near Studio Camera / Backdrop Control -> [E] USE PORTRAIT CAMERA
-      return '[E] USE PORTRAIT CAMERA · [C] Take Portrait · [U] Upload Custom Photo';
+      return 'Portrait Atelier ✧ [E] USE PORTRAIT CAMERA · [C] TAKE PORTRAIT · [I] INSPECT PHOTO';
     }
 
     // Room 2: Jewellery Atelier / Couture Corner (lx in [8.8, 15.3], lz in [-5.8, +5.8])
@@ -2010,6 +2607,17 @@ export class CreativeWing implements CastleFloor2CreativeWingBundle {
 
   public interact(playerPos: THREE.Vector3): boolean {
     if (this.activeCameraMode !== 'none') {
+      if (this.activeCameraMode === 'film_strip_inspect') {
+        if (this.filmStripStage !== 'memory_kept') {
+          return this.keepCapturedMemory();
+        }
+        this.exitActiveCameraMode();
+        return true;
+      }
+      if (this.activeCameraMode === 'portrait_atelier') {
+        // Pressing [E] inside the Portrait Camera view takes the portrait!
+        return this.triggerTakePortrait();
+      }
       this.exitActiveCameraMode();
       return true;
     }
@@ -2027,10 +2635,19 @@ export class CreativeWing implements CastleFloor2CreativeWingBundle {
 
     // Room 1: Portrait Atelier
     if (lx >= 8.8 && lx <= 15.3 && lz >= -14.8 && lz <= -6.4) {
-      // Standing on Portrait Position Marker -> Take Portrait directly!
-      if (Math.hypot(lx - 13.35, lz - (-10.6)) <= 1.25) {
+      // 1. If a newly developed film strip is waiting on the Memory Film Display, [E] inspects it!
+      if (this.filmStripStage === 'developed_ready_to_inspect') {
+        return this.inspectFilmStrip();
+      }
+      // 2. If standing near the Memory Film Display rack (10.2, -12.05), [E] inspects the film strip!
+      if (Math.hypot(lx - 10.2, lz - (-12.05)) <= 1.35) {
+        return this.inspectFilmStrip();
+      }
+      // 3. Standing on Portrait Position Marker (13.35, -10.6) -> [E] TAKE PORTRAIT directly!
+      if (Math.hypot(lx - 13.35, lz - (-10.6)) <= 1.35) {
         return this.triggerTakePortrait();
       }
+      // 4. Otherwise near Studio Camera -> Enter Portrait Camera framing
       this.activeCameraMode = 'portrait_atelier';
       this.cameraTransitionElapsed = 0.0;
       this.camLookYaw = 0.0;
@@ -2075,6 +2692,8 @@ export class CreativeWing implements CastleFloor2CreativeWingBundle {
     const onFloor2 = Math.abs(this.lastPlayerRelY) <= 1.6;
     const inPortraitRoom =
       this.activeCameraMode === 'portrait_atelier' ||
+      this.activeCameraMode === 'film_strip_developing' ||
+      this.activeCameraMode === 'film_strip_inspect' ||
       (onFloor2 &&
         this.lastPlayerLx >= 8.8 &&
         this.lastPlayerLx <= 15.3 &&
@@ -2095,10 +2714,23 @@ export class CreativeWing implements CastleFloor2CreativeWingBundle {
         this.lastPlayerLz >= 6.4 &&
         this.lastPlayerLz <= 14.8);
 
-    // Portrait Atelier shortcuts (work both in studio and in portrait camera mode)
+    // Portrait Atelier shortcuts (work both in studio and in portrait/film camera modes)
     if (inPortraitRoom) {
       if (lower === 'c' || (this.activeCameraMode === 'portrait_atelier' && key === ' ')) {
         return this.triggerTakePortrait();
+      }
+      if (lower === 'i') {
+        return this.inspectFilmStrip();
+      }
+      if (lower === 'k') {
+        return this.keepCapturedMemory();
+      }
+      if (lower === 'f' && this.activeCameraMode === 'film_strip_inspect') {
+        this.isFilmCloseUpView = !this.isFilmCloseUpView;
+        this.activeCaption = this.isFilmCloseUpView
+          ? 'Memory Film Display ✧ Close-Up Negative & Grain View'
+          : 'Memory Film Display ✧ Full 4-Frame Strip View';
+        return true;
       }
       const num = parseInt(key, 10);
       if (!isNaN(num) && num >= 1 && num <= 6) {
@@ -2160,7 +2792,7 @@ export class CreativeWing implements CastleFloor2CreativeWingBundle {
     delta: number,
     clockTime: number,
     playerPos: THREE.Vector3,
-    _inputKeys?: Set<string>,
+    inputKeys?: Set<string>,
   ): void {
     this.lastPlayerLx = playerPos.x - this.originX;
     this.lastPlayerLz = playerPos.z - this.originZ;
@@ -2171,14 +2803,83 @@ export class CreativeWing implements CastleFloor2CreativeWingBundle {
         this.CAMERA_TRANSITION_DUR,
         this.cameraTransitionElapsed + delta,
       );
+      // Allow keyboard 360° rotation in inspection modes
+      if (inputKeys && this.activeCameraMode !== 'film_strip_developing') {
+        if (inputKeys.has('KeyA') || inputKeys.has('ArrowLeft') || inputKeys.has('KeyQ')) {
+          this.applyLookDelta(-delta * 1.45, 0);
+        }
+        if (inputKeys.has('KeyD') || inputKeys.has('ArrowRight') || inputKeys.has('KeyR')) {
+          this.applyLookDelta(delta * 1.45, 0);
+        }
+        if (inputKeys.has('KeyW') || inputKeys.has('ArrowUp')) {
+          this.applyLookDelta(0, delta * 1.05);
+        }
+        if (inputKeys.has('KeyS') || inputKeys.has('ArrowDown')) {
+          this.applyLookDelta(0, -delta * 1.05);
+        }
+      }
     }
 
-    // Auto-exit temporary portrait capture framing after flash completes so player is never stuck
-    if (this.portraitCaptureFramingTimer > 0) {
-      this.portraitCaptureFramingTimer = Math.max(0, this.portraitCaptureFramingTimer - delta);
-      if (this.portraitCaptureFramingTimer <= 0 && this.activeCameraMode === 'portrait_atelier') {
-        this.exitActiveCameraMode();
+    // Animate Camera Shutter Lens Focus Ring & LED Indicator when taking a portrait
+    if (this.cameraShutterAnimTimer > 0) {
+      this.cameraShutterAnimTimer = Math.max(0, this.cameraShutterAnimTimer - delta);
+      const sProg = 1.0 - this.cameraShutterAnimTimer / 0.65;
+      this.cameraFocusRingMesh.rotation.z = Math.sin(sProg * Math.PI * 2) * 0.45;
+      this.cameraFocusRingMesh.position.z = 0.22 - Math.sin(sProg * Math.PI) * 0.025;
+      this.cameraLedMat.emissiveIntensity = 1.5 + Math.sin(sProg * Math.PI * 6) * 2.5;
+    } else if (this.cameraLedMat) {
+      this.cameraLedMat.emissiveIntensity = 1.2 + Math.sin(clockTime * 3.0) * 0.3;
+    }
+
+    // Animate Physical Film Strip Slide-In & Chemical Development on the Memory Film Display
+    if (this.filmStripStage === 'developing') {
+      this.filmStripDevelopElapsed += delta;
+
+      // 1. Slide-in animation (0.20s -> 0.90s): slides smoothly onto the Memory Film Display clips
+      const slideT = smoothStep01(
+        THREE.MathUtils.clamp((this.filmStripDevelopElapsed - 0.18) / 0.72, 0, 1),
+      );
+      this.heroFilmStripGroup.position.set(
+        THREE.MathUtils.lerp(0.38, 0.0, slideT),
+        THREE.MathUtils.lerp(1.46, 1.38, slideT),
+        THREE.MathUtils.lerp(0.16, 0.03, slideT),
+      );
+      this.heroFilmStripGroup.rotation.set(
+        THREE.MathUtils.lerp(-0.08, 0.0, slideT),
+        THREE.MathUtils.lerp(0.18, 0.0, slideT),
+        THREE.MathUtils.lerp(0.05, 0.0, slideT),
+      );
+
+      // 2. Gradual image development (0.45s -> 2.15s)
+      const devProgress = THREE.MathUtils.clamp(
+        (this.filmStripDevelopElapsed - 0.45) / 1.65,
+        0,
+        1,
+      );
+      const bucket = Math.round(devProgress * 24);
+      if (bucket !== this.lastRedrawnDevelopBucket) {
+        this.lastRedrawnDevelopBucket = bucket;
+        this.drawFilmStripCanvas(devProgress);
       }
+
+      // Warm glow pulse on the Memory Film Display light bar during development
+      this.filmRackLightMat.emissiveIntensity = 1.6 + Math.sin(clockTime * 10.0) * 0.45;
+
+      // 3. Complete development & automatically restore free exploration controls!
+      if (this.filmStripDevelopElapsed >= this.FILM_DEVELOP_TOTAL_DUR) {
+        this.drawFilmStripCanvas(1.0);
+        this.heroFilmStripGroup.position.set(0, 1.38, 0.03);
+        this.heroFilmStripGroup.rotation.set(0, 0, 0);
+        this.filmStripStage = 'developed_ready_to_inspect';
+        this.activeCameraMode = 'none';
+        this.cameraTransitionElapsed = 0.0;
+        this.camLookYaw = 0.0;
+        this.camLookPitch = 0.0;
+        this.activeCaption =
+          'Film Strip Developed! ✧ Press [E] INSPECT PHOTO or [K] KEEP MEMORY';
+      }
+    } else if (this.filmRackLightMat) {
+      this.filmRackLightMat.emissiveIntensity = 1.35 + Math.sin(clockTime * 2.4) * 0.15;
     }
 
     // Animate Studio Shutter Flash fade-out

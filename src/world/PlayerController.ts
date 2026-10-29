@@ -1595,7 +1595,6 @@ export function createPlayerController(
       if (!dreamCastle) return false;
       const ok = dreamCastle.floor2CreativeWing.triggerTakePortrait();
       if (ok) {
-        restoreExplorationControls();
         onTelemetryChange?.(buildTelemetry());
       }
       return ok;
