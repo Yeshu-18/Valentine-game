@@ -28,6 +28,7 @@ import {
 import {
   CastleFloor2CreativeWingBundle,
   createCastleFloor2CreativeWing,
+  CreativeWing,
   CreativeWingCameraState,
 } from './CastleFloor2CreativeWing';
 import { CastleGardenBundle, createCastleGarden } from './CastleGarden';
@@ -40,6 +41,7 @@ export interface DreamCastleBundle {
   nav: CastleNavigationController;
   floor1Rooms: CastleFloor1RoomsBundle;
   floor2Rooms: CastleFloor2RoomsBundle;
+  creativeWing: CreativeWing;
   floor2CreativeWing: CastleFloor2CreativeWingBundle;
   floor3Rooms: CastleFloor3RoomsBundle;
   rearGarden: CastleGardenBundle;
@@ -3796,6 +3798,7 @@ export function createDreamCastle(): DreamCastleBundle {
     nav,
     floor1Rooms,
     floor2Rooms,
+    creativeWing: floor2CreativeWing,
     floor2CreativeWing,
     floor3Rooms,
     rearGarden,

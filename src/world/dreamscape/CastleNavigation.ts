@@ -357,6 +357,9 @@ export class CastleNavigationController {
   public isInsideCastleBounds(wx: number, wz: number): boolean {
     const lx = wx - this.originX;
     const lz = wz - this.originZ;
+    if (Math.hypot(lx - 33.0, lz - 12.0) <= 8.5) {
+      return true;
+    }
     return Math.abs(lx) <= 22.0 && lz >= -22.0 && lz <= 44.5;
   }
 
@@ -457,6 +460,22 @@ export class CastleNavigationController {
     _scratchCollisionPos.lx = playerPos.x - this.originX;
     _scratchCollisionPos.lz = playerPos.z - this.originZ;
     const pos = _scratchCollisionPos;
+
+    // Connected Little Dream World circular plateau boundary (center lx = 33.0, lz = 12.0, radius = 7.95m)
+    const dwDx = pos.lx - 33.0;
+    const dwDz = pos.lz - 12.0;
+    const dwDist = Math.hypot(dwDx, dwDz);
+    if (dwDist <= 9.5 && Math.abs(playerPos.y - (this.baseY + 5.25)) <= 2.2) {
+      const maxR = 7.85 - playerRadius;
+      if (dwDist > maxR && dwDist > 0.001) {
+        pos.lx = 33.0 + (dwDx / dwDist) * maxR;
+        pos.lz = 12.0 + (dwDz / dwDist) * maxR;
+        playerPos.x = this.originX + pos.lx;
+        playerPos.z = this.originZ + pos.lz;
+      }
+      return;
+    }
+
     if (Math.abs(pos.lx) > 19.5 || Math.abs(pos.lz) > 19.5) {
       return;
     }
@@ -535,8 +554,11 @@ export class CastleNavigationController {
       // South-East wall at lz = -6.2 (doorway at lx in [10.8, 13.2])
       this.pushOutLocalBox(pos, 8.8, 10.8, -6.38, -5.98, playerRadius);
       this.pushOutLocalBox(pos, 13.2, 15.5, -6.38, -5.98, playerRadius);
+      // Photography Studio west wall at lx = 8.8 (doorway at lz in [-11.8, -9.4])
+      this.pushOutLocalBox(pos, 8.58, 9.02, -15.2, -11.8, playerRadius);
+      this.pushOutLocalBox(pos, 8.58, 9.02, -9.4, -6.2, playerRadius);
       // North-East wall at lz = +6.2 (doorway at lx in [10.8, 13.2])
-      this.pushOutLocalBox(pos, 8.8, 10.8, 5.98, 6.38, playerRadius);
+      this.pushOutLocalBox(pos, 9.2, 10.8, 5.98, 6.38, playerRadius);
       this.pushOutLocalBox(pos, 13.2, 15.5, 5.98, 6.38, playerRadius);
       // Doll Playroom west wall (lx = 9.2, lz in [6.2, 14.8])
       this.pushOutLocalBox(pos, 8.95, 9.42, 6.2, 14.8, playerRadius);
@@ -1059,6 +1081,14 @@ export class CastleNavigationController {
 
     const lx = wx - this.originX;
     const lz = wz - this.originZ;
+
+    // Connected Little Dream World circular plateau (center lx = 33.0, lz = 12.0, radius <= 8.25m at Floor 2 height)
+    if (
+      Math.hypot(lx - 33.0, lz - 12.0) <= 8.25 &&
+      Math.abs(playerY - (this.baseY + 5.25)) <= 2.5
+    ) {
+      return this.baseY + 5.25;
+    }
 
     if (Math.abs(lx) > 23.0 || lz < -23.0 || lz > 45.0) {
       return defaultGroundY;

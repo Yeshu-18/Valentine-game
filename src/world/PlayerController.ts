@@ -104,6 +104,9 @@ export interface PlayerControllerBundle {
   performManualDance: (key: string) => void;
   performPredefinedDance: (stepIndex: number) => void;
   setGalleryFrameImage: (frameIndex: number, imageSource: string) => void;
+  setCustomPortraitBackdrop: (imageSource: string) => void;
+  triggerTakePortrait: () => boolean;
+  interactCreativeWingKey: (key: string) => boolean;
   getGalleryFrames: () => readonly {
     index: number;
     title: string;
@@ -181,6 +184,14 @@ export function createPlayerController(
     dreamCastle.floor3Rooms.setAvatarCallbacks({
       setActivityPose: (pose) => avatar.setActivityPose(pose),
       resetNeutralPose: () => avatar.resetNeutralPose?.(),
+    });
+    dreamCastle.floor2CreativeWing.setAvatarBridge({
+      getRingAttachmentWorldPos: (out) => avatar.getRingAttachmentWorldPos(out),
+      getNecklaceAttachmentWorldPos: (out) =>
+        avatar.getNecklaceAttachmentWorldPos(out),
+      getCrownAttachmentWorldPos: (out) => avatar.getCrownAttachmentWorldPos(out),
+      setJewelleryEquipped: (state) => avatar.setJewelleryEquipped(state),
+      getJewelleryEquipped: () => avatar.getJewelleryEquipped(),
     });
   }
 
@@ -741,10 +752,37 @@ export function createPlayerController(
     }
   }
 
+  let lastFreeMouseX: number | null = null;
+  let lastFreeMouseY: number | null = null;
+  let wasAnyCastleActivityCamActive = false;
+
+  function restoreExplorationControls() {
+    isDragging = false;
+    lastFreeMouseX = null;
+    lastFreeMouseY = null;
+    playerVelocity.set(0, 0, 0);
+    verticalVel = 0;
+    isGrounded = true;
+    cameraPitch = THREE.MathUtils.clamp(cameraPitch, -0.58, 0.85);
+    avatar.setFirstPersonVisibility(cameraMode === 'first-person');
+    avatar.setShadowVisible(true);
+    avatar.resetNeutralPose?.();
+  }
+
   function triggerCastleAction(): boolean {
     if (locomotionState !== 'walk' || !dreamCastle) return false;
     const wasInElevatorFpv = dreamCastle.nav.isElevatorFpvActive;
+    const wasCamActive =
+      dreamCastle.floor1Rooms.getCameraState().active ||
+      dreamCastle.floor2Rooms.getCameraState().active ||
+      dreamCastle.floor2CreativeWing.getCameraState().active ||
+      dreamCastle.floor3Rooms.getCameraState().active;
     if (dreamCastle.interact(playerPos)) {
+      const nowCamActive =
+        dreamCastle.floor1Rooms.getCameraState().active ||
+        dreamCastle.floor2Rooms.getCameraState().active ||
+        dreamCastle.floor2CreativeWing.getCameraState().active ||
+        dreamCastle.floor3Rooms.getCameraState().active;
       if (!wasInElevatorFpv && dreamCastle.nav.isElevatorFpvActive) {
         // Entering Royal Crystal Elevator FPV: face toward the front crystal doors & control panel (-Z / Grand Hall)
         cameraYaw = Math.PI;
@@ -759,11 +797,13 @@ export function createPlayerController(
         cameraYaw = Math.PI;
         facingYaw = Math.PI;
         cameraPitch = 0.14;
-        playerVelocity.set(0, 0, 0);
-        verticalVel = 0;
-        isGrounded = true;
-        avatar.setFirstPersonVisibility(cameraMode === 'first-person');
+        restoreExplorationControls();
+      } else if (wasCamActive && !nowCamActive) {
+        restoreExplorationControls();
       } else {
+        isDragging = false;
+        lastFreeMouseX = null;
+        lastFreeMouseY = null;
         playerVelocity.set(0, 0, 0);
         verticalVel = 0;
         isGrounded = true;
@@ -865,52 +905,42 @@ export function createPlayerController(
         if (dreamCastle?.nav.isElevatorFpvActive) {
           e.preventDefault();
           dreamCastle.nav.exitElevatorFpv(playerPos);
-          playerVelocity.set(0, 0, 0);
-          verticalVel = 0;
-          isGrounded = true;
-          avatar.setFirstPersonVisibility(cameraMode === 'first-person');
+          restoreExplorationControls();
           onTelemetryChange?.(buildTelemetry());
           return;
         }
         if (dreamCastle?.nav.activeCameraFocus) {
           e.preventDefault();
           dreamCastle.nav.skipCameraFocus();
+          restoreExplorationControls();
           onTelemetryChange?.(buildTelemetry());
           return;
         }
         if (dreamCastle?.floor3Rooms.getCameraState().active) {
           e.preventDefault();
           dreamCastle.floor3Rooms.exitActiveCameraMode(playerPos);
-          playerVelocity.set(0, 0, 0);
-          verticalVel = 0;
-          isGrounded = true;
+          restoreExplorationControls();
           onTelemetryChange?.(buildTelemetry());
           return;
         }
         if (dreamCastle?.floor2Rooms.getCameraState().active) {
           e.preventDefault();
           dreamCastle.floor2Rooms.exitActiveCameraMode(playerPos);
-          playerVelocity.set(0, 0, 0);
-          verticalVel = 0;
-          isGrounded = true;
+          restoreExplorationControls();
           onTelemetryChange?.(buildTelemetry());
           return;
         }
         if (dreamCastle?.floor2CreativeWing.getCameraState().active) {
           e.preventDefault();
-          dreamCastle.floor2CreativeWing.interact(playerPos);
-          playerVelocity.set(0, 0, 0);
-          verticalVel = 0;
-          isGrounded = true;
+          dreamCastle.floor2CreativeWing.exitActiveCameraMode();
+          restoreExplorationControls();
           onTelemetryChange?.(buildTelemetry());
           return;
         }
         if (dreamCastle?.floor1Rooms.getCameraState().active) {
           e.preventDefault();
           dreamCastle.floor1Rooms.exitActiveCameraMode(playerPos);
-          playerVelocity.set(0, 0, 0);
-          verticalVel = 0;
-          isGrounded = true;
+          restoreExplorationControls();
           onTelemetryChange?.(buildTelemetry());
           return;
         }
@@ -1030,6 +1060,8 @@ export function createPlayerController(
   const onWindowBlur = () => {
     keys.clear();
     isDragging = false;
+    lastFreeMouseX = null;
+    lastFreeMouseY = null;
   };
 
   const onPointerDown = (e: PointerEvent) => {
@@ -1041,10 +1073,9 @@ export function createPlayerController(
     isDragging = true;
     lastPointerX = e.clientX;
     lastPointerY = e.clientY;
+    lastFreeMouseX = e.clientX;
+    lastFreeMouseY = e.clientY;
   };
-
-  let lastFreeMouseX: number | null = null;
-  let lastFreeMouseY: number | null = null;
 
   const onPointerMove = (e: PointerEvent) => {
     idleTimer = 0;
@@ -1113,6 +1144,10 @@ export function createPlayerController(
     const floor3Cam = dreamCastle?.floor3Rooms.getCameraState();
     const isFloor3CamActive = Boolean(floor3Cam?.active);
 
+    const isOverInteractiveHudControl =
+      e.target instanceof HTMLElement &&
+      Boolean(e.target.closest('button, input, label, a, select, textarea'));
+
     let lookDx = 0;
     let lookDy = 0;
     let yawSensitivity = 0.0034;
@@ -1130,10 +1165,10 @@ export function createPlayerController(
       lastPointerY = e.clientY;
       yawSensitivity = 0.0052;
       pitchSensitivity = 0.0044;
-    } else if (e.target === domElement) {
+    } else if (!isOverInteractiveHudControl) {
       lookDx = freeDx;
       lookDy = freeDy;
-      yawSensitivity = 0.0036;
+      yawSensitivity = 0.0038;
       pitchSensitivity = 0.003;
     } else {
       return;
@@ -1155,7 +1190,7 @@ export function createPlayerController(
     }
     if (isCreativeCamActive) {
       dreamCastle?.floor2CreativeWing.applyLookDelta(
-        lookDx * 0.0044,
+        lookDx * 0.0046,
         lookDy * 0.0036,
       );
     }
@@ -1186,22 +1221,60 @@ export function createPlayerController(
   };
 
   const onWheel = (e: WheelEvent) => {
+    idleTimer = 0;
     if (carnivalDistrict.isActive()) {
       carnivalDistrict.applyZoomDelta?.(e.deltaY);
       return;
     }
     if (
-      cameraMode !== 'third-person' ||
       locomotionState === 'mystery_cinematic' ||
       wizardingSchool.isLakeMemoryActive() ||
       auroraCinematic.isActive()
     )
       return;
-    targetCameraDistance = THREE.MathUtils.clamp(
-      targetCameraDistance + e.deltaY * 0.005,
-      2.8,
-      14.5,
-    );
+
+    const isCastleFocusActive = Boolean(dreamCastle?.nav.activeCameraFocus);
+    const isFloor1CamActive = Boolean(dreamCastle?.floor1Rooms.getCameraState().active);
+    const isFloor2CamActive = Boolean(dreamCastle?.floor2Rooms.getCameraState().active);
+    const isCreativeCamActive = Boolean(dreamCastle?.floor2CreativeWing.getCameraState().active);
+    const isFloor3CamActive = Boolean(dreamCastle?.floor3Rooms.getCameraState().active);
+
+    // Support laptop two-finger touchpad horizontal swipe (deltaX) for smooth 360° camera rotation
+    if (Math.abs(e.deltaX) > 0.25) {
+      const panDx = THREE.MathUtils.clamp(e.deltaX, -60, 60);
+      cameraYaw = wrapAnglePi(cameraYaw - panDx * 0.0042);
+      if (isFloor1CamActive) dreamCastle?.floor1Rooms.applySeatedLookDelta(panDx * 0.0045, 0);
+      if (isFloor2CamActive) dreamCastle?.floor2Rooms.applyLookDelta(panDx * 0.0045, 0);
+      if (isCreativeCamActive) dreamCastle?.floor2CreativeWing.applyLookDelta(panDx * 0.0045, 0);
+      if (isFloor3CamActive) dreamCastle?.floor3Rooms.applyLookDelta(panDx * 0.0045, 0);
+      if (isCastleFocusActive) dreamCastle?.nav.applyFocusLookDelta(panDx * 0.0042, 0);
+      lastMouseMoveElapsed = currentElapsedTime;
+    }
+
+    if (
+      isFloor1CamActive ||
+      isFloor2CamActive ||
+      isCreativeCamActive ||
+      isFloor3CamActive ||
+      isCastleFocusActive
+    ) {
+      const panDy = THREE.MathUtils.clamp(e.deltaY, -60, 60);
+      if (isFloor1CamActive) dreamCastle?.floor1Rooms.applySeatedLookDelta(0, panDy * 0.0032);
+      if (isFloor2CamActive) dreamCastle?.floor2Rooms.applyLookDelta(0, panDy * 0.0032);
+      if (isCreativeCamActive) dreamCastle?.floor2CreativeWing.applyLookDelta(0, panDy * 0.0032);
+      if (isFloor3CamActive) dreamCastle?.floor3Rooms.applyLookDelta(0, panDy * 0.0032);
+      if (isCastleFocusActive) dreamCastle?.nav.applyFocusLookDelta(0, panDy * 0.0032);
+      return;
+    }
+
+    if (cameraMode !== 'third-person') return;
+    if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
+      targetCameraDistance = THREE.MathUtils.clamp(
+        targetCameraDistance + e.deltaY * 0.005,
+        2.8,
+        14.5,
+      );
+    }
   };
 
   const onPointerLockChange = () => {
@@ -1324,13 +1397,15 @@ export function createPlayerController(
 
     const distToDreamCastle = Math.hypot(playerPos.x - 88.0, playerPos.z - 18.0);
     const castlePrompt =
-      isWalk && dreamCastle && distToDreamCastle <= 48.0
+      isWalk && dreamCastle && distToDreamCastle <= 52.0
         ? dreamCastle.getProximityPrompt(playerPos)?.prompt ?? null
         : null;
     const castleFountainCaption =
-      isWalk && dreamCastle && distToDreamCastle <= 25.0
+      isWalk && dreamCastle && distToDreamCastle <= 52.0
         ? dreamCastle.nav.getActiveFountainCaption() ??
+          dreamCastle.floor2CreativeWing.getActiveRoomCaption() ??
           dreamCastle.floor2Rooms.getActiveRoomCaption() ??
+          dreamCastle.floor3Rooms.getActiveRoomCaption() ??
           dreamCastle.floor1Rooms.getActiveRoomCaption()
         : null;
 
@@ -1511,6 +1586,27 @@ export function createPlayerController(
     setGalleryFrameImage: (frameIndex: number, imageSource: string) => {
       dreamCastle?.setGalleryFrameImage(frameIndex, imageSource);
       onTelemetryChange?.(buildTelemetry());
+    },
+    setCustomPortraitBackdrop: (imageSource: string) => {
+      dreamCastle?.floor2CreativeWing.setCustomPhotoBackdrop(imageSource);
+      onTelemetryChange?.(buildTelemetry());
+    },
+    triggerTakePortrait: () => {
+      if (!dreamCastle) return false;
+      const ok = dreamCastle.floor2CreativeWing.triggerTakePortrait();
+      if (ok) {
+        restoreExplorationControls();
+        onTelemetryChange?.(buildTelemetry());
+      }
+      return ok;
+    },
+    interactCreativeWingKey: (key: string) => {
+      if (!dreamCastle) return false;
+      const ok = dreamCastle.floor2CreativeWing.handleKeyAction(key);
+      if (ok) {
+        onTelemetryChange?.(buildTelemetry());
+      }
+      return ok;
     },
     getGalleryFrames: () => dreamCastle?.getGalleryFrames() ?? [],
     getDanceStudioState: () => dreamCastle?.floor2Rooms.getDanceStudioState() ?? null,
@@ -1994,12 +2090,54 @@ export function createPlayerController(
           }
         }
 
+        if (dreamCastle) {
+          const pendingTp =
+            dreamCastle.floor2CreativeWing.tabletopWorld.consumePendingTeleport();
+          if (pendingTp) {
+            playerPos.copy(pendingTp.pos);
+            facingYaw = pendingTp.yaw;
+            cameraYaw = pendingTp.yaw;
+            cameraPitch = 0.14;
+            restoreExplorationControls();
+            avatar.group.position.copy(playerPos);
+            avatar.group.rotation.set(0, facingYaw, 0);
+            const horizDist = Math.cos(cameraPitch) * currentCameraDistance;
+            const vertOffset = Math.sin(cameraPitch) * currentCameraDistance + 1.55;
+            currentCamPos.set(
+              playerPos.x - Math.sin(cameraYaw) * horizDist,
+              playerPos.y + vertOffset,
+              playerPos.z - Math.cos(cameraYaw) * horizDist,
+            );
+            currentLookAt.set(playerPos.x, playerPos.y + 1.38, playerPos.z);
+            camera.position.copy(currentCamPos);
+            camera.lookAt(currentLookAt);
+            onTelemetryChange?.(buildTelemetry());
+          }
+        }
+
         const floor1Mode = dreamCastle?.floor1Rooms.getCameraState().mode ?? 'none';
+        const floor1Active = Boolean(dreamCastle?.floor1Rooms.getCameraState().active);
         const floor2Active = Boolean(dreamCastle?.floor2Rooms.getCameraState().active);
+        const creativeWingActive = Boolean(
+          dreamCastle?.floor2CreativeWing.getCameraState().active,
+        );
         const floor3Active = Boolean(dreamCastle?.floor3Rooms.getCameraState().active);
+
+        const anyCastleActivityCamActive =
+          isElevatorFpv ||
+          floor1Active ||
+          floor2Active ||
+          creativeWingActive ||
+          floor3Active;
+        if (wasAnyCastleActivityCamActive && !anyCastleActivityCamActive) {
+          restoreExplorationControls();
+        }
+        wasAnyCastleActivityCamActive = anyCastleActivityCamActive;
+
         const isInstrumentOrInspectLocked =
           isElevatorFpv ||
           floor2Active ||
+          creativeWingActive ||
           floor3Active ||
           floor1Mode === 'sofa_sit' ||
           floor1Mode === 'piano_play' ||

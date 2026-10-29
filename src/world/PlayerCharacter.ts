@@ -112,6 +112,20 @@ export interface PlayerAvatarBundle {
     hairName: string;
     tiaraVisible: boolean;
   };
+  getRingAttachmentWorldPos: (target: THREE.Vector3) => THREE.Vector3;
+  getNecklaceAttachmentWorldPos: (target: THREE.Vector3) => THREE.Vector3;
+  getCrownAttachmentWorldPos: (target: THREE.Vector3) => THREE.Vector3;
+  setJewelleryEquipped: (state: {
+    ringIndex?: number | null;
+    necklaceIndex?: number | null;
+    crownEquipped?: boolean;
+  }) => void;
+  getJewelleryEquipped: () => {
+    ringIndex: number | null;
+    necklaceIndex: number | null;
+    crownEquipped: boolean;
+    allThreeWorn: boolean;
+  };
   dispose: () => void;
 }
 
@@ -342,9 +356,9 @@ export function createPlayerAvatar(): PlayerAvatarBundle {
   bowCenter.position.set(0, 0.02, -0.01);
   ponytailPivot.add(bowLeft, bowRight, bowCenter);
 
-  // 6. Royal Crystal Tiara Crown (toggled in Royal Wardrobe & Beauty Studio)
+  // 6. Harsha's Crown (Hero Tiara on headPivot: 5 crystal points, central heart crystal, 2 smaller hearts, pearls, stars)
   const tiaraGroup = new THREE.Group();
-  tiaraGroup.name = 'RoyalTiara';
+  tiaraGroup.name = 'HarshasCrown';
   tiaraGroup.position.set(0, 0.2, 0.05);
   tiaraGroup.rotation.x = -0.18;
   tiaraGroup.visible = true;
@@ -359,18 +373,27 @@ export function createPlayerAvatar(): PlayerAvatarBundle {
   const tiaraGemMat = new THREE.MeshStandardMaterial({
     color: new THREE.Color('#fbcfe8'),
     emissive: new THREE.Color('#f472b6'),
-    emissiveIntensity: 0.75,
-    roughness: 0.15,
+    emissiveIntensity: 0.85,
+    roughness: 0.12,
     metalness: 0.25,
   });
-  materials.push(tiaraGemMat);
+  const pearlWhiteJewelMat = new THREE.MeshStandardMaterial({
+    color: new THREE.Color('#fffbeb'),
+    emissive: new THREE.Color('#fef3c7'),
+    emissiveIntensity: 0.22,
+    roughness: 0.16,
+    metalness: 0.12,
+  });
+  materials.push(tiaraGemMat, pearlWhiteJewelMat);
 
   const tiaraPeakGeo = new THREE.ConeGeometry(0.024, 0.075, 6);
   const tiaraGemGeo = new THREE.OctahedronGeometry(0.022, 0);
+  const heartLobeSmallGeo = new THREE.SphereGeometry(0.014, 8, 8);
+  const pearlTinyGeo = new THREE.SphereGeometry(0.009, 8, 8);
   const peakAngles = [-0.65, -0.32, 0, 0.32, 0.65];
   peakAngles.forEach((ang, idx) => {
     const isCenter = idx === 2;
-    const hScale = isCenter ? 1.35 : idx === 1 || idx === 3 ? 1.05 : 0.78;
+    const hScale = isCenter ? 1.42 : idx === 1 || idx === 3 ? 1.08 : 0.82;
     const px = Math.sin(ang) * 0.142;
     const pz = Math.cos(ang) * 0.142;
     const peak = new THREE.Mesh(tiaraPeakGeo, ribbonGoldMat);
@@ -378,13 +401,113 @@ export function createPlayerAvatar(): PlayerAvatarBundle {
     peak.position.set(px, 0.028 * hScale, pz);
     tiaraGroup.add(peak);
 
-    if (isCenter || idx === 1 || idx === 3) {
-      const gem = new THREE.Mesh(tiaraGemGeo, tiaraGemMat);
-      gem.scale.setScalar(isCenter ? 1.15 : 0.82);
-      gem.position.set(px * 1.03, 0.052 * hScale, pz * 1.03);
-      tiaraGroup.add(gem);
-    }
+    // 5 major crystal points
+    const gem = new THREE.Mesh(tiaraGemGeo, tiaraGemMat);
+    gem.scale.setScalar(isCenter ? 1.25 : idx === 1 || idx === 3 ? 0.88 : 0.68);
+    gem.position.set(px * 1.03, 0.054 * hScale, pz * 1.03);
+    tiaraGroup.add(gem);
+
+    // Pearl details at base of each point
+    const pearl = new THREE.Mesh(pearlTinyGeo, pearlWhiteJewelMat);
+    pearl.position.set(px * 1.05, 0.012, pz * 1.05);
+    tiaraGroup.add(pearl);
   });
+
+  // Central Heart Crystal + Two Smaller Flanking Hearts on Harsha's Crown
+  const crownHeartPositions = [
+    { ang: 0, s: 1.0, y: 0.042 },
+    { ang: -0.22, s: 0.68, y: 0.028 },
+    { ang: 0.22, s: 0.68, y: 0.028 },
+  ];
+  crownHeartPositions.forEach((ch) => {
+    const hx = Math.sin(ch.ang) * 0.148;
+    const hz = Math.cos(ch.ang) * 0.148;
+    const hL = new THREE.Mesh(heartLobeSmallGeo, tiaraGemMat);
+    hL.scale.setScalar(ch.s);
+    hL.position.set(hx - 0.006 * ch.s, ch.y, hz);
+    const hR = new THREE.Mesh(heartLobeSmallGeo, tiaraGemMat);
+    hR.scale.setScalar(ch.s);
+    hR.position.set(hx + 0.006 * ch.s, ch.y, hz);
+    tiaraGroup.add(hL, hR);
+  });
+
+  // 7. Wearable Necklace Attachment on Neck / Collar (bodyGroup)
+  const necklaceAnchor = new THREE.Group();
+  necklaceAnchor.name = 'NecklaceAttachmentAnchor';
+  necklaceAnchor.position.set(0, 1.21, 0.01);
+  bodyGroup.add(necklaceAnchor);
+
+  const necklaceGroup = new THREE.Group();
+  necklaceGroup.visible = false;
+  necklaceAnchor.add(necklaceGroup);
+
+  const neckChainGeo = new THREE.TorusGeometry(0.162, 0.0085, 8, 24);
+  neckChainGeo.rotateX(Math.PI / 2 + 0.16);
+  const neckChainMesh = new THREE.Mesh(neckChainGeo, ribbonGoldMat);
+  necklaceGroup.add(neckChainMesh);
+
+  const neckPendantMat = new THREE.MeshStandardMaterial({
+    color: new THREE.Color('#f472b6'),
+    emissive: new THREE.Color('#ec4899'),
+    emissiveIntensity: 0.9,
+    roughness: 0.12,
+    metalness: 0.28,
+  });
+  materials.push(neckPendantMat);
+
+  const pendantDropGroup = new THREE.Group();
+  pendantDropGroup.position.set(0, -0.042, 0.165);
+  const pBail = new THREE.Mesh(pearlTinyGeo, ribbonGoldMat);
+  pBail.position.set(0, 0.022, 0);
+  const pGemCenter = new THREE.Mesh(tiaraGemGeo, neckPendantMat);
+  pGemCenter.scale.set(1.15, 1.35, 0.75);
+  const pHeartL = new THREE.Mesh(heartLobeSmallGeo, neckPendantMat);
+  pHeartL.position.set(-0.009, 0.008, 0.005);
+  const pHeartR = new THREE.Mesh(heartLobeSmallGeo, neckPendantMat);
+  pHeartR.position.set(0.009, 0.008, 0.005);
+  pendantDropGroup.add(pBail, pGemCenter, pHeartL, pHeartR);
+  necklaceGroup.add(pendantDropGroup);
+
+  // 8. Wearable Ring Attachment on Finger / Hand (rightHandAnchor)
+  const ringGroup = new THREE.Group();
+  ringGroup.name = 'WearableRingGroup';
+  ringGroup.position.set(0, -0.025, 0.025);
+  ringGroup.visible = false;
+  rightHandAnchor.add(ringGroup);
+
+  const ringBandGeo = new THREE.TorusGeometry(0.024, 0.0055, 8, 16);
+  ringBandGeo.rotateX(Math.PI / 2);
+  const ringBandMesh = new THREE.Mesh(ringBandGeo, ribbonGoldMat);
+  const ringGemMat = new THREE.MeshStandardMaterial({
+    color: new THREE.Color('#fda4af'),
+    emissive: new THREE.Color('#f43f5e'),
+    emissiveIntensity: 0.95,
+    roughness: 0.1,
+    metalness: 0.3,
+  });
+  materials.push(ringGemMat);
+  const ringStoneMesh = new THREE.Mesh(tiaraGemGeo, ringGemMat);
+  ringStoneMesh.scale.setScalar(0.85);
+  ringStoneMesh.position.set(0, 0.01, 0.024);
+  ringGroup.add(ringBandMesh, ringStoneMesh);
+
+  // 9. Simultaneous 3-Piece Combination Travelling Heart-Light Particle (Ring -> Necklace -> Crown)
+  const comboHeartMat = new THREE.MeshBasicMaterial({
+    color: new THREE.Color('#fef08a'),
+    transparent: true,
+    opacity: 0.95,
+  });
+  materials.push(comboHeartMat);
+  const comboHeartOrb = new THREE.Group();
+  comboHeartOrb.visible = false;
+  const chOrbCore = new THREE.Mesh(tiaraGemGeo, comboHeartMat);
+  chOrbCore.scale.setScalar(0.95);
+  const chOrbL = new THREE.Mesh(heartLobeSmallGeo, tiaraGemMat);
+  chOrbL.position.set(-0.008, 0.008, 0);
+  const chOrbR = new THREE.Mesh(heartLobeSmallGeo, tiaraGemMat);
+  chOrbR.position.set(0.008, 0.008, 0);
+  comboHeartOrb.add(chOrbCore, chOrbL, chOrbR);
+  bodyGroup.add(comboHeartOrb);
 
   geometries.push(
     headGeo,
@@ -395,13 +518,22 @@ export function createPlayerAvatar(): PlayerAvatarBundle {
     tiaraBandGeo,
     tiaraPeakGeo,
     tiaraGemGeo,
+    heartLobeSmallGeo,
+    pearlTinyGeo,
+    neckChainGeo,
+    ringBandGeo,
   );
 
   let walkPhase = 0;
   let currentOutfitIndex = 0;
   let currentHairIndex = 0;
   let tiaraVisible = true;
+  let equippedRingIndex: number | null = null;
+  let equippedNecklaceIndex: number | null = null;
   let activityPose: AvatarActivityPose = 'none';
+
+  const RING_COLORS = ['#f43f5e', '#fde047', '#38bdf8', '#c084fc', '#f472b6'];
+  const NECKLACE_COLORS = ['#ec4899', '#fbbf24', '#38bdf8', '#a855f7', '#fb7185'];
 
   const applyOutfitPreset = (index: number): string => {
     const safeIdx =
@@ -1290,6 +1422,46 @@ export function createPlayerAvatar(): PlayerAvatarBundle {
           delta,
         );
       }
+
+      // Section 25: Simultaneous 3-Piece Combination Glow & Travelling Heart-Light (Ring -> Necklace -> Crown)
+      const allThreeWorn =
+        equippedRingIndex !== null &&
+        equippedNecklaceIndex !== null &&
+        tiaraVisible;
+      if (allThreeWorn) {
+        const syncPulse = 1.05 + Math.sin(elapsedTime * 4.2) * 0.45;
+        ringGemMat.emissiveIntensity = syncPulse;
+        neckPendantMat.emissiveIntensity = syncPulse;
+        tiaraGemMat.emissiveIntensity = syncPulse;
+
+        comboHeartOrb.visible = true;
+        const cycle = (elapsedTime * 0.65) % 1.0;
+        // 0..0.5: Ring (0.24, 0.84, 0.08) -> Necklace (0, 1.17, 0.18)
+        // 0.5..1.0: Necklace (0, 1.17, 0.18) -> Crown (0, 1.66, 0.16)
+        if (cycle < 0.5) {
+          const u = cycle * 2.0;
+          comboHeartOrb.position.set(
+            THREE.MathUtils.lerp(0.24, 0.0, u) + Math.sin(u * Math.PI) * 0.04,
+            THREE.MathUtils.lerp(0.84, 1.17, u),
+            THREE.MathUtils.lerp(0.08, 0.18, u),
+          );
+        } else {
+          const u = (cycle - 0.5) * 2.0;
+          comboHeartOrb.position.set(
+            Math.sin(u * Math.PI) * 0.05,
+            THREE.MathUtils.lerp(1.17, 1.66, u),
+            THREE.MathUtils.lerp(0.18, 0.16, u),
+          );
+        }
+        comboHeartOrb.rotation.y = elapsedTime * 3.5;
+        const sPulse = 0.75 + Math.sin(cycle * Math.PI) * 0.45;
+        comboHeartOrb.scale.setScalar(sPulse);
+      } else {
+        comboHeartOrb.visible = false;
+        ringGemMat.emissiveIntensity = 0.85;
+        neckPendantMat.emissiveIntensity = 0.85;
+        tiaraGemMat.emissiveIntensity = 0.78;
+      }
     },
     setFirstPersonVisibility(isFirstPerson: boolean) {
       bodyGroup.visible = !isFirstPerson;
@@ -1339,6 +1511,57 @@ export function createPlayerAvatar(): PlayerAvatarBundle {
         outfitName: OUTFIT_PALETTE_PRESETS[currentOutfitIndex].name,
         hairName: HAIR_PALETTE_PRESETS[currentHairIndex].name,
         tiaraVisible,
+      };
+    },
+    getRingAttachmentWorldPos(target: THREE.Vector3): THREE.Vector3 {
+      group.updateMatrixWorld(true);
+      return rightHandAnchor.getWorldPosition(target);
+    },
+    getNecklaceAttachmentWorldPos(target: THREE.Vector3): THREE.Vector3 {
+      group.updateMatrixWorld(true);
+      return necklaceAnchor.getWorldPosition(target);
+    },
+    getCrownAttachmentWorldPos(target: THREE.Vector3): THREE.Vector3 {
+      group.updateMatrixWorld(true);
+      return tiaraGroup.getWorldPosition(target);
+    },
+    setJewelleryEquipped(state: {
+      ringIndex?: number | null;
+      necklaceIndex?: number | null;
+      crownEquipped?: boolean;
+    }) {
+      if (state.ringIndex !== undefined) {
+        equippedRingIndex = state.ringIndex;
+        ringGroup.visible = equippedRingIndex !== null;
+        if (equippedRingIndex !== null) {
+          const hex = RING_COLORS[equippedRingIndex % RING_COLORS.length];
+          ringGemMat.color.set(hex);
+          ringGemMat.emissive.set(hex);
+        }
+      }
+      if (state.necklaceIndex !== undefined) {
+        equippedNecklaceIndex = state.necklaceIndex;
+        necklaceGroup.visible = equippedNecklaceIndex !== null;
+        if (equippedNecklaceIndex !== null) {
+          const hex = NECKLACE_COLORS[equippedNecklaceIndex % NECKLACE_COLORS.length];
+          neckPendantMat.color.set(hex);
+          neckPendantMat.emissive.set(hex);
+        }
+      }
+      if (state.crownEquipped !== undefined) {
+        tiaraVisible = state.crownEquipped;
+        tiaraGroup.visible = tiaraVisible;
+      }
+    },
+    getJewelleryEquipped() {
+      return {
+        ringIndex: equippedRingIndex,
+        necklaceIndex: equippedNecklaceIndex,
+        crownEquipped: tiaraVisible,
+        allThreeWorn:
+          equippedRingIndex !== null &&
+          equippedNecklaceIndex !== null &&
+          tiaraVisible,
       };
     },
     dispose() {

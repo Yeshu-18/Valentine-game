@@ -2,6 +2,9 @@ import * as THREE from 'three';
 import { ResourceTracker } from '../ProceduralKit';
 import { CircleCollider } from '../VegetationSystem';
 import { DreamCastleMaterials } from './CastleMaterials';
+import { MicroPropLibrary } from './CastleCreativeWingMicroProps';
+import { CastleJewelleryAtelier, JewelleryAvatarBridge } from './CastleJewelleryAtelier';
+import { CastleTabletopWorld } from './CastleTabletopWorld';
 
 export type CreativeWingActiveCameraMode =
   | 'none'
@@ -21,13 +24,25 @@ export interface CastleFloor2CreativeWingBundle {
   group: THREE.Group;
   colliders: CircleCollider[];
   partitionMeshes: THREE.Mesh[];
+  microPropLibrary: MicroPropLibrary;
+  jewelleryAtelier: CastleJewelleryAtelier;
+  tabletopWorld: CastleTabletopWorld;
+  setAvatarBridge: (bridge: JewelleryAvatarBridge) => void;
+  setCustomPhotoBackdrop: (imageSource: string) => void;
+  triggerTakePortrait: () => boolean;
+  exitActiveCameraMode: () => void;
   getProximityPrompt: (playerPos: THREE.Vector3) => string | null;
   getActiveRoomCaption: () => string | null;
   interact: (playerPos: THREE.Vector3) => boolean;
   handleKeyAction: (key: string) => boolean;
   getCameraState: () => CreativeWingCameraState;
   applyLookDelta: (deltaYaw: number, deltaPitch: number) => void;
-  update: (delta: number, clockTime: number, playerPos: THREE.Vector3, inputKeys?: Set<string>) => void;
+  update: (
+    delta: number,
+    clockTime: number,
+    playerPos: THREE.Vector3,
+    inputKeys?: Set<string>,
+  ) => void;
 }
 
 // Module-scope scratch objects (Zero Per-Frame Allocations Contract)
@@ -53,7 +68,7 @@ function lockStaticHierarchy(root: THREE.Object3D, dynamicSet: Set<THREE.Object3
 }
 
 // ============================================================================
-// PROCEDURAL CANVAS TEXTURES FOR ROOM HEADERS & BACKDROPS
+// PROCEDURAL CANVAS TEXTURES FOR HEADERS, BACKDROPS, PORTRAITS & LABELS
 // ============================================================================
 function createSignboardTexture(
   tracker: ResourceTracker,
@@ -92,885 +107,1794 @@ function createSignboardTexture(
   return tex;
 }
 
-export function createCastleFloor2CreativeWing(
+function createPlaqueTexture(
   tracker: ResourceTracker,
-  mats: DreamCastleMaterials,
-  originX: number,
-  baseY: number,
-  originZ: number,
-): CastleFloor2CreativeWingBundle {
-  const group = new THREE.Group();
-  group.name = 'CastleFloor2CreativeWing';
-
-  const colliders: CircleCollider[] = [];
-  const partitionMeshes: THREE.Mesh[] = [];
-  const dynamicObjects = new Set<THREE.Object3D>();
-
-  const y0 = 5.25; // Floor 2 Mezzanine walkable top surface
-  const yCeil = 9.9; // Floor 2 Ceiling underside
-
-  const addLocalCollider = (lx: number, lz: number, radius: number) => {
-    colliders.push({
-      x: originX + lx,
-      z: originZ + lz,
-      radius,
-      y: baseY + y0,
-      height: 3.5,
-    });
-  };
-
-  // Shared PointLight for Creative Wing (Warm Rosy Ambience)
-  const wingLight = new THREE.PointLight('#fce7f3', 0.85, 18.0, 1.8);
-  wingLight.position.set(12.0, y0 + 3.2, 0.0);
-  group.add(wingLight);
-  dynamicObjects.add(wingLight);
-
-  // ============================================================================
-  // ARCHITECTURAL WALLS, CEILINGS & ENCLOSURES FOR ALL 3 ROOMS
-  // ============================================================================
-  const wallMat = mats.creamStone;
-  const marbleTrimMat = mats.blushRoseMarble;
-  const goldTrimMat = mats.champagneGold;
-
-  // 1. South-East Partition Wall separating Photography from Circulation (lz = -6.2)
-  // Outer segment: lx 13.2 to 15.4 (center 14.3, w = 2.2)
-  const partGeo1 = tracker.trackGeo(new THREE.BoxGeometry(2.2, 4.4, 0.38));
-  partGeo1.translate(14.3, y0 + 2.2, -6.2);
-  const partMesh1 = new THREE.Mesh(partGeo1, wallMat);
-
-  // Inner segment: lx 8.8 to 10.8 (center 9.8, w = 2.0)
-  const partGeo2 = tracker.trackGeo(new THREE.BoxGeometry(2.0, 4.4, 0.38));
-  partGeo2.translate(9.8, y0 + 2.2, -6.2);
-  const partMesh2 = new THREE.Mesh(partGeo2, wallMat);
-
-  // Arch Header over doorway gap lx 10.8 to 13.2 (center 12.0, w = 2.4, h = 1.2)
-  const archHeaderGeo1 = tracker.trackGeo(new THREE.BoxGeometry(2.4, 1.2, 0.42));
-  archHeaderGeo1.translate(12.0, y0 + 3.8, -6.2);
-  const archHeaderMesh1 = new THREE.Mesh(archHeaderGeo1, marbleTrimMat);
-
-  // Arch Trim ring
-  const archTorusGeo1 = tracker.trackGeo(new THREE.TorusGeometry(1.2, 0.06, 8, 24, Math.PI));
-  const archTrimMesh1 = new THREE.Mesh(archTorusGeo1, goldTrimMat);
-  archTrimMesh1.position.set(12.0, y0 + 2.8, -6.2);
-
-  group.add(partMesh1, partMesh2, archHeaderMesh1, archTrimMesh1);
-  partitionMeshes.push(partMesh1, partMesh2, archHeaderMesh1);
-
-  // Signboard: THE PORTRAIT ATELIER
-  const photoSignTex = createSignboardTexture(
-    tracker,
-    '✦ THE PORTRAIT ATELIER ✦',
-    'Haute Couture Photography & Fine Portraits',
-    '#4c0519',
-    '#fbbf24',
-  );
-  const signGeo = tracker.trackGeo(new THREE.PlaneGeometry(2.1, 0.52));
-  const photoSignMesh = new THREE.Mesh(
-    signGeo,
-    tracker.trackMat(new THREE.MeshBasicMaterial({ map: photoSignTex })),
-  );
-  photoSignMesh.position.set(12.0, y0 + 3.82, -5.98);
-  group.add(photoSignMesh);
-
-  // 2. Center-East West Facade for Mini Fashion Boutique (lx = 8.8, lz in [-5.8, +5.8])
-  // Doorway in center: lz in [-1.2, +1.2]
-  // South window wall: lz -5.8 to -1.2 (center -3.5, d = 4.6)
-  const boutiqueWallSouthGeo = tracker.trackGeo(new THREE.BoxGeometry(0.38, 4.4, 4.6));
-  boutiqueWallSouthGeo.translate(8.8, y0 + 2.2, -3.5);
-  const boutiqueWallSouth = new THREE.Mesh(boutiqueWallSouthGeo, wallMat);
-
-  // North window wall: lz 1.2 to 5.8 (center 3.5, d = 4.6)
-  const boutiqueWallNorthGeo = tracker.trackGeo(new THREE.BoxGeometry(0.38, 4.4, 4.6));
-  boutiqueWallNorthGeo.translate(8.8, y0 + 2.2, 3.5);
-  const boutiqueWallNorth = new THREE.Mesh(boutiqueWallNorthGeo, wallMat);
-
-  // Door Header over lz in [-1.2, +1.2] (center 0.0, d = 2.4, h = 1.2)
-  const boutiqueDoorHeaderGeo = tracker.trackGeo(new THREE.BoxGeometry(0.42, 1.2, 2.4));
-  boutiqueDoorHeaderGeo.translate(8.8, y0 + 3.8, 0.0);
-  const boutiqueDoorHeader = new THREE.Mesh(boutiqueDoorHeaderGeo, marbleTrimMat);
-
-  // Arch Trim ring
-  const boutiqueArchTorusGeo = tracker.trackGeo(new THREE.TorusGeometry(1.2, 0.06, 8, 24, Math.PI));
-  const boutiqueArchTrim = new THREE.Mesh(boutiqueArchTorusGeo, goldTrimMat);
-  boutiqueArchTrim.rotation.y = Math.PI / 2;
-  boutiqueArchTrim.position.set(8.8, y0 + 2.8, 0.0);
-
-  group.add(boutiqueWallSouth, boutiqueWallNorth, boutiqueDoorHeader, boutiqueArchTrim);
-  partitionMeshes.push(boutiqueWallSouth, boutiqueWallNorth, boutiqueDoorHeader);
-
-  // Signboard: HARSHA'S COUTURE CORNER
-  const boutiqueSignTex = createSignboardTexture(
-    tracker,
-    "♕ HARSHA'S COUTURE CORNER ♕",
-    'Bespoke Castle Fashion, Accessories & Tailoring',
-    '#831843',
-    '#fde047',
-  );
-  const boutiqueSignGeo = tracker.trackGeo(new THREE.PlaneGeometry(2.2, 0.52));
-  boutiqueSignGeo.rotateY(-Math.PI / 2);
-  const boutiqueSignMesh = new THREE.Mesh(
-    boutiqueSignGeo,
-    tracker.trackMat(new THREE.MeshBasicMaterial({ map: boutiqueSignTex })),
-  );
-  boutiqueSignMesh.position.set(8.58, y0 + 3.82, 0.0);
-  group.add(boutiqueSignMesh);
-
-  // 3. North-East Partition Wall separating Doll Playroom from Circulation (lz = +6.2)
-  // Outer segment: lx 13.2 to 15.4 (center 14.3, w = 2.2)
-  const dollWallGeo1 = tracker.trackGeo(new THREE.BoxGeometry(2.2, 4.4, 0.38));
-  dollWallGeo1.translate(14.3, y0 + 2.2, 6.2);
-  const dollWallMesh1 = new THREE.Mesh(dollWallGeo1, wallMat);
-
-  // Inner segment: lx 8.8 to 10.8 (center 9.8, w = 2.0)
-  const dollWallGeo2 = tracker.trackGeo(new THREE.BoxGeometry(2.0, 4.4, 0.38));
-  dollWallGeo2.translate(9.8, y0 + 2.2, 6.2);
-  const dollWallMesh2 = new THREE.Mesh(dollWallGeo2, wallMat);
-
-  // Arch Header over doorway gap lx 10.8 to 13.2 (center 12.0, w = 2.4, h = 1.2)
-  const dollArchHeaderGeo = tracker.trackGeo(new THREE.BoxGeometry(2.4, 1.2, 0.42));
-  dollArchHeaderGeo.translate(12.0, y0 + 3.8, 6.2);
-  const dollArchHeaderMesh = new THREE.Mesh(dollArchHeaderGeo, marbleTrimMat);
-
-  // Arch Trim ring
-  const dollArchTorusGeo = tracker.trackGeo(new THREE.TorusGeometry(1.2, 0.06, 8, 24, Math.PI));
-  const dollArchTrimMesh = new THREE.Mesh(dollArchTorusGeo, goldTrimMat);
-  dollArchTrimMesh.position.set(12.0, y0 + 2.8, 6.2);
-
-  // West boundary wall alongside staircase corridor: lx = 9.2, lz in [6.2, 14.8]
-  const dollWestWallGeo = tracker.trackGeo(new THREE.BoxGeometry(0.38, 4.4, 8.6));
-  dollWestWallGeo.translate(9.2, y0 + 2.2, 10.5);
-  const dollWestWallMesh = new THREE.Mesh(dollWestWallGeo, wallMat);
-
-  group.add(dollWallMesh1, dollWallMesh2, dollArchHeaderMesh, dollArchTrimMesh, dollWestWallMesh);
-  partitionMeshes.push(dollWallMesh1, dollWallMesh2, dollArchHeaderMesh, dollWestWallMesh);
-
-  // Signboard: THE LITTLE DREAM WORLD
-  const dollSignTex = createSignboardTexture(
-    tracker,
-    '♡ THE LITTLE DREAM WORLD ♡',
-    'Handcrafted Miniatures, Doll Castle & Childhood Wonder',
-    '#581c87',
-    '#f472b6',
-  );
-  const dollSignGeo = tracker.trackGeo(new THREE.PlaneGeometry(2.1, 0.52));
-  const dollSignMesh = new THREE.Mesh(
-    dollSignGeo,
-    tracker.trackMat(new THREE.MeshBasicMaterial({ map: dollSignTex })),
-  );
-  dollSignMesh.position.set(12.0, y0 + 3.82, 5.98);
-  group.add(dollSignMesh);
-
-  // ============================================================================
-  // ROOM 1: 📸 THE PORTRAIT ATELIER (PHOTOGRAPHY STUDIO)
-  // Location: lx in [8.8, 15.3], lz in [-14.8, -6.4], Center: (12.05, -10.6)
-  // ============================================================================
-  const photoGroup = new THREE.Group();
-  photoGroup.name = 'PhotographyStudio';
-  group.add(photoGroup);
-
-  // 1A. Large Circular Studio Inset Rug (Pearl base with subtle gold ring)
-  const photoRugGeo = tracker.trackGeo(new THREE.CylinderGeometry(2.8, 2.8, 0.024, 32));
-  photoRugGeo.translate(0, 0.012, 0);
-  const photoRugMat = tracker.trackMat(
-    new THREE.MeshStandardMaterial({
-      color: '#fff5f7',
-      roughness: 0.85,
-      metalness: 0.05,
-    }),
-  );
-  const photoRug = new THREE.Mesh(photoRugGeo, photoRugMat);
-  photoRug.position.set(12.05, y0, -10.6);
-  photoRug.receiveShadow = true;
-  photoGroup.add(photoRug);
-
-  const photoRugGoldRingGeo = tracker.trackGeo(new THREE.RingGeometry(2.55, 2.7, 32));
-  photoRugGoldRingGeo.rotateX(-Math.PI / 2);
-  const photoRugGoldRing = new THREE.Mesh(photoRugGoldRingGeo, goldTrimMat);
-  photoRugGoldRing.position.set(12.05, y0 + 0.026, -10.6);
-  photoGroup.add(photoRugGoldRing);
-
-  // 1B. Hero Photography Set on East Wall (lx = 15.15, lz = -10.6)
-  const backdropFrameGroup = new THREE.Group();
-  backdropFrameGroup.position.set(15.15, y0, -10.6);
-
-  // Champagne-gold arch frame
-  const bdPillarGeo = tracker.trackGeo(new THREE.CylinderGeometry(0.08, 0.09, 3.8, 10));
-  bdPillarGeo.translate(0, 1.9, 0);
-  const bdPillarL = new THREE.Mesh(bdPillarGeo, goldTrimMat);
-  bdPillarL.position.set(0, 0, -2.2);
-  const bdPillarR = new THREE.Mesh(bdPillarGeo, goldTrimMat);
-  bdPillarR.position.set(0, 0, 2.2);
-
-  const bdArchGeo = tracker.trackGeo(new THREE.TorusGeometry(2.2, 0.08, 8, 28, Math.PI));
-  bdArchGeo.rotateY(Math.PI / 2);
-  const bdArch = new THREE.Mesh(bdArchGeo, goldTrimMat);
-  bdArch.position.set(0, 3.8, 0);
-  backdropFrameGroup.add(bdPillarL, bdPillarR, bdArch);
-
-  // Backdrop Presets (6 Physical Canvas Textures)
-  const BACKDROP_NAMES = [
-    'Romantic Garden',
-    'Dream Castle',
-    'Starry Night',
-    'Aurora Horizon',
-    'Cloud Dream',
-    'Pure Studio Glamour',
-  ];
-
-  const backdropTextures: THREE.CanvasTexture[] = [];
-  const createPresetCanvas = (presetIdx: number): THREE.CanvasTexture => {
-    const c = document.createElement('canvas');
-    c.width = 512;
-    c.height = 384;
-    const cx = c.getContext('2d');
-    if (cx) {
-      if (presetIdx === 0) {
-        // Romantic Garden
-        const grad = cx.createLinearGradient(0, 0, 0, 384);
-        grad.addColorStop(0, '#fce7f3');
-        grad.addColorStop(0.5, '#fbcfe8');
-        grad.addColorStop(1, '#a7f3d0');
-        cx.fillStyle = grad;
-        cx.fillRect(0, 0, 512, 384);
-        // Distant castle silhouette
-        cx.fillStyle = 'rgba(219, 39, 119, 0.25)';
-        cx.fillRect(200, 180, 112, 120);
-        cx.beginPath();
-        cx.moveTo(256, 110);
-        cx.lineTo(200, 180);
-        cx.lineTo(312, 180);
-        cx.closePath();
-        cx.fill();
-      } else if (presetIdx === 1) {
-        // Dream Castle
-        const grad = cx.createLinearGradient(0, 0, 0, 384);
-        grad.addColorStop(0, '#fff1f2');
-        grad.addColorStop(0.6, '#fda4af');
-        grad.addColorStop(1, '#e11d48');
-        cx.fillStyle = grad;
-        cx.fillRect(0, 0, 512, 384);
-        cx.fillStyle = '#fef08a';
-        cx.font = 'bold 36px Georgia, serif';
-        cx.textAlign = 'center';
-        cx.fillText('👑 ROYAL DREAM 👑', 256, 180);
-      } else if (presetIdx === 2) {
-        // Starry Night
-        const grad = cx.createLinearGradient(0, 0, 0, 384);
-        grad.addColorStop(0, '#1e1b4b');
-        grad.addColorStop(0.7, '#312e81');
-        grad.addColorStop(1, '#4c1d95');
-        cx.fillStyle = grad;
-        cx.fillRect(0, 0, 512, 384);
-        cx.fillStyle = '#fef08a';
-        for (let i = 0; i < 40; i++) {
-          const sx = (i * 123) % 512;
-          const sy = (i * 79) % 280;
-          cx.fillRect(sx, sy, 2, 2);
-        }
-        cx.beginPath();
-        cx.arc(420, 80, 24, 0, Math.PI * 2);
-        cx.fill();
-      } else if (presetIdx === 3) {
-        // Aurora Horizon
-        const grad = cx.createLinearGradient(0, 0, 512, 384);
-        grad.addColorStop(0, '#064e3b');
-        grad.addColorStop(0.5, '#065f46');
-        grad.addColorStop(1, '#0f172a');
-        cx.fillStyle = grad;
-        cx.fillRect(0, 0, 512, 384);
-        cx.fillStyle = 'rgba(52, 211, 153, 0.45)';
-        cx.beginPath();
-        cx.moveTo(0, 120);
-        cx.bezierCurveTo(180, 40, 320, 200, 512, 100);
-        cx.lineTo(512, 220);
-        cx.bezierCurveTo(320, 300, 180, 150, 0, 240);
-        cx.closePath();
-        cx.fill();
-      } else if (presetIdx === 4) {
-        // Cloud Dream
-        const grad = cx.createLinearGradient(0, 0, 0, 384);
-        grad.addColorStop(0, '#bae6fd');
-        grad.addColorStop(0.6, '#e0e7ff');
-        grad.addColorStop(1, '#fbcfe8');
-        cx.fillStyle = grad;
-        cx.fillRect(0, 0, 512, 384);
-        cx.fillStyle = 'rgba(255, 255, 255, 0.85)';
-        [
-          [120, 220, 70],
-          [260, 200, 95],
-          [390, 240, 80],
-        ].forEach(([cx0, cy0, cr]) => {
-          cx.beginPath();
-          cx.arc(cx0, cy0, cr, 0, Math.PI * 2);
-          cx.fill();
-        });
-      } else {
-        // Pure Studio Glamour
-        const grad = cx.createRadialGradient(256, 192, 20, 256, 192, 260);
-        grad.addColorStop(0, '#ffffff');
-        grad.addColorStop(0.5, '#fff1f2');
-        grad.addColorStop(1, '#fce7f3');
-        cx.fillStyle = grad;
-        cx.fillRect(0, 0, 512, 384);
-      }
-    }
-    const t = tracker.trackTex(new THREE.CanvasTexture(c));
-    t.colorSpace = THREE.SRGBColorSpace;
-    t.needsUpdate = true;
-    return t;
-  };
-
-  for (let i = 0; i < 6; i++) {
-    backdropTextures.push(createPresetCanvas(i));
+  label: string,
+  bg = '#4a1525',
+  fg = '#fde047',
+): THREE.CanvasTexture {
+  const canvas = document.createElement('canvas');
+  canvas.width = 256;
+  canvas.height = 64;
+  const ctx = canvas.getContext('2d');
+  if (ctx) {
+    ctx.fillStyle = bg;
+    ctx.fillRect(0, 0, 256, 64);
+    ctx.strokeStyle = fg;
+    ctx.lineWidth = 4;
+    ctx.strokeRect(4, 4, 248, 56);
+    ctx.fillStyle = fg;
+    ctx.font = 'bold 22px Georgia, serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(label, 128, 33);
   }
+  const tex = tracker.trackTex(new THREE.CanvasTexture(canvas));
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.needsUpdate = true;
+  return tex;
+}
 
-  let activeBackdropIndex = 0;
-  const backdropScreenGeo = tracker.trackGeo(new THREE.PlaneGeometry(4.3, 3.6));
-  backdropScreenGeo.rotateY(-Math.PI / 2);
-  const backdropScreenMat = tracker.trackMat(
-    new THREE.MeshBasicMaterial({
-      map: backdropTextures[0],
-      side: THREE.FrontSide,
-    }),
-  );
-  const backdropScreenMesh = new THREE.Mesh(backdropScreenGeo, backdropScreenMat);
-  backdropScreenMesh.position.set(-0.02, 1.9, 0);
-  backdropFrameGroup.add(backdropScreenMesh);
-  photoGroup.add(backdropFrameGroup);
+function createSampleArtworkTexture(
+  tracker: ResourceTracker,
+  kind:
+    | 'portrait_1'
+    | 'portrait_2'
+    | 'portrait_3'
+    | 'diagram'
+    | 'camera_art'
+    | 'contact_sheet'
+    | 'fashion_sketch'
+    | 'kid_drawing',
+): THREE.CanvasTexture {
+  const canvas = document.createElement('canvas');
+  canvas.width = 256;
+  canvas.height = 320;
+  const ctx = canvas.getContext('2d');
+  if (ctx) {
+    if (kind === 'portrait_1' || kind === 'portrait_2' || kind === 'portrait_3') {
+      const grad = ctx.createLinearGradient(0, 0, 0, 320);
+      if (kind === 'portrait_1') {
+        grad.addColorStop(0, '#fbcfe8');
+        grad.addColorStop(1, '#831843');
+      } else if (kind === 'portrait_2') {
+        grad.addColorStop(0, '#ddd6fe');
+        grad.addColorStop(1, '#3b0764');
+      } else {
+        grad.addColorStop(0, '#fef08a');
+        grad.addColorStop(1, '#9d174d');
+      }
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, 256, 320);
 
-  // 1C. Believable Studio Camera on Tripod at (lx = 10.2, lz = -10.6)
-  const cameraRig = new THREE.Group();
-  cameraRig.position.set(10.2, y0, -10.6);
-  cameraRig.rotation.y = Math.PI / 2; // Facing the backdrop on the East wall
+      ctx.fillStyle = 'rgba(255,241,242,0.88)';
+      ctx.beginPath();
+      ctx.arc(128, 115, 36, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.moveTo(64, 280);
+      ctx.quadraticCurveTo(128, 155, 192, 280);
+      ctx.closePath();
+      ctx.fill();
 
-  // Tripod Legs
-  const legGeo = tracker.trackGeo(new THREE.CylinderGeometry(0.018, 0.024, 1.35, 8));
-  legGeo.translate(0, 0.67, 0);
-  [-0.32, 0, 0.32].forEach((xOff, idx) => {
-    const leg = new THREE.Mesh(legGeo, goldTrimMat);
-    leg.position.set(xOff, 0, idx === 1 ? -0.28 : 0.18);
-    leg.rotation.z = xOff * -0.3;
-    cameraRig.add(leg);
-  });
+      ctx.fillStyle = '#fbbf24';
+      ctx.beginPath();
+      ctx.moveTo(104, 80);
+      ctx.lineTo(114, 58);
+      ctx.lineTo(128, 72);
+      ctx.lineTo(142, 58);
+      ctx.lineTo(152, 80);
+      ctx.closePath();
+      ctx.fill();
+    } else if (kind === 'diagram') {
+      ctx.fillStyle = '#1e1b4b';
+      ctx.fillRect(0, 0, 256, 320);
+      ctx.strokeStyle = '#fbbf24';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(20, 20, 216, 280);
+      ctx.beginPath();
+      ctx.arc(128, 150, 22, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.fillStyle = '#fef08a';
+      ctx.font = '12px Georgia, serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('SUBJECT', 128, 154);
+      ctx.fillText('KEY LIGHT 45°', 68, 225);
+      ctx.fillText('FILL LIGHT', 188, 225);
+      ctx.fillText('RIM / BACKLIGHT', 128, 70);
+    } else if (kind === 'camera_art') {
+      ctx.fillStyle = '#fff1f2';
+      ctx.fillRect(0, 0, 256, 320);
+      ctx.strokeStyle = '#9d174d';
+      ctx.lineWidth = 5;
+      ctx.strokeRect(48, 100, 160, 110);
+      ctx.beginPath();
+      ctx.arc(128, 155, 34, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.fillStyle = '#9d174d';
+      ctx.font = 'bold 16px Georgia, serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('ATELIER OPTICS', 128, 255);
+    } else if (kind === 'contact_sheet') {
+      ctx.fillStyle = '#18181b';
+      ctx.fillRect(0, 0, 256, 320);
+      const colors = ['#f472b6', '#c084fc', '#38bdf8', '#fbbf24', '#fb7185', '#a7f3d0'];
+      for (let r = 0; r < 4; r++) {
+        for (let c = 0; c < 3; c++) {
+          ctx.fillStyle = colors[(r * 3 + c) % colors.length];
+          ctx.fillRect(24 + c * 72, 28 + r * 68, 56, 48);
+        }
+      }
+    } else if (kind === 'fashion_sketch') {
+      ctx.fillStyle = '#fffbeb';
+      ctx.fillRect(0, 0, 256, 320);
+      ctx.strokeStyle = '#be185d';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(128, 65);
+      ctx.lineTo(106, 130);
+      ctx.lineTo(68, 260);
+      ctx.lineTo(188, 260);
+      ctx.lineTo(150, 130);
+      ctx.closePath();
+      ctx.stroke();
+      ctx.fillStyle = 'rgba(244, 114, 182, 0.35)';
+      ctx.fill();
+      ctx.fillStyle = '#831843';
+      ctx.font = 'italic 15px Georgia, serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('Couture Collection', 128, 290);
+    } else {
+      ctx.fillStyle = '#fefce8';
+      ctx.fillRect(0, 0, 256, 320);
+      ctx.fillStyle = '#f472b6';
+      ctx.fillRect(78, 150, 100, 100);
+      ctx.fillStyle = '#38bdf8';
+      ctx.beginPath();
+      ctx.moveTo(68, 150);
+      ctx.lineTo(128, 80);
+      ctx.lineTo(188, 150);
+      ctx.closePath();
+      ctx.fill();
+      ctx.fillStyle = '#facc15';
+      ctx.beginPath();
+      ctx.arc(200, 60, 24, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+  const tex = tracker.trackTex(new THREE.CanvasTexture(canvas));
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.needsUpdate = true;
+  return tex;
+}
 
-  // Camera Body & Lens
-  const camBodyGeo = tracker.trackGeo(new THREE.BoxGeometry(0.32, 0.22, 0.18));
-  camBodyGeo.translate(0, 1.4, 0);
-  const camBody = new THREE.Mesh(camBodyGeo, mats.velvetPlum);
+const BACKDROP_NAMES = [
+  'Romantic Garden',
+  'Dream Castle',
+  'Starry Night',
+  'Aurora Horizon',
+  'Cloud Dream',
+  'Pure Studio Glamour',
+  'Custom Photo',
+];
 
-  const camLensGeo = tracker.trackGeo(new THREE.CylinderGeometry(0.075, 0.085, 0.28, 16));
-  camLensGeo.rotateX(Math.PI / 2);
-  camLensGeo.translate(0, 1.4, 0.18);
-  const camLens = new THREE.Mesh(camLensGeo, goldTrimMat);
+/**
+ * `CreativeWing` Component for Floor 2 of the Dream Castle.
+ * Handles the architectural layout (walls, floors, ceilings, arched doorways)
+ * within the unoccupied left-side wing of Floor 2 (when facing the front atrium from the elevator,
+ * lx in [8.8, 15.3], lz in [-15.2, +15.2]) and uses `MicroPropLibrary` to instantiate
+ * differentiated props for the Photography Studio, Mini Fashion Boutique, and Doll Playroom
+ * without increasing draw calls.
+ */
+export class CreativeWing implements CastleFloor2CreativeWingBundle {
+  public readonly group: THREE.Group;
+  public readonly colliders: CircleCollider[] = [];
+  public readonly partitionMeshes: THREE.Mesh[] = [];
+  public readonly microPropLibrary: MicroPropLibrary;
+  public readonly jewelleryAtelier: CastleJewelleryAtelier;
+  public readonly tabletopWorld: CastleTabletopWorld;
 
-  const camViewfinderGeo = tracker.trackGeo(new THREE.BoxGeometry(0.08, 0.08, 0.06));
-  camViewfinderGeo.translate(0, 1.54, -0.04);
-  const camViewfinder = new THREE.Mesh(camViewfinderGeo, mats.champagneGold);
+  private readonly tracker: ResourceTracker;
+  private readonly mats: DreamCastleMaterials;
+  private readonly originX: number;
+  private readonly baseY: number;
+  private readonly originZ: number;
+  private readonly y0 = 5.25;
+  private readonly yCeil = 9.62;
 
-  // Red recording indicator light
-  const camLedGeo = tracker.trackGeo(new THREE.SphereGeometry(0.018, 8, 8));
-  camLedGeo.translate(0.12, 1.46, 0.09);
-  const camLedMat = tracker.trackMat(
-    new THREE.MeshStandardMaterial({
-      color: '#ef4444',
-      emissive: '#ef4444',
-      emissiveIntensity: 1.5,
-      roughness: 0.2,
-    }),
-  );
-  const camLed = new THREE.Mesh(camLedGeo, camLedMat);
-  cameraRig.add(camBody, camLens, camViewfinder, camLed);
-  photoGroup.add(cameraRig);
-  addLocalCollider(10.2, -10.6, 0.45);
+  private readonly dynamicObjects = new Set<THREE.Object3D>();
+  private readonly wingLight: THREE.PointLight;
+  private readonly roseAccentMat: THREE.MeshStandardMaterial;
+  private readonly warmGlowMat: THREE.MeshStandardMaterial;
+  private readonly pinkGlowMat: THREE.MeshStandardMaterial;
+  private readonly photoRugMat: THREE.MeshStandardMaterial;
+  private readonly labelGeo: THREE.PlaneGeometry;
+  private readonly frameOuterGeo: THREE.BoxGeometry;
+  private readonly frameInnerGeo: THREE.PlaneGeometry;
+  private readonly heartSphereGeo: THREE.SphereGeometry;
+  private readonly heartRingGeo: THREE.TorusGeometry;
 
-  // 1D. Studio Lighting Equipment
-  // Key Light Softbox on stand at (lx = 11.2, lz = -12.4)
-  const softboxGeo = tracker.trackGeo(new THREE.BoxGeometry(0.68, 0.95, 0.18));
-  softboxGeo.translate(0, 2.2, 0);
-  const softboxFaceGeo = tracker.trackGeo(new THREE.PlaneGeometry(0.64, 0.9));
-  softboxFaceGeo.translate(0, 2.2, 0.1);
-  const softboxFaceMat = tracker.trackMat(
-    new THREE.MeshStandardMaterial({
-      color: '#fffbeb',
-      emissive: '#fef08a',
-      emissiveIntensity: 1.25,
-      roughness: 0.1,
-    }),
-  );
+  private backdropTextures: THREE.CanvasTexture[] = [];
+  private customBackdropCanvas: HTMLCanvasElement | null = null;
+  private customBackdropTex: THREE.CanvasTexture | null = null;
+  private hasCustomBackdrop = false;
+  private previousPresetIndex = 0;
+  private backdropScreenMat!: THREE.MeshBasicMaterial;
+  private capturedPortraitMat!: THREE.MeshBasicMaterial;
+  private contactSheetMat!: THREE.MeshBasicMaterial;
+  private shutterFlashMesh!: THREE.Mesh;
+  private shutterFlashMat!: THREE.MeshBasicMaterial;
+  private shutterFlashTimer = 0.0;
+  private portraitCaptureFramingTimer = 0.0;
+  private portraitCount = 0;
+  private audioCtx: AudioContext | null = null;
 
-  const softboxStandGeo = tracker.trackGeo(new THREE.CylinderGeometry(0.025, 0.03, 2.2, 8));
-  softboxStandGeo.translate(0, 1.1, 0);
+  private activeBackdropIndex = 0;
+  private windmillBlades!: THREE.Group;
 
-  const keyLight = new THREE.Group();
-  keyLight.position.set(11.2, y0, -12.4);
-  keyLight.rotation.y = Math.PI * 0.35;
-  const keyStand = new THREE.Mesh(softboxStandGeo, goldTrimMat);
-  const keyBox = new THREE.Mesh(softboxGeo, mats.velvetPlum);
-  const keyFace = new THREE.Mesh(softboxFaceGeo, softboxFaceMat);
-  keyLight.add(keyStand, keyBox, keyFace);
-  photoGroup.add(keyLight);
-  addLocalCollider(11.2, -12.4, 0.38);
+  private activeCameraMode: CreativeWingActiveCameraMode = 'none';
+  private cameraTransitionElapsed = 0.0;
+  private readonly CAMERA_TRANSITION_DUR = 0.45;
+  private activeCaption: string | null = null;
+  private camLookYaw = 0.0;
+  private camLookPitch = 0.0;
+  private lastPlayerLx = 0.0;
+  private lastPlayerLz = 0.0;
+  private lastPlayerRelY = 999.0;
 
-  // Fill Light Softbox on stand at (lx = 11.2, lz = -8.8)
-  const fillLight = new THREE.Group();
-  fillLight.position.set(11.2, y0, -8.8);
-  fillLight.rotation.y = Math.PI * 0.65;
-  const fillStand = new THREE.Mesh(softboxStandGeo, goldTrimMat);
-  const fillBox = new THREE.Mesh(softboxGeo, mats.velvetPlum);
-  const fillFace = new THREE.Mesh(softboxFaceGeo, softboxFaceMat);
-  fillLight.add(fillStand, fillBox, fillFace);
-  photoGroup.add(fillLight);
-  addLocalCollider(11.2, -8.8, 0.38);
+  constructor(
+    tracker: ResourceTracker,
+    mats: DreamCastleMaterials,
+    originX: number,
+    baseY: number,
+    originZ: number,
+  ) {
+    this.tracker = tracker;
+    this.mats = mats;
+    this.originX = originX;
+    this.baseY = baseY;
+    this.originZ = originZ;
 
-  // Circular Reflector on stand at (lx = 13.8, lz = -8.5)
-  const reflectorGroup = new THREE.Group();
-  reflectorGroup.position.set(13.8, y0, -8.5);
-  reflectorGroup.rotation.y = -Math.PI * 0.25;
-  const reflDiscGeo = tracker.trackGeo(new THREE.CircleGeometry(0.48, 24));
-  reflDiscGeo.translate(0, 1.45, 0);
-  const reflMat = tracker.trackMat(
-    new THREE.MeshStandardMaterial({
-      color: '#ffffff',
-      roughness: 0.2,
-      metalness: 0.85,
-    }),
-  );
-  const reflMesh = new THREE.Mesh(reflDiscGeo, reflMat);
-  const reflStand = new THREE.Mesh(softboxStandGeo, goldTrimMat);
-  reflectorGroup.add(reflStand, reflMesh);
-  photoGroup.add(reflectorGroup);
-  addLocalCollider(13.8, -8.5, 0.35);
+    this.group = new THREE.Group();
+    this.group.name = 'CastleFloor2CreativeWing';
 
-  // 1E. Makeup / Preparation Corner along South Wall (lx = 13.8, lz = -14.6)
-  const vanityGroup = new THREE.Group();
-  vanityGroup.position.set(13.8, y0, -14.6);
-  const vTableGeo = tracker.trackGeo(new THREE.BoxGeometry(1.65, 0.76, 0.65));
-  vTableGeo.translate(0, 0.38, 0);
-  const vTable = new THREE.Mesh(vTableGeo, wallMat);
-  vTable.castShadow = true;
+    this.microPropLibrary = new MicroPropLibrary(tracker, mats);
 
-  const vMirrorGeo = tracker.trackGeo(new THREE.PlaneGeometry(1.1, 1.2));
-  vMirrorGeo.translate(0, 1.45, 0.32);
-  const vMirror = new THREE.Mesh(vMirrorGeo, mats.crystalGlass);
+    // Shared PointLight for Creative Wing (Warm Rosy Ambience)
+    this.wingLight = new THREE.PointLight('#fce7f3', 0.9, 20.0, 1.7);
+    this.wingLight.position.set(12.0, this.y0 + 3.3, 0.0);
+    this.group.add(this.wingLight);
+    this.dynamicObjects.add(this.wingLight);
 
-  const vMirrorFrameGeo = tracker.trackGeo(new THREE.BoxGeometry(1.22, 1.32, 0.06));
-  vMirrorFrameGeo.translate(0, 1.45, 0.3);
-  const vMirrorFrame = new THREE.Mesh(vMirrorFrameGeo, goldTrimMat);
-  vanityGroup.add(vTable, vMirrorFrame, vMirror);
-  photoGroup.add(vanityGroup);
-  addLocalCollider(13.8, -14.6, 0.55);
-
-  // 1F. Wardrobe Corner Clothing Rack along North Wall (lx = 9.8, lz = -7.0)
-  const rackGroup = new THREE.Group();
-  rackGroup.position.set(9.8, y0, -7.0);
-  const rackRailGeo = tracker.trackGeo(new THREE.CylinderGeometry(0.025, 0.025, 1.8, 8));
-  rackRailGeo.rotateZ(Math.PI / 2);
-  rackRailGeo.translate(0, 1.45, 0);
-  const rackRail = new THREE.Mesh(rackRailGeo, goldTrimMat);
-
-  const rackPostGeo = tracker.trackGeo(new THREE.CylinderGeometry(0.025, 0.025, 1.5, 8));
-  rackPostGeo.translate(0, 0.75, 0);
-  const rackPostL = new THREE.Mesh(rackPostGeo, goldTrimMat);
-  rackPostL.position.x = -0.85;
-  const rackPostR = new THREE.Mesh(rackPostGeo, goldTrimMat);
-  rackPostR.position.x = 0.85;
-  rackGroup.add(rackRail, rackPostL, rackPostR);
-
-  // 5 Hanging dresses (shared cone geometries with pastel material variants)
-  const dressGeo = tracker.trackGeo(new THREE.ConeGeometry(0.24, 0.75, 12));
-  dressGeo.translate(0, 0.95, 0);
-  const dressColors = ['#f472b6', '#c084fc', '#38bdf8', '#fbcfe8', '#fef08a'];
-  for (let d = 0; d < 5; d++) {
-    const dMat = tracker.trackMat(
+    this.roseAccentMat = tracker.trackMat(
+      new THREE.MeshStandardMaterial({ color: '#f43f5e', roughness: 0.35, metalness: 0.1 }),
+    );
+    this.warmGlowMat = tracker.trackMat(
       new THREE.MeshStandardMaterial({
-        color: dressColors[d],
-        roughness: 0.35,
-        metalness: 0.1,
+        color: '#fffbeb',
+        emissive: '#fde047',
+        emissiveIntensity: 1.35,
+        roughness: 0.15,
       }),
     );
-    const dressMesh = new THREE.Mesh(dressGeo, dMat);
-    dressMesh.position.set(-0.6 + d * 0.3, 0, 0);
-    rackGroup.add(dressMesh);
-  }
-  photoGroup.add(rackGroup);
-  addLocalCollider(9.8, -7.0, 0.45);
-
-  // 1G. Micro Props & Details (Camera cases, clapperboard, framed contact sheet)
-  const caseGeo = tracker.trackGeo(new THREE.BoxGeometry(0.48, 0.28, 0.34));
-  caseGeo.translate(0, 0.14, 0);
-  const caseMesh = new THREE.Mesh(caseGeo, mats.velvetPlum);
-  caseMesh.position.set(10.6, y0, -14.2);
-  photoGroup.add(caseMesh);
-
-  // ============================================================================
-  // ROOM 2: 👗 HARSHA'S COUTURE CORNER (MINI FASHION BOUTIQUE)
-  // Location: lx in [8.8, 15.3], lz in [-5.8, +5.8], Center: (12.05, 0.0)
-  // ============================================================================
-  const boutiqueGroup = new THREE.Group();
-  boutiqueGroup.name = 'MiniFashionBoutique';
-  group.add(boutiqueGroup);
-
-  // 2A. Soft Pink-and-White Marble Floor Inset
-  const bFloorGeo = tracker.trackGeo(new THREE.BoxGeometry(6.3, 0.02, 11.4));
-  bFloorGeo.translate(12.05, y0 + 0.01, 0);
-  const bFloor = new THREE.Mesh(bFloorGeo, marbleTrimMat);
-  bFloor.receiveShadow = true;
-  boutiqueGroup.add(bFloor);
-
-  // 2B. Glass Display Window & Hero Mannequin (Facade lx = 8.8, lz = -3.5)
-  const windowDisplayGroup = new THREE.Group();
-  windowDisplayGroup.position.set(9.4, y0, -3.5);
-
-  const winGlassGeo = tracker.trackGeo(new THREE.PlaneGeometry(3.6, 2.6));
-  winGlassGeo.rotateY(Math.PI / 2);
-  winGlassGeo.translate(-0.55, 1.45, 0);
-  const winGlass = new THREE.Mesh(winGlassGeo, mats.crystalGlass);
-  windowDisplayGroup.add(winGlass);
-
-  // Hero Mannequin on ornate pedestal
-  const pedGeo = tracker.trackGeo(new THREE.CylinderGeometry(0.55, 0.65, 0.24, 20));
-  pedGeo.translate(0, 0.12, 0);
-  const ped = new THREE.Mesh(pedGeo, goldTrimMat);
-
-  const heroSkirtGeo = tracker.trackGeo(new THREE.ConeGeometry(0.52, 1.05, 16));
-  heroSkirtGeo.translate(0, 0.8, 0);
-  const heroBodiceGeo = tracker.trackGeo(new THREE.CylinderGeometry(0.22, 0.18, 0.48, 14));
-  heroBodiceGeo.translate(0, 1.4, 0);
-  const heroGownMat = tracker.trackMat(
-    new THREE.MeshStandardMaterial({
-      color: '#e11d48',
-      emissive: '#be123c',
-      emissiveIntensity: 0.45,
-      roughness: 0.25,
-      metalness: 0.2,
-    }),
-  );
-  const heroSkirt = new THREE.Mesh(heroSkirtGeo, heroGownMat);
-  const heroBodice = new THREE.Mesh(heroBodiceGeo, heroGownMat);
-  windowDisplayGroup.add(ped, heroSkirt, heroBodice);
-  boutiqueGroup.add(windowDisplayGroup);
-  addLocalCollider(9.4, -3.5, 0.65);
-
-  // Second Mannequin on North Facade Window (lx = 9.4, lz = 3.5)
-  const mannequin2Group = new THREE.Group();
-  mannequin2Group.position.set(9.4, y0, 3.5);
-  const ped2 = new THREE.Mesh(pedGeo, goldTrimMat);
-  const skirt2 = new THREE.Mesh(heroSkirtGeo, mats.softLavender);
-  const bodice2 = new THREE.Mesh(heroBodiceGeo, mats.softLavender);
-  mannequin2Group.add(ped2, skirt2, bodice2);
-  boutiqueGroup.add(mannequin2Group);
-  addLocalCollider(9.4, 3.5, 0.65);
-
-  // 2C. Boutique Chandelier with crystal drops at center (lx = 12.05, y = y0 + 3.8, lz = 0)
-  const bChandelier = new THREE.Group();
-  bChandelier.position.set(12.05, y0 + 3.6, 0);
-  const bChRingGeo = tracker.trackGeo(new THREE.TorusGeometry(0.65, 0.04, 8, 20));
-  bChRingGeo.rotateX(Math.PI / 2);
-  const bChRing = new THREE.Mesh(bChRingGeo, goldTrimMat);
-  bChandelier.add(bChRing);
-
-  // 6 Crystal drops
-  const dropGeo = tracker.trackGeo(new THREE.OctahedronGeometry(0.08, 0));
-  for (let d = 0; d < 6; d++) {
-    const ang = (d * Math.PI * 2) / 6;
-    const drop = new THREE.Mesh(dropGeo, mats.crystalGlass);
-    drop.position.set(Math.cos(ang) * 0.65, -0.22, Math.sin(ang) * 0.65);
-    drop.scale.set(1, 1.8, 1);
-    bChandelier.add(drop);
-  }
-  boutiqueGroup.add(bChandelier);
-
-  // 2D. Jewellery Display Counter along East Wall (lx = 14.8, lz = 0.0)
-  const jewCounterGroup = new THREE.Group();
-  jewCounterGroup.position.set(14.8, y0, 0.0);
-  const jCaseBaseGeo = tracker.trackGeo(new THREE.BoxGeometry(0.72, 0.85, 2.8));
-  jCaseBaseGeo.translate(0, 0.425, 0);
-  const jCaseBase = new THREE.Mesh(jCaseBaseGeo, wallMat);
-
-  const jGlassGeo = tracker.trackGeo(new THREE.BoxGeometry(0.68, 0.35, 2.7));
-  jGlassGeo.translate(0, 1.025, 0);
-  const jGlass = new THREE.Mesh(jGlassGeo, mats.crystalGlass);
-
-  // Velvet Display Pad with Glowing Tiara & Necklace
-  const tiaraGeo = tracker.trackGeo(new THREE.TorusGeometry(0.14, 0.035, 6, 16, Math.PI));
-  tiaraGeo.rotateX(Math.PI / 2);
-  tiaraGeo.translate(0, 0.9, -0.4);
-  const tiara = new THREE.Mesh(tiaraGeo, goldTrimMat);
-
-  jewCounterGroup.add(jCaseBase, jGlass, tiara);
-  boutiqueGroup.add(jewCounterGroup);
-  addLocalCollider(14.8, 0.0, 0.6);
-
-  // 2E. Shoe Tiered Display along North Wall (lx = 12.0, lz = 5.2)
-  const shoeRackGroup = new THREE.Group();
-  shoeRackGroup.position.set(12.0, y0, 5.2);
-  const sShelfGeo = tracker.trackGeo(new THREE.BoxGeometry(2.4, 0.04, 0.45));
-  [0.2, 0.5, 0.8].forEach((shY) => {
-    const shelf = new THREE.Mesh(sShelfGeo, goldTrimMat);
-    shelf.position.y = shY;
-    shoeRackGroup.add(shelf);
-  });
-  // Pairs of shoes on shelves
-  const shoeGeo = tracker.trackGeo(new THREE.BoxGeometry(0.08, 0.05, 0.16));
-  for (let sh = 0; sh < 6; sh++) {
-    const shoeL = new THREE.Mesh(shoeGeo, mats.blushRoseMarble);
-    shoeL.position.set(-0.8 + sh * 0.3, 0.25, -0.05);
-    const shoeR = new THREE.Mesh(shoeGeo, mats.blushRoseMarble);
-    shoeR.position.set(-0.8 + sh * 0.3 + 0.1, 0.25, -0.05);
-    shoeRackGroup.add(shoeL, shoeR);
-  }
-  boutiqueGroup.add(shoeRackGroup);
-  addLocalCollider(12.0, 5.2, 0.45);
-
-  // 2F. Handbag Display Shelves along South Wall (lx = 12.0, lz = -5.2)
-  const handbagRackGroup = new THREE.Group();
-  handbagRackGroup.position.set(12.0, y0, -5.2);
-  const hbShelfGeo = tracker.trackGeo(new THREE.BoxGeometry(2.4, 0.04, 0.38));
-  [0.4, 0.85, 1.3].forEach((hY) => {
-    const shelf = new THREE.Mesh(hbShelfGeo, goldTrimMat);
-    shelf.position.y = hY;
-    handbagRackGroup.add(shelf);
-  });
-  // Pastel mini handbags
-  const bagGeo = tracker.trackGeo(new THREE.BoxGeometry(0.18, 0.16, 0.1));
-  const bagColors = ['#f472b6', '#fda4af', '#fef08a', '#c084fc', '#38bdf8'];
-  for (let b = 0; b < 5; b++) {
-    const bMat = tracker.trackMat(new THREE.MeshStandardMaterial({ color: bagColors[b], roughness: 0.3 }));
-    const bag = new THREE.Mesh(bagGeo, bMat);
-    bag.position.set(-0.8 + b * 0.38, 0.95, 0);
-    handbagRackGroup.add(bag);
-  }
-  boutiqueGroup.add(handbagRackGroup);
-  addLocalCollider(12.0, -5.2, 0.45);
-
-  // 2G. Mini Tailoring Station along East Wall (lx = 14.6, lz = 3.6)
-  const tailorGroup = new THREE.Group();
-  tailorGroup.position.set(14.6, y0, 3.6);
-  const tTableGeo = tracker.trackGeo(new THREE.BoxGeometry(0.75, 0.74, 1.4));
-  tTableGeo.translate(0, 0.37, 0);
-  const tTable = new THREE.Mesh(tTableGeo, wallMat);
-
-  // Sewing machine
-  const smBaseGeo = tracker.trackGeo(new THREE.BoxGeometry(0.24, 0.04, 0.38));
-  smBaseGeo.translate(0, 0.76, 0);
-  const smArmGeo = tracker.trackGeo(new THREE.BoxGeometry(0.08, 0.22, 0.14));
-  smArmGeo.translate(-0.06, 0.88, -0.1);
-  const sm = new THREE.Mesh(smBaseGeo, goldTrimMat);
-  const smArm = new THREE.Mesh(smArmGeo, goldTrimMat);
-  tailorGroup.add(tTable, sm, smArm);
-  boutiqueGroup.add(tailorGroup);
-  addLocalCollider(14.6, 3.6, 0.55);
-
-  // 2H. Semi-Private Fitting Area at (lx = 14.6, lz = -3.6)
-  const fittingGroup = new THREE.Group();
-  fittingGroup.position.set(14.6, y0, -3.6);
-  const curtainRailGeo = tracker.trackGeo(new THREE.TorusGeometry(0.85, 0.03, 8, 16, Math.PI));
-  curtainRailGeo.rotateY(Math.PI / 2);
-  curtainRailGeo.translate(0, 2.6, 0);
-  const curtainRail = new THREE.Mesh(curtainRailGeo, goldTrimMat);
-
-  // Floor mirror
-  const fMirrorGeo = tracker.trackGeo(new THREE.BoxGeometry(0.12, 1.85, 0.85));
-  fMirrorGeo.translate(-0.2, 0.95, 0);
-  const fMirror = new THREE.Mesh(fMirrorGeo, mats.champagneGold);
-  fittingGroup.add(curtainRail, fMirror);
-  boutiqueGroup.add(fittingGroup);
-  addLocalCollider(14.6, -3.6, 0.55);
-
-  // ============================================================================
-  // ROOM 3: 🧸 THE LITTLE DREAM WORLD (DOLL PLAYROOM)
-  // Location: lx in [9.2, 15.3], lz in [+6.4, +14.8], Center: (12.25, +10.6)
-  // ============================================================================
-  const dollRoomGroup = new THREE.Group();
-  dollRoomGroup.name = 'DollPlayroom';
-  group.add(dollRoomGroup);
-
-  // 3A. Giant Soft Circular Play Rug
-  const dRugGeo = tracker.trackGeo(new THREE.CylinderGeometry(2.65, 2.65, 0.024, 32));
-  dRugGeo.translate(0, 0.012, 0);
-  const dRugMat = tracker.trackMat(
-    new THREE.MeshStandardMaterial({
-      color: '#fdf4ff',
-      roughness: 0.9,
-      metalness: 0.02,
-    }),
-  );
-  const dRug = new THREE.Mesh(dRugGeo, dRugMat);
-  dRug.position.set(12.25, y0, 10.6);
-  dRug.receiveShadow = true;
-  dollRoomGroup.add(dRug);
-
-  // 3B. HERO OBJECT: Large Tabletop Miniature Castle (lx = 12.25, lz = 10.6)
-  const miniCastleTable = new THREE.Group();
-  miniCastleTable.position.set(12.25, y0, 10.6);
-
-  // Sturdy round table base
-  const tableBaseGeo = tracker.trackGeo(new THREE.CylinderGeometry(1.6, 1.7, 0.55, 24));
-  tableBaseGeo.translate(0, 0.275, 0);
-  const tableBase = new THREE.Mesh(tableBaseGeo, mats.creamStone);
-  miniCastleTable.add(tableBase);
-
-  // Tabletop Miniature Castle Structure
-  const mcGroup = new THREE.Group();
-  mcGroup.position.set(0, 0.55, 0);
-
-  // Central Keep
-  const mcKeepGeo = tracker.trackGeo(new THREE.BoxGeometry(0.65, 0.85, 0.65));
-  mcKeepGeo.translate(0, 0.425, 0);
-  const mcKeep = new THREE.Mesh(mcKeepGeo, mats.blushRoseMarble);
-
-  // Central Spire
-  const mcSpireGeo = tracker.trackGeo(new THREE.ConeGeometry(0.32, 0.85, 12));
-  mcSpireGeo.translate(0, 1.25, 0);
-  const mcSpire = new THREE.Mesh(mcSpireGeo, mats.powderBlueSpire);
-  mcGroup.add(mcKeep, mcSpire);
-
-  // 4 Corner Towers on Miniature Castle
-  const mcTowerGeo = tracker.trackGeo(new THREE.CylinderGeometry(0.12, 0.14, 0.75, 10));
-  mcTowerGeo.translate(0, 0.375, 0);
-  const mcTowerRoofGeo = tracker.trackGeo(new THREE.ConeGeometry(0.16, 0.45, 10));
-  mcTowerRoofGeo.translate(0, 0.95, 0);
-
-  const towerOffsets = [
-    [-0.38, -0.38],
-    [0.38, -0.38],
-    [-0.38, 0.38],
-    [0.38, 0.38],
-  ];
-  towerOffsets.forEach(([tx, tz]) => {
-    const tw = new THREE.Mesh(mcTowerGeo, mats.pearlWhite);
-    tw.position.set(tx, 0, tz);
-    const tr = new THREE.Mesh(mcTowerRoofGeo, mats.powderBlueSpire);
-    tr.position.set(tx, 0, tz);
-    mcGroup.add(tw, tr);
-  });
-
-  // Miniature Village Houses around Castle on Tabletop
-  const villageHouseGeo = tracker.trackGeo(new THREE.BoxGeometry(0.18, 0.16, 0.18));
-  villageHouseGeo.translate(0, 0.08, 0);
-  const villageRoofGeo = tracker.trackGeo(new THREE.ConeGeometry(0.14, 0.16, 4));
-  villageRoofGeo.rotateY(Math.PI / 4);
-  villageRoofGeo.translate(0, 0.22, 0);
-
-  const villageSpots = [
-    [0.9, 0.2],
-    [0.85, -0.5],
-    [-0.85, 0.4],
-    [-0.75, -0.6],
-    [0.3, 0.9],
-    [-0.3, 0.95],
-  ];
-  villageSpots.forEach(([vx, vz]) => {
-    const h = new THREE.Mesh(villageHouseGeo, mats.blushRoseMarble);
-    h.position.set(vx, 0, vz);
-    const r = new THREE.Mesh(villageRoofGeo, mats.powderBlueSpire);
-    r.position.set(vx, 0, vz);
-    mcGroup.add(h, r);
-  });
-
-  // Miniature rotating windmill
-  const windmillBaseGeo = tracker.trackGeo(new THREE.CylinderGeometry(0.1, 0.14, 0.38, 8));
-  windmillBaseGeo.translate(0, 0.19, 0);
-  const windmillBase = new THREE.Mesh(windmillBaseGeo, mats.creamStone);
-  windmillBase.position.set(0.65, 0, -0.85);
-
-  const windmillBlades = new THREE.Group();
-  windmillBlades.position.set(0.65, 0.36, -0.74);
-  const bladeGeo = tracker.trackGeo(new THREE.BoxGeometry(0.04, 0.36, 0.015));
-  const b1 = new THREE.Mesh(bladeGeo, goldTrimMat);
-  const b2 = new THREE.Mesh(bladeGeo, goldTrimMat);
-  b2.rotation.z = Math.PI / 2;
-  windmillBlades.add(b1, b2);
-  mcGroup.add(windmillBase, windmillBlades);
-  dynamicObjects.add(windmillBlades);
-
-  miniCastleTable.add(mcGroup);
-  dollRoomGroup.add(miniCastleTable);
-  addLocalCollider(12.25, 10.6, 1.45);
-
-  // 3C. Multi-Room Visible Dollhouse along East Wall (lx = 14.8, lz = 10.6)
-  const dollhouseGroup = new THREE.Group();
-  dollhouseGroup.position.set(14.8, y0, 10.6);
-  dollhouseGroup.rotation.y = -Math.PI / 2; // Facing into room
-
-  const dhFrameGeo = tracker.trackGeo(new THREE.BoxGeometry(2.4, 1.8, 0.65));
-  dhFrameGeo.translate(0, 0.9, 0);
-  const dhFrame = new THREE.Mesh(dhFrameGeo, mats.creamStone);
-
-  const dhDividerGeo = tracker.trackGeo(new THREE.BoxGeometry(0.06, 1.7, 0.62));
-  dhDividerGeo.translate(0, 0.9, 0);
-  const dhDividerV = new THREE.Mesh(dhDividerGeo, goldTrimMat);
-
-  const dhFloorGeo = tracker.trackGeo(new THREE.BoxGeometry(2.3, 0.06, 0.62));
-  dhFloorGeo.translate(0, 0.9, 0);
-  const dhDividerH = new THREE.Mesh(dhFloorGeo, goldTrimMat);
-  dollhouseGroup.add(dhFrame, dhDividerV, dhDividerH);
-  dollRoomGroup.add(dollhouseGroup);
-  addLocalCollider(14.8, 10.6, 0.65);
-
-  // 3D. LEGO-Style Construction Corner along South Wall (lx = 10.4, lz = 7.4)
-  const legoTableGroup = new THREE.Group();
-  legoTableGroup.position.set(10.4, y0, 7.4);
-  const legoTableBaseGeo = tracker.trackGeo(new THREE.BoxGeometry(1.2, 0.55, 1.0));
-  legoTableBaseGeo.translate(0, 0.275, 0);
-  const legoTable = new THREE.Mesh(legoTableBaseGeo, mats.softLavender);
-  legoTableGroup.add(legoTable);
-
-  // 25 Colorful building block pieces
-  const brickGeo = tracker.trackGeo(new THREE.BoxGeometry(0.08, 0.06, 0.12));
-  const brickColors = ['#ef4444', '#3b82f6', '#eab308', '#22c55e', '#ec4899'];
-  for (let b = 0; b < 25; b++) {
-    const bMat = tracker.trackMat(
+    this.pinkGlowMat = tracker.trackMat(
       new THREE.MeshStandardMaterial({
-        color: brickColors[b % 5],
+        color: '#fdf2f8',
+        emissive: '#f472b6',
+        emissiveIntensity: 1.15,
         roughness: 0.2,
       }),
     );
-    const brick = new THREE.Mesh(brickGeo, bMat);
-    const row = Math.floor(b / 5);
-    const col = b % 5;
-    brick.position.set(-0.35 + col * 0.16, 0.58 + (b % 3) * 0.06, -0.3 + row * 0.14);
-    legoTableGroup.add(brick);
+    this.photoRugMat = tracker.trackMat(
+      new THREE.MeshStandardMaterial({
+        color: '#fff5f7',
+        roughness: 0.78,
+        metalness: 0.06,
+      }),
+    );
+
+    this.labelGeo = tracker.trackGeo(new THREE.PlaneGeometry(0.52, 0.14));
+    this.frameOuterGeo = tracker.trackGeo(new THREE.BoxGeometry(0.76, 0.94, 0.04));
+    this.frameInnerGeo = tracker.trackGeo(new THREE.PlaneGeometry(0.64, 0.82));
+    this.heartSphereGeo = tracker.trackGeo(new THREE.SphereGeometry(0.075, 8, 8));
+    this.heartRingGeo = tracker.trackGeo(new THREE.TorusGeometry(0.13, 0.018, 6, 16));
+
+    // 1. Build Architectural Layout (Walls, Floors, Ceilings, Arched Doorways)
+    this.buildArchitecturalLayout();
+
+    // 2. Build Hero Room Fixtures & Differentiated Micro-Prop Instantiations
+    this.buildPhotographyStudio();
+    this.buildMiniFashionBoutique();
+    this.buildDollPlayroom();
+
+    // 2B. Build Complete Jewellery Atelier & Tabletop Castle / Little Dream World Subsystems
+    this.jewelleryAtelier = new CastleJewelleryAtelier(
+      tracker,
+      mats,
+      originX,
+      baseY,
+      originZ,
+      this.y0,
+      this.colliders,
+    );
+    this.group.add(this.jewelleryAtelier.group);
+    this.jewelleryAtelier.dynamicObjects.forEach((d) => this.dynamicObjects.add(d));
+
+    this.tabletopWorld = new CastleTabletopWorld(
+      tracker,
+      mats,
+      originX,
+      baseY,
+      originZ,
+      this.y0,
+      this.colliders,
+    );
+    this.group.add(this.tabletopWorld.group);
+    this.tabletopWorld.dynamicObjects.forEach((d) => this.dynamicObjects.add(d));
+
+    // 3. Compile all MicroPropLibrary placements across all 3 rooms into 3 static batched draw calls
+    this.microPropLibrary.compileIntoGroup(this.group);
+
+    // 4. Lock static hierarchy so non-animated meshes have zero per-frame matrix overhead
+    lockStaticHierarchy(this.group, this.dynamicObjects);
   }
-  dollRoomGroup.add(legoTableGroup);
-  addLocalCollider(10.4, 7.4, 0.55);
 
-  // 3E. Toy Shelf & Miniature Library along North Wall (lx = 12.2, lz = 14.6)
-  const toyShelfGroup = new THREE.Group();
-  toyShelfGroup.position.set(12.2, y0, 14.6);
-  const tsShelfGeo = tracker.trackGeo(new THREE.BoxGeometry(2.6, 1.6, 0.38));
-  tsShelfGeo.translate(0, 0.8, 0);
-  const toyShelf = new THREE.Mesh(tsShelfGeo, wallMat);
-  toyShelfGroup.add(toyShelf);
+  public setAvatarBridge(bridge: JewelleryAvatarBridge): void {
+    this.jewelleryAtelier.setAvatarBridge(bridge);
+  }
 
-  // Teddy bears & plushies
-  const bearHeadGeo = tracker.trackGeo(new THREE.SphereGeometry(0.12, 10, 10));
-  bearHeadGeo.translate(0, 1.15, 0.15);
-  const bearBodyGeo = tracker.trackGeo(new THREE.SphereGeometry(0.16, 10, 10));
-  bearBodyGeo.translate(0, 0.95, 0.15);
-  const bearMat = tracker.trackMat(new THREE.MeshStandardMaterial({ color: '#fbcfe8', roughness: 0.9 }));
-  const bearHead = new THREE.Mesh(bearHeadGeo, bearMat);
-  const bearBody = new THREE.Mesh(bearBodyGeo, bearMat);
-  toyShelfGroup.add(bearHead, bearBody);
-  dollRoomGroup.add(toyShelfGroup);
-  addLocalCollider(12.2, 14.6, 0.55);
+  private addLocalCollider(lx: number, lz: number, radius: number): void {
+    this.colliders.push({
+      x: this.originX + lx,
+      z: this.originZ + lz,
+      radius,
+      y: this.baseY + this.y0,
+      height: 3.5,
+    });
+  }
 
-  // Lock static hierarchy so non-animated meshes have zero per-frame matrix calculation cost
-  lockStaticHierarchy(group, dynamicObjects);
+  private addWallFrame(
+    parent: THREE.Object3D,
+    x: number,
+    y: number,
+    z: number,
+    rotY: number,
+    tex: THREE.CanvasTexture,
+  ): void {
+    const fg = new THREE.Group();
+    fg.position.set(x, y, z);
+    fg.rotation.y = rotY;
+    const frame = new THREE.Mesh(this.frameOuterGeo, this.mats.champagneGold);
+    const art = new THREE.Mesh(
+      this.frameInnerGeo,
+      this.tracker.trackMat(new THREE.MeshBasicMaterial({ map: tex })),
+    );
+    art.position.z = 0.024;
+    fg.add(frame, art);
+    parent.add(fg);
+  }
 
-  // ============================================================================
-  // INTERACTIVE CAMERA & BACKDROP SYSTEM
-  // ============================================================================
-  let activeCameraMode: CreativeWingActiveCameraMode = 'none';
-  let cameraTransitionElapsed = 0.0;
-  const CAMERA_TRANSITION_DUR = 0.45;
-  let activeCaption: string | null = null;
+  private addHeartCrest(
+    parent: THREE.Object3D,
+    x: number,
+    y: number,
+    z: number,
+    rotY = 0,
+  ): void {
+    const hg = new THREE.Group();
+    hg.position.set(x, y, z);
+    hg.rotation.y = rotY;
+    const hL = new THREE.Mesh(this.heartSphereGeo, this.roseAccentMat);
+    hL.position.set(-0.045, 0.03, 0);
+    const hR = new THREE.Mesh(this.heartSphereGeo, this.roseAccentMat);
+    hR.position.set(0.045, 0.03, 0);
+    const ring = new THREE.Mesh(this.heartRingGeo, this.mats.champagneGold);
+    hg.add(hL, hR, ring);
+    parent.add(hg);
+  }
 
-  let camLookYaw = 0.0;
-  let camLookPitch = 0.0;
+  /**
+   * Builds the complete architectural shell for the Creative Wing:
+   * - 4-Wall Enclosures, Gold Baseboards & Wainscoting Trim
+   * - Distinct Room Floors (Pearl Studio Floor, Blush-White Marble Floor, Warm Pastel Wood Floor)
+   * - Room Ceilings (Recessed Studio Lighting Grid, Crown Medallion & Chandelier, Cloud & Star Mobiles)
+   * - 4 Physical Arched Doorways with Signboards & Heart Crests
+   */
+  private buildArchitecturalLayout(): void {
+    const { tracker, mats, y0, yCeil, group, partitionMeshes } = this;
+    const wallMat = mats.creamStone;
+    const marbleTrimMat = mats.blushRoseMarble;
+    const goldTrimMat = mats.champagneGold;
+    const archTorusGeo = tracker.trackGeo(new THREE.TorusGeometry(1.2, 0.06, 8, 24, Math.PI));
 
-  const getCameraState = (): CreativeWingCameraState => {
-    if (activeCameraMode === 'none') {
+    // A. PHOTOGRAPHY STUDIO WEST WALL & ARCHED DOORWAY (lx = 8.8, lz in [-15.2, -6.2], doorway lz in [-11.8, -9.4])
+    const photoWestSouthGeo = tracker.trackGeo(new THREE.BoxGeometry(0.38, 4.4, 3.4));
+    photoWestSouthGeo.translate(8.8, y0 + 2.2, -13.5);
+    const photoWestSouth = new THREE.Mesh(photoWestSouthGeo, wallMat);
+
+    const photoWestNorthGeo = tracker.trackGeo(new THREE.BoxGeometry(0.38, 4.4, 3.2));
+    photoWestNorthGeo.translate(8.8, y0 + 2.2, -7.8);
+    const photoWestNorth = new THREE.Mesh(photoWestNorthGeo, wallMat);
+
+    const photoWestHeaderGeo = tracker.trackGeo(new THREE.BoxGeometry(0.42, 1.2, 2.4));
+    photoWestHeaderGeo.translate(8.8, y0 + 3.8, -10.6);
+    const photoWestHeader = new THREE.Mesh(photoWestHeaderGeo, marbleTrimMat);
+
+    const photoWestArchTrim = new THREE.Mesh(archTorusGeo, goldTrimMat);
+    photoWestArchTrim.rotation.y = Math.PI / 2;
+    photoWestArchTrim.position.set(8.8, y0 + 2.8, -10.6);
+
+    group.add(photoWestSouth, photoWestNorth, photoWestHeader, photoWestArchTrim);
+    partitionMeshes.push(photoWestSouth, photoWestNorth, photoWestHeader);
+
+    const photoSignTex = createSignboardTexture(
+      tracker,
+      '✦ THE PORTRAIT ATELIER ✦',
+      'Haute Couture Photography & Fine Portraits',
+      '#4c0519',
+      '#fbbf24',
+    );
+    const photoWestSignGeo = tracker.trackGeo(new THREE.PlaneGeometry(2.1, 0.52));
+    photoWestSignGeo.rotateY(-Math.PI / 2);
+    const photoWestSignMesh = new THREE.Mesh(
+      photoWestSignGeo,
+      tracker.trackMat(new THREE.MeshBasicMaterial({ map: photoSignTex })),
+    );
+    photoWestSignMesh.position.set(8.58, y0 + 3.82, -10.6);
+    group.add(photoWestSignMesh);
+    this.addHeartCrest(group, 8.56, y0 + 4.22, -10.6, Math.PI / 2);
+
+    // B. PARTITION WALL & ARCHED DOORWAY BETWEEN PHOTOGRAPHY STUDIO & BOUTIQUE (lz = -6.2, doorway lx in [10.8, 13.2])
+    const partGeo1 = tracker.trackGeo(new THREE.BoxGeometry(2.2, 4.4, 0.38));
+    partGeo1.translate(14.3, y0 + 2.2, -6.2);
+    const partMesh1 = new THREE.Mesh(partGeo1, wallMat);
+
+    const partGeo2 = tracker.trackGeo(new THREE.BoxGeometry(2.0, 4.4, 0.38));
+    partGeo2.translate(9.8, y0 + 2.2, -6.2);
+    const partMesh2 = new THREE.Mesh(partGeo2, wallMat);
+
+    const archHeaderGeo1 = tracker.trackGeo(new THREE.BoxGeometry(2.4, 1.2, 0.42));
+    archHeaderGeo1.translate(12.0, y0 + 3.8, -6.2);
+    const archHeaderMesh1 = new THREE.Mesh(archHeaderGeo1, marbleTrimMat);
+
+    const archTrimMesh1 = new THREE.Mesh(archTorusGeo, goldTrimMat);
+    archTrimMesh1.position.set(12.0, y0 + 2.8, -6.2);
+
+    group.add(partMesh1, partMesh2, archHeaderMesh1, archTrimMesh1);
+    partitionMeshes.push(partMesh1, partMesh2, archHeaderMesh1);
+
+    const signGeo = tracker.trackGeo(new THREE.PlaneGeometry(2.1, 0.52));
+    const photoSignMesh = new THREE.Mesh(
+      signGeo,
+      tracker.trackMat(new THREE.MeshBasicMaterial({ map: photoSignTex })),
+    );
+    photoSignMesh.position.set(12.0, y0 + 3.82, -5.98);
+    group.add(photoSignMesh);
+    this.addHeartCrest(group, 12.0, y0 + 4.22, -5.96, 0);
+
+    // C. BOUTIQUE WEST FACADE WALL & ARCHED ENTRANCE (lx = 8.8, lz in [-5.8, +5.8], doorway lz in [-1.2, +1.2])
+    const boutiqueWallSouthGeo = tracker.trackGeo(new THREE.BoxGeometry(0.38, 4.4, 4.6));
+    boutiqueWallSouthGeo.translate(8.8, y0 + 2.2, -3.5);
+    const boutiqueWallSouth = new THREE.Mesh(boutiqueWallSouthGeo, wallMat);
+
+    const boutiqueWallNorthGeo = tracker.trackGeo(new THREE.BoxGeometry(0.38, 4.4, 4.6));
+    boutiqueWallNorthGeo.translate(8.8, y0 + 2.2, 3.5);
+    const boutiqueWallNorth = new THREE.Mesh(boutiqueWallNorthGeo, wallMat);
+
+    const boutiqueDoorHeaderGeo = tracker.trackGeo(new THREE.BoxGeometry(0.42, 1.2, 2.4));
+    boutiqueDoorHeaderGeo.translate(8.8, y0 + 3.8, 0.0);
+    const boutiqueDoorHeader = new THREE.Mesh(boutiqueDoorHeaderGeo, marbleTrimMat);
+
+    const boutiqueArchTrim = new THREE.Mesh(archTorusGeo, goldTrimMat);
+    boutiqueArchTrim.rotation.y = Math.PI / 2;
+    boutiqueArchTrim.position.set(8.8, y0 + 2.8, 0.0);
+
+    group.add(boutiqueWallSouth, boutiqueWallNorth, boutiqueDoorHeader, boutiqueArchTrim);
+    partitionMeshes.push(boutiqueWallSouth, boutiqueWallNorth, boutiqueDoorHeader);
+
+    const boutiqueSignTex = createSignboardTexture(
+      tracker,
+      "♕ HARSHA'S COUTURE CORNER ♕",
+      'Bespoke Castle Fashion, Accessories & Tailoring',
+      '#831843',
+      '#fde047',
+    );
+    const boutiqueSignGeo = tracker.trackGeo(new THREE.PlaneGeometry(2.2, 0.52));
+    boutiqueSignGeo.rotateY(-Math.PI / 2);
+    const boutiqueSignMesh = new THREE.Mesh(
+      boutiqueSignGeo,
+      tracker.trackMat(new THREE.MeshBasicMaterial({ map: boutiqueSignTex })),
+    );
+    boutiqueSignMesh.position.set(8.58, y0 + 3.82, 0.0);
+    group.add(boutiqueSignMesh);
+
+    // D. PARTITION WALL & PLAYFUL ARCHWAY BETWEEN BOUTIQUE & DOLL PLAYROOM (lz = +6.2, doorway lx in [10.8, 13.2])
+    const dollWallGeo1 = tracker.trackGeo(new THREE.BoxGeometry(2.2, 4.4, 0.38));
+    dollWallGeo1.translate(14.3, y0 + 2.2, 6.2);
+    const dollWallMesh1 = new THREE.Mesh(dollWallGeo1, wallMat);
+
+    const dollWallGeo2 = tracker.trackGeo(new THREE.BoxGeometry(1.6, 4.4, 0.38));
+    dollWallGeo2.translate(10.0, y0 + 2.2, 6.2);
+    const dollWallMesh2 = new THREE.Mesh(dollWallGeo2, wallMat);
+
+    const dollArchHeaderGeo = tracker.trackGeo(new THREE.BoxGeometry(2.4, 1.2, 0.42));
+    dollArchHeaderGeo.translate(12.0, y0 + 3.8, 6.2);
+    const dollArchHeaderMesh = new THREE.Mesh(dollArchHeaderGeo, marbleTrimMat);
+
+    const dollArchTrimMesh = new THREE.Mesh(archTorusGeo, goldTrimMat);
+    dollArchTrimMesh.position.set(12.0, y0 + 2.8, 6.2);
+
+    const dollWestWallGeo = tracker.trackGeo(new THREE.BoxGeometry(0.38, 4.4, 8.6));
+    dollWestWallGeo.translate(9.2, y0 + 2.2, 10.5);
+    const dollWestWallMesh = new THREE.Mesh(dollWestWallGeo, wallMat);
+
+    group.add(dollWallMesh1, dollWallMesh2, dollArchHeaderMesh, dollArchTrimMesh, dollWestWallMesh);
+    partitionMeshes.push(dollWallMesh1, dollWallMesh2, dollArchHeaderMesh, dollWestWallMesh);
+
+    const dollSignTex = createSignboardTexture(
+      tracker,
+      '♡ THE LITTLE DREAM WORLD ♡',
+      'Handcrafted Miniatures, Doll Castle & Childhood Wonder',
+      '#581c87',
+      '#f472b6',
+    );
+    const dollSignMesh = new THREE.Mesh(
+      signGeo,
+      tracker.trackMat(new THREE.MeshBasicMaterial({ map: dollSignTex })),
+    );
+    dollSignMesh.position.set(12.0, y0 + 3.82, 5.98);
+    group.add(dollSignMesh);
+    this.addHeartCrest(group, 12.0, y0 + 4.22, 5.96, 0);
+
+    // E. ARCHITECTURAL FLOORS & CEILINGS FOR ALL 3 ROOMS
+    // Room 1 (Photography Studio): Recessed Studio Ceiling Grid + Circular Pearl Studio Rug
+    const photoCeilingPanelGeo = tracker.trackGeo(new THREE.BoxGeometry(5.6, 0.08, 7.6));
+    photoCeilingPanelGeo.translate(12.05, yCeil, -10.6);
+    group.add(new THREE.Mesh(photoCeilingPanelGeo, mats.pearlWhite));
+
+    const ceilingStripGeo = tracker.trackGeo(new THREE.BoxGeometry(4.4, 0.04, 0.14));
+    [-12.6, -10.6, -8.6].forEach((cz) => {
+      const strip = new THREE.Mesh(ceilingStripGeo, this.warmGlowMat);
+      strip.position.set(12.05, yCeil - 0.05, cz);
+      group.add(strip);
+    });
+
+    const photoRugGeo = tracker.trackGeo(new THREE.CylinderGeometry(2.8, 2.8, 0.024, 32));
+    photoRugGeo.translate(12.05, y0 + 0.012, -10.6);
+    const photoRug = new THREE.Mesh(photoRugGeo, this.photoRugMat);
+    photoRug.receiveShadow = true;
+    const photoRugGoldRingGeo = tracker.trackGeo(new THREE.RingGeometry(2.55, 2.72, 32));
+    photoRugGoldRingGeo.rotateX(-Math.PI / 2);
+    photoRugGoldRingGeo.translate(12.05, y0 + 0.026, -10.6);
+    const photoRugInnerRoseGeo = tracker.trackGeo(new THREE.RingGeometry(1.35, 1.42, 24));
+    photoRugInnerRoseGeo.rotateX(-Math.PI / 2);
+    photoRugInnerRoseGeo.translate(12.05, y0 + 0.026, -10.6);
+    const centerHeartDiscGeo = tracker.trackGeo(new THREE.CircleGeometry(0.18, 16));
+    centerHeartDiscGeo.rotateX(-Math.PI / 2);
+    centerHeartDiscGeo.translate(12.05, y0 + 0.027, -10.6);
+    group.add(
+      photoRug,
+      new THREE.Mesh(photoRugGoldRingGeo, goldTrimMat),
+      new THREE.Mesh(photoRugInnerRoseGeo, marbleTrimMat),
+      new THREE.Mesh(centerHeartDiscGeo, this.roseAccentMat),
+    );
+
+    // Room 2 (Mini Fashion Boutique): Soft Marble Floor + Plush Display Rug + Crown Ceiling Medallion & Chandelier
+    const bFloorGeo = tracker.trackGeo(new THREE.BoxGeometry(6.3, 0.02, 11.4));
+    bFloorGeo.translate(12.05, y0 + 0.01, 0);
+    const bFloor = new THREE.Mesh(bFloorGeo, marbleTrimMat);
+    bFloor.receiveShadow = true;
+    const bCenterRugGeo = tracker.trackGeo(new THREE.CylinderGeometry(1.85, 1.85, 0.026, 28));
+    bCenterRugGeo.translate(12.05, y0 + 0.014, 0);
+    const bMedallionGeo = tracker.trackGeo(new THREE.CylinderGeometry(1.15, 1.25, 0.08, 24));
+    bMedallionGeo.translate(12.05, yCeil, 0);
+    group.add(
+      bFloor,
+      new THREE.Mesh(bCenterRugGeo, this.photoRugMat),
+      new THREE.Mesh(bMedallionGeo, goldTrimMat),
+    );
+
+    const bChandelier = new THREE.Group();
+    bChandelier.position.set(12.05, y0 + 3.65, 0);
+    const bChRingGeo = tracker.trackGeo(new THREE.TorusGeometry(0.65, 0.04, 8, 20));
+    bChRingGeo.rotateX(Math.PI / 2);
+    bChandelier.add(new THREE.Mesh(bChRingGeo, goldTrimMat));
+    const dropGeo = tracker.trackGeo(new THREE.OctahedronGeometry(0.08, 0));
+    for (let d = 0; d < 6; d++) {
+      const ang = (d * Math.PI * 2) / 6;
+      const drop = new THREE.Mesh(dropGeo, mats.crystalGlass);
+      drop.position.set(Math.cos(ang) * 0.65, -0.22, Math.sin(ang) * 0.65);
+      drop.scale.set(1, 1.8, 1);
+      bChandelier.add(drop);
+    }
+    const centerHeartCrystal = new THREE.Mesh(dropGeo, this.pinkGlowMat);
+    centerHeartCrystal.scale.set(1.6, 2.2, 1.6);
+    centerHeartCrystal.position.set(0, -0.32, 0);
+    bChandelier.add(centerHeartCrystal);
+    group.add(bChandelier);
+
+    // Room 3 (Doll Playroom): Warm Pastel Wood-Plank Floor + Giant Soft Play Rug + Ceiling Clouds
+    const dollWoodFloorGeo = tracker.trackGeo(new THREE.BoxGeometry(5.9, 0.018, 8.4));
+    dollWoodFloorGeo.translate(12.3, y0 + 0.009, 10.6);
+    const dollWoodFloorMat = tracker.trackMat(
+      new THREE.MeshStandardMaterial({ color: '#fde8e8', roughness: 0.72, metalness: 0.04 }),
+    );
+    const dRugGeo = tracker.trackGeo(new THREE.CylinderGeometry(2.65, 2.65, 0.026, 32));
+    dRugGeo.translate(12.25, y0 + 0.013, 10.6);
+    const dRugMat = tracker.trackMat(
+      new THREE.MeshStandardMaterial({
+        color: '#fdf4ff',
+        roughness: 0.9,
+        metalness: 0.02,
+      }),
+    );
+    group.add(
+      new THREE.Mesh(dollWoodFloorGeo, dollWoodFloorMat),
+      new THREE.Mesh(dRugGeo, dRugMat),
+    );
+
+    const cloudPuffGeo = tracker.trackGeo(new THREE.SphereGeometry(0.32, 10, 10));
+    [
+      [11.2, 9.2],
+      [13.3, 10.4],
+      [11.8, 12.2],
+    ].forEach(([cx, cz]) => {
+      const cg = new THREE.Group();
+      cg.position.set(cx, yCeil - 0.35, cz);
+      const p1 = new THREE.Mesh(cloudPuffGeo, mats.pearlWhite);
+      const p2 = new THREE.Mesh(cloudPuffGeo, mats.pearlWhite);
+      p2.position.set(0.24, -0.05, 0);
+      p2.scale.set(0.8, 0.8, 0.8);
+      cg.add(p1, p2);
+      group.add(cg);
+    });
+  }
+
+  /**
+   * Builds Room 1: The Portrait Atelier (Photography Studio) hero fixtures and
+   * delegates micro-prop instantiation to `MicroPropLibrary.instantiatePhotographyStudioProps`.
+   */
+  private buildPhotographyStudio(): void {
+    const { tracker, mats, y0, group } = this;
+    const wallMat = mats.creamStone;
+    const goldTrimMat = mats.champagneGold;
+
+    const photoGroup = new THREE.Group();
+    photoGroup.name = 'PhotographyStudio';
+    group.add(photoGroup);
+
+    // Hero Photography Set on East Wall (lx = 15.15, lz = -10.6)
+    const backdropFrameGroup = new THREE.Group();
+    backdropFrameGroup.position.set(15.15, y0, -10.6);
+
+    const bdPillarGeo = tracker.trackGeo(new THREE.CylinderGeometry(0.08, 0.09, 3.8, 10));
+    bdPillarGeo.translate(0, 1.9, 0);
+    const bdPillarL = new THREE.Mesh(bdPillarGeo, goldTrimMat);
+    bdPillarL.position.set(0, 0, -2.2);
+    const bdPillarR = new THREE.Mesh(bdPillarGeo, goldTrimMat);
+    bdPillarR.position.set(0, 0, 2.2);
+
+    // Top support crossbar + arch + side velvet curtains + floor sweep connection (Section 6)
+    const topCrossbarGeo = tracker.trackGeo(new THREE.CylinderGeometry(0.055, 0.055, 4.5, 10));
+    topCrossbarGeo.rotateX(Math.PI / 2);
+    topCrossbarGeo.translate(0, 3.74, 0);
+
+    const curtainDrapeGeo = tracker.trackGeo(new THREE.CylinderGeometry(0.18, 0.24, 3.7, 12));
+    curtainDrapeGeo.translate(0, 1.85, 0);
+    const curtainL = new THREE.Mesh(curtainDrapeGeo, mats.velvetPlum);
+    curtainL.position.set(-0.08, 0, -2.05);
+    const curtainR = new THREE.Mesh(curtainDrapeGeo, mats.velvetPlum);
+    curtainR.position.set(-0.08, 0, 2.05);
+
+    const floorSweepGeo = tracker.trackGeo(new THREE.BoxGeometry(0.65, 0.04, 4.4));
+    floorSweepGeo.translate(-0.3, 0.02, 0);
+
+    const bdArchGeo = tracker.trackGeo(new THREE.TorusGeometry(2.2, 0.08, 8, 28, Math.PI));
+    bdArchGeo.rotateY(Math.PI / 2);
+    const bdArch = new THREE.Mesh(bdArchGeo, goldTrimMat);
+    bdArch.position.set(0, 3.8, 0);
+    backdropFrameGroup.add(
+      bdPillarL,
+      bdPillarR,
+      new THREE.Mesh(topCrossbarGeo, goldTrimMat),
+      curtainL,
+      curtainR,
+      new THREE.Mesh(floorSweepGeo, mats.blushRoseMarble),
+      bdArch,
+    );
+
+    // Portrait Position Floor Marker at (13.35, y0 + 0.028, -10.6) (Section 5)
+    const posMarkerOuterGeo = tracker.trackGeo(new THREE.RingGeometry(0.42, 0.52, 28));
+    posMarkerOuterGeo.rotateX(-Math.PI / 2);
+    posMarkerOuterGeo.translate(13.35, y0 + 0.028, -10.6);
+    const posMarkerInnerGeo = tracker.trackGeo(new THREE.CircleGeometry(0.38, 24));
+    posMarkerInnerGeo.rotateX(-Math.PI / 2);
+    posMarkerInnerGeo.translate(13.35, y0 + 0.027, -10.6);
+    photoGroup.add(
+      new THREE.Mesh(posMarkerOuterGeo, goldTrimMat),
+      new THREE.Mesh(posMarkerInnerGeo, this.pinkGlowMat),
+    );
+
+    // Entrance Crystal Sconces & Shared-Planter Two Flowers (Sections 4 & 37)
+    const sconceOrbGeo = tracker.trackGeo(new THREE.OctahedronGeometry(0.11, 0));
+    [-12.1, -9.1].forEach((sz) => {
+      const sc = new THREE.Mesh(sconceOrbGeo, this.warmGlowMat);
+      sc.position.set(8.56, y0 + 2.35, sz);
+      photoGroup.add(sc);
+    });
+    const sharedPlanterGeo = tracker.trackGeo(new THREE.CylinderGeometry(0.22, 0.18, 0.28, 12));
+    sharedPlanterGeo.translate(8.42, y0 + 0.14, -9.05);
+    const sharedFlower1 = new THREE.Mesh(this.heartSphereGeo, this.roseAccentMat);
+    sharedFlower1.position.set(8.42, y0 + 0.36, -9.12);
+    const sharedFlower2 = new THREE.Mesh(this.heartSphereGeo, this.pinkGlowMat);
+    sharedFlower2.position.set(8.42, y0 + 0.36, -8.98);
+    photoGroup.add(new THREE.Mesh(sharedPlanterGeo, goldTrimMat), sharedFlower1, sharedFlower2);
+
+    // Paired Velvet Studio Chairs side-by-side (Section 37: Two chairs together)
+    const chairSeatGeo = tracker.trackGeo(new THREE.CylinderGeometry(0.24, 0.22, 0.42, 14));
+    chairSeatGeo.translate(0, 0.21, 0);
+    [-13.8, -13.15].forEach((cz, idx) => {
+      const ch = new THREE.Mesh(
+        chairSeatGeo,
+        idx === 0 ? mats.blushRoseMarble : goldTrimMat,
+      );
+      ch.position.set(12.2, y0, cz);
+      photoGroup.add(ch);
+    });
+
+    const createPresetCanvas = (presetIdx: number): THREE.CanvasTexture => {
+      const c = document.createElement('canvas');
+      c.width = 512;
+      c.height = 384;
+      const cx = c.getContext('2d');
+      if (cx) {
+        if (presetIdx === 0) {
+          const grad = cx.createLinearGradient(0, 0, 0, 384);
+          grad.addColorStop(0, '#fce7f3');
+          grad.addColorStop(0.5, '#fbcfe8');
+          grad.addColorStop(1, '#a7f3d0');
+          cx.fillStyle = grad;
+          cx.fillRect(0, 0, 512, 384);
+          cx.fillStyle = 'rgba(219, 39, 119, 0.25)';
+          cx.fillRect(200, 180, 112, 120);
+          cx.beginPath();
+          cx.moveTo(256, 110);
+          cx.lineTo(200, 180);
+          cx.lineTo(312, 180);
+          cx.closePath();
+          cx.fill();
+        } else if (presetIdx === 1) {
+          const grad = cx.createLinearGradient(0, 0, 0, 384);
+          grad.addColorStop(0, '#fff1f2');
+          grad.addColorStop(0.6, '#fda4af');
+          grad.addColorStop(1, '#e11d48');
+          cx.fillStyle = grad;
+          cx.fillRect(0, 0, 512, 384);
+          cx.fillStyle = '#fef08a';
+          cx.font = 'bold 36px Georgia, serif';
+          cx.textAlign = 'center';
+          cx.fillText('👑 ROYAL DREAM 👑', 256, 180);
+        } else if (presetIdx === 2) {
+          const grad = cx.createLinearGradient(0, 0, 0, 384);
+          grad.addColorStop(0, '#1e1b4b');
+          grad.addColorStop(0.7, '#312e81');
+          grad.addColorStop(1, '#4c1d95');
+          cx.fillStyle = grad;
+          cx.fillRect(0, 0, 512, 384);
+          cx.fillStyle = '#fef08a';
+          for (let i = 0; i < 40; i++) {
+            const sx = (i * 123) % 512;
+            const sy = (i * 79) % 280;
+            cx.fillRect(sx, sy, 2, 2);
+          }
+          cx.beginPath();
+          cx.arc(420, 80, 24, 0, Math.PI * 2);
+          cx.fill();
+        } else if (presetIdx === 3) {
+          const grad = cx.createLinearGradient(0, 0, 512, 384);
+          grad.addColorStop(0, '#064e3b');
+          grad.addColorStop(0.5, '#065f46');
+          grad.addColorStop(1, '#0f172a');
+          cx.fillStyle = grad;
+          cx.fillRect(0, 0, 512, 384);
+          cx.fillStyle = 'rgba(52, 211, 153, 0.45)';
+          cx.beginPath();
+          cx.moveTo(0, 120);
+          cx.bezierCurveTo(180, 40, 320, 200, 512, 100);
+          cx.lineTo(512, 220);
+          cx.bezierCurveTo(320, 300, 180, 150, 0, 240);
+          cx.closePath();
+          cx.fill();
+        } else if (presetIdx === 4) {
+          const grad = cx.createLinearGradient(0, 0, 0, 384);
+          grad.addColorStop(0, '#bae6fd');
+          grad.addColorStop(0.6, '#e0e7ff');
+          grad.addColorStop(1, '#fbcfe8');
+          cx.fillStyle = grad;
+          cx.fillRect(0, 0, 512, 384);
+          cx.fillStyle = 'rgba(255, 255, 255, 0.85)';
+          [
+            [120, 220, 70],
+            [260, 200, 95],
+            [390, 240, 80],
+          ].forEach(([cx0, cy0, cr]) => {
+            cx.beginPath();
+            cx.arc(cx0, cy0, cr, 0, Math.PI * 2);
+            cx.fill();
+          });
+        } else {
+          const grad = cx.createRadialGradient(256, 192, 20, 256, 192, 260);
+          grad.addColorStop(0, '#ffffff');
+          grad.addColorStop(0.5, '#fff1f2');
+          grad.addColorStop(1, '#fce7f3');
+          cx.fillStyle = grad;
+          cx.fillRect(0, 0, 512, 384);
+        }
+      }
+      const t = tracker.trackTex(new THREE.CanvasTexture(c));
+      t.colorSpace = THREE.SRGBColorSpace;
+      t.needsUpdate = true;
+      return t;
+    };
+
+    for (let i = 0; i < 6; i++) {
+      this.backdropTextures.push(createPresetCanvas(i));
+    }
+
+    // Initialize 7th slot for Custom Photo Backdrop
+    this.customBackdropCanvas = document.createElement('canvas');
+    this.customBackdropCanvas.width = 512;
+    this.customBackdropCanvas.height = 384;
+    const cCtx = this.customBackdropCanvas.getContext('2d');
+    if (cCtx) {
+      cCtx.fillStyle = '#4c0519';
+      cCtx.fillRect(0, 0, 512, 384);
+      cCtx.strokeStyle = '#fde047';
+      cCtx.lineWidth = 6;
+      cCtx.strokeRect(12, 12, 488, 360);
+      cCtx.fillStyle = '#fde047';
+      cCtx.font = 'bold 26px Georgia, serif';
+      cCtx.textAlign = 'center';
+      cCtx.fillText('✦ CUSTOM PHOTO BACKDROP ✦', 256, 175);
+      cCtx.fillStyle = '#ffe4e6';
+      cCtx.font = 'italic 18px Georgia, serif';
+      cCtx.fillText('Upload a photo from your device to project here', 256, 215);
+    }
+    this.customBackdropTex = tracker.trackTex(new THREE.CanvasTexture(this.customBackdropCanvas));
+    this.customBackdropTex.colorSpace = THREE.SRGBColorSpace;
+    this.customBackdropTex.needsUpdate = true;
+    this.backdropTextures.push(this.customBackdropTex);
+
+    const backdropScreenGeo = tracker.trackGeo(new THREE.PlaneGeometry(4.3, 3.6));
+    backdropScreenGeo.rotateY(-Math.PI / 2);
+    this.backdropScreenMat = tracker.trackMat(
+      new THREE.MeshBasicMaterial({
+        map: this.backdropTextures[0],
+        side: THREE.FrontSide,
+      }),
+    );
+    const backdropScreenMesh = new THREE.Mesh(backdropScreenGeo, this.backdropScreenMat);
+    backdropScreenMesh.position.set(-0.02, 1.9, 0);
+    backdropFrameGroup.add(backdropScreenMesh);
+
+    // Studio Flash Overlay Plane right in front of camera lens for shutter burst
+    const flashGeo = tracker.trackGeo(new THREE.PlaneGeometry(4.35, 3.65));
+    flashGeo.rotateY(-Math.PI / 2);
+    this.shutterFlashMat = tracker.trackMat(
+      new THREE.MeshBasicMaterial({
+        color: '#ffffff',
+        transparent: true,
+        opacity: 0.0,
+        depthWrite: false,
+      }),
+    );
+    this.shutterFlashMesh = new THREE.Mesh(flashGeo, this.shutterFlashMat);
+    this.shutterFlashMesh.position.set(-0.05, 1.9, 0);
+    this.shutterFlashMesh.visible = false;
+    backdropFrameGroup.add(this.shutterFlashMesh);
+    this.dynamicObjects.add(this.shutterFlashMesh);
+
+    photoGroup.add(backdropFrameGroup);
+
+    // Believable Studio Camera on Tripod at (lx = 10.2, lz = -10.6)
+    const cameraRig = new THREE.Group();
+    cameraRig.position.set(10.2, y0, -10.6);
+    cameraRig.rotation.y = Math.PI / 2;
+
+    const legGeo = tracker.trackGeo(new THREE.CylinderGeometry(0.018, 0.024, 1.35, 8));
+    legGeo.translate(0, 0.67, 0);
+    [-0.32, 0, 0.32].forEach((xOff, idx) => {
+      const leg = new THREE.Mesh(legGeo, goldTrimMat);
+      leg.position.set(xOff, 0, idx === 1 ? -0.28 : 0.18);
+      leg.rotation.z = xOff * -0.3;
+      cameraRig.add(leg);
+    });
+
+    const camBodyGeo = tracker.trackGeo(new THREE.BoxGeometry(0.32, 0.22, 0.18));
+    camBodyGeo.translate(0, 1.4, 0);
+    const camLensGeo = tracker.trackGeo(new THREE.CylinderGeometry(0.075, 0.085, 0.28, 16));
+    camLensGeo.rotateX(Math.PI / 2);
+    camLensGeo.translate(0, 1.4, 0.18);
+    const focusRingGeo = tracker.trackGeo(new THREE.TorusGeometry(0.082, 0.012, 8, 16));
+    focusRingGeo.translate(0, 1.4, 0.22);
+    const camViewfinderGeo = tracker.trackGeo(new THREE.BoxGeometry(0.08, 0.08, 0.06));
+    camViewfinderGeo.translate(0, 1.54, -0.04);
+    const cableCoilGeo = tracker.trackGeo(new THREE.TorusGeometry(0.22, 0.015, 6, 16));
+    cableCoilGeo.rotateX(Math.PI / 2);
+    cableCoilGeo.translate(0.18, 0.02, -0.15);
+    const camLedGeo = tracker.trackGeo(new THREE.SphereGeometry(0.018, 8, 8));
+    camLedGeo.translate(0.12, 1.46, 0.09);
+    const camLedMat = tracker.trackMat(
+      new THREE.MeshStandardMaterial({
+        color: '#ef4444',
+        emissive: '#ef4444',
+        emissiveIntensity: 1.5,
+        roughness: 0.2,
+      }),
+    );
+    cameraRig.add(
+      new THREE.Mesh(camBodyGeo, mats.velvetPlum),
+      new THREE.Mesh(camLensGeo, goldTrimMat),
+      new THREE.Mesh(focusRingGeo, mats.velvetPlum),
+      new THREE.Mesh(camViewfinderGeo, mats.champagneGold),
+      new THREE.Mesh(cableCoilGeo, mats.velvetPlum),
+      new THREE.Mesh(camLedGeo, camLedMat),
+    );
+    photoGroup.add(cameraRig);
+    this.addLocalCollider(10.2, -10.6, 0.45);
+
+    // Studio Lighting Equipment (Key Light, Fill Light, Rim Light Strip, Reflector)
+    const softboxGeo = tracker.trackGeo(new THREE.BoxGeometry(0.68, 0.95, 0.18));
+    softboxGeo.translate(0, 2.2, 0);
+    const softboxFaceGeo = tracker.trackGeo(new THREE.PlaneGeometry(0.64, 0.9));
+    softboxFaceGeo.translate(0, 2.2, 0.1);
+    const softboxStandGeo = tracker.trackGeo(new THREE.CylinderGeometry(0.025, 0.03, 2.2, 8));
+    softboxStandGeo.translate(0, 1.1, 0);
+
+    const keyLight = new THREE.Group();
+    keyLight.position.set(11.2, y0, -12.6);
+    keyLight.rotation.y = Math.PI * 0.35;
+    keyLight.add(
+      new THREE.Mesh(softboxStandGeo, goldTrimMat),
+      new THREE.Mesh(softboxGeo, mats.velvetPlum),
+      new THREE.Mesh(softboxFaceGeo, this.warmGlowMat),
+    );
+    photoGroup.add(keyLight);
+    this.addLocalCollider(11.2, -12.6, 0.38);
+
+    const fillLight = new THREE.Group();
+    fillLight.position.set(11.2, y0, -8.6);
+    fillLight.rotation.y = Math.PI * 0.65;
+    fillLight.scale.set(0.85, 0.9, 0.85);
+    fillLight.add(
+      new THREE.Mesh(softboxStandGeo, goldTrimMat),
+      new THREE.Mesh(softboxGeo, mats.velvetPlum),
+      new THREE.Mesh(softboxFaceGeo, this.warmGlowMat),
+    );
+    photoGroup.add(fillLight);
+    this.addLocalCollider(11.2, -8.6, 0.38);
+
+    const rimLightGroup = new THREE.Group();
+    rimLightGroup.position.set(14.5, y0, -13.2);
+    const rimStripGeo = tracker.trackGeo(new THREE.CylinderGeometry(0.05, 0.05, 1.9, 10));
+    rimStripGeo.translate(0, 1.4, 0);
+    const rimBaseGeo = tracker.trackGeo(new THREE.CylinderGeometry(0.22, 0.25, 0.06, 12));
+    rimBaseGeo.translate(0, 0.03, 0);
+    rimLightGroup.add(
+      new THREE.Mesh(rimBaseGeo, goldTrimMat),
+      new THREE.Mesh(rimStripGeo, this.pinkGlowMat),
+    );
+    photoGroup.add(rimLightGroup);
+    this.addLocalCollider(14.5, -13.2, 0.3);
+
+    const reflectorGroup = new THREE.Group();
+    reflectorGroup.position.set(13.8, y0, -8.2);
+    reflectorGroup.rotation.y = -Math.PI * 0.25;
+    const reflDiscGeo = tracker.trackGeo(new THREE.CircleGeometry(0.48, 24));
+    reflDiscGeo.translate(0, 1.45, 0);
+    const reflMat = tracker.trackMat(
+      new THREE.MeshStandardMaterial({
+        color: '#ffffff',
+        roughness: 0.18,
+        metalness: 0.88,
+        side: THREE.DoubleSide,
+      }),
+    );
+    reflectorGroup.add(
+      new THREE.Mesh(softboxStandGeo, goldTrimMat),
+      new THREE.Mesh(reflDiscGeo, reflMat),
+    );
+    photoGroup.add(reflectorGroup);
+    this.addLocalCollider(13.8, -8.2, 0.35);
+
+    // Makeup / Preparation Vanity along South Wall (lx = 13.6, lz = -14.6)
+    const vanityGroup = new THREE.Group();
+    vanityGroup.position.set(13.6, y0, -14.6);
+    const vTableGeo = tracker.trackGeo(new THREE.BoxGeometry(1.75, 0.76, 0.65));
+    vTableGeo.translate(0, 0.38, 0);
+    const vMirrorGeo = tracker.trackGeo(new THREE.PlaneGeometry(1.15, 1.22));
+    vMirrorGeo.translate(0, 1.45, 0.32);
+    const vMirrorFrameGeo = tracker.trackGeo(new THREE.BoxGeometry(1.26, 1.34, 0.06));
+    vMirrorFrameGeo.translate(0, 1.45, 0.3);
+    vanityGroup.add(
+      new THREE.Mesh(vTableGeo, wallMat),
+      new THREE.Mesh(vMirrorFrameGeo, goldTrimMat),
+      new THREE.Mesh(vMirrorGeo, mats.crystalGlass),
+    );
+
+    const vBulbGeo = tracker.trackGeo(new THREE.SphereGeometry(0.028, 8, 8));
+    [
+      [-0.58, 1.95],
+      [-0.58, 1.45],
+      [-0.58, 0.95],
+      [0.58, 1.95],
+      [0.58, 1.45],
+      [0.58, 0.95],
+      [-0.22, 2.06],
+      [0.22, 2.06],
+    ].forEach(([bx, by]) => {
+      const bulb = new THREE.Mesh(vBulbGeo, this.warmGlowMat);
+      bulb.position.set(bx, by, 0.34);
+      vanityGroup.add(bulb);
+    });
+    photoGroup.add(vanityGroup);
+    this.addLocalCollider(13.6, -14.6, 0.6);
+
+    // Wardrobe Corner Clothing Rack along North Wall (lx = 10.0, lz = -6.9)
+    const rackGroup = new THREE.Group();
+    rackGroup.position.set(10.0, y0, -6.9);
+    const rackRailGeo = tracker.trackGeo(new THREE.CylinderGeometry(0.025, 0.025, 1.85, 8));
+    rackRailGeo.rotateZ(Math.PI / 2);
+    rackRailGeo.translate(0, 1.48, 0);
+    const rackPostGeo = tracker.trackGeo(new THREE.CylinderGeometry(0.025, 0.025, 1.52, 8));
+    rackPostGeo.translate(0, 0.76, 0);
+    const rackPostL = new THREE.Mesh(rackPostGeo, goldTrimMat);
+    rackPostL.position.x = -0.88;
+    const rackPostR = new THREE.Mesh(rackPostGeo, goldTrimMat);
+    rackPostR.position.x = 0.88;
+    rackGroup.add(new THREE.Mesh(rackRailGeo, goldTrimMat), rackPostL, rackPostR);
+
+    const dressGeo = tracker.trackGeo(new THREE.ConeGeometry(0.22, 0.75, 12));
+    dressGeo.translate(0, 0.95, 0);
+    const dressColors = ['#f472b6', '#c084fc', '#38bdf8', '#fbcfe8', '#fef08a', '#be185d'];
+    for (let d = 0; d < 6; d++) {
+      const dMat = tracker.trackMat(
+        new THREE.MeshStandardMaterial({
+          color: dressColors[d],
+          roughness: 0.35,
+          metalness: 0.1,
+        }),
+      );
+      const dressMesh = new THREE.Mesh(dressGeo, dMat);
+      dressMesh.position.set(-0.7 + d * 0.27, 0, 0);
+      rackGroup.add(dressMesh);
+    }
+    photoGroup.add(rackGroup);
+    this.addLocalCollider(10.0, -6.9, 0.48);
+
+    // Equipment Storage Cabinet along South-West Wall (lx = 10.4, lz = -14.6)
+    const storageGroup = new THREE.Group();
+    storageGroup.position.set(10.4, y0, -14.6);
+    const stCabGeo = tracker.trackGeo(new THREE.BoxGeometry(1.9, 1.85, 0.58));
+    stCabGeo.translate(0, 0.925, 0);
+    storageGroup.add(new THREE.Mesh(stCabGeo, wallMat));
+
+    ['PORTRAIT', 'LIGHTING', 'BACKDROPS'].forEach((lbl, idx) => {
+      const lTex = createPlaqueTexture(tracker, lbl);
+      const lMesh = new THREE.Mesh(
+        this.labelGeo,
+        tracker.trackMat(new THREE.MeshBasicMaterial({ map: lTex })),
+      );
+      lMesh.position.set(-0.6 + idx * 0.6, 1.65, 0.3);
+      storageGroup.add(lMesh);
+    });
+
+    const caseGeo = tracker.trackGeo(new THREE.BoxGeometry(0.46, 0.26, 0.32));
+    caseGeo.translate(1.15, 0.13, 0.1);
+    const clapperGeo = tracker.trackGeo(new THREE.BoxGeometry(0.24, 0.18, 0.02));
+    clapperGeo.translate(1.15, 0.35, 0.1);
+    storageGroup.add(
+      new THREE.Mesh(caseGeo, mats.velvetPlum),
+      new THREE.Mesh(clapperGeo, goldTrimMat),
+    );
+    photoGroup.add(storageGroup);
+    this.addLocalCollider(10.4, -14.6, 0.58);
+
+    // Framed Sample Portraits (Frame 1 is live-updated when a portrait is captured!), Lighting Diagram, Camera Art & Contact Sheet
+    const capturedFrameGroup = new THREE.Group();
+    capturedFrameGroup.position.set(9.02, y0 + 2.1, -13.5);
+    capturedFrameGroup.rotation.y = Math.PI / 2;
+    const capOuter = new THREE.Mesh(this.frameOuterGeo, this.mats.champagneGold);
+    this.capturedPortraitMat = this.tracker.trackMat(
+      new THREE.MeshBasicMaterial({ map: createSampleArtworkTexture(tracker, 'portrait_1') }),
+    );
+    const capInner = new THREE.Mesh(this.frameInnerGeo, this.capturedPortraitMat);
+    capInner.position.z = 0.024;
+    capturedFrameGroup.add(capOuter, capInner);
+    photoGroup.add(capturedFrameGroup);
+
+    this.addWallFrame(
+      photoGroup,
+      9.02,
+      y0 + 2.1,
+      -7.8,
+      Math.PI / 2,
+      createSampleArtworkTexture(tracker, 'portrait_2'),
+    );
+    this.addWallFrame(
+      photoGroup,
+      13.9,
+      y0 + 2.1,
+      -6.42,
+      0,
+      createSampleArtworkTexture(tracker, 'portrait_3'),
+    );
+    this.addWallFrame(
+      photoGroup,
+      12.1,
+      y0 + 2.1,
+      -15.1,
+      0,
+      createSampleArtworkTexture(tracker, 'diagram'),
+    );
+    this.addWallFrame(
+      photoGroup,
+      14.5,
+      y0 + 2.1,
+      -6.42,
+      0,
+      createSampleArtworkTexture(tracker, 'camera_art'),
+    );
+
+    const csFrameGroup = new THREE.Group();
+    csFrameGroup.position.set(9.6, y0 + 2.1, -6.42);
+    const csOuter = new THREE.Mesh(this.frameOuterGeo, this.mats.champagneGold);
+    this.contactSheetMat = this.tracker.trackMat(
+      new THREE.MeshBasicMaterial({ map: createSampleArtworkTexture(tracker, 'contact_sheet') }),
+    );
+    const csInner = new THREE.Mesh(this.frameInnerGeo, this.contactSheetMat);
+    csInner.position.z = 0.024;
+    csFrameGroup.add(csOuter, csInner);
+    photoGroup.add(csFrameGroup);
+
+    // Instantiate Photography Studio Micro-Props via shared MicroPropLibrary
+    this.microPropLibrary.instantiatePhotographyStudioProps(y0);
+  }
+
+  /**
+   * Builds Room 2: Harsha's Couture Corner (Mini Fashion Boutique) hero fixtures and
+   * delegates micro-prop instantiation to `MicroPropLibrary.instantiateBoutiqueProps`.
+   */
+  private buildMiniFashionBoutique(): void {
+    const { tracker, mats, y0, group } = this;
+    const wallMat = mats.creamStone;
+    const goldTrimMat = mats.champagneGold;
+
+    const boutiqueGroup = new THREE.Group();
+    boutiqueGroup.name = 'MiniFashionBoutique';
+    group.add(boutiqueGroup);
+
+    // Two miniature mannequins flanking Boutique entrance (lx = 8.48, lz = -1.42 and +1.42)
+    const miniMannequinSkirtGeo = tracker.trackGeo(new THREE.ConeGeometry(0.22, 0.48, 12));
+    miniMannequinSkirtGeo.translate(0, 0.42, 0);
+    const miniMannequinStandGeo = tracker.trackGeo(new THREE.CylinderGeometry(0.14, 0.18, 0.18, 12));
+    miniMannequinStandGeo.translate(0, 0.09, 0);
+    [-1.42, 1.42].forEach((mz, idx) => {
+      const mm = new THREE.Group();
+      mm.position.set(8.48, y0, mz);
+      mm.add(
+        new THREE.Mesh(miniMannequinStandGeo, goldTrimMat),
+        new THREE.Mesh(
+          miniMannequinSkirtGeo,
+          idx === 0 ? this.roseAccentMat : mats.softLavender,
+        ),
+      );
+      boutiqueGroup.add(mm);
+    });
+
+    // Glass Display Window & Hero Mannequin (Facade lx = 9.4, lz = -3.5)
+    const windowDisplayGroup = new THREE.Group();
+    windowDisplayGroup.position.set(9.4, y0, -3.5);
+    const winGlassGeo = tracker.trackGeo(new THREE.PlaneGeometry(3.6, 2.6));
+    winGlassGeo.rotateY(Math.PI / 2);
+    winGlassGeo.translate(-0.55, 1.45, 0);
+    const pedGeo = tracker.trackGeo(new THREE.CylinderGeometry(0.55, 0.65, 0.24, 20));
+    pedGeo.translate(0, 0.12, 0);
+    const heroSkirtGeo = tracker.trackGeo(new THREE.ConeGeometry(0.52, 1.05, 16));
+    heroSkirtGeo.translate(0, 0.8, 0);
+    const heroBodiceGeo = tracker.trackGeo(new THREE.CylinderGeometry(0.22, 0.18, 0.48, 14));
+    heroBodiceGeo.translate(0, 1.4, 0);
+    const heroGownMat = tracker.trackMat(
+      new THREE.MeshStandardMaterial({
+        color: '#e11d48',
+        emissive: '#be123c',
+        emissiveIntensity: 0.45,
+        roughness: 0.25,
+        metalness: 0.2,
+      }),
+    );
+    windowDisplayGroup.add(
+      new THREE.Mesh(winGlassGeo, mats.crystalGlass),
+      new THREE.Mesh(pedGeo, goldTrimMat),
+      new THREE.Mesh(heroSkirtGeo, heroGownMat),
+      new THREE.Mesh(heroBodiceGeo, heroGownMat),
+    );
+    boutiqueGroup.add(windowDisplayGroup);
+    this.addLocalCollider(9.4, -3.5, 0.65);
+
+    // Second Mannequin on North Facade Window (lx = 9.4, lz = 3.5)
+    const mannequin2Group = new THREE.Group();
+    mannequin2Group.position.set(9.4, y0, 3.5);
+    mannequin2Group.add(
+      new THREE.Mesh(pedGeo, goldTrimMat),
+      new THREE.Mesh(heroSkirtGeo, mats.softLavender),
+      new THREE.Mesh(heroBodiceGeo, mats.softLavender),
+    );
+    boutiqueGroup.add(mannequin2Group);
+    this.addLocalCollider(9.4, 3.5, 0.65);
+
+    // Boutique Counter & Packaging Shelf
+    const bCounterGroup = new THREE.Group();
+    bCounterGroup.position.set(11.8, y0, -2.6);
+    const bcBaseGeo = tracker.trackGeo(new THREE.BoxGeometry(1.5, 0.86, 0.64));
+    bcBaseGeo.translate(0, 0.43, 0);
+    const regGeo = tracker.trackGeo(new THREE.BoxGeometry(0.32, 0.24, 0.26));
+    regGeo.translate(-0.35, 0.98, 0);
+    bCounterGroup.add(
+      new THREE.Mesh(bcBaseGeo, wallMat),
+      new THREE.Mesh(regGeo, goldTrimMat),
+    );
+    boutiqueGroup.add(bCounterGroup);
+    this.addLocalCollider(11.8, -2.6, 0.58);
+
+    const packShelfGroup = new THREE.Group();
+    packShelfGroup.position.set(14.8, y0, -1.9);
+    const pShelfFrameGeo = tracker.trackGeo(new THREE.BoxGeometry(0.48, 1.65, 1.2));
+    pShelfFrameGeo.translate(0, 0.825, 0);
+    packShelfGroup.add(new THREE.Mesh(pShelfFrameGeo, wallMat));
+    boutiqueGroup.add(packShelfGroup);
+    this.addLocalCollider(14.8, -1.9, 0.48);
+
+    // Glass Jewellery Display Counter along East Wall (lx = 14.8, lz = 0.2)
+    const jewCounterGroup = new THREE.Group();
+    jewCounterGroup.position.set(14.8, y0, 0.2);
+    const jCaseBaseGeo = tracker.trackGeo(new THREE.BoxGeometry(0.72, 0.85, 2.4));
+    jCaseBaseGeo.translate(0, 0.425, 0);
+    const jGlassGeo = tracker.trackGeo(new THREE.BoxGeometry(0.68, 0.35, 2.3));
+    jGlassGeo.translate(0, 1.025, 0);
+    jewCounterGroup.add(
+      new THREE.Mesh(jCaseBaseGeo, wallMat),
+      new THREE.Mesh(jGlassGeo, mats.crystalGlass),
+    );
+    boutiqueGroup.add(jewCounterGroup);
+    this.addLocalCollider(14.8, 0.2, 0.6);
+
+    // Shoe Tiered Display Shelves along North Wall (lx = 12.0, lz = 5.3)
+    const shoeRackGroup = new THREE.Group();
+    shoeRackGroup.position.set(12.0, y0, 5.3);
+    const sShelfGeo = tracker.trackGeo(new THREE.BoxGeometry(2.4, 0.04, 0.45));
+    [0.2, 0.5, 0.8].forEach((shY) => {
+      const shelf = new THREE.Mesh(sShelfGeo, goldTrimMat);
+      shelf.position.y = shY;
+      shoeRackGroup.add(shelf);
+    });
+    boutiqueGroup.add(shoeRackGroup);
+    this.addLocalCollider(12.0, 5.3, 0.45);
+
+    // Handbag Display Shelves along South Wall (lx = 12.0, lz = -5.3) + Couture Plaque
+    const handbagRackGroup = new THREE.Group();
+    handbagRackGroup.position.set(12.0, y0, -5.3);
+    const hbShelfGeo = tracker.trackGeo(new THREE.BoxGeometry(2.4, 0.04, 0.38));
+    [0.4, 0.85, 1.3].forEach((hY) => {
+      const shelf = new THREE.Mesh(hbShelfGeo, goldTrimMat);
+      shelf.position.y = hY;
+      handbagRackGroup.add(shelf);
+    });
+    const couturePlaqueTex = createPlaqueTexture(tracker, '✦ COUTURE ✦');
+    const couturePlaque = new THREE.Mesh(
+      this.labelGeo,
+      tracker.trackMat(new THREE.MeshBasicMaterial({ map: couturePlaqueTex })),
+    );
+    couturePlaque.position.set(0, 1.65, 0.18);
+    handbagRackGroup.add(couturePlaque);
+    boutiqueGroup.add(handbagRackGroup);
+    this.addLocalCollider(12.0, -5.3, 0.45);
+
+    // Mini Tailoring Station along East Wall (lx = 14.6, lz = 3.8)
+    const tailorGroup = new THREE.Group();
+    tailorGroup.position.set(14.6, y0, 3.8);
+    const tTableGeo = tracker.trackGeo(new THREE.BoxGeometry(0.75, 0.74, 1.45));
+    tTableGeo.translate(0, 0.37, 0);
+    const smBaseGeo = tracker.trackGeo(new THREE.BoxGeometry(0.24, 0.04, 0.38));
+    smBaseGeo.translate(0, 0.76, -0.2);
+    const smArmGeo = tracker.trackGeo(new THREE.BoxGeometry(0.08, 0.22, 0.14));
+    smArmGeo.translate(-0.06, 0.88, -0.3);
+    tailorGroup.add(
+      new THREE.Mesh(tTableGeo, wallMat),
+      new THREE.Mesh(smBaseGeo, goldTrimMat),
+      new THREE.Mesh(smArmGeo, goldTrimMat),
+    );
+    boutiqueGroup.add(tailorGroup);
+    this.addLocalCollider(14.6, 3.8, 0.55);
+
+    // Semi-Private Fitting Area at (lx = 14.6, lz = -3.8)
+    const fittingGroup = new THREE.Group();
+    fittingGroup.position.set(14.6, y0, -3.8);
+    const curtainRailGeo = tracker.trackGeo(new THREE.TorusGeometry(0.85, 0.03, 8, 16, Math.PI));
+    curtainRailGeo.rotateY(Math.PI / 2);
+    curtainRailGeo.translate(0, 2.6, 0);
+    const curtainDrapeGeo = tracker.trackGeo(
+      new THREE.CylinderGeometry(0.85, 0.88, 2.55, 16, 1, true, 0, Math.PI * 0.65),
+    );
+    curtainDrapeGeo.translate(0, 1.28, 0);
+    const fMirrorGeo = tracker.trackGeo(new THREE.BoxGeometry(0.12, 1.85, 0.85));
+    fMirrorGeo.translate(-0.15, 0.95, 0);
+    fittingGroup.add(
+      new THREE.Mesh(curtainRailGeo, goldTrimMat),
+      new THREE.Mesh(curtainDrapeGeo, mats.velvetPlum),
+      new THREE.Mesh(fMirrorGeo, mats.champagneGold),
+    );
+    boutiqueGroup.add(fittingGroup);
+    this.addLocalCollider(14.6, -3.8, 0.55);
+
+    // Framed Fashion Sketches on Boutique Walls
+    const sketchTex = createSampleArtworkTexture(tracker, 'fashion_sketch');
+    this.addWallFrame(boutiqueGroup, 9.02, y0 + 2.1, -3.5, Math.PI / 2, sketchTex);
+    this.addWallFrame(boutiqueGroup, 9.02, y0 + 2.1, 3.5, Math.PI / 2, sketchTex);
+
+    // Instantiate Boutique Micro-Props via shared MicroPropLibrary
+    this.microPropLibrary.instantiateBoutiqueProps(y0);
+  }
+
+  /**
+   * Builds Room 3: The Little Dream World (Doll Playroom) hero fixtures and
+   * delegates micro-prop instantiation to `MicroPropLibrary.instantiateDollPlayroomProps`.
+   */
+  private buildDollPlayroom(): void {
+    const { tracker, mats, y0, yCeil, group } = this;
+    const wallMat = mats.creamStone;
+    const goldTrimMat = mats.champagneGold;
+
+    const dollRoomGroup = new THREE.Group();
+    dollRoomGroup.name = 'DollPlayroom';
+    group.add(dollRoomGroup);
+
+    // HERO OBJECT: Large Tabletop Miniature Castle & Village (lx = 12.25, lz = 10.6)
+    const miniCastleTable = new THREE.Group();
+    miniCastleTable.position.set(12.25, y0, 10.6);
+
+    const tableBaseGeo = tracker.trackGeo(new THREE.CylinderGeometry(1.65, 1.72, 0.55, 24));
+    tableBaseGeo.translate(0, 0.275, 0);
+    miniCastleTable.add(new THREE.Mesh(tableBaseGeo, mats.creamStone));
+
+    const mcGroup = new THREE.Group();
+    mcGroup.position.set(0, 0.55, 0);
+
+    const mcKeepGeo = tracker.trackGeo(new THREE.BoxGeometry(0.65, 0.85, 0.65));
+    mcKeepGeo.translate(0, 0.425, 0);
+    const mcSpireGeo = tracker.trackGeo(new THREE.ConeGeometry(0.32, 0.85, 12));
+    mcSpireGeo.translate(0, 1.25, 0);
+    const miniWinGeo = tracker.trackGeo(new THREE.PlaneGeometry(0.08, 0.14));
+    const miniWinFront = new THREE.Mesh(miniWinGeo, this.warmGlowMat);
+    miniWinFront.position.set(0, 0.52, 0.33);
+    const miniBridgeGeo = tracker.trackGeo(new THREE.BoxGeometry(0.22, 0.04, 0.38));
+    miniBridgeGeo.translate(0, 0.02, 0.52);
+    const miniFountainGeo = tracker.trackGeo(new THREE.CylinderGeometry(0.16, 0.18, 0.08, 12));
+    miniFountainGeo.translate(0, 0.04, 0.88);
+
+    mcGroup.add(
+      new THREE.Mesh(mcKeepGeo, mats.blushRoseMarble),
+      new THREE.Mesh(mcSpireGeo, mats.powderBlueSpire),
+      miniWinFront,
+      new THREE.Mesh(miniBridgeGeo, goldTrimMat),
+      new THREE.Mesh(miniFountainGeo, mats.pearlWhite),
+    );
+
+    const mcTowerGeo = tracker.trackGeo(new THREE.CylinderGeometry(0.12, 0.14, 0.75, 10));
+    mcTowerGeo.translate(0, 0.375, 0);
+    const mcTowerRoofGeo = tracker.trackGeo(new THREE.ConeGeometry(0.16, 0.45, 10));
+    mcTowerRoofGeo.translate(0, 0.95, 0);
+    const flagGeo = tracker.trackGeo(new THREE.PlaneGeometry(0.14, 0.07));
+    flagGeo.translate(0.07, 1.22, 0);
+
+    [
+      [-0.38, -0.38],
+      [0.38, -0.38],
+      [-0.38, 0.38],
+      [0.38, 0.38],
+    ].forEach(([tx, tz]) => {
+      const tw = new THREE.Mesh(mcTowerGeo, mats.pearlWhite);
+      tw.position.set(tx, 0, tz);
+      const tr = new THREE.Mesh(mcTowerRoofGeo, mats.powderBlueSpire);
+      tr.position.set(tx, 0, tz);
+      const fl = new THREE.Mesh(flagGeo, this.roseAccentMat);
+      fl.position.set(tx, 0, tz);
+      mcGroup.add(tw, tr, fl);
+    });
+
+    // Miniature Village Houses around Castle
+    const villageHouseGeo = tracker.trackGeo(new THREE.BoxGeometry(0.18, 0.16, 0.18));
+    villageHouseGeo.translate(0, 0.08, 0);
+    const villageRoofGeo = tracker.trackGeo(new THREE.ConeGeometry(0.14, 0.16, 4));
+    villageRoofGeo.rotateY(Math.PI / 4);
+    villageRoofGeo.translate(0, 0.22, 0);
+
+    [
+      [0.9, 0.2],
+      [0.85, -0.5],
+      [-0.85, 0.4],
+      [-0.75, -0.6],
+      [0.42, 0.92],
+      [-0.42, 0.92],
+    ].forEach(([vx, vz]) => {
+      const h = new THREE.Mesh(villageHouseGeo, mats.blushRoseMarble);
+      h.position.set(vx, 0, vz);
+      const r = new THREE.Mesh(villageRoofGeo, mats.powderBlueSpire);
+      r.position.set(vx, 0, vz);
+      mcGroup.add(h, r);
+    });
+
+    // Miniature rotating windmill
+    const windmillBaseGeo = tracker.trackGeo(new THREE.CylinderGeometry(0.1, 0.14, 0.38, 8));
+    windmillBaseGeo.translate(0, 0.19, 0);
+    const windmillBase = new THREE.Mesh(windmillBaseGeo, mats.creamStone);
+    windmillBase.position.set(0.65, 0, -0.85);
+
+    this.windmillBlades = new THREE.Group();
+    this.windmillBlades.position.set(0.65, 0.36, -0.74);
+    const bladeGeo = tracker.trackGeo(new THREE.BoxGeometry(0.04, 0.36, 0.015));
+    const b1 = new THREE.Mesh(bladeGeo, goldTrimMat);
+    const b2 = new THREE.Mesh(bladeGeo, goldTrimMat);
+    b2.rotation.z = Math.PI / 2;
+    this.windmillBlades.add(b1, b2);
+    mcGroup.add(windmillBase, this.windmillBlades);
+    this.dynamicObjects.add(this.windmillBlades);
+
+    // 5 Stylized Dolls with distinct silhouettes around table
+    const dollSkirtGeo = tracker.trackGeo(new THREE.ConeGeometry(0.09, 0.22, 10));
+    dollSkirtGeo.translate(0, 0.11, 0);
+    const dollHeadGeo = tracker.trackGeo(new THREE.SphereGeometry(0.045, 8, 8));
+    dollHeadGeo.translate(0, 0.25, 0);
+    const dollColors = ['#f472b6', '#fbcfe8', '#38bdf8', '#a7f3d0', '#fbbf24'];
+    [
+      [-0.55, 0.65],
+      [0.58, 0.62],
+      [-1.1, 0.05],
+      [1.12, -0.15],
+      [0.0, -1.05],
+    ].forEach(([dx, dz], dIdx) => {
+      const dGroup = new THREE.Group();
+      dGroup.position.set(dx, 0, dz);
+      const sk = new THREE.Mesh(
+        dollSkirtGeo,
+        tracker.trackMat(
+          new THREE.MeshStandardMaterial({ color: dollColors[dIdx], roughness: 0.35 }),
+        ),
+      );
+      const hd = new THREE.Mesh(dollHeadGeo, mats.pearlWhite);
+      dGroup.add(sk, hd);
+      mcGroup.add(dGroup);
+    });
+
+    miniCastleTable.add(mcGroup);
+    dollRoomGroup.add(miniCastleTable);
+    this.addLocalCollider(12.25, 10.6, 1.45);
+
+    // Multi-Room Visible Dollhouse along East Wall (lx = 14.8, lz = 10.6)
+    const dollhouseGroup = new THREE.Group();
+    dollhouseGroup.position.set(14.8, y0, 10.6);
+    dollhouseGroup.rotation.y = -Math.PI / 2;
+
+    const dhFrameGeo = tracker.trackGeo(new THREE.BoxGeometry(2.4, 1.8, 0.65));
+    dhFrameGeo.translate(0, 0.9, -0.28);
+    const dhDividerGeo = tracker.trackGeo(new THREE.BoxGeometry(0.06, 1.7, 0.62));
+    dhDividerGeo.translate(0, 0.9, 0);
+    const dhFloorGeo = tracker.trackGeo(new THREE.BoxGeometry(2.3, 0.06, 0.62));
+    dhFloorGeo.translate(0, 0.9, 0);
+    dollhouseGroup.add(
+      new THREE.Mesh(dhFrameGeo, mats.creamStone),
+      new THREE.Mesh(dhDividerGeo, goldTrimMat),
+      new THREE.Mesh(dhFloorGeo, goldTrimMat),
+    );
+    dollRoomGroup.add(dollhouseGroup);
+    this.addLocalCollider(14.8, 10.6, 0.65);
+
+    // LEGO-Style Construction Table (lx = 10.2, lz = 7.4)
+    const legoTableGroup = new THREE.Group();
+    legoTableGroup.position.set(10.2, y0, 7.4);
+    const legoTableBaseGeo = tracker.trackGeo(new THREE.BoxGeometry(1.2, 0.55, 1.0));
+    legoTableBaseGeo.translate(0, 0.275, 0);
+    legoTableGroup.add(new THREE.Mesh(legoTableBaseGeo, mats.softLavender));
+    dollRoomGroup.add(legoTableGroup);
+    this.addLocalCollider(10.2, 7.4, 0.55);
+
+    // Craft Table (lx = 14.3, lz = 7.4)
+    const craftGroup = new THREE.Group();
+    craftGroup.position.set(14.3, y0, 7.4);
+    const craftTableGeo = tracker.trackGeo(new THREE.CylinderGeometry(0.58, 0.58, 0.52, 16));
+    craftTableGeo.translate(0, 0.26, 0);
+    craftGroup.add(new THREE.Mesh(craftTableGeo, mats.pearlWhite));
+    dollRoomGroup.add(craftGroup);
+    this.addLocalCollider(14.3, 7.4, 0.55);
+
+    const kidDrawTex = createSampleArtworkTexture(tracker, 'kid_drawing');
+    this.addWallFrame(dollRoomGroup, 14.3, y0 + 2.0, 6.42, Math.PI, kidDrawTex);
+    this.addWallFrame(dollRoomGroup, 9.42, y0 + 2.0, 8.6, Math.PI / 2, kidDrawTex);
+
+    // Toy Shelf along North Wall (lx = 12.2, lz = 14.6)
+    const toyShelfGroup = new THREE.Group();
+    toyShelfGroup.position.set(12.2, y0, 14.6);
+    const tsShelfGeo = tracker.trackGeo(new THREE.BoxGeometry(2.6, 1.6, 0.38));
+    tsShelfGeo.translate(0, 0.8, 0);
+    toyShelfGroup.add(new THREE.Mesh(tsShelfGeo, wallMat));
+    dollRoomGroup.add(toyShelfGroup);
+    this.addLocalCollider(12.2, 14.6, 0.55);
+
+    // Doll Bedroom Corner (lx = 10.1, lz = 13.8)
+    const dollBedCorner = new THREE.Group();
+    dollBedCorner.position.set(10.1, y0, 13.8);
+    const miniBedGeo = tracker.trackGeo(new THREE.BoxGeometry(0.85, 0.28, 0.62));
+    miniBedGeo.translate(0, 0.14, 0);
+    const miniPillowGeo = tracker.trackGeo(new THREE.BoxGeometry(0.22, 0.08, 0.42));
+    miniPillowGeo.translate(-0.26, 0.31, 0);
+    dollBedCorner.add(
+      new THREE.Mesh(miniBedGeo, mats.blushRoseMarble),
+      new THREE.Mesh(miniPillowGeo, mats.pearlWhite),
+    );
+    dollRoomGroup.add(dollBedCorner);
+    this.addLocalCollider(10.1, 13.8, 0.48);
+
+    // Indoor Miniature Raised Garden Planter (lx = 14.4, lz = 13.8)
+    const miniGardenCorner = new THREE.Group();
+    miniGardenCorner.position.set(14.4, y0, 13.8);
+    const planterGeo = tracker.trackGeo(new THREE.CylinderGeometry(0.65, 0.72, 0.26, 16));
+    planterGeo.translate(0, 0.13, 0);
+    miniGardenCorner.add(new THREE.Mesh(planterGeo, mats.creamStone));
+    dollRoomGroup.add(miniGardenCorner);
+    this.addLocalCollider(14.4, 13.8, 0.55);
+
+    // Instantiate Doll Playroom Micro-Props via shared MicroPropLibrary
+    this.microPropLibrary.instantiateDollPlayroomProps(y0, yCeil);
+  }
+
+  /**
+   * Section 8–10: Custom Photo Backdrop Loader with Aspect-Ratio-Preserving Cover/Fit Framing,
+   * Texture Reuse, and Zero Blob URL Leaks.
+   */
+  public setCustomPhotoBackdrop(imageSource: string): void {
+    if (!imageSource || typeof Image === 'undefined' || !this.customBackdropCanvas) return;
+
+    const isBlobUrl = imageSource.startsWith('blob:');
+    const img = new Image();
+    if (!isBlobUrl && !imageSource.startsWith('data:')) {
+      img.crossOrigin = 'anonymous';
+    }
+    img.onload = () => {
+      if (isBlobUrl) {
+        URL.revokeObjectURL(imageSource);
+      }
+      if (!this.customBackdropCanvas || img.naturalWidth <= 0 || img.naturalHeight <= 0) return;
+      const ctx = this.customBackdropCanvas.getContext('2d');
+      if (!ctx) return;
+
+      const cw = this.customBackdropCanvas.width;
+      const ch = this.customBackdropCanvas.height;
+      ctx.clearRect(0, 0, cw, ch);
+
+      // Soft studio ambient fill behind portrait/landscape images so faces are never stretched
+      const bgGrad = ctx.createRadialGradient(cw / 2, ch / 2, 30, cw / 2, ch / 2, cw * 0.65);
+      bgGrad.addColorStop(0, '#fdf2f8');
+      bgGrad.addColorStop(0.55, '#fce7f3');
+      bgGrad.addColorStop(1, '#831843');
+      ctx.fillStyle = bgGrad;
+      ctx.fillRect(0, 0, cw, ch);
+
+      const imgAspect = img.naturalWidth / img.naturalHeight;
+      const canvasAspect = cw / ch;
+
+      // Intelligent aspect-ratio preservation:
+      // Portrait or square images fit cleanly with soft studio edges; landscape images cover-fit smoothly
+      let drawW = cw;
+      let drawH = ch;
+      let drawX = 0;
+      let drawY = 0;
+      if (imgAspect < 0.95) {
+        // Portrait image: contain height with soft blurred/pastel side framing so faces are never cropped
+        drawH = ch - 16;
+        drawW = drawH * imgAspect;
+        drawX = (cw - drawW) * 0.5;
+        drawY = 8;
+      } else if (imgAspect > canvasAspect) {
+        drawH = ch;
+        drawW = ch * imgAspect;
+        drawX = (cw - drawW) * 0.5;
+      } else {
+        drawW = cw;
+        drawH = cw / imgAspect;
+        drawY = (ch - drawH) * 0.35;
+      }
+
+      ctx.save();
+      ctx.shadowColor = 'rgba(131, 24, 67, 0.35)';
+      ctx.shadowBlur = 18;
+      ctx.drawImage(img, drawX, drawY, drawW, drawH);
+      ctx.restore();
+
+      // Subtle champagne-gold studio frame border
+      ctx.strokeStyle = 'rgba(251, 191, 36, 0.78)';
+      ctx.lineWidth = 6;
+      ctx.strokeRect(4, 4, cw - 8, ch - 8);
+
+      if (this.customBackdropTex) {
+        this.customBackdropTex.needsUpdate = true;
+      }
+      this.hasCustomBackdrop = true;
+      if (this.activeBackdropIndex !== 6) {
+        this.previousPresetIndex = this.activeBackdropIndex;
+      }
+      this.activeBackdropIndex = 6;
+      this.backdropScreenMat.map = this.backdropTextures[6];
+      this.backdropScreenMat.needsUpdate = true;
+      this.activeCaption = 'The Portrait Atelier ✧ Custom Photo Backdrop Active';
+    };
+    img.onerror = () => {
+      if (isBlobUrl) {
+        URL.revokeObjectURL(imageSource);
+      }
+    };
+    img.src = imageSource;
+  }
+
+  private playShutterSound(): void {
+    try {
+      if (!this.audioCtx && typeof window !== 'undefined') {
+        const AudioCtx =
+          window.AudioContext ||
+          (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+        if (AudioCtx) this.audioCtx = new AudioCtx();
+      }
+      if (!this.audioCtx) return;
+      if (this.audioCtx.state === 'suspended') this.audioCtx.resume();
+
+      const now = this.audioCtx.currentTime;
+      // Mechanical shutter click + crystal flash chime
+      const osc = this.audioCtx.createOscillator();
+      const gain = this.audioCtx.createGain();
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(920, now);
+      osc.frequency.exponentialRampToValueAtTime(180, now + 0.045);
+      gain.gain.setValueAtTime(0.14, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.06);
+      osc.connect(gain);
+      gain.connect(this.audioCtx.destination);
+      osc.start(now);
+      osc.stop(now + 0.07);
+
+      const chime = this.audioCtx.createOscillator();
+      const cGain = this.audioCtx.createGain();
+      chime.type = 'sine';
+      chime.frequency.setValueAtTime(1046.5, now + 0.05);
+      chime.frequency.exponentialRampToValueAtTime(1318.5, now + 0.22);
+      cGain.gain.setValueAtTime(0.05, now + 0.05);
+      cGain.gain.exponentialRampToValueAtTime(0.0008, now + 0.38);
+      chime.connect(cGain);
+      cGain.connect(this.audioCtx.destination);
+      chime.start(now + 0.05);
+      chime.stop(now + 0.4);
+    } catch {
+      // Ignore audio fallback
+    }
+  }
+
+  /**
+   * Section 11: `[E] TAKE PORTRAIT`
+   * Triggers a brief camera framing, subtle shutter animation, studio flash, and shutter sound,
+   * renders the captured portrait onto the studio's physical photo frame & Tabletop Castle Memory Path,
+   * and returns the player cleanly to normal exploration camera!
+   */
+  public triggerTakePortrait(): boolean {
+    this.playShutterSound();
+    this.shutterFlashTimer = 0.45;
+    this.shutterFlashMesh.visible = true;
+    this.shutterFlashMat.opacity = 0.95;
+    this.portraitCount += 1;
+
+    // Render composite portrait onto a 256x320 canvas for the studio wall frame & Tabletop Memory Path
+    const activeTex = this.backdropTextures[this.activeBackdropIndex];
+    const srcCanvas = activeTex?.image as HTMLCanvasElement | undefined;
+    const pCanvas = document.createElement('canvas');
+    pCanvas.width = 256;
+    pCanvas.height = 320;
+    const ctx = pCanvas.getContext('2d');
+    if (ctx) {
+      if (srcCanvas) {
+        ctx.drawImage(srcCanvas, 64, 0, 384, 384, 0, 0, 256, 320);
+      } else {
+        ctx.fillStyle = '#fbcfe8';
+        ctx.fillRect(0, 0, 256, 320);
+      }
+
+      // If using a preset backdrop, overlay stylized royal silhouette of Harsha in her crown
+      if (this.activeBackdropIndex < 6) {
+        ctx.fillStyle = 'rgba(255, 241, 242, 0.92)';
+        ctx.beginPath();
+        ctx.arc(128, 128, 34, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.moveTo(68, 290);
+        ctx.quadraticCurveTo(128, 168, 188, 290);
+        ctx.closePath();
+        ctx.fill();
+
+        // Crown emblem
+        ctx.fillStyle = '#fde047';
+        ctx.beginPath();
+        ctx.moveTo(104, 92);
+        ctx.lineTo(114, 70);
+        ctx.lineTo(128, 84);
+        ctx.lineTo(142, 70);
+        ctx.lineTo(152, 92);
+        ctx.closePath();
+        ctx.fill();
+      }
+
+      // Gold Atelier Frame & Caption
+      ctx.strokeStyle = '#fde047';
+      ctx.lineWidth = 8;
+      ctx.strokeRect(4, 4, 248, 312);
+      ctx.fillStyle = 'rgba(76, 5, 25, 0.82)';
+      ctx.fillRect(8, 272, 240, 40);
+      ctx.fillStyle = '#fde047';
+      ctx.font = 'bold 14px Georgia, serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(`PORTRAIT #${this.portraitCount} • Y + H ♡`, 128, 296);
+    }
+
+    const newPortraitTex = this.tracker.trackTex(new THREE.CanvasTexture(pCanvas));
+    newPortraitTex.colorSpace = THREE.SRGBColorSpace;
+    newPortraitTex.needsUpdate = true;
+
+    if (this.capturedPortraitMat) {
+      this.capturedPortraitMat.map = newPortraitTex;
+      this.capturedPortraitMat.needsUpdate = true;
+    }
+    this.tabletopWorld.addCapturedPortraitToMemoryPath(newPortraitTex);
+
+    // Brief 0.65s portrait framing if not already in camera mode, then auto-return to exploration!
+    if (this.activeCameraMode === 'none') {
+      this.activeCameraMode = 'portrait_atelier';
+      this.cameraTransitionElapsed = this.CAMERA_TRANSITION_DUR;
+      this.portraitCaptureFramingTimer = 0.68;
+    } else {
+      this.portraitCaptureFramingTimer = 0.55;
+    }
+    this.activeCaption = `Portrait Captured! ✧ Displayed in Atelier Frame & Tabletop Memory Path`;
+    return true;
+  }
+
+  public exitActiveCameraMode(): void {
+    this.activeCameraMode = 'none';
+    this.cameraTransitionElapsed = 0.0;
+    this.portraitCaptureFramingTimer = 0.0;
+    this.activeCaption = null;
+    this.camLookYaw = 0.0;
+    this.camLookPitch = 0.0;
+  }
+
+  public getCameraState(): CreativeWingCameraState {
+    // Priority 1: Tabletop Castle -> Little Dream World Gate Scale Transition
+    if (this.tabletopWorld.isTransitionActive()) {
+      const tr = this.tabletopWorld.getTransitionCameraState();
+      return {
+        active: tr.active,
+        mode: 'doll_playroom',
+        camWorldPos: tr.camWorldPos,
+        lookWorldPos: tr.lookWorldPos,
+        blendAlpha: tr.blendAlpha,
+      };
+    }
+
+    if (this.activeCameraMode === 'none') {
       return {
         active: false,
         mode: 'none',
@@ -980,169 +1904,310 @@ export function createCastleFloor2CreativeWing(
       };
     }
 
-    const t = THREE.MathUtils.clamp(cameraTransitionElapsed / CAMERA_TRANSITION_DUR, 0, 1);
+    const t = THREE.MathUtils.clamp(
+      this.cameraTransitionElapsed / this.CAMERA_TRANSITION_DUR,
+      0,
+      1,
+    );
     const alpha = smoothStep01(t);
 
-    if (activeCameraMode === 'portrait_atelier') {
-      // Camera faces the backdrop on the East wall (lx = 15.15) from lx = 10.2
-      _scratchCamWorldPos.set(originX + 10.2, baseY + y0 + 1.65, originZ - 10.6);
+    // Full 360° horizontal look support in all Creative Wing inspection modes (Sections 38–42)
+    const dirX = Math.cos(this.camLookYaw) * Math.cos(this.camLookPitch);
+    const dirY = Math.sin(this.camLookPitch);
+    const dirZ = Math.sin(this.camLookYaw) * Math.cos(this.camLookPitch);
+
+    if (this.activeCameraMode === 'portrait_atelier') {
+      _scratchCamWorldPos.set(this.originX + 10.2, this.baseY + this.y0 + 1.65, this.originZ - 10.6);
       _scratchLookWorldPos.set(
-        originX + 15.15 + Math.sin(camLookYaw) * 2.0,
-        baseY + y0 + 1.85 + Math.sin(camLookPitch) * 1.5,
-        originZ - 10.6,
+        _scratchCamWorldPos.x + dirX * 4.95,
+        _scratchCamWorldPos.y + dirY * 3.5 + 0.12,
+        _scratchCamWorldPos.z + dirZ * 4.95,
       );
-    } else if (activeCameraMode === 'couture_boutique') {
-      // Camera frames Harsha's couture window and tailoring corner
-      _scratchCamWorldPos.set(originX + 11.2, baseY + y0 + 1.65, originZ - 1.2);
+    } else if (this.activeCameraMode === 'couture_boutique') {
+      // Orbit / 360° look centered in the Jewellery Atelier
+      _scratchCamWorldPos.set(this.originX + 10.6, this.baseY + this.y0 + 1.58, this.originZ + 0.15);
       _scratchLookWorldPos.set(
-        originX + 14.2 + Math.sin(camLookYaw) * 2.0,
-        baseY + y0 + 1.6 + Math.sin(camLookPitch) * 1.5,
-        originZ + 1.5,
+        _scratchCamWorldPos.x + dirX * 3.2,
+        _scratchCamWorldPos.y + dirY * 2.5 - 0.18,
+        _scratchCamWorldPos.z + dirZ * 3.2,
       );
-    } else if (activeCameraMode === 'doll_playroom') {
-      // Camera gracefully frames the tabletop miniature castle
-      _scratchCamWorldPos.set(originX + 10.4, baseY + y0 + 1.85, originZ + 9.5);
+    } else if (this.activeCameraMode === 'doll_playroom') {
+      _scratchCamWorldPos.set(this.originX + 10.35, this.baseY + this.y0 + 1.78, this.originZ + 10.6);
       _scratchLookWorldPos.set(
-        originX + 12.25 + Math.sin(camLookYaw) * 2.0,
-        baseY + y0 + 1.25 + Math.sin(camLookPitch) * 1.5,
-        originZ + 10.6,
+        _scratchCamWorldPos.x + dirX * 2.4,
+        _scratchCamWorldPos.y + dirY * 2.0 - 0.42,
+        _scratchCamWorldPos.z + dirZ * 2.4,
       );
     }
 
     return {
       active: true,
-      mode: activeCameraMode,
+      mode: this.activeCameraMode,
       camWorldPos: _scratchCamWorldPos,
       lookWorldPos: _scratchLookWorldPos,
       blendAlpha: alpha,
     };
-  };
+  }
 
-  const getProximityPrompt = (playerPos: THREE.Vector3): string | null => {
-    const lx = playerPos.x - originX;
-    const lz = playerPos.z - originZ;
-    const relY = playerPos.y - (baseY + y0);
+  public getProximityPrompt(playerPos: THREE.Vector3): string | null {
+    const lx = playerPos.x - this.originX;
+    const lz = playerPos.z - this.originZ;
+    const relY = playerPos.y - (this.baseY + this.y0);
 
-    // Floor 2 vertical window check
-    if (Math.abs(relY) > 1.4) return null;
+    if (Math.abs(relY) > 1.6) return null;
 
-    if (activeCameraMode !== 'none') {
-      if (activeCameraMode === 'portrait_atelier') {
+    // Inside Connected Little Dream World Enclave (center lx = 33.0, lz = 12.0)
+    if (this.tabletopWorld.isInsideLittleDreamWorld || Math.hypot(lx - 33.0, lz - 12.0) <= 8.5) {
+      if (this.tabletopWorld.isNearDreamWorldReturnGate(lx, lz)) {
+        return '[E] Return Through Castle Gate to Doll Playroom (Or Walk Through Gate)';
+      }
+      return 'Little Dream World ✧ Walk Path West to Castle Gate to Return · [E] Return to Tabletop';
+    }
+
+    if (this.activeCameraMode !== 'none') {
+      if (this.activeCameraMode === 'portrait_atelier') {
         return (
-          'Portrait Atelier ✧ [1-6] Switch Backdrop (' +
-          BACKDROP_NAMES[activeBackdropIndex] +
-          ') · [E] Step Back'
+          'Portrait Atelier ✧ [1-6] Backdrops (' +
+          BACKDROP_NAMES[this.activeBackdropIndex] +
+          ') · [U] Upload Photo · [C] Take Portrait · [E] Exit'
         );
       }
-      return '[E] Return to Floor 2 Exploration';
+      if (this.activeCameraMode === 'couture_boutique') {
+        return this.jewelleryAtelier.getProximityPrompt(lx, lz, true);
+      }
+      return 'Tabletop Castle ✧ [G] Explore Little Castle · Drag/Touchpad 360° Look · [E] Step Back';
     }
 
-    // 1. Photography Studio: lx in [8.8, 15.3], lz in [-14.8, -6.4]
+    // Room 1: Portrait Atelier (lx in [8.8, 15.3], lz in [-14.8, -6.4])
     if (lx >= 8.8 && lx <= 15.3 && lz >= -14.8 && lz <= -6.4) {
-      return '[E] Enter Portrait Atelier · [1-6] Backdrops';
+      // Near Portrait Position Floor Marker (13.35, -10.6) -> [E] TAKE PORTRAIT
+      if (Math.hypot(lx - 13.35, lz - (-10.6)) <= 1.25) {
+        return '[E] TAKE PORTRAIT · [1-6] Switch Backdrop · [U] Upload Custom Photo';
+      }
+      // Near Studio Camera / Backdrop Control -> [E] USE PORTRAIT CAMERA
+      return '[E] USE PORTRAIT CAMERA · [C] Take Portrait · [U] Upload Custom Photo';
     }
 
-    // 2. Mini Fashion Boutique: lx in [8.8, 15.3], lz in [-5.8, +5.8]
+    // Room 2: Jewellery Atelier / Couture Corner (lx in [8.8, 15.3], lz in [-5.8, +5.8])
     if (lx >= 8.8 && lx <= 15.3 && lz >= -5.8 && lz <= 5.8) {
-      return "[E] Browse Harsha's Couture Corner · Tailoring & Jewelry";
+      return this.jewelleryAtelier.getProximityPrompt(lx, lz, false);
     }
 
-    // 3. Doll Playroom: lx in [9.2, 15.3], lz in [+6.4, +14.8]
+    // Room 3: Doll Playroom & Tabletop Castle (lx in [9.2, 15.3], lz in [6.4, 14.8])
     if (lx >= 9.2 && lx <= 15.3 && lz >= 6.4 && lz <= 14.8) {
-      return '[E] Explore The Little Dream World · Tabletop Castle';
+      if (this.tabletopWorld.isNearTabletopGate(lx, lz)) {
+        return '[E] EXPLORE LITTLE CASTLE (Enter Little Dream World) · [I] Inspect Tabletop';
+      }
+      return '[E] Inspect Tabletop Castle · Walk to Castle Gate for [E] EXPLORE LITTLE CASTLE';
     }
 
     return null;
-  };
+  }
 
-  const interact = (playerPos: THREE.Vector3): boolean => {
-    if (activeCameraMode !== 'none') {
-      activeCameraMode = 'none';
-      cameraTransitionElapsed = 0.0;
-      activeCaption = null;
-      camLookYaw = 0.0;
-      camLookPitch = 0.0;
+  public getActiveRoomCaption(): string | null {
+    return this.jewelleryAtelier.getStatusCaption() ?? this.activeCaption;
+  }
+
+  public interact(playerPos: THREE.Vector3): boolean {
+    if (this.activeCameraMode !== 'none') {
+      this.exitActiveCameraMode();
       return true;
     }
 
-    const lx = playerPos.x - originX;
-    const lz = playerPos.z - originZ;
-    const relY = playerPos.y - (baseY + y0);
-    if (Math.abs(relY) > 1.4) return false;
+    const lx = playerPos.x - this.originX;
+    const lz = playerPos.z - this.originZ;
+    const relY = playerPos.y - (this.baseY + this.y0);
+    if (Math.abs(relY) > 1.6) return false;
 
+    // Inside Little Dream World: [E] returns smoothly to the Doll Playroom Tabletop Castle
+    if (this.tabletopWorld.isInsideLittleDreamWorld || Math.hypot(lx - 33.0, lz - 12.0) <= 8.5) {
+      this.activeCaption = 'Returning through the Castle Gate to the Doll Playroom…';
+      return this.tabletopWorld.triggerExitLittleDreamWorld();
+    }
+
+    // Room 1: Portrait Atelier
     if (lx >= 8.8 && lx <= 15.3 && lz >= -14.8 && lz <= -6.4) {
-      activeCameraMode = 'portrait_atelier';
-      cameraTransitionElapsed = 0.0;
-      activeCaption = 'The Portrait Atelier ✧ ' + BACKDROP_NAMES[activeBackdropIndex];
+      // Standing on Portrait Position Marker -> Take Portrait directly!
+      if (Math.hypot(lx - 13.35, lz - (-10.6)) <= 1.25) {
+        return this.triggerTakePortrait();
+      }
+      this.activeCameraMode = 'portrait_atelier';
+      this.cameraTransitionElapsed = 0.0;
+      this.camLookYaw = 0.0;
+      this.camLookPitch = 0.0;
+      this.activeCaption = 'The Portrait Atelier ✧ ' + BACKDROP_NAMES[this.activeBackdropIndex];
       return true;
     }
 
+    // Room 2: Jewellery Atelier / Couture Corner
     if (lx >= 8.8 && lx <= 15.3 && lz >= -5.8 && lz <= 5.8) {
-      activeCameraMode = 'couture_boutique';
-      cameraTransitionElapsed = 0.0;
-      activeCaption = "Harsha's Couture Corner ✧ High Castle Fashion & Tailoring";
+      const res = this.jewelleryAtelier.interactAtPosition(lx, lz);
+      this.activeCaption = res.caption;
+      if (res.enterInspect) {
+        this.activeCameraMode = 'couture_boutique';
+        this.cameraTransitionElapsed = 0.0;
+        this.camLookYaw = 0.0;
+        this.camLookPitch = 0.0;
+      }
       return true;
     }
 
+    // Room 3: Doll Playroom & Tabletop Castle
     if (lx >= 9.2 && lx <= 15.3 && lz >= 6.4 && lz <= 14.8) {
-      activeCameraMode = 'doll_playroom';
-      cameraTransitionElapsed = 0.0;
-      activeCaption = 'The Little Dream World ✧ Handcrafted Tabletop Castle';
+      if (this.tabletopWorld.isNearTabletopGate(lx, lz)) {
+        this.activeCaption =
+          'Little Dream World ✧ Stepping through the Miniature Castle Gate…';
+        return this.tabletopWorld.triggerEnterLittleDreamWorld();
+      }
+      this.activeCameraMode = 'doll_playroom';
+      this.cameraTransitionElapsed = 0.0;
+      this.camLookYaw = 0.0;
+      this.camLookPitch = 0.0;
+      this.activeCaption = 'The Little Dream World ✧ Handcrafted Tabletop Castle';
       return true;
     }
 
     return false;
-  };
+  }
 
-  const handleKeyAction = (key: string): boolean => {
-    if (activeCameraMode === 'portrait_atelier') {
+  public handleKeyAction(key: string): boolean {
+    const lower = key.toLowerCase();
+    const onFloor2 = Math.abs(this.lastPlayerRelY) <= 1.6;
+    const inPortraitRoom =
+      this.activeCameraMode === 'portrait_atelier' ||
+      (onFloor2 &&
+        this.lastPlayerLx >= 8.8 &&
+        this.lastPlayerLx <= 15.3 &&
+        this.lastPlayerLz >= -14.8 &&
+        this.lastPlayerLz <= -6.4);
+    const inJewelleryRoom =
+      this.activeCameraMode === 'couture_boutique' ||
+      (onFloor2 &&
+        this.lastPlayerLx >= 8.8 &&
+        this.lastPlayerLx <= 15.3 &&
+        this.lastPlayerLz >= -5.8 &&
+        this.lastPlayerLz <= 5.8);
+    const inDollRoom =
+      this.activeCameraMode === 'doll_playroom' ||
+      (onFloor2 &&
+        this.lastPlayerLx >= 9.2 &&
+        this.lastPlayerLx <= 15.3 &&
+        this.lastPlayerLz >= 6.4 &&
+        this.lastPlayerLz <= 14.8);
+
+    // Portrait Atelier shortcuts (work both in studio and in portrait camera mode)
+    if (inPortraitRoom) {
+      if (lower === 'c' || (this.activeCameraMode === 'portrait_atelier' && key === ' ')) {
+        return this.triggerTakePortrait();
+      }
       const num = parseInt(key, 10);
       if (!isNaN(num) && num >= 1 && num <= 6) {
-        activeBackdropIndex = num - 1;
-        backdropScreenMat.map = backdropTextures[activeBackdropIndex];
-        backdropScreenMat.needsUpdate = true;
-        activeCaption = 'The Portrait Atelier ✧ ' + BACKDROP_NAMES[activeBackdropIndex];
+        this.activeBackdropIndex = num - 1;
+        this.previousPresetIndex = this.activeBackdropIndex;
+        this.backdropScreenMat.map = this.backdropTextures[this.activeBackdropIndex];
+        this.backdropScreenMat.needsUpdate = true;
+        this.activeCaption = 'The Portrait Atelier ✧ ' + BACKDROP_NAMES[this.activeBackdropIndex];
+        return true;
+      }
+      if (num === 7 && this.hasCustomBackdrop) {
+        this.activeBackdropIndex = 6;
+        this.backdropScreenMat.map = this.backdropTextures[6];
+        this.backdropScreenMat.needsUpdate = true;
+        this.activeCaption = 'The Portrait Atelier ✧ Custom Photo Backdrop Active';
         return true;
       }
     }
+
+    // Jewellery Atelier shortcuts: [1] Try/Remove Ring, [2] Try/Remove Necklace, [3] Try/Remove Crown
+    if (inJewelleryRoom) {
+      if (key === '1') {
+        this.activeCaption = this.jewelleryAtelier.toggleRing();
+        return true;
+      }
+      if (key === '2') {
+        this.activeCaption = this.jewelleryAtelier.toggleNecklace();
+        return true;
+      }
+      if (key === '3') {
+        this.activeCaption = this.jewelleryAtelier.toggleCrown();
+        return true;
+      }
+    }
+
+    // Doll Playroom shortcut: [G] Explore Little Castle from tabletop inspect or room
+    if (inDollRoom && lower === 'g') {
+      this.exitActiveCameraMode();
+      this.activeCaption = 'Little Dream World ✧ Stepping through the Miniature Castle Gate…';
+      return this.tabletopWorld.triggerEnterLittleDreamWorld();
+    }
+
     return false;
-  };
+  }
 
-  const applyLookDelta = (deltaYaw: number, deltaPitch: number) => {
-    camLookYaw = THREE.MathUtils.clamp(camLookYaw + deltaYaw, -0.85, 0.85);
-    camLookPitch = THREE.MathUtils.clamp(camLookPitch + deltaPitch, -0.65, 0.65);
-  };
+  /**
+   * Sections 38–42: Full 360° unrestricted horizontal look (`camLookYaw` wraps around `[-π, +π]`)
+   * and smooth vertical pitch (`[-0.78, +0.78]`) during all Creative Wing inspection modes.
+   */
+  public applyLookDelta(deltaYaw: number, deltaPitch: number): void {
+    let nextYaw = this.camLookYaw + deltaYaw;
+    while (nextYaw > Math.PI) nextYaw -= Math.PI * 2;
+    while (nextYaw < -Math.PI) nextYaw += Math.PI * 2;
+    this.camLookYaw = nextYaw;
+    this.camLookPitch = THREE.MathUtils.clamp(this.camLookPitch + deltaPitch, -0.78, 0.78);
+  }
 
-  const update = (
+  public update(
     delta: number,
     clockTime: number,
-    _playerPos: THREE.Vector3,
+    playerPos: THREE.Vector3,
     _inputKeys?: Set<string>,
-  ) => {
-    if (activeCameraMode !== 'none') {
-      cameraTransitionElapsed = Math.min(
-        CAMERA_TRANSITION_DUR,
-        cameraTransitionElapsed + delta,
+  ): void {
+    this.lastPlayerLx = playerPos.x - this.originX;
+    this.lastPlayerLz = playerPos.z - this.originZ;
+    this.lastPlayerRelY = playerPos.y - (this.baseY + this.y0);
+
+    if (this.activeCameraMode !== 'none') {
+      this.cameraTransitionElapsed = Math.min(
+        this.CAMERA_TRANSITION_DUR,
+        this.cameraTransitionElapsed + delta,
       );
     }
 
+    // Auto-exit temporary portrait capture framing after flash completes so player is never stuck
+    if (this.portraitCaptureFramingTimer > 0) {
+      this.portraitCaptureFramingTimer = Math.max(0, this.portraitCaptureFramingTimer - delta);
+      if (this.portraitCaptureFramingTimer <= 0 && this.activeCameraMode === 'portrait_atelier') {
+        this.exitActiveCameraMode();
+      }
+    }
+
+    // Animate Studio Shutter Flash fade-out
+    if (this.shutterFlashTimer > 0) {
+      this.shutterFlashTimer = Math.max(0, this.shutterFlashTimer - delta);
+      this.shutterFlashMat.opacity = (this.shutterFlashTimer / 0.45) * 0.95;
+      if (this.shutterFlashTimer <= 0) {
+        this.shutterFlashMesh.visible = false;
+      }
+    }
+
+    // Update Jewellery Atelier & Tabletop Castle / Little Dream World subsystems
+    this.jewelleryAtelier.update(delta, clockTime);
+    this.tabletopWorld.update(delta, clockTime, playerPos);
+
     // Gentle continuous rotation of miniature windmill in doll room
-    windmillBlades.rotation.z = (windmillBlades.rotation.z + delta * 1.8) % (Math.PI * 2);
+    this.windmillBlades.rotation.z = (this.windmillBlades.rotation.z + delta * 1.8) % (Math.PI * 2);
 
     // Subtle breathing pulse on creative wing warm light
-    wingLight.intensity = 0.85 + Math.sin(clockTime * 1.5) * 0.12;
-  };
+    this.wingLight.intensity = 0.85 + Math.sin(clockTime * 1.5) * 0.12;
+  }
+}
 
-  return {
-    group,
-    colliders,
-    partitionMeshes,
-    getProximityPrompt,
-    getActiveRoomCaption: () => activeCaption,
-    interact,
-    handleKeyAction,
-    getCameraState,
-    applyLookDelta,
-    update,
-  };
+export function createCastleFloor2CreativeWing(
+  tracker: ResourceTracker,
+  mats: DreamCastleMaterials,
+  originX: number,
+  baseY: number,
+  originZ: number,
+): CreativeWing {
+  return new CreativeWing(tracker, mats, originX, baseY, originZ);
 }

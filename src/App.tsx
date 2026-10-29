@@ -185,18 +185,18 @@ export default function App() {
   const lastAuroraDialogueRef = useRef<AuroraDialogueLine | null>(null);
 
   const [selectedGalleryFrame, setSelectedGalleryFrame] = useState(0);
-  const [showGalleryUrlModal, setShowGalleryUrlModal] = useState(false);
-  const [galleryUrlInput, setGalleryUrlInput] = useState('');
-  const galleryFileInputRef = useRef<HTMLInputElement | null>(null);
+  const portraitFileInputRef = useRef<HTMLInputElement | null>(null);
 
-  const handleGalleryFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handlePortraitBackdropUpload = (
+    e: React.ChangeEvent<HTMLInputElement>,
+  ) => {
     const file = e.target.files?.[0];
     if (!file) return;
     const reader = new FileReader();
     reader.onload = (event) => {
       const dataUrl = event.target?.result as string;
       if (dataUrl) {
-        controllerRef.current?.setGalleryFrameImage(selectedGalleryFrame, dataUrl);
+        controllerRef.current?.setCustomPortraitBackdrop(dataUrl);
       }
     };
     reader.readAsDataURL(file);
@@ -396,6 +396,14 @@ export default function App() {
       }
       if (e.code === 'KeyH') {
         setHudCollapsed((prev) => !prev);
+      } else if (
+        e.code === 'KeyU' &&
+        controllerRef.current
+          ?.getTelemetry()
+          .castlePrompt?.includes('Portrait Atelier')
+      ) {
+        e.preventDefault();
+        portraitFileInputRef.current?.click();
       }
     };
 
@@ -1231,50 +1239,32 @@ export default function App() {
           ) : telemetry.castlePrompt.includes('Romantic Memory') ||
             telemetry.castlePrompt.includes('Memory Frames') ||
             telemetry.castlePrompt.includes('Gallery') ? (
-            <div className="ml-2 flex flex-col gap-1.5">
-              <div className="flex items-center gap-1.5 flex-wrap">
-                <span className="text-[11px] font-semibold text-pink-300 mr-1">Frame:</span>
-                {[0, 1, 2, 3, 4].map((idx) => (
-                  <button
-                    key={idx}
-                    type="button"
-                    onClick={() => {
-                      setSelectedGalleryFrame(idx);
-                      window.dispatchEvent(new KeyboardEvent('keydown', { key: String(idx + 1) }));
-                    }}
-                    className={`px-2 py-0.5 rounded text-[11px] font-medium border transition-colors cursor-pointer ${
-                      selectedGalleryFrame === idx
-                        ? 'bg-pink-500 text-white border-amber-300 shadow-sm'
-                        : 'bg-slate-800 hover:bg-slate-700 text-pink-200 border-pink-300/30'
-                    }`}
-                  >
-                    Frame {idx + 1}
-                  </button>
-                ))}
-              </div>
-              <div className="flex items-center gap-2">
+            <div className="ml-2 flex items-center gap-1.5 flex-wrap">
+              <span className="text-[11px] font-semibold text-pink-300 mr-1">Frame:</span>
+              {[0, 1, 2, 3, 4].map((idx) => (
                 <button
+                  key={idx}
                   type="button"
-                  onClick={() => galleryFileInputRef.current?.click()}
-                  className="px-2.5 py-1 rounded bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer"
+                  onClick={() => {
+                    setSelectedGalleryFrame(idx);
+                    window.dispatchEvent(new KeyboardEvent('keydown', { key: String(idx + 1) }));
+                  }}
+                  className={`px-2 py-0.5 rounded text-[11px] font-medium border transition-colors cursor-pointer ${
+                    selectedGalleryFrame === idx
+                      ? 'bg-pink-500 text-white border-amber-300 shadow-sm'
+                      : 'bg-slate-800 hover:bg-slate-700 text-pink-200 border-pink-300/30'
+                  }`}
                 >
-                  <Upload className="w-3.5 h-3.5" /> Upload Image
+                  Frame {idx + 1}
                 </button>
-                <button
-                  type="button"
-                  onClick={() => setShowGalleryUrlModal(true)}
-                  className="px-2.5 py-1 rounded bg-pink-600/80 hover:bg-pink-500 text-white text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer"
-                >
-                  <LinkIcon className="w-3.5 h-3.5" /> Paste Image URL
-                </button>
-                <button
-                  type="button"
-                  onClick={() => controllerRef.current?.triggerCastleAction()}
-                  className="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-pink-200 text-xs font-semibold border border-pink-300/30 transition-colors cursor-pointer"
-                >
-                  [E] View / Return
-                </button>
-              </div>
+              ))}
+              <button
+                type="button"
+                onClick={() => controllerRef.current?.triggerCastleAction()}
+                className="ml-1 px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-pink-200 text-xs font-semibold border border-pink-300/30 transition-colors cursor-pointer"
+              >
+                [E] View / Return
+              </button>
             </div>
           ) : telemetry.castlePrompt.includes('Portrait Atelier') ? (
             <div className="ml-2 flex items-center gap-1.5 flex-wrap">
@@ -1290,12 +1280,57 @@ export default function App() {
                 <button
                   key={b.label}
                   type="button"
-                  onClick={() => window.dispatchEvent(new KeyboardEvent('keydown', { key: b.label }))}
+                  onClick={() => controllerRef.current?.interactCreativeWingKey(b.label)}
                   className="px-2 py-0.5 rounded bg-pink-600/80 hover:bg-pink-500 text-white text-[11px] font-medium border border-pink-300/30 transition-colors cursor-pointer"
                 >
                   [{b.label}] {b.name}
                 </button>
               ))}
+              <button
+                type="button"
+                onClick={() => portraitFileInputRef.current?.click()}
+                className="px-2.5 py-0.5 rounded bg-amber-500 hover:bg-amber-400 text-slate-950 text-[11px] font-semibold flex items-center gap-1 transition-colors cursor-pointer"
+              >
+                <Upload className="w-3 h-3" /> [U] Upload Photo
+              </button>
+              <button
+                type="button"
+                onClick={() => controllerRef.current?.triggerTakePortrait()}
+                className="px-2.5 py-0.5 rounded bg-rose-500 hover:bg-rose-400 text-white text-[11px] font-semibold flex items-center gap-1 transition-colors cursor-pointer"
+              >
+                <Camera className="w-3 h-3" /> [C] Take Portrait
+              </button>
+              <button
+                type="button"
+                onClick={() => controllerRef.current?.triggerCastleAction()}
+                className="ml-1 px-2.5 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-pink-200 text-xs font-semibold border border-pink-300/30 transition-colors cursor-pointer"
+              >
+                [E] Step Back
+              </button>
+            </div>
+          ) : telemetry.castlePrompt.includes('Jewellery Atelier') ? (
+            <div className="ml-2 flex items-center gap-1.5 flex-wrap">
+              <button
+                type="button"
+                onClick={() => controllerRef.current?.interactCreativeWingKey('1')}
+                className="px-2.5 py-0.5 rounded bg-pink-600/80 hover:bg-pink-500 text-white text-[11px] font-semibold border border-pink-300/30 transition-colors cursor-pointer"
+              >
+                [1] Try Ring
+              </button>
+              <button
+                type="button"
+                onClick={() => controllerRef.current?.interactCreativeWingKey('2')}
+                className="px-2.5 py-0.5 rounded bg-pink-600/80 hover:bg-pink-500 text-white text-[11px] font-semibold border border-pink-300/30 transition-colors cursor-pointer"
+              >
+                [2] Try Necklace
+              </button>
+              <button
+                type="button"
+                onClick={() => controllerRef.current?.interactCreativeWingKey('3')}
+                className="px-2.5 py-0.5 rounded bg-amber-500 hover:bg-amber-400 text-slate-950 text-[11px] font-semibold transition-colors cursor-pointer"
+              >
+                [3] Harsha&apos;s Crown 👑
+              </button>
               <button
                 type="button"
                 onClick={() => controllerRef.current?.triggerCastleAction()}
@@ -1583,63 +1618,14 @@ export default function App() {
         </div>
       )}
 
-      {/* Hidden file input for uploading custom romantic gallery pictures */}
+      {/* Hidden file input for uploading a custom photo backdrop inside The Portrait Atelier */}
       <input
-        ref={galleryFileInputRef}
+        ref={portraitFileInputRef}
         type="file"
         accept="image/*"
-        onChange={handleGalleryFileUpload}
+        onChange={handlePortraitBackdropUpload}
         className="hidden"
       />
-
-      {/* Romantic Memory Gallery Custom Image URL Modal */}
-      {showGalleryUrlModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="bg-slate-900 border border-pink-400/50 rounded-2xl p-5 max-w-md w-full shadow-2xl text-white">
-            <h3 className="text-sm font-bold text-pink-300 mb-1 flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-amber-300" /> Frame {selectedGalleryFrame + 1} Custom Picture
-            </h3>
-            <p className="text-xs text-slate-300 mb-3">
-              Enter a direct image URL (PNG, JPG, or WebP) to display inside this romantic gold filigree frame.
-            </p>
-            <input
-              type="text"
-              placeholder="https://example.com/photo.jpg"
-              value={galleryUrlInput}
-              onChange={(e) => setGalleryUrlInput(e.target.value)}
-              className="w-full px-3 py-2 bg-slate-950 border border-pink-400/40 rounded-lg text-xs text-white placeholder-slate-500 focus:outline-none focus:border-pink-300 mb-4"
-            />
-            <div className="flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => {
-                  setShowGalleryUrlModal(false);
-                  setGalleryUrlInput('');
-                }}
-                className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium cursor-pointer"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  if (galleryUrlInput.trim()) {
-                    controllerRef.current?.setGalleryFrameImage(
-                      selectedGalleryFrame,
-                      galleryUrlInput.trim(),
-                    );
-                  }
-                  setShowGalleryUrlModal(false);
-                  setGalleryUrlInput('');
-                }}
-                className="px-4 py-1.5 rounded-lg bg-pink-500 hover:bg-pink-400 text-white text-xs font-semibold cursor-pointer"
-              >
-                Set Image
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
