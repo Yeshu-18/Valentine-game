@@ -1905,15 +1905,9 @@ export class CreativeWing implements CastleFloor2CreativeWingBundle {
     const mcGroup = new THREE.Group();
     mcGroup.position.set(0, 0.55, 0);
 
-    // Low rose-marble courtyard terrace plinth between the Twin Towers (keeps skybridge & "♥ I LOVE YOU ♥" sign unobstructed)
+    // Low rose-marble courtyard terrace plinth between Yeshwanth & Harsha's Two Towers
     const mcKeepGeo = tracker.trackGeo(new THREE.BoxGeometry(0.68, 0.06, 0.42));
     mcKeepGeo.translate(0, 0.03, -0.04);
-    const mcSpireGeo = tracker.trackGeo(new THREE.ConeGeometry(0.16, 0.44, 12));
-    mcSpireGeo.translate(0, 1.04, -0.04);
-    const miniWinGeo = tracker.trackGeo(new THREE.PlaneGeometry(0.08, 0.14));
-    const miniWinFront = new THREE.Mesh(miniWinGeo, this.warmGlowMat);
-    miniWinFront.position.set(-0.24, 0.48, -0.18);
-    miniWinFront.rotation.y = Math.PI;
     const miniBridgeGeo = tracker.trackGeo(new THREE.BoxGeometry(0.22, 0.03, 0.28));
     miniBridgeGeo.translate(0, 0.015, -0.26);
     const miniFountainGeo = tracker.trackGeo(new THREE.CylinderGeometry(0.12, 0.14, 0.07, 12));
@@ -1921,33 +1915,9 @@ export class CreativeWing implements CastleFloor2CreativeWingBundle {
 
     mcGroup.add(
       new THREE.Mesh(mcKeepGeo, mats.blushRoseMarble),
-      new THREE.Mesh(mcSpireGeo, mats.powderBlueSpire),
-      miniWinFront,
       new THREE.Mesh(miniBridgeGeo, goldTrimMat),
       new THREE.Mesh(miniFountainGeo, mats.pearlWhite),
     );
-
-    const mcTowerGeo = tracker.trackGeo(new THREE.CylinderGeometry(0.11, 0.13, 0.72, 10));
-    mcTowerGeo.translate(0, 0.36, 0);
-    const mcTowerRoofGeo = tracker.trackGeo(new THREE.ConeGeometry(0.15, 0.42, 10));
-    mcTowerRoofGeo.translate(0, 0.92, 0);
-    const flagGeo = tracker.trackGeo(new THREE.PlaneGeometry(0.14, 0.07));
-    flagGeo.translate(0.07, 1.18, 0);
-
-    [
-      [-0.34, -0.34],
-      [0.34, -0.34],
-      [-0.34, 0.34],
-      [0.34, 0.34],
-    ].forEach(([tx, tz]) => {
-      const tw = new THREE.Mesh(mcTowerGeo, mats.pearlWhite);
-      tw.position.set(tx, 0, tz);
-      const tr = new THREE.Mesh(mcTowerRoofGeo, mats.powderBlueSpire);
-      tr.position.set(tx, 0, tz);
-      const fl = new THREE.Mesh(flagGeo, this.roseAccentMat);
-      fl.position.set(tx, 0, tz);
-      mcGroup.add(tw, tr, fl);
-    });
 
     // Miniature Village Houses around Castle
     const villageHouseGeo = tracker.trackGeo(new THREE.BoxGeometry(0.15, 0.14, 0.15));
@@ -3007,15 +2977,15 @@ export class CreativeWing implements CastleFloor2CreativeWingBundle {
       return '[E] Continue · [Space] Skip';
     }
 
-    // Inside Connected Little Dream World Enclave (center lx = 33.0, lz = 12.0)
+    // Inside Connected Little Dream World Enclave ("Our Little Kingdom", center lx = 33.0, lz = 12.0)
     if (this.tabletopWorld.isInsideLittleDreamWorld || Math.hypot(lx - 33.0, lz - 12.0) <= 8.5) {
       if (this.tabletopWorld.isNearDreamWorldReturnGate(lx, lz)) {
-        return '[E] Return to Our Little Castle';
+        return '[E] Return from Our Little Kingdom';
       }
       if (this.tabletopWorld.isNearGoldenYeshwanth(lx, lz)) {
-        return '[E] Share Rose & Message Moment';
+        return '[E] Queen’s Courtyard & Crown Reveal';
       }
-      return 'Walk Path to Golden Yeshwanth or West Gate for [E] Return to Our Little Castle';
+      return 'Walk Curved Path through Our Little Kingdom to Queen’s Courtyard or West Gate for [E] Return';
     }
 
     if (this.activeCameraMode !== 'none') {
@@ -3041,7 +3011,7 @@ export class CreativeWing implements CastleFloor2CreativeWingBundle {
       if (this.activeCameraMode === 'couture_boutique') {
         return this.jewelleryAtelier.getProximityPrompt(lx, lz, true);
       }
-      return '[G] Enter Our Little Castle · [E] Finish Looking';
+      return '[G] Enter Our Little Kingdom · [E] Finish Looking';
     }
 
     // Room 1: Portrait Atelier (lx in [8.8, 15.3], lz in [-14.8, -6.4])
@@ -3078,12 +3048,12 @@ export class CreativeWing implements CastleFloor2CreativeWingBundle {
     // Room 3: Doll Playroom & Tabletop Castle (lx in [9.2, 15.3], lz in [6.4, 14.8])
     if (lx >= 9.2 && lx <= 15.3 && lz >= 6.4 && lz <= 14.8) {
       if (this.tabletopWorld.isNearTabletopGate(lx, lz)) {
-        return '[E] Enter Our Little Castle';
+        return '[E] Enter Our Little Kingdom';
       }
       if (Math.hypot(lx - 12.85, lz - 11.85) <= 2.35) {
-        return '[E] Inspect Our Little Castle · Walk to Front Gate for [E] Enter Our Little Castle';
+        return '[E] Inspect Our Little Kingdom · Walk to Front Gate for [E] Enter Our Little Kingdom';
       }
-      return 'Walk to Tabletop Castle for [E] Enter Our Little Castle';
+      return 'Walk to Tabletop Castle for [E] Enter Our Little Kingdom';
     }
 
     return null;

@@ -17,27 +17,35 @@ function easeInOutSine(t: number): number {
 function createPlaqueCanvasTex(
   tracker: ResourceTracker,
   title: string,
-  subtitle: string,
+  subtitle?: string,
   bg = '#4a1026',
   fg = '#fde047',
 ): THREE.CanvasTexture {
   const canvas = document.createElement('canvas');
-  canvas.width = 256;
-  canvas.height = 96;
+  canvas.width = 320;
+  canvas.height = 112;
   const ctx = canvas.getContext('2d');
   if (ctx) {
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.fillStyle = bg;
-    ctx.fillRect(0, 0, 256, 96);
+    ctx.fillRect(0, 0, 320, 112);
     ctx.strokeStyle = fg;
     ctx.lineWidth = 4;
-    ctx.strokeRect(4, 4, 248, 88);
-    ctx.fillStyle = fg;
-    ctx.font = 'bold 19px Georgia, serif';
+    ctx.strokeRect(5, 5, 310, 102);
     ctx.textAlign = 'center';
-    ctx.fillText(title, 128, 36);
-    ctx.fillStyle = '#ffe4e6';
-    ctx.font = 'italic 14px Georgia, serif';
-    ctx.fillText(subtitle, 128, 66);
+    ctx.textBaseline = 'middle';
+    if (subtitle) {
+      ctx.fillStyle = fg;
+      ctx.font = 'bold 21px Georgia, serif';
+      ctx.fillText(title, 160, 40);
+      ctx.fillStyle = '#ffe4e6';
+      ctx.font = 'italic 15px Georgia, serif';
+      ctx.fillText(subtitle, 160, 76);
+    } else {
+      ctx.fillStyle = fg;
+      ctx.font = 'bold 26px Georgia, serif';
+      ctx.fillText(title, 160, 56);
+    }
   }
   const tex = tracker.trackTex(new THREE.CanvasTexture(canvas));
   tex.flipY = true;
@@ -46,48 +54,89 @@ function createPlaqueCanvasTex(
   return tex;
 }
 
-function createFloatingMessageTex(
+function createInitialMedallionTex(
+  tracker: ResourceTracker,
+  letter: 'Y' | 'H',
+  bg: string,
+  fg: string,
+): THREE.CanvasTexture {
+  const canvas = document.createElement('canvas');
+  canvas.width = 128;
+  canvas.height = 128;
+  const ctx = canvas.getContext('2d');
+  if (ctx) {
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.fillStyle = bg;
+    ctx.fillRect(0, 0, 128, 128);
+    ctx.strokeStyle = fg;
+    ctx.lineWidth = 6;
+    ctx.strokeRect(8, 8, 112, 112);
+    ctx.fillStyle = fg;
+    ctx.font = 'bold 68px Georgia, serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(letter, 64, 66);
+  }
+  const tex = tracker.trackTex(new THREE.CanvasTexture(canvas));
+  tex.flipY = true;
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.needsUpdate = true;
+  return tex;
+}
+
+function createWorldGratitudeMessageTex(
   tracker: ResourceTracker,
   line1: string,
   line2?: string,
-  isHeroLove = false,
+  style: 'title' | 'gratitude' | 'love' = 'gratitude',
 ): THREE.CanvasTexture {
   const canvas = document.createElement('canvas');
-  canvas.width = 512;
-  canvas.height = 160;
+  canvas.width = 640;
+  canvas.height = 192;
   const ctx = canvas.getContext('2d');
   if (ctx) {
-    ctx.clearRect(0, 0, 512, 160);
-    const grad = ctx.createRadialGradient(256, 80, 10, 256, 80, 240);
-    grad.addColorStop(0, 'rgba(74, 16, 38, 0.86)');
-    grad.addColorStop(0.75, 'rgba(74, 16, 38, 0.55)');
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.clearRect(0, 0, 640, 192);
+    const grad = ctx.createRadialGradient(320, 96, 12, 320, 96, 300);
+    grad.addColorStop(0, 'rgba(74, 16, 38, 0.88)');
+    grad.addColorStop(0.75, 'rgba(74, 16, 38, 0.58)');
     grad.addColorStop(1, 'rgba(74, 16, 38, 0.0)');
     ctx.fillStyle = grad;
-    ctx.fillRect(0, 0, 512, 160);
+    ctx.fillRect(0, 0, 640, 192);
 
-    ctx.strokeStyle = 'rgba(253, 224, 71, 0.65)';
-    ctx.lineWidth = 2;
-    ctx.strokeRect(24, 20, 464, 120);
+    ctx.strokeStyle = 'rgba(253, 224, 71, 0.72)';
+    ctx.lineWidth = 2.5;
+    ctx.strokeRect(26, 22, 588, 148);
 
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    if (isHeroLove) {
+
+    if (style === 'title') {
+      ctx.fillStyle = '#fde047';
+      ctx.font = 'bold 46px Georgia, serif';
+      ctx.fillText(line1, 320, line2 ? 78 : 96);
+      if (line2) {
+        ctx.fillStyle = '#fbcfe8';
+        ctx.font = 'italic 21px Georgia, serif';
+        ctx.fillText(line2, 320, 128);
+      }
+    } else if (style === 'love') {
       ctx.fillStyle = '#fef08a';
       ctx.font = 'bold 42px Georgia, serif';
-      ctx.fillText(line1, 256, 72);
+      ctx.fillText(line1, 320, line2 ? 78 : 96);
       if (line2) {
         ctx.fillStyle = '#fbcfe8';
         ctx.font = 'italic 20px Georgia, serif';
-        ctx.fillText(line2, 256, 114);
+        ctx.fillText(line2, 320, 126);
       }
     } else {
       ctx.fillStyle = '#fff1f2';
-      ctx.font = 'italic 23px Georgia, serif';
-      ctx.fillText(line1, 256, 68);
+      ctx.font = 'italic 25px Georgia, serif';
+      ctx.fillText(line1, 320, line2 ? 76 : 96);
       if (line2) {
         ctx.fillStyle = '#fde047';
-        ctx.font = 'bold 17px Georgia, serif';
-        ctx.fillText(line2, 256, 108);
+        ctx.font = 'italic 22px Georgia, serif';
+        ctx.fillText(line2, 320, 122);
       }
     }
   }
@@ -107,6 +156,7 @@ function createMemoryFrameDefaultTex(
   canvas.height = 240;
   const ctx = canvas.getContext('2d');
   if (ctx) {
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
     const grads = [
       ['#fbcfe8', '#831843'],
       ['#fef08a', '#9d174d'],
@@ -137,10 +187,10 @@ function createMemoryFrameDefaultTex(
     ctx.fill();
 
     const captions = [
+      'Our Little Kingdom',
       'Two Towers, One Bridge',
+      'Queen of My Life',
       'Yeshwanth & Harsha',
-      'Every Laugh Together',
-      'Our Little Dream World',
     ];
     ctx.fillStyle = '#fef08a';
     ctx.font = 'bold 14px Georgia, serif';
@@ -157,6 +207,27 @@ function createMemoryFrameDefaultTex(
   return tex;
 }
 
+function buildSculptedHeartMesh(
+  tracker: ResourceTracker,
+  scale: number,
+  mat: THREE.Material,
+): THREE.Group {
+  const hg = new THREE.Group();
+  const lobeGeo = tracker.trackGeo(new THREE.SphereGeometry(0.08 * scale, 10, 10));
+  const tipGeo = tracker.trackGeo(new THREE.ConeGeometry(0.11 * scale, 0.18 * scale, 12));
+  tipGeo.rotateX(Math.PI);
+
+  const lL = new THREE.Mesh(lobeGeo, mat);
+  lL.position.set(-0.055 * scale, 0.045 * scale, 0);
+  const lR = new THREE.Mesh(lobeGeo, mat);
+  lR.position.set(0.055 * scale, 0.045 * scale, 0);
+  const tip = new THREE.Mesh(tipGeo, mat);
+  tip.position.set(0, -0.05 * scale, 0);
+  tip.scale.set(1.05, 1.0, 0.68);
+  hg.add(lL, lR, tip);
+  return hg;
+}
+
 export interface TabletopCastleEntranceSpec {
   tableCenterLocal: THREE.Vector3;
   tableRadius: number;
@@ -168,6 +239,20 @@ export interface TabletopCastleEntranceSpec {
   doorPivotRight: THREE.Vector3;
   returnPoint: THREE.Vector3;
   returnYaw: number;
+}
+
+interface AwakeningFlower {
+  group: THREE.Group;
+  localX: number;
+  localZ: number;
+  bloomRatio: number;
+}
+
+interface AwakeningLantern {
+  orbMat: THREE.MeshStandardMaterial;
+  localX: number;
+  localZ: number;
+  wakeRatio: number;
 }
 
 export class CastleTabletopWorld {
@@ -190,28 +275,57 @@ export class CastleTabletopWorld {
   private gateOpenRatio = 0.0;
   private readonly memoryFrameMaterials: THREE.MeshBasicMaterial[] = [];
 
-  // Little Dream World transformation & Golden Yeshwanth elements (Sections 13–18)
+  // Little Kingdom ("OUR LITTLE KINGDOM") Awakening & Queen Reveal elements
   private dwExpandGroup!: THREE.Group;
   private readonly flowerGroups: THREE.Group[] = [];
+  private readonly awakeningFlowers: AwakeningFlower[] = [];
+  private readonly awakeningLanterns: AwakeningLantern[] = [];
+  private readonly kingdomWindowMats: THREE.MeshStandardMaterial[] = [];
+  private readonly heartPerimeterLights: THREE.MeshStandardMaterial[] = [];
+
   private dwFullCastleBackdrop!: THREE.Group;
+  private fountainStreamLeftMesh!: THREE.Mesh;
+  private fountainStreamRightMesh!: THREE.Mesh;
+  private fountainWaterMat!: THREE.MeshStandardMaterial;
+  private fountainCenterHeartGroup!: THREE.Group;
+  private fountainHeartMat!: THREE.MeshStandardMaterial;
+
+  // Queen's Courtyard, Circular Heart Frame & Rising Crown (Sections 7 & 8)
+  private queenCourtyardGroup!: THREE.Group;
+  private queenArchFrameMat!: THREE.MeshStandardMaterial;
+  private queenFrameHeartGroup!: THREE.Group;
+  private queenCrownGroup!: THREE.Group;
+  private queenCrownHaloMat!: THREE.MeshBasicMaterial;
+  private crownRevealedInExplore = false;
+  private crownRevealProgress = 0.0;
+
+  // Dissolving Entrance Rose Petals (Section 13: "The rose is the welcome. The crown is the recognition. The castle is the gratitude.")
+  private dissolvingRosePetalsGroup!: THREE.Group;
+  private readonly rosePetalMeshes: THREE.Mesh[] = [];
+  private rosePetalMat!: THREE.MeshStandardMaterial;
+  private entranceRoseDissolved = false;
+
+  // Golden Yeshwanth Figure (Section 9: Witnessing the Queen Reveal, hand over heart, no second rose)
   private goldenYeshwanthGroup!: THREE.Group;
+  private yeshHeadGroup!: THREE.Group;
   private yeshLeftLeg!: THREE.Group;
   private yeshRightLeg!: THREE.Group;
   private yeshLeftArm!: THREE.Group;
   private yeshRightArm!: THREE.Group;
-  private yeshRoseGroup!: THREE.Group;
   private goldenArrivalGlow!: THREE.Mesh;
-  private messageBanner1!: THREE.Mesh;
-  private messageBanner1Mat!: THREE.MeshBasicMaterial;
-  private messageBanner2!: THREE.Mesh;
-  private messageBanner2Mat!: THREE.MeshBasicMaterial;
 
-  // Scale-Transition & Story Cinematic State Machine
+  // World-Space Cinematic Gratitude Banners (Section 10: 5 sequential beats, strictly FrontSide)
+  private gratitudeBannerMesh!: THREE.Mesh;
+  private gratitudeBannerMat!: THREE.MeshBasicMaterial;
+  private readonly gratitudeBannerTextures: THREE.CanvasTexture[] = [];
+  private currentBannerBeatIndex = -1;
+
+  // Scale-Transition & Queen Reveal Story State Machine
   public isInsideLittleDreamWorld = false;
-  private transitionState: 'NONE' | 'ENTERING_STORY' | 'REPLAY_ROSE' | 'EXITING' = 'NONE';
+  private transitionState: 'NONE' | 'ENTERING_STORY' | 'REPLAY_QUEEN' | 'EXITING' = 'NONE';
   private transitionElapsed = 0.0;
-  private readonly ENTER_STORY_DUR = 36.8; // Sections 13-18 complete romantic sequence
-  private readonly REPLAY_ROSE_DUR = 22.8; // Sections 15-18 when triggered inside Little Dream World
+  private readonly ENTER_STORY_DUR = 38.0; // Complete "Our Little Kingdom" -> Awakening -> Queen Reveal -> Gratitude -> Heart Kingdom Illumination
+  private readonly REPLAY_QUEEN_DUR = 24.0; // Queen's Courtyard -> Crown -> Yeshwanth Hand over Heart -> Gratitude -> Heart Kingdom Illumination
   private readonly EXIT_DUR = 2.4;
 
   private pendingPlayerWorldTeleport: THREE.Vector3 | null = null;
@@ -225,7 +339,6 @@ export class CastleTabletopWorld {
   private activeStoryCaption: string | null = null;
 
   private dreamWorldPortalRing!: THREE.Mesh;
-  private dreamWorldFountainStream!: THREE.Mesh;
 
   constructor(
     tracker: ResourceTracker,
@@ -245,9 +358,7 @@ export class CastleTabletopWorld {
 
     this.group.name = 'CastleTabletopAndLittleDreamWorld';
 
-    // Single Source of Truth for Tabletop Castle & Accessible Front (South) Miniature Gate (Section 20)
-    // Positioned at (12.85, y0, 11.85) with 1.18m radius so all 4 sides have >1.2m clear player circulation:
-    // Front/South: 4.29m open approach | Left/West: 1.83m | Right/East: 1.32m | Rear/North: 1.85m
+    // Single Source of Truth for Tabletop Castle & Accessible Front (South) Ornate Golden Gate
     const tableX = 12.85;
     const tableZ = 11.85;
     const tableR = 1.18;
@@ -262,7 +373,7 @@ export class CastleTabletopWorld {
       doorPivotLeft: new THREE.Vector3(-0.18, 0, 0),
       doorPivotRight: new THREE.Vector3(0.18, 0, 0),
       returnPoint: new THREE.Vector3(tableX, y0, tableZ - 1.88),
-      returnYaw: 0, // Faces North (+Z) directly toward the Miniature Castle Gate
+      returnYaw: 0, // Faces North (+Z) directly toward the Ornate Golden Gate
     };
 
     this.buildLuxuryTabletopAndMiniatureCastle();
@@ -274,12 +385,16 @@ export class CastleTabletopWorld {
   }
 
   /**
-   * Sections 29–34 & Section 13:
-   * - Luxury circular table + Miniature Twin-Tower Castle + Miniature "I LOVE YOU" garden detail
-   * - Interactive Castle Gate (`[E] EXPLORE LITTLE CASTLE`)
+   * Sections 1, 3, 5, 6 & 7:
+   * Builds the miniature "Our Little Kingdom" on the Doll Playroom table:
+   * - Small ornate golden gate with "OUR LITTLE KINGDOM" above it & sculpted heart details
+   * - Yeshwanth's Tower (warm champagne gold, ivory, sun/star motifs, golden lights)
+   * - Harsha's Tower (soft blush pink, pearl, lavender, crystal, flowers)
+   * - Connecting bridge with "Y" and "H" golden plaques & shared garden below
+   * - Twin-stream heart fountain & miniature Queen's Courtyard throne + circular heart frame
    */
   private buildLuxuryTabletopAndMiniatureCastle(): void {
-    const { tracker, mats, y0, entranceSpec } = this;
+    const { tracker, mats, entranceSpec } = this;
     const tableGroup = new THREE.Group();
     tableGroup.position.copy(entranceSpec.tableCenterLocal);
     this.group.add(tableGroup);
@@ -322,8 +437,8 @@ export class CastleTabletopWorld {
 
     const tablePlaqueTex = createPlaqueCanvasTex(
       tracker,
-      '✦ THE TABLETOP DREAM CASTLE ✦',
-      'Tower of Yeshwanth & Tower of Harsha · Connected by One Bridge',
+      '✦ OUR LITTLE KINGDOM ✦',
+      'Two Lives · One Little Kingdom',
     );
     const plaqueGeo = tracker.trackGeo(new THREE.PlaneGeometry(0.5, 0.16));
     const plaqueBoardGeo = tracker.trackGeo(new THREE.BoxGeometry(0.53, 0.18, 0.018));
@@ -368,109 +483,133 @@ export class CastleTabletopWorld {
     );
 
     const mcY = 0.55;
-    const towerCylGeo = tracker.trackGeo(new THREE.CylinderGeometry(0.13, 0.15, 1.02, 14));
-    towerCylGeo.translate(0, 0.51, 0);
-    const towerSpireGeo = tracker.trackGeo(new THREE.ConeGeometry(0.18, 0.5, 14));
-    towerSpireGeo.translate(0, 1.27, 0);
-    const balconyRingGeo = tracker.trackGeo(new THREE.TorusGeometry(0.15, 0.014, 8, 16));
+    const towerCylGeo = tracker.trackGeo(new THREE.CylinderGeometry(0.135, 0.155, 1.04, 16));
+    towerCylGeo.translate(0, 0.52, 0);
+    const towerSpireGeo = tracker.trackGeo(new THREE.ConeGeometry(0.185, 0.52, 16));
+    towerSpireGeo.translate(0, 1.3, 0);
+    const balconyRingGeo = tracker.trackGeo(new THREE.TorusGeometry(0.155, 0.014, 8, 18));
     balconyRingGeo.rotateX(Math.PI / 2);
-    balconyRingGeo.translate(0, 0.76, 0);
+    balconyRingGeo.translate(0, 0.78, 0);
 
-    // Left (West) = Yeshwanth's Tower, Right (East) = Harsha's Tower (Section 33)
+    // 1. Left (West) = Yeshwanth's Tower (Warm champagne gold, warm ivory, sun/star motifs, golden lights)
     const towerAGroup = new THREE.Group();
-    towerAGroup.position.set(-0.24, mcY, -0.04);
+    towerAGroup.position.set(-0.28, mcY, 0.18);
     const warmChampagneMat = tracker.trackMat(
       new THREE.MeshStandardMaterial({
         color: '#fef3c7',
         emissive: '#f59e0b',
-        emissiveIntensity: 0.25,
-        roughness: 0.25,
-        metalness: 0.45,
+        emissiveIntensity: 0.35,
+        roughness: 0.22,
+        metalness: 0.5,
       }),
     );
+    const sunStarGeo = tracker.trackGeo(new THREE.OctahedronGeometry(0.032, 0));
+    const sunFinial = new THREE.Mesh(sunStarGeo, warmChampagneMat);
+    sunFinial.position.set(0, 1.6, 0);
+    const starMotifFront = new THREE.Mesh(sunStarGeo, mats.champagneGold);
+    starMotifFront.position.set(0, 0.62, -0.15);
     towerAGroup.add(
       new THREE.Mesh(towerCylGeo, warmChampagneMat),
       new THREE.Mesh(towerSpireGeo, mats.champagneGold),
       new THREE.Mesh(balconyRingGeo, mats.champagneGold),
+      sunFinial,
+      starMotifFront,
     );
 
+    // 2. Right (East) = Harsha's Tower (Blush pink, pearl, lavender, crystal, flowers)
     const towerBGroup = new THREE.Group();
-    towerBGroup.position.set(0.24, mcY, -0.04);
+    towerBGroup.position.set(0.28, mcY, 0.18);
     const softBlushCrystalMat = tracker.trackMat(
       new THREE.MeshStandardMaterial({
         color: '#fce7f3',
         emissive: '#f472b6',
-        emissiveIntensity: 0.32,
-        roughness: 0.18,
+        emissiveIntensity: 0.38,
+        roughness: 0.16,
         metalness: 0.25,
       }),
     );
+    const miniFlowerGeo = tracker.trackGeo(new THREE.SphereGeometry(0.022, 8, 8));
+    for (let f = 0; f < 5; f++) {
+      const ang = (f * Math.PI * 2) / 5;
+      const fl = new THREE.Mesh(
+        miniFlowerGeo,
+        f % 2 === 0 ? softBlushCrystalMat : mats.softLavender,
+      );
+      fl.position.set(Math.cos(ang) * 0.155, 0.78, Math.sin(ang) * 0.155);
+      towerBGroup.add(fl);
+    }
+    const heartFinial = buildSculptedHeartMesh(tracker, 0.28, softBlushCrystalMat);
+    heartFinial.position.set(0, 1.6, 0);
     towerBGroup.add(
       new THREE.Mesh(towerCylGeo, softBlushCrystalMat),
       new THREE.Mesh(towerSpireGeo, mats.blushRoseMarble),
       new THREE.Mesh(balconyRingGeo, mats.crystalGlass),
+      heartFinial,
     );
 
-    const skyBridgeGeo = tracker.trackGeo(new THREE.BoxGeometry(0.48, 0.08, 0.14));
-    skyBridgeGeo.translate(0, mcY + 0.74, -0.04);
-    const skyBridgeArchGeo = tracker.trackGeo(new THREE.TorusGeometry(0.22, 0.014, 8, 16, Math.PI));
-    skyBridgeArchGeo.translate(0, mcY + 0.78, -0.04);
+    // 3. Connecting Bridge between Yeshwanth's Tower & Harsha's Tower + "Y" and "H" Plaques
+    const skyBridgeGeo = tracker.trackGeo(new THREE.BoxGeometry(0.56, 0.075, 0.14));
+    skyBridgeGeo.translate(0, mcY + 0.74, 0.18);
+    const skyBridgeArchGeo = tracker.trackGeo(new THREE.TorusGeometry(0.24, 0.014, 8, 18, Math.PI));
+    skyBridgeArchGeo.translate(0, mcY + 0.78, 0.18);
 
-    // Section 13 & 16–21: Miniature "♥ I LOVE YOU ♥" garden signs with FrontSide (never mirrored!)
-    const miniLoveSignTex = createPlaqueCanvasTex(
-      tracker,
-      '♥ I LOVE YOU ♥',
-      'Yeshwanth & Harsha',
-      '#831843',
-      '#fde047',
+    const yMedallionTex = createInitialMedallionTex(tracker, 'Y', '#4a1026', '#fde047');
+    const hMedallionTex = createInitialMedallionTex(tracker, 'H', '#831843', '#fbcfe8');
+    const miniMedallionGeo = tracker.trackGeo(new THREE.PlaneGeometry(0.065, 0.065));
+    const yMedMat = tracker.trackMat(
+      new THREE.MeshBasicMaterial({ map: yMedallionTex, side: THREE.FrontSide }),
     );
-    const miniLoveSignGeo = tracker.trackGeo(new THREE.PlaneGeometry(0.32, 0.11));
-    const miniLoveBoardGeo = tracker.trackGeo(new THREE.BoxGeometry(0.34, 0.125, 0.014));
-    const miniLoveSignMat = tracker.trackMat(
-      new THREE.MeshBasicMaterial({ map: miniLoveSignTex, side: THREE.FrontSide }),
+    const hMedMat = tracker.trackMat(
+      new THREE.MeshBasicMaterial({ map: hMedallionTex, side: THREE.FrontSide }),
     );
-    // Front sign on South (-Z) side facing approaching player & entry camera (rotation.y = Math.PI)
-    const miniLoveBoardFront = new THREE.Mesh(miniLoveBoardGeo, mats.champagneGold);
-    miniLoveBoardFront.position.set(0, mcY + 0.148, -0.572);
-    miniLoveBoardFront.rotation.order = 'YXZ';
-    miniLoveBoardFront.rotation.y = Math.PI;
-    miniLoveBoardFront.rotation.x = -0.22;
+    const yPlaqueFront = new THREE.Mesh(miniMedallionGeo, yMedMat);
+    yPlaqueFront.position.set(-0.12, mcY + 0.74, 0.108);
+    yPlaqueFront.rotation.y = Math.PI;
+    const hPlaqueFront = new THREE.Mesh(miniMedallionGeo, hMedMat);
+    hPlaqueFront.position.set(0.12, mcY + 0.74, 0.108);
+    hPlaqueFront.rotation.y = Math.PI;
+    const yPlaqueBack = new THREE.Mesh(miniMedallionGeo, yMedMat);
+    yPlaqueBack.position.set(-0.12, mcY + 0.74, 0.252);
+    const hPlaqueBack = new THREE.Mesh(miniMedallionGeo, hMedMat);
+    hPlaqueBack.position.set(0.12, mcY + 0.74, 0.252);
 
-    const miniLoveSignFront = new THREE.Mesh(miniLoveSignGeo, miniLoveSignMat);
-    miniLoveSignFront.position.set(0, mcY + 0.15, -0.58);
-    miniLoveSignFront.rotation.order = 'YXZ';
-    miniLoveSignFront.rotation.y = Math.PI;
-    miniLoveSignFront.rotation.x = -0.22;
+    // Miniature Queen's Courtyard Throne & Circular Heart Frame at (0, mcY, -0.04)
+    const miniQueenDaisGeo = tracker.trackGeo(new THREE.CylinderGeometry(0.18, 0.21, 0.035, 18));
+    miniQueenDaisGeo.translate(0, mcY + 0.018, -0.04);
+    const miniQueenFrameGeo = tracker.trackGeo(new THREE.TorusGeometry(0.11, 0.01, 8, 18));
+    miniQueenFrameGeo.translate(0, mcY + 0.16, 0.02);
+    const miniFrameHeart = buildSculptedHeartMesh(tracker, 0.22, softBlushCrystalMat);
+    miniFrameHeart.position.set(0, mcY + 0.16, 0.02);
 
-    // Back sign on North (+Z) side facing +Z viewer (rotation.y = 0)
-    const miniLoveBoardBack = new THREE.Mesh(miniLoveBoardGeo, mats.champagneGold);
-    miniLoveBoardBack.position.set(0, mcY + 0.148, 0.572);
-    miniLoveBoardBack.rotation.order = 'YXZ';
-    miniLoveBoardBack.rotation.y = 0;
-    miniLoveBoardBack.rotation.x = -0.22;
-
-    const miniLoveSignBack = new THREE.Mesh(miniLoveSignGeo, miniLoveSignMat);
-    miniLoveSignBack.position.set(0, mcY + 0.15, 0.58);
-    miniLoveSignBack.rotation.order = 'YXZ';
-    miniLoveSignBack.rotation.y = 0;
-    miniLoveSignBack.rotation.x = -0.22;
+    // Miniature Twin-Stream Heart Fountain at (0, mcY, -0.38)
+    const miniFountainHeart = buildSculptedHeartMesh(tracker, 0.22, mats.crystalGlass);
+    miniFountainHeart.position.set(0, mcY + 0.11, -0.38);
 
     tableGroup.add(
       towerAGroup,
       towerBGroup,
       new THREE.Mesh(skyBridgeGeo, mats.champagneGold),
       new THREE.Mesh(skyBridgeArchGeo, mats.crystalGlass),
-      miniLoveBoardFront,
-      miniLoveSignFront,
-      miniLoveBoardBack,
-      miniLoveSignBack,
+      yPlaqueFront,
+      hPlaqueFront,
+      yPlaqueBack,
+      hPlaqueBack,
+      new THREE.Mesh(miniQueenDaisGeo, mats.pearlWhite),
+      new THREE.Mesh(miniQueenFrameGeo, mats.champagneGold),
+      miniFrameHeart,
+      miniFountainHeart,
     );
 
-    // Miniature 3D Heart Trees flanking the Tabletop Castle gate & courtyard (Section 6)
+    // Miniature 3D Heart Trees arranged in a subtle Heart-Shaped Kingdom silhouette
     const trunkGeo = tracker.trackGeo(new THREE.CylinderGeometry(0.015, 0.022, 0.22, 8));
     trunkGeo.translate(0, 0.11, 0);
     const canopyGeo = tracker.trackGeo(new THREE.SphereGeometry(0.078, 10, 10));
-    const buildMiniHeartTree = (tx: number, tz: number, matA: THREE.Material, matB: THREE.Material) => {
+    const buildMiniHeartTree = (
+      tx: number,
+      tz: number,
+      matA: THREE.Material,
+      matB: THREE.Material,
+    ) => {
       const htg = new THREE.Group();
       htg.position.set(tx, mcY, tz);
       const tr = new THREE.Mesh(trunkGeo, mats.champagneGold);
@@ -487,29 +626,13 @@ export class CastleTabletopWorld {
       return htg;
     };
     tableGroup.add(
-      buildMiniHeartTree(-0.46, -0.44, softBlushCrystalMat, warmChampagneMat),
-      buildMiniHeartTree(0.46, -0.44, warmChampagneMat, softBlushCrystalMat),
-      buildMiniHeartTree(-0.56, 0.15, softBlushCrystalMat, warmChampagneMat),
-      buildMiniHeartTree(0.56, 0.15, warmChampagneMat, softBlushCrystalMat),
+      buildMiniHeartTree(-0.46, -0.44, warmChampagneMat, softBlushCrystalMat),
+      buildMiniHeartTree(0.46, -0.44, softBlushCrystalMat, warmChampagneMat),
+      buildMiniHeartTree(-0.58, 0.18, warmChampagneMat, softBlushCrystalMat),
+      buildMiniHeartTree(0.58, 0.18, softBlushCrystalMat, warmChampagneMat),
     );
 
-    const streamGeo = tracker.trackGeo(new THREE.BoxGeometry(0.042, 0.012, 0.32));
-    const streamMat = tracker.trackMat(
-      new THREE.MeshStandardMaterial({
-        color: '#bae6fd',
-        emissive: '#38bdf8',
-        emissiveIntensity: 0.65,
-        roughness: 0.1,
-      }),
-    );
-    const streamL = new THREE.Mesh(streamGeo, streamMat);
-    streamL.position.set(-0.12, mcY + 0.01, 0.56);
-    streamL.rotation.y = 0.42;
-    const streamR = new THREE.Mesh(streamGeo, streamMat);
-    streamR.position.set(0.12, mcY + 0.01, 0.56);
-    streamR.rotation.y = -0.42;
-    tableGroup.add(streamL, streamR);
-
+    // Subtle Heart-Shaped Perimeter Path & Miniature Lanterns
     const windingPathGeo = tracker.trackGeo(new THREE.RingGeometry(0.82, 0.94, 36));
     windingPathGeo.rotateX(-Math.PI / 2);
     windingPathGeo.translate(0, mcY + 0.006, 0);
@@ -519,10 +642,13 @@ export class CastleTabletopWorld {
     miniLanternPostGeo.translate(0, 0.07, 0);
     const miniLanternOrbGeo = tracker.trackGeo(new THREE.SphereGeometry(0.022, 8, 8));
     miniLanternOrbGeo.translate(0, 0.15, 0);
-    for (let l = 0; l < 6; l++) {
-      const ang = (l * Math.PI * 2) / 6 + 0.25;
+    for (let l = 0; l < 8; l++) {
+      const t = (l / 8) * Math.PI * 2;
+      // Heart-shaped parametric curve on tabletop
+      const hx = 0.68 * Math.pow(Math.sin(t), 3);
+      const hz = 0.56 * Math.cos(t) - 0.18 * Math.cos(2 * t) - 0.08 * Math.cos(3 * t);
       const lg = new THREE.Group();
-      lg.position.set(Math.cos(ang) * 0.96, mcY, Math.sin(ang) * 0.96);
+      lg.position.set(hx, mcY, hz);
       lg.add(
         new THREE.Mesh(miniLanternPostGeo, mats.champagneGold),
         new THREE.Mesh(miniLanternOrbGeo, warmChampagneMat),
@@ -560,7 +686,7 @@ export class CastleTabletopWorld {
       tableGroup.add(fg);
     });
 
-    // Interactive Castle Gate on the Accessible Front (South, -Z) side of the Miniature Castle (Sections 19–21)
+    // Section 1: Small Ornate Golden Gate on the Front (South, -Z) side with "OUR LITTLE KINGDOM" above it
     const gateGroup = new THREE.Group();
     gateGroup.position.set(
       entranceSpec.position.x - entranceSpec.tableCenterLocal.x,
@@ -578,17 +704,46 @@ export class CastleTabletopWorld {
     const gpR = new THREE.Mesh(gatePillarGeo, mats.champagneGold);
     gpR.position.x = 0.19;
 
+    // Small sculpted heart details integrated into the golden gate architecture
+    const gateHeartTop = buildSculptedHeartMesh(tracker, 0.22, mats.champagneGold);
+    gateHeartTop.position.set(0, 0.44, 0);
+    const gateHeartL = buildSculptedHeartMesh(tracker, 0.14, softBlushCrystalMat);
+    gateHeartL.position.set(-0.19, 0.24, 0.02);
+    const gateHeartR = buildSculptedHeartMesh(tracker, 0.14, warmChampagneMat);
+    gateHeartR.position.set(0.19, 0.24, 0.02);
+
+    // "OUR LITTLE KINGDOM" plaque mounted above the small ornate golden gate (FrontSide on both faces)
+    const gateTitleTex = createPlaqueCanvasTex(
+      tracker,
+      'OUR LITTLE KINGDOM',
+      undefined,
+      '#4a1026',
+      '#fde047',
+    );
+    const gateTitleMat = tracker.trackMat(
+      new THREE.MeshBasicMaterial({ map: gateTitleTex, side: THREE.FrontSide }),
+    );
+    const gateTitleGeo = tracker.trackGeo(new THREE.PlaneGeometry(0.34, 0.095));
+    const gateTitleBoardGeo = tracker.trackGeo(new THREE.BoxGeometry(0.36, 0.11, 0.014));
+    const gateTitleBoard = new THREE.Mesh(gateTitleBoardGeo, mats.champagneGold);
+    gateTitleBoard.position.set(0, 0.34, 0);
+    const gateTitleFront = new THREE.Mesh(gateTitleGeo, gateTitleMat);
+    gateTitleFront.position.set(0, 0.34, 0.009); // +Z of gateGroup faces South (-Z) toward approaching player!
+    const gateTitleBack = new THREE.Mesh(gateTitleGeo, gateTitleMat);
+    gateTitleBack.position.set(0, 0.34, -0.009);
+    gateTitleBack.rotation.y = Math.PI;
+
     const doorLeafGeo = tracker.trackGeo(new THREE.BoxGeometry(0.17, 0.24, 0.016));
     doorLeafGeo.translate(0.085, 0.12, 0);
     this.leftGatePivot = new THREE.Group();
     this.leftGatePivot.position.copy(entranceSpec.doorPivotLeft);
-    this.leftGatePivot.add(new THREE.Mesh(doorLeafGeo, softBlushCrystalMat));
+    this.leftGatePivot.add(new THREE.Mesh(doorLeafGeo, mats.champagneGold));
 
     const doorLeafRightGeo = tracker.trackGeo(new THREE.BoxGeometry(0.17, 0.24, 0.016));
     doorLeafRightGeo.translate(-0.085, 0.12, 0);
     this.rightGatePivot = new THREE.Group();
     this.rightGatePivot.position.copy(entranceSpec.doorPivotRight);
-    this.rightGatePivot.add(new THREE.Mesh(doorLeafRightGeo, warmChampagneMat));
+    this.rightGatePivot.add(new THREE.Mesh(doorLeafRightGeo, mats.champagneGold));
 
     this.dynamicObjects.add(this.leftGatePivot);
     this.dynamicObjects.add(this.rightGatePivot);
@@ -597,6 +752,12 @@ export class CastleTabletopWorld {
       new THREE.Mesh(gateArchGeo, mats.champagneGold),
       gpL,
       gpR,
+      gateHeartTop,
+      gateHeartL,
+      gateHeartR,
+      gateTitleBoard,
+      gateTitleFront,
+      gateTitleBack,
       this.leftGatePivot,
       this.rightGatePivot,
     );
@@ -604,12 +765,12 @@ export class CastleTabletopWorld {
   }
 
   /**
-   * Sections 14–18 & 35–36: Connected Full-Scale `LITTLE DREAM WORLD` Fantasy Enclave
-   * Includes:
-   * - Expandable world architecture for Stage 1–8 Transformation
-   * - Full-scale Twin-Tower Dream Castle backdrop on the East edge
-   * - Golden Yeshwanth figure with articulated limbs & detailed 3D Golden-Rimmed Rose
-   * - Floating world-integrated personal message banners ("Harsha, this little world was made for you." & "I LOVE YOU.")
+   * Sections 1–13: Connected Full-Scale "OUR LITTLE KINGDOM" Enclave (`dwRoot` at `(33.0, y0, 12.0)`)
+   * Journey:
+   * Entrance ("OUR LITTLE KINGDOM") -> Awakening Flower Path -> Central Courtyard (Twin-Stream Heart Fountain)
+   * -> Two Towers & Shared Bridge/Garden ("Y" & "H") -> Queen's Courtyard (Elevated Circular Dais, Intimate Throne, Circular Heart Frame)
+   * -> Rising Crown (Queen Reveal) -> Golden Yeshwanth Witnessing (Hand over Heart) -> World-Space Gratitude Messages
+   * -> Full Kingdom Illumination & Subtle Heart-Shaped Castle Composition from Above.
    */
   private buildConnectedLittleDreamWorld(colliders: CircleCollider[]): void {
     const { tracker, mats, y0 } = this;
@@ -621,45 +782,59 @@ export class CastleTabletopWorld {
     this.dwExpandGroup = new THREE.Group();
     dwRoot.add(this.dwExpandGroup);
 
-    const plateauGeo = tracker.trackGeo(new THREE.CylinderGeometry(8.2, 7.6, 0.45, 36));
+    const plateauGeo = tracker.trackGeo(new THREE.CylinderGeometry(8.6, 8.0, 0.45, 40));
     plateauGeo.translate(0, -0.225, 0);
     const plateauMat = tracker.trackMat(
       new THREE.MeshStandardMaterial({
         color: '#fdf2f8',
-        roughness: 0.75,
+        roughness: 0.72,
         metalness: 0.05,
       }),
     );
     const plateauMesh = new THREE.Mesh(plateauGeo, plateauMat);
     plateauMesh.receiveShadow = true;
 
-    const rimGoldGeo = tracker.trackGeo(new THREE.TorusGeometry(8.15, 0.12, 10, 48));
+    const rimGoldGeo = tracker.trackGeo(new THREE.TorusGeometry(8.55, 0.12, 10, 48));
     rimGoldGeo.rotateX(Math.PI / 2);
     rimGoldGeo.translate(0, 0.02, 0);
 
-    const pathGeo = tracker.trackGeo(new THREE.BoxGeometry(12.6, 0.025, 2.1));
-    pathGeo.translate(-0.8, 0.012, 0);
+    // Narrow curved pathway winding from West Entrance (-6.6, 0) through Central Courtyard (0, 0) to Queen's Courtyard (+3.35, 0)
+    const pathCurve = new THREE.CatmullRomCurve3([
+      new THREE.Vector3(-6.6, 0.018, 0.0),
+      new THREE.Vector3(-4.8, 0.018, 0.42),
+      new THREE.Vector3(-2.6, 0.018, -0.38),
+      new THREE.Vector3(0.0, 0.018, 0.0),
+      new THREE.Vector3(1.85, 0.018, 0.22),
+      new THREE.Vector3(3.35, 0.018, 0.0),
+    ]);
+    const curvedPathGeo = tracker.trackGeo(new THREE.TubeGeometry(pathCurve, 36, 0.82, 8, false));
+    curvedPathGeo.scale(1.0, 0.035, 1.0);
 
     this.dwExpandGroup.add(
       plateauMesh,
       new THREE.Mesh(rimGoldGeo, mats.champagneGold),
-      new THREE.Mesh(pathGeo, mats.blushRoseMarble),
+      new THREE.Mesh(curvedPathGeo, mats.blushRoseMarble),
     );
 
-    // Physical Return Castle Gate on West Edge (-6.8, 0, 0) -> castle local (26.2, y0, 12.0)
+    // =========================================================================
+    // 1. ENTRANCE GATE ("OUR LITTLE KINGDOM") ON WEST EDGE (-6.8, 0, 0)
+    // =========================================================================
     const returnGateGroup = new THREE.Group();
     returnGateGroup.position.set(-6.8, 0, 0);
     returnGateGroup.rotation.y = Math.PI / 2;
 
-    const rgPillarGeo = tracker.trackGeo(new THREE.CylinderGeometry(0.24, 0.28, 3.2, 12));
-    rgPillarGeo.translate(0, 1.6, 0);
-    const rgPillarL = new THREE.Mesh(rgPillarGeo, mats.pearlWhite);
+    const rgPillarGeo = tracker.trackGeo(new THREE.CylinderGeometry(0.22, 0.26, 3.1, 14));
+    rgPillarGeo.translate(0, 1.55, 0);
+    const rgPillarL = new THREE.Mesh(rgPillarGeo, mats.champagneGold);
     rgPillarL.position.x = -1.35;
-    const rgPillarR = new THREE.Mesh(rgPillarGeo, mats.pearlWhite);
+    const rgPillarR = new THREE.Mesh(rgPillarGeo, mats.champagneGold);
     rgPillarR.position.x = 1.35;
 
-    const rgArchGeo = tracker.trackGeo(new THREE.TorusGeometry(1.35, 0.14, 10, 24, Math.PI));
-    rgArchGeo.translate(0, 3.2, 0);
+    const rgArchGeo = tracker.trackGeo(new THREE.TorusGeometry(1.35, 0.13, 10, 28, Math.PI));
+    rgArchGeo.translate(0, 3.1, 0);
+
+    const gateCrestHeart = buildSculptedHeartMesh(tracker, 1.6, mats.champagneGold);
+    gateCrestHeart.position.set(0, 4.35, 0);
 
     const portalRingGeo = tracker.trackGeo(new THREE.RingGeometry(0.85, 1.25, 28));
     portalRingGeo.translate(0, 1.75, 0);
@@ -668,85 +843,297 @@ export class CastleTabletopWorld {
         color: '#f472b6',
         side: THREE.DoubleSide,
         transparent: true,
-        opacity: 0.48,
+        opacity: 0.42,
       }),
     );
     this.dreamWorldPortalRing = new THREE.Mesh(portalRingGeo, portalGlowMat);
     this.dynamicObjects.add(this.dreamWorldPortalRing);
 
-    const returnSignTex = createPlaqueCanvasTex(
+    const kingdomGateTex = createPlaqueCanvasTex(
       tracker,
-      '← RETURN TO OUR LITTLE CASTLE',
-      'Walk Through Gate to Return to Tabletop Castle',
+      'OUR LITTLE KINGDOM',
+      'Two Lives · One Little Kingdom',
+      '#4a1026',
+      '#fde047',
     );
-    const returnSignGeo = tracker.trackGeo(new THREE.PlaneGeometry(2.2, 0.56));
+    const returnSignGeo = tracker.trackGeo(new THREE.PlaneGeometry(2.35, 0.62));
+    const returnSignBoardGeo = tracker.trackGeo(new THREE.BoxGeometry(2.45, 0.7, 0.1));
     const returnSignMat = tracker.trackMat(
-      new THREE.MeshBasicMaterial({ map: returnSignTex, side: THREE.FrontSide }),
+      new THREE.MeshBasicMaterial({ map: kingdomGateTex, side: THREE.FrontSide }),
     );
+    const returnSignBoard = new THREE.Mesh(returnSignBoardGeo, mats.champagneGold);
+    returnSignBoard.position.set(0, 3.62, 0);
     const returnSignMeshFront = new THREE.Mesh(returnSignGeo, returnSignMat);
-    returnSignMeshFront.position.set(0, 3.65, 0.16);
+    returnSignMeshFront.position.set(0, 3.62, 0.06);
     const returnSignMeshBack = new THREE.Mesh(returnSignGeo, returnSignMat);
-    returnSignMeshBack.position.set(0, 3.65, -0.16);
+    returnSignMeshBack.position.set(0, 3.62, -0.06);
     returnSignMeshBack.rotation.y = Math.PI;
 
     returnGateGroup.add(
       rgPillarL,
       rgPillarR,
       new THREE.Mesh(rgArchGeo, mats.champagneGold),
+      gateCrestHeart,
       this.dreamWorldPortalRing,
+      returnSignBoard,
       returnSignMeshFront,
       returnSignMeshBack,
     );
     this.dwExpandGroup.add(returnGateGroup);
 
-    // Central Twin-Stream Heart Fountain at (0, 0, 0)
-    const fountainBasinGeo = tracker.trackGeo(new THREE.CylinderGeometry(1.65, 1.85, 0.42, 24));
-    fountainBasinGeo.translate(0, 0.21, 0);
-    const waterDiscGeo = tracker.trackGeo(new THREE.CylinderGeometry(1.52, 1.52, 0.36, 24));
-    waterDiscGeo.translate(0, 0.22, 0);
-    const waterMat = tracker.trackMat(
-      new THREE.MeshStandardMaterial({
-        color: '#7dd3fc',
-        emissive: '#0284c7',
-        emissiveIntensity: 0.45,
-        roughness: 0.12,
-      }),
-    );
-    const centerSpireGeo = tracker.trackGeo(new THREE.ConeGeometry(0.32, 1.55, 12));
-    centerSpireGeo.translate(0, 0.95, 0);
-    this.dreamWorldFountainStream = new THREE.Mesh(centerSpireGeo, waterMat);
-    this.dynamicObjects.add(this.dreamWorldFountainStream);
-
-    this.dwExpandGroup.add(
-      new THREE.Mesh(fountainBasinGeo, mats.pearlWhite),
-      new THREE.Mesh(waterDiscGeo, waterMat),
-      this.dreamWorldFountainStream,
-    );
-    colliders.push({
-      x: this.originX + 33.0,
-      z: this.originZ + 12.0,
-      radius: 1.75,
-      y: this.baseY + y0,
-      height: 3.5,
-    });
-
-    // Oversized Fantasy Flowers (Stage 3 of Little Dream World Transformation)
-    const stemGeo = tracker.trackGeo(new THREE.CylinderGeometry(0.08, 0.12, 2.8, 10));
-    stemGeo.translate(0, 1.4, 0);
-    const blossomGeo = tracker.trackGeo(new THREE.SphereGeometry(0.68, 12, 10));
-    blossomGeo.scale(1.2, 0.55, 1.2);
-    blossomGeo.translate(0, 2.85, 0);
+    // =========================================================================
+    // 2 & 4. AWAKENING PATHWAY: BLOOMING FLOWERS, CRYSTALS, TINY HEDGES & LANTERNS
+    // =========================================================================
     const stemMat = tracker.trackMat(
-      new THREE.MeshStandardMaterial({ color: '#34d399', roughness: 0.5 }),
+      new THREE.MeshStandardMaterial({ color: '#10b981', roughness: 0.45 }),
     );
     const flowerPinkMat = tracker.trackMat(
       new THREE.MeshStandardMaterial({
         color: '#f472b6',
         emissive: '#db2777',
-        emissiveIntensity: 0.35,
-        roughness: 0.3,
+        emissiveIntensity: 0.45,
+        roughness: 0.25,
       }),
     );
+    const flowerGoldMat = tracker.trackMat(
+      new THREE.MeshStandardMaterial({
+        color: '#fef08a',
+        emissive: '#f59e0b',
+        emissiveIntensity: 0.45,
+        roughness: 0.25,
+      }),
+    );
+
+    const pathStemGeo = tracker.trackGeo(new THREE.CylinderGeometry(0.025, 0.035, 0.42, 8));
+    pathStemGeo.translate(0, 0.21, 0);
+    const pathPetalGeo = tracker.trackGeo(new THREE.SphereGeometry(0.14, 10, 8));
+    pathPetalGeo.scale(1.25, 0.65, 1.25);
+    pathPetalGeo.translate(0, 0.44, 0);
+
+    // 14 Pathway flowers that bloom sequentially as Harsha walks from the entrance (-5.8) to the Queen's Courtyard (+3.0)
+    const pathFlowerCoords: Array<[number, number]> = [
+      [-5.6, -0.85],
+      [-5.4, 0.92],
+      [-4.4, -0.72],
+      [-4.1, 1.05],
+      [-3.1, -1.02],
+      [-2.8, 0.68],
+      [-1.8, -0.95],
+      [-1.5, 0.95],
+      [-0.4, -1.95],
+      [-0.4, 1.95],
+      [1.2, -1.25],
+      [1.2, 1.25],
+      [2.3, -1.35],
+      [2.3, 1.35],
+    ];
+    pathFlowerCoords.forEach(([fx, fz], idx) => {
+      const fg = new THREE.Group();
+      fg.position.set(fx, 0, fz);
+      fg.scale.setScalar(0.18); // Starts as a tiny sleeping bud!
+      fg.add(
+        new THREE.Mesh(pathStemGeo, stemMat),
+        new THREE.Mesh(
+          pathPetalGeo,
+          idx % 3 === 0 ? flowerGoldMat : idx % 2 === 0 ? flowerPinkMat : mats.softLavender,
+        ),
+      );
+      this.dwExpandGroup.add(fg);
+      this.awakeningFlowers.push({
+        group: fg,
+        localX: fx,
+        localZ: fz,
+        bloomRatio: 0.0,
+      });
+    });
+
+    // Tiny Hedges, Glowing Crystals & Heart-Shaped Decorations along the curved path (Section 4)
+    const tinyHedgeGeo = tracker.trackGeo(new THREE.BoxGeometry(0.75, 0.34, 0.28));
+    tinyHedgeGeo.translate(0, 0.17, 0);
+    const crystalClusterGeo = tracker.trackGeo(new THREE.OctahedronGeometry(0.18, 0));
+    crystalClusterGeo.scale(0.65, 1.45, 0.65);
+    crystalClusterGeo.translate(0, 0.24, 0);
+
+    [
+      { x: -4.9, z: -1.25, rot: 0.18 },
+      { x: -4.9, z: 1.35, rot: -0.18 },
+      { x: -2.2, z: -1.35, rot: -0.15 },
+      { x: -2.2, z: 1.25, rot: 0.15 },
+      { x: 1.65, z: -1.65, rot: 0.1 },
+      { x: 1.65, z: 1.65, rot: -0.1 },
+    ].forEach((hd, idx) => {
+      const hMesh = new THREE.Mesh(tinyHedgeGeo, stemMat);
+      hMesh.position.set(hd.x, 0, hd.z);
+      hMesh.rotation.y = hd.rot;
+      const crMesh = new THREE.Mesh(
+        crystalClusterGeo,
+        idx % 2 === 0 ? mats.crystalGlass : mats.softLavender,
+      );
+      crMesh.position.set(hd.x + 0.38, 0, hd.z);
+      const heartOrn = buildSculptedHeartMesh(tracker, 0.35, mats.champagneGold);
+      heartOrn.position.set(hd.x, 0.42, hd.z);
+      this.dwExpandGroup.add(hMesh, crMesh, heartOrn);
+    });
+
+    // Section 6 ("Our Story" Detail #1): Two flowers growing together on intertwined stems in the garden
+    const twinFlowerGroup = new THREE.Group();
+    twinFlowerGroup.position.set(-1.35, 0, -1.45);
+    const stem1 = new THREE.Mesh(pathStemGeo, stemMat);
+    stem1.rotation.z = -0.18;
+    const stem2 = new THREE.Mesh(pathStemGeo, stemMat);
+    stem2.position.x = 0.12;
+    stem2.rotation.z = 0.18;
+    const bloomGold = new THREE.Mesh(pathPetalGeo, flowerGoldMat);
+    bloomGold.position.set(0.06, 0, 0);
+    const bloomBlush = new THREE.Mesh(pathPetalGeo, flowerPinkMat);
+    bloomBlush.position.set(0.06, 0.02, 0.08);
+    twinFlowerGroup.add(stem1, stem2, bloomGold, bloomBlush);
+    this.dwExpandGroup.add(twinFlowerGroup);
+
+    // Pathway & Heart-Perimeter Lanterns that wake up as Harsha walks through the kingdom
+    const lanternPostGeo = tracker.trackGeo(new THREE.CylinderGeometry(0.035, 0.048, 1.15, 8));
+    lanternPostGeo.translate(0, 0.575, 0);
+    const lanternOrbGeo = tracker.trackGeo(new THREE.SphereGeometry(0.11, 10, 10));
+    lanternOrbGeo.translate(0, 1.2, 0);
+
+    // 16 Lanterns arranged along the pathway AND forming a subtle Heart-Shaped Kingdom outline from above (Section 11)
+    const lanternCoords: Array<[number, number]> = [
+      [-5.2, -1.4],
+      [-5.2, 1.4],
+      [-3.4, -2.6],
+      [-3.4, 2.6],
+      [-1.2, -3.9],
+      [-1.2, 3.9],
+      [1.4, -4.6],
+      [1.4, 4.6],
+      [3.8, -4.2],
+      [3.8, 4.2],
+      [5.4, -2.6],
+      [5.4, 2.6],
+      [4.2, -1.1],
+      [4.2, 1.1],
+      [1.6, -1.15],
+      [1.6, 1.15],
+    ];
+    lanternCoords.forEach(([lxPos, lzPos]) => {
+      const orbMat = tracker.trackMat(
+        new THREE.MeshStandardMaterial({
+          color: '#fef3c7',
+          emissive: '#f59e0b',
+          emissiveIntensity: 0.08, // Starts asleep/dim, wakes up as Harsha arrives!
+          roughness: 0.2,
+        }),
+      );
+      const lg = new THREE.Group();
+      lg.position.set(lxPos, 0, lzPos);
+      lg.add(
+        new THREE.Mesh(lanternPostGeo, mats.champagneGold),
+        new THREE.Mesh(lanternOrbGeo, orbMat),
+      );
+      this.dwExpandGroup.add(lg);
+      this.awakeningLanterns.push({
+        orbMat,
+        localX: lxPos,
+        localZ: lzPos,
+        wakeRatio: 0.0,
+      });
+      this.heartPerimeterLights.push(orbMat);
+    });
+
+    // =========================================================================
+    // 5. THE CENTRAL COURTYARD — TWIN-STREAM HEART-SHAPED FOUNTAIN AT (0, 0, 0)
+    // =========================================================================
+    const fountainBasinGeo = tracker.trackGeo(new THREE.CylinderGeometry(1.55, 1.75, 0.42, 28));
+    fountainBasinGeo.translate(0, 0.21, 0);
+    const waterDiscGeo = tracker.trackGeo(new THREE.CylinderGeometry(1.42, 1.42, 0.36, 28));
+    waterDiscGeo.translate(0, 0.22, 0);
+    this.fountainWaterMat = tracker.trackMat(
+      new THREE.MeshStandardMaterial({
+        color: '#7dd3fc',
+        emissive: '#0284c7',
+        emissiveIntensity: 0.35,
+        roughness: 0.12,
+      }),
+    );
+
+    // Two curved streams of water arching from opposite sides to meet at the center (forming a natural heart arch)
+    const leftStreamCurve = new THREE.CatmullRomCurve3([
+      new THREE.Vector3(0, 0.35, -0.92),
+      new THREE.Vector3(0, 1.28, -0.78),
+      new THREE.Vector3(0, 1.62, -0.32),
+      new THREE.Vector3(0, 1.18, 0.0),
+    ]);
+    const rightStreamCurve = new THREE.CatmullRomCurve3([
+      new THREE.Vector3(0, 0.35, 0.92),
+      new THREE.Vector3(0, 1.28, 0.78),
+      new THREE.Vector3(0, 1.62, 0.32),
+      new THREE.Vector3(0, 1.18, 0.0),
+    ]);
+    const leftStreamGeo = tracker.trackGeo(
+      new THREE.TubeGeometry(leftStreamCurve, 20, 0.055, 8, false),
+    );
+    const rightStreamGeo = tracker.trackGeo(
+      new THREE.TubeGeometry(rightStreamCurve, 20, 0.055, 8, false),
+    );
+    this.fountainStreamLeftMesh = new THREE.Mesh(leftStreamGeo, this.fountainWaterMat);
+    this.fountainStreamRightMesh = new THREE.Mesh(rightStreamGeo, this.fountainWaterMat);
+    this.dynamicObjects.add(this.fountainStreamLeftMesh);
+    this.dynamicObjects.add(this.fountainStreamRightMesh);
+
+    // Where the two curved streams meet at the center, a small crystal heart glows + two tiny intertwined hearts below (Sections 5 & 6)
+    this.fountainHeartMat = tracker.trackMat(
+      new THREE.MeshStandardMaterial({
+        color: '#fbcfe8',
+        emissive: '#f43f5e',
+        emissiveIntensity: 0.45,
+        roughness: 0.12,
+        metalness: 0.2,
+      }),
+    );
+    this.fountainCenterHeartGroup = buildSculptedHeartMesh(tracker, 1.35, this.fountainHeartMat);
+    this.fountainCenterHeartGroup.position.set(0, 1.18, 0);
+    this.dynamicObjects.add(this.fountainCenterHeartGroup);
+
+    const intertwinedHeartA = buildSculptedHeartMesh(tracker, 0.65, mats.champagneGold);
+    intertwinedHeartA.position.set(-0.06, 0.52, -0.04);
+    intertwinedHeartA.rotation.y = 0.25;
+    const intertwinedHeartB = buildSculptedHeartMesh(tracker, 0.65, mats.blushRoseMarble);
+    intertwinedHeartB.position.set(0.06, 0.52, 0.04);
+    intertwinedHeartB.rotation.y = -0.25;
+
+    // Miniature curved benches & rose clusters around the Central Fountain
+    const benchSeatGeo = tracker.trackGeo(new THREE.BoxGeometry(0.95, 0.08, 0.36));
+    benchSeatGeo.translate(0, 0.38, 0);
+    const benchN = new THREE.Mesh(benchSeatGeo, mats.pearlWhite);
+    benchN.position.set(0, 0, -2.25);
+    const benchS = new THREE.Mesh(benchSeatGeo, mats.pearlWhite);
+    benchS.position.set(0, 0, 2.25);
+
+    this.dwExpandGroup.add(
+      new THREE.Mesh(fountainBasinGeo, mats.pearlWhite),
+      new THREE.Mesh(waterDiscGeo, this.fountainWaterMat),
+      this.fountainStreamLeftMesh,
+      this.fountainStreamRightMesh,
+      this.fountainCenterHeartGroup,
+      intertwinedHeartA,
+      intertwinedHeartB,
+      benchN,
+      benchS,
+    );
+    colliders.push({
+      x: this.originX + 33.0,
+      z: this.originZ + 12.0,
+      radius: 1.65,
+      y: this.baseY + y0,
+      height: 3.5,
+    });
+
+    // Oversized & Courtyard Fantasy Flowers around the kingdom
+    const bigStemGeo = tracker.trackGeo(new THREE.CylinderGeometry(0.07, 0.11, 2.4, 10));
+    bigStemGeo.translate(0, 1.2, 0);
+    const bigBlossomGeo = tracker.trackGeo(new THREE.SphereGeometry(0.58, 12, 10));
+    bigBlossomGeo.scale(1.2, 0.55, 1.2);
+    bigBlossomGeo.translate(0, 2.45, 0);
 
     const flowerSpots = [
       [-3.8, -3.5],
@@ -761,163 +1148,273 @@ export class CastleTabletopWorld {
       fg.position.set(fx, 0, fz);
       fg.rotation.z = (idx % 2 === 0 ? 1 : -1) * 0.08;
       fg.add(
-        new THREE.Mesh(stemGeo, stemMat),
-        new THREE.Mesh(blossomGeo, idx % 2 === 0 ? flowerPinkMat : mats.softLavender),
+        new THREE.Mesh(bigStemGeo, stemMat),
+        new THREE.Mesh(bigBlossomGeo, idx % 2 === 0 ? flowerPinkMat : mats.softLavender),
       );
       this.dwExpandGroup.add(fg);
       this.flowerGroups.push(fg);
     });
 
-    // Glowing Fairy Mushrooms & Toy-Style Village Houses
-    const mushStemGeo = tracker.trackGeo(new THREE.CylinderGeometry(0.12, 0.16, 0.55, 10));
-    mushStemGeo.translate(0, 0.275, 0);
-    const mushCapGeo = tracker.trackGeo(new THREE.ConeGeometry(0.42, 0.36, 12));
-    mushCapGeo.translate(0, 0.68, 0);
-    const mushGlowMat = tracker.trackMat(
-      new THREE.MeshStandardMaterial({
-        color: '#fef08a',
-        emissive: '#f59e0b',
-        emissiveIntensity: 0.95,
-        roughness: 0.2,
-      }),
+    // =========================================================================
+    // 7 & 8. THE QUEEN'S COURTYARD (DEEPER INSIDE AT (+3.35, 0, 0)) + RISING CROWN
+    // =========================================================================
+    this.queenCourtyardGroup = new THREE.Group();
+    this.queenCourtyardGroup.name = 'QueensCourtyard';
+    this.queenCourtyardGroup.position.set(3.35, 0, 0);
+    this.dwExpandGroup.add(this.queenCourtyardGroup);
+
+    // Slightly elevated 2-tier circular platform
+    const daisTier1Geo = tracker.trackGeo(new THREE.CylinderGeometry(1.95, 2.15, 0.14, 32));
+    daisTier1Geo.translate(0, 0.07, 0);
+    const daisTier2Geo = tracker.trackGeo(new THREE.CylinderGeometry(1.55, 1.72, 0.14, 32));
+    daisTier2Geo.translate(0, 0.21, 0);
+    const daisGoldRimGeo = tracker.trackGeo(new THREE.TorusGeometry(1.56, 0.03, 8, 32));
+    daisGoldRimGeo.rotateX(Math.PI / 2);
+    daisGoldRimGeo.translate(0, 0.28, 0);
+
+    this.queenCourtyardGroup.add(
+      new THREE.Mesh(daisTier1Geo, mats.pearlWhite),
+      new THREE.Mesh(daisTier2Geo, mats.blushRoseMarble),
+      new THREE.Mesh(daisGoldRimGeo, mats.champagneGold),
     );
 
-    [
-      [-4.8, -1.8],
-      [-4.8, 1.8],
-      [2.8, -2.5],
-      [2.8, 2.5],
-      [5.4, 0.0],
-    ].forEach(([mx, mz]) => {
-      const mg = new THREE.Group();
-      mg.position.set(mx, 0, mz);
-      mg.add(
-        new THREE.Mesh(mushStemGeo, mats.pearlWhite),
-        new THREE.Mesh(mushCapGeo, mushGlowMat),
-      );
-      this.dwExpandGroup.add(mg);
-    });
+    // Intimate, elegant miniature royal chair / throne (miniature royal chair + crystal + flowers + gold)
+    const throneGroup = new THREE.Group();
+    throneGroup.position.set(0.35, 0.28, 0);
+    throneGroup.rotation.y = -Math.PI / 2; // Faces West (-X) toward the approaching path & Central Courtyard
 
-    const houseWallsGeo = tracker.trackGeo(new THREE.BoxGeometry(1.65, 1.85, 1.65));
-    houseWallsGeo.translate(0, 0.925, 0);
-    const houseRoofGeo = tracker.trackGeo(new THREE.ConeGeometry(1.45, 1.35, 4));
-    houseRoofGeo.rotateY(Math.PI / 4);
-    houseRoofGeo.translate(0, 2.52, 0);
+    const throneSeatGeo = tracker.trackGeo(new THREE.CylinderGeometry(0.38, 0.34, 0.42, 18));
+    throneSeatGeo.translate(0, 0.21, 0);
+    const throneCushionGeo = tracker.trackGeo(new THREE.CylinderGeometry(0.36, 0.36, 0.1, 18));
+    throneCushionGeo.translate(0, 0.44, 0);
+    const throneBackGeo = tracker.trackGeo(new THREE.BoxGeometry(0.68, 0.96, 0.1));
+    throneBackGeo.translate(0, 0.88, -0.28);
+    const throneBackArchGeo = tracker.trackGeo(
+      new THREE.TorusGeometry(0.34, 0.04, 10, 20, Math.PI),
+    );
+    throneBackArchGeo.translate(0, 1.36, -0.28);
+    const throneArmGeo = tracker.trackGeo(new THREE.BoxGeometry(0.08, 0.28, 0.48));
+    const armL = new THREE.Mesh(throneArmGeo, mats.champagneGold);
+    armL.position.set(-0.34, 0.58, -0.04);
+    const armR = new THREE.Mesh(throneArmGeo, mats.champagneGold);
+    armR.position.set(0.34, 0.58, -0.04);
+    const throneTopCrystal = new THREE.Mesh(
+      tracker.trackGeo(new THREE.OctahedronGeometry(0.09, 0)),
+      mats.crystalGlass,
+    );
+    throneTopCrystal.position.set(0, 1.76, -0.28);
 
-    [
-      [-2.2, -5.2],
-      [-2.2, 5.2],
-      [3.6, -5.0],
-      [3.6, 5.0],
-    ].forEach(([hx, hz]) => {
-      const hg = new THREE.Group();
-      hg.position.set(hx, 0, hz);
-      hg.add(
-        new THREE.Mesh(houseWallsGeo, mats.creamStone),
-        new THREE.Mesh(houseRoofGeo, mats.powderBlueSpire),
-      );
-      this.dwExpandGroup.add(hg);
-      colliders.push({
-        x: this.originX + 33.0 + hx,
-        z: this.originZ + 12.0 + hz,
-        radius: 1.15,
-        y: this.baseY + y0,
-        height: 3.5,
-      });
-    });
+    throneGroup.add(
+      new THREE.Mesh(throneSeatGeo, mats.pearlWhite),
+      new THREE.Mesh(throneCushionGeo, flowerPinkMat),
+      new THREE.Mesh(throneBackGeo, mats.pearlWhite),
+      new THREE.Mesh(throneBackArchGeo, mats.champagneGold),
+      armL,
+      armR,
+      throneTopCrystal,
+    );
+    this.queenCourtyardGroup.add(throneGroup);
 
-    // Full-Scale Twin-Tower Castle Backdrop on East Edge (+6.2, 0, 0) + "I LOVE YOU" Garden Topiary
+    // Behind the throne: Circular Architectural Frame + Subtle Glowing Heart inside the frame (Section 7)
+    this.queenArchFrameMat = tracker.trackMat(
+      new THREE.MeshStandardMaterial({
+        color: '#fde047',
+        emissive: '#f59e0b',
+        emissiveIntensity: 0.28,
+        roughness: 0.2,
+        metalness: 0.78,
+      }),
+    );
+    const queenCircleFrameGeo = tracker.trackGeo(new THREE.TorusGeometry(1.18, 0.065, 12, 36));
+    const queenCircleFrame = new THREE.Mesh(queenCircleFrameGeo, this.queenArchFrameMat);
+    queenCircleFrame.position.set(0.82, 1.52, 0);
+    queenCircleFrame.rotation.y = Math.PI / 2;
+
+    this.queenFrameHeartGroup = buildSculptedHeartMesh(tracker, 2.1, this.fountainHeartMat);
+    this.queenFrameHeartGroup.position.set(0.82, 1.52, 0);
+    this.queenFrameHeartGroup.rotation.y = -Math.PI / 2;
+    this.dynamicObjects.add(this.queenFrameHeartGroup);
+
+    this.queenCourtyardGroup.add(queenCircleFrame, this.queenFrameHeartGroup);
+
+    // Section 8: Crystal Pedestal in front of the throne + Hidden Royal Crown (NOT visible initially!)
+    const crownPedestalGeo = tracker.trackGeo(new THREE.CylinderGeometry(0.22, 0.28, 0.68, 20));
+    crownPedestalGeo.translate(0, 0.34, 0);
+    const crownPedestalMesh = new THREE.Mesh(crownPedestalGeo, mats.crystalGlass);
+    crownPedestalMesh.position.set(-0.68, 0.28, 0); // At localX = 3.35 - 0.68 = 2.67 in dwRoot
+    this.queenCourtyardGroup.add(crownPedestalMesh);
+
+    this.queenCrownGroup = new THREE.Group();
+    this.queenCrownGroup.name = 'QueensRisingCrown';
+    this.queenCrownGroup.position.set(-0.68, 0.62, 0);
+    this.queenCrownGroup.visible = false; // Crucial Section 8 requirement: Crown is NOT visible from the beginning!
+    this.dynamicObjects.add(this.queenCrownGroup);
+
+    const crownBandGeo = tracker.trackGeo(new THREE.TorusGeometry(0.15, 0.018, 10, 24));
+    crownBandGeo.rotateX(Math.PI / 2);
+    const crownPeakGeo = tracker.trackGeo(new THREE.ConeGeometry(0.028, 0.11, 6));
+    const crownGemGeo = tracker.trackGeo(new THREE.OctahedronGeometry(0.026, 0));
+    this.queenCrownGroup.add(new THREE.Mesh(crownBandGeo, mats.champagneGold));
+
+    for (let p = 0; p < 5; p++) {
+      const ang = (p * Math.PI * 2) / 5;
+      const peak = new THREE.Mesh(crownPeakGeo, mats.champagneGold);
+      peak.position.set(Math.cos(ang) * 0.15, 0.055, Math.sin(ang) * 0.15);
+      const gem = new THREE.Mesh(crownGemGeo, flowerPinkMat);
+      gem.position.set(Math.cos(ang) * 0.15, 0.115, Math.sin(ang) * 0.15);
+      this.queenCrownGroup.add(peak, gem);
+    }
+
+    const crownHaloGeo = tracker.trackGeo(new THREE.SphereGeometry(0.32, 14, 14));
+    this.queenCrownHaloMat = tracker.trackMat(
+      new THREE.MeshBasicMaterial({
+        color: '#fef08a',
+        transparent: true,
+        opacity: 0.0,
+      }),
+    );
+    this.queenCrownGroup.add(new THREE.Mesh(crownHaloGeo, this.queenCrownHaloMat));
+    this.queenCourtyardGroup.add(this.queenCrownGroup);
+
+    // =========================================================================
+    // 3 & 6. THE TWO TOWERS, CONNECTING BRIDGE ("Y" & "H"), SHARED GARDEN & MEETING TREES
+    // =========================================================================
     this.dwFullCastleBackdrop = new THREE.Group();
     this.dwFullCastleBackdrop.position.set(6.2, 0, 0);
     this.dwFullCastleBackdrop.rotation.y = -Math.PI / 2;
 
-    const bigTowerGeo = tracker.trackGeo(new THREE.CylinderGeometry(0.85, 0.95, 5.4, 16));
+    const bigTowerGeo = tracker.trackGeo(new THREE.CylinderGeometry(0.88, 0.98, 5.4, 20));
     bigTowerGeo.translate(0, 2.7, 0);
-    const bigSpireGeo = tracker.trackGeo(new THREE.ConeGeometry(1.08, 2.4, 16));
-    bigSpireGeo.translate(0, 6.6, 0);
-    const bigBridgeGeo = tracker.trackGeo(new THREE.BoxGeometry(3.2, 0.48, 0.85));
+    const bigSpireGeo = tracker.trackGeo(new THREE.ConeGeometry(1.12, 2.45, 20));
+    bigSpireGeo.translate(0, 6.62, 0);
+    const bigBridgeGeo = tracker.trackGeo(new THREE.BoxGeometry(3.8, 0.48, 0.92));
     bigBridgeGeo.translate(0, 3.8, 0);
 
+    const yeshTowerMat = tracker.trackMat(
+      new THREE.MeshStandardMaterial({
+        color: '#fef3c7',
+        emissive: '#f59e0b',
+        emissiveIntensity: 0.22,
+        roughness: 0.25,
+        metalness: 0.48,
+      }),
+    );
+    const harshaTowerMat = tracker.trackMat(
+      new THREE.MeshStandardMaterial({
+        color: '#fce7f3',
+        emissive: '#f472b6',
+        emissiveIntensity: 0.25,
+        roughness: 0.2,
+        metalness: 0.22,
+      }),
+    );
+    this.heartPerimeterLights.push(yeshTowerMat, harshaTowerMat);
+
+    // Tower Windows: One warm gold (Yeshwanth), One soft pink (Harsha) — Section 6
+    const towerWinGeo = tracker.trackGeo(new THREE.PlaneGeometry(0.34, 0.62));
+    const yeshWinMat = tracker.trackMat(
+      new THREE.MeshStandardMaterial({
+        color: '#fef08a',
+        emissive: '#f59e0b',
+        emissiveIntensity: 0.15, // Wakes up when Harsha walks in!
+        roughness: 0.15,
+      }),
+    );
+    const harshaWinMat = tracker.trackMat(
+      new THREE.MeshStandardMaterial({
+        color: '#fbcfe8',
+        emissive: '#ec4899',
+        emissiveIntensity: 0.15, // Wakes up when Harsha walks in!
+        roughness: 0.15,
+      }),
+    );
+    this.kingdomWindowMats.push(yeshWinMat, harshaWinMat);
+    this.heartPerimeterLights.push(yeshWinMat, harshaWinMat);
+
+    // Yeshwanth's Tower (Left when facing East -> local -X of dwFullCastleBackdrop)
     const bigTowerL = new THREE.Group();
-    bigTowerL.position.set(-1.6, 0, 0);
+    bigTowerL.position.set(-1.95, 0, 0);
+    const yeshWin1 = new THREE.Mesh(towerWinGeo, yeshWinMat);
+    yeshWin1.position.set(0, 2.2, 0.94);
+    const yeshWin2 = new THREE.Mesh(towerWinGeo, yeshWinMat);
+    yeshWin2.position.set(0, 3.6, 0.91);
+    const bigSunStarGeo = tracker.trackGeo(new THREE.OctahedronGeometry(0.28, 0));
+    const yeshSunMotif = new THREE.Mesh(bigSunStarGeo, mats.champagneGold);
+    yeshSunMotif.position.set(0, 4.65, 0.9);
     bigTowerL.add(
-      new THREE.Mesh(bigTowerGeo, mats.champagneGold),
-      new THREE.Mesh(bigSpireGeo, mats.powderBlueSpire),
-    );
-    const bigTowerR = new THREE.Group();
-    bigTowerR.position.set(1.6, 0, 0);
-    bigTowerR.add(
-      new THREE.Mesh(bigTowerGeo, mats.blushRoseMarble),
+      new THREE.Mesh(bigTowerGeo, yeshTowerMat),
       new THREE.Mesh(bigSpireGeo, mats.champagneGold),
+      yeshWin1,
+      yeshWin2,
+      yeshSunMotif,
     );
 
-    const bigLovePlaqueTex = createPlaqueCanvasTex(
-      tracker,
-      '♥ I LOVE YOU, HARSHA ♥',
-      'Tower of Yeshwanth & Tower of Harsha · Forever One World',
-      '#831843',
-      '#fde047',
+    // Harsha's Tower (Right when facing East -> local +X of dwFullCastleBackdrop)
+    const bigTowerR = new THREE.Group();
+    bigTowerR.position.set(1.95, 0, 0);
+    const harshaWin1 = new THREE.Mesh(towerWinGeo, harshaWinMat);
+    harshaWin1.position.set(0, 2.2, 0.94);
+    const harshaWin2 = new THREE.Mesh(towerWinGeo, harshaWinMat);
+    harshaWin2.position.set(0, 3.6, 0.91);
+    const harshaHeartMotif = buildSculptedHeartMesh(tracker, 1.4, flowerPinkMat);
+    harshaHeartMotif.position.set(0, 4.65, 0.92);
+    bigTowerR.add(
+      new THREE.Mesh(bigTowerGeo, harshaTowerMat),
+      new THREE.Mesh(bigSpireGeo, mats.blushRoseMarble),
+      harshaWin1,
+      harshaWin2,
+      harshaHeartMotif,
     );
-    const bigLovePlaqueBoardGeo = tracker.trackGeo(new THREE.BoxGeometry(2.74, 0.96, 0.12));
-    const bigLovePlaqueBoard = new THREE.Mesh(bigLovePlaqueBoardGeo, mats.champagneGold);
-    bigLovePlaqueBoard.position.set(0, 3.05, 0);
 
-    const bigLovePlaqueGeo = tracker.trackGeo(new THREE.PlaneGeometry(2.6, 0.85));
-    const bigLovePlaqueMat = tracker.trackMat(
-      new THREE.MeshBasicMaterial({ map: bigLovePlaqueTex, side: THREE.FrontSide }),
+    // Section 6 ("Our Story" Detail #2): Two small golden plaques "Y" and "H" on the connecting bridge
+    const yBridgeTex = createInitialMedallionTex(tracker, 'Y', '#4a1026', '#fde047');
+    const hBridgeTex = createInitialMedallionTex(tracker, 'H', '#831843', '#fbcfe8');
+    const bridgeMedallionGeo = tracker.trackGeo(new THREE.PlaneGeometry(0.46, 0.46));
+    const bridgeMedBoardGeo = tracker.trackGeo(new THREE.BoxGeometry(0.52, 0.52, 0.08));
+    const yBridgeMat = tracker.trackMat(
+      new THREE.MeshBasicMaterial({ map: yBridgeTex, side: THREE.FrontSide }),
     );
-    const bigLovePlaqueFront = new THREE.Mesh(bigLovePlaqueGeo, bigLovePlaqueMat);
-    bigLovePlaqueFront.position.set(0, 3.05, 0.07);
-    const bigLovePlaqueBack = new THREE.Mesh(bigLovePlaqueGeo, bigLovePlaqueMat);
-    bigLovePlaqueBack.position.set(0, 3.05, -0.07);
-    bigLovePlaqueBack.rotation.y = Math.PI;
-
-    // 3D "I ♥ U" Rose Parterre Bed in front of the Full-Scale Twin-Tower Castle (facing player looking East -> local +Z of dwFullCastleBackdrop)
-    const dwParterreGroup = new THREE.Group();
-    dwParterreGroup.position.set(0, 0.02, 1.35);
-    const dwParterreBed = new THREE.Mesh(
-      tracker.trackGeo(new THREE.BoxGeometry(2.2, 0.08, 0.88)),
-      mats.pearlWhite,
+    const hBridgeMat = tracker.trackMat(
+      new THREE.MeshBasicMaterial({ map: hBridgeTex, side: THREE.FrontSide }),
     );
-    dwParterreGroup.add(dwParterreBed);
-    const dwRoseBudGeo = tracker.trackGeo(new THREE.SphereGeometry(0.065, 8, 8));
-    // Local +Z of dwFullCastleBackdrop points West (-X) toward approaching Harsha!
-    // When Harsha looks East (-Z of dwFullCastleBackdrop), local -X is screen-left, +X is screen-right, -Z is top, +Z is bottom:
-    const dwParterrePoints: Array<{ x: number; z: number; isHeart?: boolean }> = [
-      // 'I' (left, -X)
-      { x: -0.68, z: -0.22 },
-      { x: -0.68, z: -0.11 },
-      { x: -0.68, z: 0.0 },
-      { x: -0.68, z: 0.11 },
-      { x: -0.68, z: 0.22 },
-      // '♥' (center: upper lobes at -Z, lower tip at +Z)
-      { x: -0.12, z: -0.18, isHeart: true },
-      { x: 0.12, z: -0.18, isHeart: true },
-      { x: -0.2, z: -0.04, isHeart: true },
-      { x: 0.0, z: -0.06, isHeart: true },
-      { x: 0.2, z: -0.04, isHeart: true },
-      { x: -0.11, z: 0.1, isHeart: true },
-      { x: 0.11, z: 0.1, isHeart: true },
-      { x: 0.0, z: 0.22, isHeart: true },
-      // 'U' (right, +X: top at -Z, bottom curve at +Z)
-      { x: 0.52, z: -0.22 },
-      { x: 0.52, z: -0.06 },
-      { x: 0.52, z: 0.1 },
-      { x: 0.65, z: 0.22 },
-      { x: 0.78, z: 0.1 },
-      { x: 0.78, z: -0.06 },
-      { x: 0.78, z: -0.22 },
-    ];
-    dwParterrePoints.forEach((pt) => {
-      const bud = new THREE.Mesh(
-        dwRoseBudGeo,
-        pt.isHeart ? flowerPinkMat : mats.champagneGold,
-      );
-      bud.position.set(pt.x, 0.08, pt.z);
-      dwParterreGroup.add(bud);
-    });
 
-    // Sculpted 3D Heart Trees flanking the Full-Scale Twin-Tower Castle in Little Dream World
+    const yBridgeBoard = new THREE.Mesh(bridgeMedBoardGeo, mats.champagneGold);
+    yBridgeBoard.position.set(-0.85, 3.8, 0.45);
+    const yBridgeFront = new THREE.Mesh(bridgeMedallionGeo, yBridgeMat);
+    yBridgeFront.position.set(-0.85, 3.8, 0.5);
+    const hBridgeBoard = new THREE.Mesh(bridgeMedBoardGeo, mats.champagneGold);
+    hBridgeBoard.position.set(0.85, 3.8, 0.45);
+    const hBridgeFront = new THREE.Mesh(bridgeMedallionGeo, hBridgeMat);
+    hBridgeFront.position.set(0.85, 3.8, 0.5);
+
+    const centerBridgeHeart = buildSculptedHeartMesh(tracker, 1.5, mats.champagneGold);
+    centerBridgeHeart.position.set(0, 3.8, 0.52);
+
+    // Section 6 ("Our Story" Detail #5): Two trees beneath the bridge whose branches gently meet overhead
+    const meetBranchCurveL = new THREE.CatmullRomCurve3([
+      new THREE.Vector3(-1.15, 0.0, 0.45),
+      new THREE.Vector3(-1.05, 1.35, 0.45),
+      new THREE.Vector3(-0.48, 2.35, 0.45),
+      new THREE.Vector3(0.0, 2.55, 0.45),
+    ]);
+    const meetBranchCurveR = new THREE.CatmullRomCurve3([
+      new THREE.Vector3(1.15, 0.0, 0.45),
+      new THREE.Vector3(1.05, 1.35, 0.45),
+      new THREE.Vector3(0.48, 2.35, 0.45),
+      new THREE.Vector3(0.0, 2.55, 0.45),
+    ]);
+    const meetTreeL = new THREE.Mesh(
+      tracker.trackGeo(new THREE.TubeGeometry(meetBranchCurveL, 16, 0.08, 8, false)),
+      mats.champagneGold,
+    );
+    const meetTreeR = new THREE.Mesh(
+      tracker.trackGeo(new THREE.TubeGeometry(meetBranchCurveR, 16, 0.08, 8, false)),
+      mats.champagneGold,
+    );
+    const meetCanopyHeart = buildSculptedHeartMesh(tracker, 2.2, flowerPinkMat);
+    meetCanopyHeart.position.set(0, 2.62, 0.45);
+
+    // Flanking Heart Trees
     const dwTreeTrunkGeo = tracker.trackGeo(new THREE.CylinderGeometry(0.14, 0.22, 2.2, 10));
     dwTreeTrunkGeo.translate(0, 1.1, 0);
     const dwTreeLobeGeo = tracker.trackGeo(new THREE.IcosahedronGeometry(0.82, 2));
@@ -942,29 +1439,68 @@ export class CastleTabletopWorld {
       bigTowerL,
       bigTowerR,
       new THREE.Mesh(bigBridgeGeo, mats.champagneGold),
-      bigLovePlaqueBoard,
-      bigLovePlaqueFront,
-      bigLovePlaqueBack,
-      dwParterreGroup,
-      buildDreamWorldHeartTree(-3.4, 0.8, flowerPinkMat),
-      buildDreamWorldHeartTree(3.4, 0.8, mats.softLavender),
+      yBridgeBoard,
+      yBridgeFront,
+      hBridgeBoard,
+      hBridgeFront,
+      centerBridgeHeart,
+      meetTreeL,
+      meetTreeR,
+      meetCanopyHeart,
+      buildDreamWorldHeartTree(-3.6, 0.8, flowerGoldMat),
+      buildDreamWorldHeartTree(3.6, 0.8, flowerPinkMat),
     );
     this.dwExpandGroup.add(this.dwFullCastleBackdrop);
 
+    // Toy-Style Kingdom Houses with Illuminating Windows
+    const houseWallsGeo = tracker.trackGeo(new THREE.BoxGeometry(1.55, 1.75, 1.55));
+    houseWallsGeo.translate(0, 0.875, 0);
+    const houseRoofGeo = tracker.trackGeo(new THREE.ConeGeometry(1.38, 1.28, 4));
+    houseRoofGeo.rotateY(Math.PI / 4);
+    houseRoofGeo.translate(0, 2.38, 0);
+    const houseWinGeo = tracker.trackGeo(new THREE.PlaneGeometry(0.32, 0.42));
+
+    [
+      [-2.2, -5.2],
+      [-2.2, 5.2],
+      [3.6, -5.0],
+      [3.6, 5.0],
+    ].forEach(([hx, hz], idx) => {
+      const hg = new THREE.Group();
+      hg.position.set(hx, 0, hz);
+      const hwMat = idx % 2 === 0 ? yeshWinMat : harshaWinMat;
+      const hw = new THREE.Mesh(houseWinGeo, hwMat);
+      hw.position.set(0, 0.95, hz < 0 ? 0.785 : -0.785);
+      if (hz > 0) hw.rotation.y = Math.PI;
+      hg.add(
+        new THREE.Mesh(houseWallsGeo, mats.creamStone),
+        new THREE.Mesh(houseRoofGeo, idx % 2 === 0 ? mats.champagneGold : mats.blushRoseMarble),
+        hw,
+      );
+      this.dwExpandGroup.add(hg);
+      colliders.push({
+        x: this.originX + 33.0 + hx,
+        z: this.originZ + 12.0 + hz,
+        radius: 1.15,
+        y: this.baseY + y0,
+        height: 3.5,
+      });
+    });
+
     // =========================================================================
-    // SECTIONS 15, 16, 17: GOLDEN YESHWANTH FIGURE + GOLDEN-RIMMED ROSE + MESSAGES
+    // 9. GOLDEN YESHWANTH FIGURE (WITNESSING THE QUEEN REVEAL — NO ROSE, NO KNEELING)
     // =========================================================================
     this.goldenYeshwanthGroup = new THREE.Group();
     this.goldenYeshwanthGroup.name = 'GoldenYeshwanthFigure';
-    // Default standing spot in the Little Dream World garden (East of fountain)
-    this.goldenYeshwanthGroup.position.set(2.4, 0, 0);
-    this.goldenYeshwanthGroup.rotation.y = -Math.PI / 2; // Faces West toward Harsha
+    // Positioned respectfully beside the Queen's Courtyard at (2.35, 0, -1.45), facing Harsha & the Crown
+    this.goldenYeshwanthGroup.position.set(2.35, 0, -1.45);
+    this.goldenYeshwanthGroup.rotation.y = -0.35;
 
     const goldenSkinMat = tracker.trackMat(
       new THREE.MeshStandardMaterial({
         color: '#fef08a',
         emissive: '#f59e0b',
-        emissiveIntensity: 0.72,
+        emissiveIntensity: 0.68,
         roughness: 0.18,
         metalness: 0.82,
       }),
@@ -973,26 +1509,24 @@ export class CastleTabletopWorld {
       new THREE.MeshStandardMaterial({
         color: '#fbbf24',
         emissive: '#d97706',
-        emissiveIntensity: 0.55,
+        emissiveIntensity: 0.52,
         roughness: 0.24,
         metalness: 0.88,
       }),
     );
 
-    // Distant Golden Arrival Glow Halo (Section 15.2)
-    const arrivalGlowGeo = tracker.trackGeo(new THREE.SphereGeometry(0.65, 16, 16));
+    const arrivalGlowGeo = tracker.trackGeo(new THREE.SphereGeometry(0.62, 16, 16));
     const arrivalGlowMat = tracker.trackMat(
       new THREE.MeshBasicMaterial({
         color: '#fef08a',
         transparent: true,
-        opacity: 0.32,
+        opacity: 0.26,
       }),
     );
     this.goldenArrivalGlow = new THREE.Mesh(arrivalGlowGeo, arrivalGlowMat);
     this.goldenArrivalGlow.position.set(0, 1.15, 0);
     this.goldenYeshwanthGroup.add(this.goldenArrivalGlow);
 
-    // Legs
     const legGeo = tracker.trackGeo(new THREE.CylinderGeometry(0.068, 0.055, 0.72, 10));
     legGeo.translate(0, -0.36, 0);
     this.yeshLeftLeg = new THREE.Group();
@@ -1002,21 +1536,23 @@ export class CastleTabletopWorld {
     this.yeshRightLeg.position.set(0.11, 0.72, 0);
     this.yeshRightLeg.add(new THREE.Mesh(legGeo, goldenCoatMat));
 
-    // Royal Tunic & Torso
     const torsoGeo = tracker.trackGeo(new THREE.CylinderGeometry(0.21, 0.16, 0.68, 12));
     torsoGeo.translate(0, 1.04, 0);
     const sashGeo = tracker.trackGeo(new THREE.TorusGeometry(0.18, 0.025, 8, 16));
     sashGeo.rotateX(Math.PI / 3);
     sashGeo.translate(0, 1.08, 0);
 
-    // Head & Royal Golden Circlet
+    this.yeshHeadGroup = new THREE.Group();
+    this.yeshHeadGroup.position.set(0, 1.54, 0);
     const headGeo = tracker.trackGeo(new THREE.SphereGeometry(0.145, 14, 14));
-    headGeo.translate(0, 1.54, 0);
     const circletGeo = tracker.trackGeo(new THREE.TorusGeometry(0.135, 0.014, 8, 20));
     circletGeo.rotateX(Math.PI / 2);
-    circletGeo.translate(0, 1.64, 0);
+    circletGeo.translate(0, 0.1, 0);
+    this.yeshHeadGroup.add(
+      new THREE.Mesh(headGeo, goldenSkinMat),
+      new THREE.Mesh(circletGeo, mats.champagneGold),
+    );
 
-    // Arms
     const armGeo = tracker.trackGeo(new THREE.CylinderGeometry(0.048, 0.042, 0.56, 10));
     armGeo.translate(0, -0.26, 0);
     this.yeshLeftArm = new THREE.Group();
@@ -1027,111 +1563,157 @@ export class CastleTabletopWorld {
     this.yeshRightArm.position.set(0.24, 1.32, 0);
     this.yeshRightArm.add(new THREE.Mesh(armGeo, goldenSkinMat));
 
-    // Detailed 3D Rose in Yeshwanth's Right Hand (Section 16 Shot 4: petals, stem, leaves, golden rim light)
-    this.yeshRoseGroup = new THREE.Group();
-    this.yeshRoseGroup.position.set(0, -0.52, 0.06);
-    this.yeshRoseGroup.rotation.x = Math.PI * 0.42;
-
-    const rStemGeo = tracker.trackGeo(new THREE.CylinderGeometry(0.006, 0.007, 0.26, 8));
-    rStemGeo.translate(0, 0.1, 0);
-    const rStemMat = tracker.trackMat(
-      new THREE.MeshStandardMaterial({ color: '#10b981', roughness: 0.4 }),
-    );
-    const rPetalMat = tracker.trackMat(
-      new THREE.MeshStandardMaterial({
-        color: '#f43f5e',
-        emissive: '#fbbf24',
-        emissiveIntensity: 0.55,
-        roughness: 0.2,
-      }),
-    );
-    const rBudGeo = tracker.trackGeo(new THREE.ConeGeometry(0.028, 0.055, 10));
-    rBudGeo.rotateX(Math.PI);
-    rBudGeo.translate(0, 0.24, 0);
-    const rOuterGeo = tracker.trackGeo(new THREE.SphereGeometry(0.034, 10, 8));
-    rOuterGeo.scale(1.18, 0.85, 1.18);
-    rOuterGeo.translate(0, 0.23, 0);
-    const rLeafGeo = tracker.trackGeo(new THREE.SphereGeometry(0.018, 8, 6));
-    rLeafGeo.scale(1.6, 0.35, 0.75);
-    const rLeaf1 = new THREE.Mesh(rLeafGeo, rStemMat);
-    rLeaf1.position.set(-0.02, 0.13, 0);
-    rLeaf1.rotation.z = 0.45;
-    const rLeaf2 = new THREE.Mesh(rLeafGeo, rStemMat);
-    rLeaf2.position.set(0.02, 0.16, 0);
-    rLeaf2.rotation.z = -0.45;
-    const rRimHaloGeo = tracker.trackGeo(new THREE.TorusGeometry(0.038, 0.005, 8, 18));
-    rRimHaloGeo.translate(0, 0.235, 0);
-
-    this.yeshRoseGroup.add(
-      new THREE.Mesh(rStemGeo, rStemMat),
-      new THREE.Mesh(rOuterGeo, rPetalMat),
-      new THREE.Mesh(rBudGeo, goldenSkinMat),
-      rLeaf1,
-      rLeaf2,
-      new THREE.Mesh(rRimHaloGeo, goldenSkinMat),
-    );
-    this.yeshRightArm.add(this.yeshRoseGroup);
-
     this.goldenYeshwanthGroup.add(
       this.yeshLeftLeg,
       this.yeshRightLeg,
       new THREE.Mesh(torsoGeo, goldenCoatMat),
       new THREE.Mesh(sashGeo, mats.blushRoseMarble),
-      new THREE.Mesh(headGeo, goldenSkinMat),
-      new THREE.Mesh(circletGeo, mats.champagneGold),
+      this.yeshHeadGroup,
       this.yeshLeftArm,
       this.yeshRightArm,
     );
     this.dwExpandGroup.add(this.goldenYeshwanthGroup);
 
-    // Section 17: World-Integrated Floating Personal Message Banners above the Two-Shot
-    // Strictly uses THREE.FrontSide with separate Front (+Z) and Back (-Z, rotation.y = Math.PI) meshes so text is NEVER mirrored!
-    const msgGeo = tracker.trackGeo(new THREE.PlaneGeometry(1.92, 0.58));
-    const msg1Tex = createFloatingMessageTex(
-      tracker,
-      '"Harsha, this little world was made for you."',
-      '— Yeshwanth ♡',
-      false,
+    // =========================================================================
+    // 13. DISSOLVING ENTRANCE ROSE PETALS GROUP (Symbolic transition from Rose to Crown)
+    // =========================================================================
+    this.dissolvingRosePetalsGroup = new THREE.Group();
+    this.dissolvingRosePetalsGroup.visible = false;
+    const petalGeo = tracker.trackGeo(new THREE.SphereGeometry(0.038, 8, 6));
+    petalGeo.scale(1.3, 0.35, 0.9);
+    this.rosePetalMat = tracker.trackMat(
+      new THREE.MeshStandardMaterial({
+        color: '#fb7185',
+        emissive: '#fbbf24',
+        emissiveIntensity: 0.85,
+        transparent: true,
+        opacity: 0.0,
+      }),
     );
-    this.messageBanner1Mat = tracker.trackMat(
+    for (let i = 0; i < 16; i++) {
+      const pm = new THREE.Mesh(petalGeo, this.rosePetalMat);
+      this.dissolvingRosePetalsGroup.add(pm);
+      this.rosePetalMeshes.push(pm);
+    }
+    this.dwExpandGroup.add(this.dissolvingRosePetalsGroup);
+
+    // =========================================================================
+    // 10. WORLD-SPACE CINEMATIC GRATITUDE TEXT BANNERS (5 SEQUENTIAL BEATS)
+    // Strictly uses THREE.FrontSide with separate Front (+Z) and Back (-Z, rotation.y = Math.PI) meshes!
+    // =========================================================================
+    this.gratitudeBannerTextures.push(
+      createWorldGratitudeMessageTex(
+        tracker,
+        'MY QUEEN',
+        'Our Little Kingdom Awakens for You',
+        'title',
+      ),
+      createWorldGratitudeMessageTex(
+        tracker,
+        'You are the queen of my life.',
+        undefined,
+        'gratitude',
+      ),
+      createWorldGratitudeMessageTex(
+        tracker,
+        'And I am so grateful',
+        'that I get to have you in mine.',
+        'gratitude',
+      ),
+      createWorldGratitudeMessageTex(
+        tracker,
+        'Thank you for making my world',
+        'more beautiful.',
+        'gratitude',
+      ),
+      createWorldGratitudeMessageTex(
+        tracker,
+        'I LOVE YOU, HARSHA ❤️',
+        'Forever in Our Little Kingdom',
+        'love',
+      ),
+    );
+
+    const msgGeo = tracker.trackGeo(new THREE.PlaneGeometry(2.15, 0.64));
+    this.gratitudeBannerMat = tracker.trackMat(
       new THREE.MeshBasicMaterial({
-        map: msg1Tex,
+        map: this.gratitudeBannerTextures[0],
         transparent: true,
         opacity: 0.0,
         side: THREE.FrontSide,
       }),
     );
-    this.messageBanner1 = new THREE.Mesh(msgGeo, this.messageBanner1Mat);
-    this.messageBanner1.position.set(-2.9, 1.94, 0);
-    const msg1Back = new THREE.Mesh(msgGeo, this.messageBanner1Mat);
-    msg1Back.position.z = -0.01;
-    msg1Back.rotation.y = Math.PI;
-    this.messageBanner1.add(msg1Back);
-    this.messageBanner1.visible = false;
+    this.gratitudeBannerMesh = new THREE.Mesh(msgGeo, this.gratitudeBannerMat);
+    this.gratitudeBannerMesh.position.set(2.45, 1.92, 0);
+    const msgBack = new THREE.Mesh(msgGeo, this.gratitudeBannerMat);
+    msgBack.position.z = -0.01;
+    msgBack.rotation.y = Math.PI;
+    this.gratitudeBannerMesh.add(msgBack);
+    this.gratitudeBannerMesh.visible = false;
 
-    const msg2Tex = createFloatingMessageTex(
-      tracker,
-      'I LOVE YOU.',
-      'Forever in Our Little Dream World ♡',
-      true,
-    );
-    this.messageBanner2Mat = tracker.trackMat(
-      new THREE.MeshBasicMaterial({
-        map: msg2Tex,
-        transparent: true,
-        opacity: 0.0,
-        side: THREE.FrontSide,
-      }),
-    );
-    this.messageBanner2 = new THREE.Mesh(msgGeo, this.messageBanner2Mat);
-    this.messageBanner2.position.set(-2.9, 1.94, 0);
-    const msg2Back = new THREE.Mesh(msgGeo, this.messageBanner2Mat);
-    msg2Back.position.z = -0.01;
-    msg2Back.rotation.y = Math.PI;
-    this.messageBanner2.add(msg2Back);
-    this.messageBanner2.visible = false;
+    this.dwExpandGroup.add(this.gratitudeBannerMesh);
+  }
 
-    this.dwExpandGroup.add(this.messageBanner1, this.messageBanner2);
+  private setGratitudeBannerBeat(beatIndex: number, opacity: number): void {
+    if (beatIndex < 0 || beatIndex >= this.gratitudeBannerTextures.length || opacity <= 0.01) {
+      this.gratitudeBannerMesh.visible = false;
+      this.gratitudeBannerMat.opacity = 0.0;
+      return;
+    }
+    if (this.currentBannerBeatIndex !== beatIndex) {
+      this.currentBannerBeatIndex = beatIndex;
+      this.gratitudeBannerMat.map = this.gratitudeBannerTextures[beatIndex];
+      this.gratitudeBannerMat.needsUpdate = true;
+    }
+    this.gratitudeBannerMesh.visible = true;
+    this.gratitudeBannerMat.opacity = THREE.MathUtils.clamp(opacity, 0, 1);
+  }
+
+  private applyKingdomIlluminationState(
+    awakeningU: number,
+    quietDimFactor = 1.0,
+    fullHeartKingdomGlow = 0.0,
+  ): void {
+    // 1. Sequential blooming of the 14 pathway flowers
+    const totalFlowers = this.awakeningFlowers.length;
+    this.awakeningFlowers.forEach((af, idx) => {
+      const threshold = (idx / Math.max(1, totalFlowers - 1)) * 0.78;
+      const localBloom = easeInOutCubic(
+        THREE.MathUtils.clamp((awakeningU - threshold) / 0.22, 0, 1),
+      );
+      af.bloomRatio = Math.max(af.bloomRatio, localBloom, fullHeartKingdomGlow);
+      af.group.scale.setScalar(THREE.MathUtils.lerp(0.18, 1.0, af.bloomRatio));
+    });
+
+    // 2. Sequential waking of pathway & heart-perimeter lanterns
+    const totalLanterns = this.awakeningLanterns.length;
+    this.awakeningLanterns.forEach((al, idx) => {
+      const threshold = (idx / Math.max(1, totalLanterns - 1)) * 0.82;
+      const localWake = easeInOutSine(THREE.MathUtils.clamp((awakeningU - threshold) / 0.2, 0, 1));
+      al.wakeRatio = Math.max(al.wakeRatio, localWake, fullHeartKingdomGlow);
+      al.orbMat.emissiveIntensity =
+        THREE.MathUtils.lerp(0.08, 1.25, al.wakeRatio) * quietDimFactor +
+        fullHeartKingdomGlow * 0.75;
+    });
+
+    // 3. Tower & Village Windows (warm gold on Yeshwanth's side, soft pink on Harsha's side)
+    const winWake = easeInOutSine(THREE.MathUtils.clamp((awakeningU - 0.25) / 0.65, 0, 1));
+    this.kingdomWindowMats.forEach((wm) => {
+      wm.emissiveIntensity =
+        THREE.MathUtils.lerp(0.12, 1.15, Math.max(winWake, fullHeartKingdomGlow)) *
+          quietDimFactor +
+        fullHeartKingdomGlow * 0.65;
+    });
+
+    // 4. Twin-Stream Heart Fountain flow & central crystal heart glow
+    const fountWake = easeInOutSine(THREE.MathUtils.clamp((awakeningU - 0.15) / 0.55, 0, 1));
+    const streamScale = THREE.MathUtils.lerp(0.25, 1.0, Math.max(fountWake, fullHeartKingdomGlow));
+    this.fountainStreamLeftMesh.scale.set(1.0, streamScale * quietDimFactor, 1.0);
+    this.fountainStreamRightMesh.scale.set(1.0, streamScale * quietDimFactor, 1.0);
+    this.fountainWaterMat.emissiveIntensity =
+      THREE.MathUtils.lerp(0.15, 0.68, fountWake) * quietDimFactor + fullHeartKingdomGlow * 0.45;
+    this.fountainHeartMat.emissiveIntensity =
+      THREE.MathUtils.lerp(0.22, 1.35, fountWake) * quietDimFactor + fullHeartKingdomGlow * 0.75;
   }
 
   public addCapturedPortraitToMemoryPath(tex: THREE.Texture): void {
@@ -1156,30 +1738,50 @@ export class CastleTabletopWorld {
 
   public isNearGoldenYeshwanth(lx: number, lz: number): boolean {
     if (!this.isInsideLittleDreamWorld) return false;
-    return Math.hypot(lx - (33.0 + this.goldenYeshwanthGroup.position.x), lz - 12.0) <= 3.2;
+    // Near the Queen's Courtyard / Golden Yeshwanth (lx = 33.0 + 2.67 = 35.67, lz = 12.0)
+    return Math.hypot(lx - 35.6, lz - 12.0) <= 3.4;
   }
 
   public triggerEnterLittleDreamWorld(): boolean {
     if (this.transitionState !== 'NONE') return false;
     this.transitionState = 'ENTERING_STORY';
     this.transitionElapsed = 0.0;
-    this.yeshRoseGroup.visible = true;
-    this.avatarBridge?.setRoseHeld?.(false);
+
+    // Reset kingdom to its sleeping pre-arrival state for the journey
+    this.awakeningFlowers.forEach((af) => {
+      af.bloomRatio = 0.0;
+      af.group.scale.setScalar(0.18);
+    });
+    this.awakeningLanterns.forEach((al) => {
+      al.wakeRatio = 0.0;
+      al.orbMat.emissiveIntensity = 0.08;
+    });
+    this.queenCrownGroup.visible = false;
+    this.queenCrownGroup.position.set(-0.68, 0.62, 0);
+    this.queenCrownHaloMat.opacity = 0.0;
+    this.queenArchFrameMat.emissiveIntensity = 0.25;
+    this.dissolvingRosePetalsGroup.visible = false;
+    this.gratitudeBannerMesh.visible = false;
+
+    // Section 13: The rose from the previous entrance scene is still in Harsha's hand when she enters
+    this.avatarBridge?.setRoseHeld?.(true);
     this.avatarBridge?.setRaisingHand?.(false);
+
     this.activeStoryCaption =
-      'Tabletop Dream Castle ✧ Observing the Twin Towers & Miniature Gardens… ([E] Continue · [Space] Skip)';
+      'Our Little Kingdom ✧ Approaching the Ornate Golden Gate… ([E] Continue · [Space] Skip)';
     return true;
   }
 
   public triggerReplayGoldenYeshwanthStory(): boolean {
     if (this.transitionState !== 'NONE') return false;
-    this.transitionState = 'REPLAY_ROSE';
+    this.transitionState = 'REPLAY_QUEEN';
     this.transitionElapsed = 0.0;
-    this.yeshRoseGroup.visible = true;
-    this.avatarBridge?.setRoseHeld?.(false);
-    this.avatarBridge?.setRaisingHand?.(false);
+    this.queenCrownGroup.visible = false;
+    this.queenCrownGroup.position.set(-0.68, 0.62, 0);
+    this.queenCrownHaloMat.opacity = 0.0;
+    this.gratitudeBannerMesh.visible = false;
     this.activeStoryCaption =
-      'Golden Yeshwanth ✧ A Golden Glow Awakens Along the Path… ([E] Continue · [Space] Skip)';
+      'The Queen’s Courtyard ✧ A Quiet Moment Before the Throne… ([E] Continue · [Space] Skip)';
     return true;
   }
 
@@ -1187,7 +1789,7 @@ export class CastleTabletopWorld {
     if (this.transitionState !== 'NONE') return false;
     this.transitionState = 'EXITING';
     this.transitionElapsed = 0.0;
-    this.activeStoryCaption = 'Returning Gently Through the Castle Gate to the Doll Playroom…';
+    this.activeStoryCaption = 'Returning Gently Through the Golden Gate to the Doll Playroom…';
     return true;
   }
 
@@ -1200,37 +1802,31 @@ export class CastleTabletopWorld {
   }
 
   /**
-   * Section 21: `[E] Continue` advances the active Tabletop / Little Dream World cinematic to the next beat.
+   * Section 21: `[E] Continue` advances the active "Our Little Kingdom" cinematic to the next story beat.
    */
   public advanceOrContinueCinematic(): boolean {
     if (!this.isTransitionActive()) return false;
     if (this.transitionState === 'ENTERING_STORY') {
-      const jumpPoints = [5.0, 14.0, 20.5, 26.8, 32.2, this.ENTER_STORY_DUR];
+      const jumpPoints = [4.6, 14.0, 20.5, 25.0, 32.8, this.ENTER_STORY_DUR];
       const nextPt = jumpPoints.find((pt) => pt > this.transitionElapsed + 0.4);
       if (nextPt === undefined || nextPt >= this.ENTER_STORY_DUR) {
         return this.skipCinematic();
       }
-      if (nextPt >= 5.0 && !this.isInsideLittleDreamWorld) {
+      if (nextPt >= 4.6 && !this.isInsideLittleDreamWorld) {
         this.completeWorldEntryTeleport();
       }
-      if (nextPt >= 25.0) {
-        this.yeshRoseGroup.visible = false;
-        this.avatarBridge?.setRoseHeld?.(true);
-        this.avatarBridge?.setRaisingHand?.(false);
+      if (nextPt >= 14.0) {
+        this.avatarBridge?.setRoseHeld?.(false);
+        this.entranceRoseDissolved = true;
       }
       this.transitionElapsed = nextPt;
       return true;
     }
-    if (this.transitionState === 'REPLAY_ROSE') {
-      const jumpPoints = [6.5, 12.8, 18.2, this.REPLAY_ROSE_DUR];
+    if (this.transitionState === 'REPLAY_QUEEN') {
+      const jumpPoints = [6.5, 11.0, 18.8, this.REPLAY_QUEEN_DUR];
       const nextPt = jumpPoints.find((pt) => pt > this.transitionElapsed + 0.4);
-      if (nextPt === undefined || nextPt >= this.REPLAY_ROSE_DUR) {
+      if (nextPt === undefined || nextPt >= this.REPLAY_QUEEN_DUR) {
         return this.skipCinematic();
-      }
-      if (nextPt >= 11.0) {
-        this.yeshRoseGroup.visible = false;
-        this.avatarBridge?.setRoseHeld?.(true);
-        this.avatarBridge?.setRaisingHand?.(false);
       }
       this.transitionElapsed = nextPt;
       return true;
@@ -1239,63 +1835,75 @@ export class CastleTabletopWorld {
   }
 
   /**
-   * Section 21 & 23: Safe Skip / Interruption (`[Space]` or `[Esc]`)
+   * Safe Skip / Completion (`[Space]` or `[Esc]` or end of sequence)
    */
   public skipCinematic(): boolean {
     if (!this.isTransitionActive()) return false;
 
-    if (this.transitionState === 'ENTERING_STORY') {
+    if (this.transitionState === 'ENTERING_STORY' || this.transitionState === 'REPLAY_QUEEN') {
       if (!this.isInsideLittleDreamWorld) {
         this.completeWorldEntryTeleport();
       }
-      this.yeshRoseGroup.visible = false;
-      this.avatarBridge?.setRoseHeld?.(true);
-    } else if (this.transitionState === 'REPLAY_ROSE') {
-      this.yeshRoseGroup.visible = false;
-      this.avatarBridge?.setRoseHeld?.(true);
+      this.avatarBridge?.setRoseHeld?.(false);
+      this.entranceRoseDissolved = true;
+      this.crownRevealedInExplore = true;
+      this.crownRevealProgress = 1.0;
     } else if (this.transitionState === 'EXITING') {
       if (this.isInsideLittleDreamWorld) {
         this.completeWorldExitTeleport();
       }
     }
 
-    // Reset all animated scales, banners, and poses cleanly
+    // Ensure full awakened kingdom state & revealed Queen's Crown
     this.dwExpandGroup.scale.setScalar(1.0);
     this.flowerGroups.forEach((fg) => fg.scale.setScalar(1.0));
-    this.goldenYeshwanthGroup.position.set(-2.35, 0, 0);
+    this.applyKingdomIlluminationState(1.0, 1.0, 1.0);
+
+    this.queenCrownGroup.visible = true;
+    this.queenCrownGroup.position.set(-0.68, 1.16, 0);
+    this.queenCrownHaloMat.opacity = 0.36;
+    this.queenArchFrameMat.emissiveIntensity = 1.15;
+
+    this.goldenYeshwanthGroup.position.set(2.35, 0, -1.45);
+    this.goldenYeshwanthGroup.rotation.y = -0.45;
     this.yeshLeftLeg.rotation.set(0, 0, 0);
     this.yeshRightLeg.rotation.set(0, 0, 0);
-    this.yeshRightArm.rotation.set(-0.35, 0, 0);
-    this.goldenArrivalGlow.scale.setScalar(1.0);
-    this.messageBanner1.visible = false;
-    this.messageBanner2.visible = true;
-    this.messageBanner2.position.set(-1.2, 2.32, 0);
-    this.messageBanner2Mat.opacity = 0.92;
+    // Yeshwanth's hand over his heart
+    this.yeshRightArm.rotation.set(-0.68, 0, -0.52);
+    this.yeshLeftArm.rotation.set(0, 0, 0);
+    this.yeshHeadGroup.rotation.set(0, 0, 0);
+    this.goldenArrivalGlow.scale.setScalar(0.85);
+    this.dissolvingRosePetalsGroup.visible = false;
+
+    // Keep final gratitude message ("I LOVE YOU, HARSHA ❤️") visible above the Queen's Courtyard
+    this.setGratitudeBannerBeat(4, 0.94);
+    this.gratitudeBannerMesh.position.set(2.45, 2.18, 0);
     this.avatarBridge?.setRaisingHand?.(false);
 
     this.transitionState = 'NONE';
     this.transitionElapsed = 0.0;
     this.transitionSeatYaw = undefined;
     this.activeStoryCaption =
-      'Little Dream World ✧ Holding the Golden Rose from Yeshwanth ♡';
+      'Our Little Kingdom ✧ The Queen’s Crown & Heart-Shaped Kingdom Glow for Harsha ♡';
     return true;
   }
 
   private completeWorldEntryTeleport(): void {
     this.isInsideLittleDreamWorld = true;
+    // Place Harsha at the Queen's Courtyard approach (lx = 33.0 + 1.35 = 34.35, lz = 12.0) facing East toward the Crown & Throne
     this.pendingPlayerWorldTeleport = new THREE.Vector3(
-      this.originX + 29.35,
+      this.originX + 34.35,
       this.baseY + this.y0,
       this.originZ + 12.0,
     );
-    this.pendingPlayerYaw = Math.PI / 2; // Face East toward the fountain & Golden Yeshwanth
+    this.pendingPlayerYaw = Math.PI / 2;
   }
 
   private completeWorldExitTeleport(): void {
     this.isInsideLittleDreamWorld = false;
     this.pendingPlayerWorldTeleport = new THREE.Vector3(
       this.originX + this.entranceSpec.returnPoint.x,
-      this.baseY + this.entranceSpec.returnPoint.y,
+      this.baseY + this.y0 + this.entranceSpec.returnPoint.y,
       this.originZ + this.entranceSpec.returnPoint.z,
     );
     this.pendingPlayerYaw = this.entranceSpec.returnYaw;
@@ -1342,16 +1950,15 @@ export class CastleTabletopWorld {
       };
     }
 
-    // Determine timeline offset for ENTERING_STORY (0..36.8s) vs REPLAY_ROSE (maps to 14.0..36.8s)
+    // Timeline offset: ENTERING_STORY (0..38.0s) vs REPLAY_QUEEN (maps to 14.0..38.0s)
     const totalDur =
-      this.transitionState === 'ENTERING_STORY' ? this.ENTER_STORY_DUR : this.REPLAY_ROSE_DUR;
+      this.transitionState === 'ENTERING_STORY' ? this.ENTER_STORY_DUR : this.REPLAY_QUEEN_DUR;
     const rawT = this.transitionElapsed;
     const enterAlpha = easeInOutSine(THREE.MathUtils.clamp(rawT / 1.1, 0, 1));
     const exitAlpha = easeInOutSine(THREE.MathUtils.clamp((totalDur - rawT) / 1.2, 0, 1));
     const blendAlpha = Math.min(enterAlpha, exitAlpha);
 
-    const storyT =
-      this.transitionState === 'ENTERING_STORY' ? rawT : rawT + 14.0;
+    const storyT = this.transitionState === 'ENTERING_STORY' ? rawT : rawT + 14.0;
 
     const tableCenterX = this.originX + this.entranceSpec.tableCenterLocal.x;
     const tableCenterY = this.baseY + this.y0 + 0.55;
@@ -1363,51 +1970,39 @@ export class CastleTabletopWorld {
     const dwCenterY = this.baseY + this.y0;
     const dwCenterZ = this.originZ + 12.0;
 
-    // Harsha's position inside the Little Dream World during Sections 15–18
-    const harshaWorldX = dwCenterX - 3.65; // lx = 29.35
-    const harshaWorldY = dwCenterY;
-    const harshaWorldZ = dwCenterZ;
-
     // =========================================================================
-    // SECTION 13: TABLETOP CASTLE ENTRY CAMERA (0.0s -> 5.0s)
-    // Slow lingering arc around miniature castle (Twin Towers, bridge, fountain, "I LOVE YOU" sign) -> South Gate opens -> Move through
+    // STAGE 1: THE ENTRANCE — "OUR LITTLE KINGDOM" & THE TWO TINY TOWERS (0.0s -> 4.6s)
     // =========================================================================
-    if (storyT < 5.0) {
+    if (storyT < 4.6) {
       this.transitionSeatYaw = undefined;
-      if (storyT < 3.2) {
-        const u = easeInOutCubic(storyT / 3.2);
-        // Lingering orbital sweep from South-West (Yeshwanth Tower) to South-East (Harsha Tower) and back to the Front Gate
-        const ang = -Math.PI * 0.5 + Math.sin(u * Math.PI * 2.0) * 0.42;
-        const radius = THREE.MathUtils.lerp(1.62, 1.28, u);
+      if (storyT < 2.8) {
+        const u = easeInOutCubic(storyT / 2.8);
+        const ang = -Math.PI * 0.5 + Math.sin(u * Math.PI * 2.0) * 0.36;
+        const radius = THREE.MathUtils.lerp(1.58, 1.22, u);
         this.transitionCamPos.set(
           tableCenterX + Math.cos(ang) * radius,
-          tableCenterY + THREE.MathUtils.lerp(0.62, 0.34, u),
+          tableCenterY + THREE.MathUtils.lerp(0.58, 0.34, u),
           tableCenterZ + Math.sin(ang) * radius,
         );
         this.transitionLookPos.set(
-          tableCenterX + Math.sin(u * Math.PI * 2.0) * 0.16,
-          tableCenterY + THREE.MathUtils.lerp(0.38, 0.22, u),
-          tableCenterZ + THREE.MathUtils.lerp(0.05, -0.35, u),
+          tableCenterX + Math.sin(u * Math.PI * 2.0) * 0.14,
+          tableCenterY + THREE.MathUtils.lerp(0.38, 0.24, u),
+          tableCenterZ + THREE.MathUtils.lerp(0.08, -0.42, u),
         );
-        this.transitionFov = 46.0;
+        this.transitionFov = 45.0;
         this.activeStoryCaption =
-          'Tabletop Dream Castle ✧ Twin Towers, Skybridge, Fountain & Miniature "I LOVE YOU" Garden';
+          'OUR LITTLE KINGDOM ✧ Two Connected Towers & the Small Ornate Golden Gate';
       } else {
-        // Approach South miniature gate -> Lingering pause as tiny gate opens -> Glide through gate
-        const u = easeInOutCubic((storyT - 3.2) / 1.8);
+        // Focus on "OUR LITTLE KINGDOM" above the small ornate golden gate as the doors swing open
+        const u = easeInOutCubic((storyT - 2.8) / 1.8);
         this.transitionCamPos.set(
           gateWorldX,
-          tableCenterY + THREE.MathUtils.lerp(0.34, 0.15, u),
-          THREE.MathUtils.lerp(gateWorldZ - 0.52, gateWorldZ + 0.12, u),
+          tableCenterY + THREE.MathUtils.lerp(0.34, 0.16, u),
+          THREE.MathUtils.lerp(gateWorldZ - 0.5, gateWorldZ + 0.12, u),
         );
-        this.transitionLookPos.set(
-          tableCenterX,
-          tableCenterY + 0.16,
-          tableCenterZ,
-        );
-        this.transitionFov = THREE.MathUtils.lerp(46, 38, u);
-        this.activeStoryCaption =
-          'The Miniature Castle Gate Opens ✧ Stepping Inside Our Little Castle…';
+        this.transitionLookPos.set(tableCenterX, tableCenterY + 0.18, tableCenterZ);
+        this.transitionFov = THREE.MathUtils.lerp(45, 38, u);
+        this.activeStoryCaption = 'OUR LITTLE KINGDOM ✧ Stepping Through the Golden Gate…';
       }
 
       return {
@@ -1420,50 +2015,76 @@ export class CastleTabletopWorld {
     }
 
     // =========================================================================
-    // SECTION 14: LITTLE DREAM WORLD TRANSFORMATION (5.0s -> 14.0s, 8 Stages)
+    // STAGE 2: THE LITTLE KINGDOM WAKES UP BECAUSE SHE ARRIVED (4.6s -> 14.0s)
+    // - Harsha walks along the curved path (-5.2 -> +1.35)
+    // - Flowers bloom near her feet one by one
+    // - Twin-stream heart fountain begins flowing & glowing
+    // - Two towers (Yeshwanth's warm gold & Harsha's blush crystal) & bridge ("Y" & "H") illuminate
+    // - Entrance rose in Harsha's hand gently dissolves into glowing petals (10.8s -> 13.8s)
     // =========================================================================
     if (storyT < 14.0) {
-      const u = (storyT - 5.0) / 9.0;
-      const smoothU = easeInOutCubic(u);
+      const u = (storyT - 4.6) / 9.4;
+      const smoothU = easeInOutSine(u);
 
-      // Stage 2–6: Environment, Oversized Flowers & Castle expand gracefully around the player
-      const worldScale = THREE.MathUtils.lerp(0.45, 1.0, easeInOutSine(Math.min(1, u * 1.25)));
-      this.dwExpandGroup.scale.setScalar(worldScale);
-
-      const flowerGrowth = easeInOutCubic(THREE.MathUtils.clamp((u - 0.15) / 0.65, 0, 1));
+      this.dwExpandGroup.scale.setScalar(1.0);
       this.flowerGroups.forEach((fg) => {
-        fg.scale.setScalar(THREE.MathUtils.lerp(0.25, 1.0, flowerGrowth));
+        fg.scale.setScalar(THREE.MathUtils.lerp(0.35, 1.0, easeInOutCubic(Math.min(1, u * 1.3))));
       });
-      if (this.dwFullCastleBackdrop) {
-        const castleGrowth = easeInOutCubic(THREE.MathUtils.clamp((u - 0.3) / 0.65, 0, 1));
-        this.dwFullCastleBackdrop.scale.setScalar(THREE.MathUtils.lerp(0.35, 1.0, castleGrowth));
-      }
 
-      this.transitionSeatPos.set(harshaWorldX, harshaWorldY, harshaWorldZ);
+      // Harsha walks along the curved garden path from (-5.2) past the Central Fountain (0.0) to the Queen's Courtyard (+1.35)
+      const harshaLocalX = THREE.MathUtils.lerp(-5.2, 1.35, smoothU);
+      const harshaLocalZ = Math.sin(u * Math.PI * 2.0) * 0.28 * (1.0 - u * 0.5);
+      this.transitionSeatPos.set(dwCenterX + harshaLocalX, dwCenterY, dwCenterZ + harshaLocalZ);
       this.transitionSeatYaw = Math.PI / 2;
 
-      // Stage 1 -> Stage 7 -> Stage 8: Camera emerges from the gate, glides forward and rises gently
+      // Kingdom awakens progressively as she steps forward
+      this.applyKingdomIlluminationState(u, 1.0, 0.0);
+
+      // Section 13: The rose from the entrance remains in her hand through the early part, then gently dissolves into glowing petals
+      if (storyT < 11.2) {
+        this.avatarBridge?.setRoseHeld?.(true);
+        this.dissolvingRosePetalsGroup.visible = false;
+      } else {
+        this.avatarBridge?.setRoseHeld?.(false);
+        this.entranceRoseDissolved = true;
+        const pU = THREE.MathUtils.clamp((storyT - 11.2) / 2.6, 0, 1);
+        this.dissolvingRosePetalsGroup.visible = true;
+        this.dissolvingRosePetalsGroup.position.set(harshaLocalX + 0.35, 1.05, harshaLocalZ + 0.18);
+        this.rosePetalMat.opacity = Math.sin(pU * Math.PI) * 0.92;
+        this.rosePetalMeshes.forEach((pm, idx) => {
+          const ang = idx * 1.15 + pU * 3.2;
+          const r = 0.08 + pU * (0.45 + (idx % 4) * 0.12);
+          pm.position.set(
+            Math.cos(ang) * r,
+            pU * (0.65 + (idx % 3) * 0.25),
+            Math.sin(ang) * r,
+          );
+          pm.rotation.set(pU * 2.4, ang, pU * 1.8);
+        });
+      }
+
+      // Camera glides alongside Harsha, showing the blooming flower path, the twin-stream heart fountain, and the Two Connected Towers
       this.transitionCamPos.set(
-        dwCenterX + THREE.MathUtils.lerp(-6.2, -5.4, smoothU),
-        dwCenterY + THREE.MathUtils.lerp(0.95, 2.35, smoothU),
-        dwCenterZ + Math.sin(u * Math.PI) * 1.25,
+        dwCenterX + harshaLocalX - THREE.MathUtils.lerp(2.4, 2.8, smoothU),
+        dwCenterY + THREE.MathUtils.lerp(1.45, 2.05, smoothU),
+        dwCenterZ + THREE.MathUtils.lerp(1.35, 1.95, Math.sin(u * Math.PI)),
       );
       this.transitionLookPos.set(
-        dwCenterX + THREE.MathUtils.lerp(-2.5, 1.8, smoothU),
-        dwCenterY + THREE.MathUtils.lerp(1.05, 1.75, smoothU),
+        dwCenterX + THREE.MathUtils.lerp(harshaLocalX + 1.6, 3.8, smoothU),
+        dwCenterY + THREE.MathUtils.lerp(0.95, 1.85, smoothU),
         dwCenterZ,
       );
-      this.transitionFov = THREE.MathUtils.lerp(42, 54, smoothU);
+      this.transitionFov = THREE.MathUtils.lerp(46, 50, smoothU);
 
-      if (u < 0.35) {
+      if (u < 0.32) {
         this.activeStoryCaption =
-          'Little Dream World ✧ The Miniature Garden & Blossom Path Begin Expanding…';
-      } else if (u < 0.7) {
+          'The Little Kingdom Awakens ✧ Flowers Bloom Near Harsha’s Feet Along the Path…';
+      } else if (u < 0.68) {
         this.activeStoryCaption =
-          'Little Dream World ✧ Oversized Pastel Flowers & Twin Streams Awaken Around Harsha…';
+          'Central Courtyard ✧ Two Streams Meet in a Glowing Crystal Heart & the Two Towers Illuminate…';
       } else {
         this.activeStoryCaption =
-          'Little Dream World ✧ Welcoming Harsha Into the Hidden World Inside the Castle…';
+          'The Entrance Rose Gently Dissolves into Glowing Petals as Harsha Reaches the Queen’s Courtyard…';
       }
 
       return {
@@ -1477,162 +2098,76 @@ export class CastleTabletopWorld {
       };
     }
 
-    // Ensure world scale is 1.0 for Sections 15–18
-    this.dwExpandGroup.scale.setScalar(1.0);
-    this.flowerGroups.forEach((fg) => fg.scale.setScalar(1.0));
-    if (this.dwFullCastleBackdrop) this.dwFullCastleBackdrop.scale.setScalar(1.0);
-
-    this.transitionSeatPos.set(harshaWorldX, harshaWorldY, harshaWorldZ);
+    // Harsha stands at the Queen's Courtyard approach (localX = 1.35, facing East toward the Crown Pedestal at 2.67 & Throne at 3.70)
+    const harshaCourtX = dwCenterX + 1.35;
+    const harshaCourtY = dwCenterY;
+    const harshaCourtZ = dwCenterZ;
+    this.transitionSeatPos.set(harshaCourtX, harshaCourtY, harshaCourtZ);
     this.transitionSeatYaw = Math.PI / 2;
+    this.dissolvingRosePetalsGroup.visible = false;
+    this.avatarBridge?.setRoseHeld?.(false);
 
     // =========================================================================
-    // SECTION 15: GOLDEN YESHWANTH CAMERA (14.0s -> 20.5s)
-    // Wide shot -> Distant golden glow -> Slow camera pan -> Walks toward Harsha -> Front 3/4 two-shot
+    // STAGE 3: THE QUEEN'S COURTYARD & THE RISING CROWN REVEAL (14.0s -> 20.5s)
+    // - Environment becomes quiet; fountain slows; castle lights dim slightly (14.0s -> 16.0s)
+    // - Circular architectural frame behind the throne begins glowing (15.5s -> 17.5s)
+    // - Small royal crown appears and slowly rises from the crystal pedestal (16.2s -> 19.5s)
+    // - Crown is illuminated; castle lights return warmly (19.0s -> 20.5s)
     // =========================================================================
     if (storyT < 20.5) {
-      const u = (storyT - 14.0) / 6.5;
-      const walkU = easeInOutSine(THREE.MathUtils.clamp((u - 0.22) / 0.78, 0, 1));
+      const qT = storyT - 14.0; // 0.0 -> 6.5s
+      // Quiet dim curve: dims down to 0.45 at qT=1.6s, then returns to 1.0 as the crown illuminates
+      const quietDim =
+        qT < 2.2
+          ? THREE.MathUtils.lerp(1.0, 0.45, easeInOutSine(qT / 2.2))
+          : THREE.MathUtils.lerp(0.45, 1.05, easeInOutSine(THREE.MathUtils.clamp((qT - 2.2) / 3.5, 0, 1)));
+      this.applyKingdomIlluminationState(1.0, quietDim, 0.0);
 
-      // Yeshwanth walks from East Castle path (+4.2) to (-2.35), stopping 1.3m in front of Harsha (-3.65)
-      const yeshLocalX = THREE.MathUtils.lerp(4.2, -2.35, walkU);
-      this.goldenYeshwanthGroup.position.set(yeshLocalX, 0, 0);
+      // Circular frame behind the throne begins glowing
+      const frameGlowU = easeInOutSine(THREE.MathUtils.clamp((qT - 1.2) / 2.4, 0, 1));
+      this.queenArchFrameMat.emissiveIntensity = THREE.MathUtils.lerp(0.28, 1.45, frameGlowU);
 
-      // Gentle walking stride while moving
-      const isWalking = u > 0.22 && u < 0.96;
-      const stride = isWalking ? Math.sin(storyT * 5.5) * 0.32 : 0.0;
-      this.yeshLeftLeg.rotation.x = stride;
-      this.yeshRightLeg.rotation.x = -stride;
-      this.yeshLeftArm.rotation.x = -stride * 0.6;
-      this.yeshRightArm.rotation.x = -0.45; // Carrying the rose gently
+      // Crown appears at qT = 2.0s and slowly rises from the crystal pedestal (y = 0.62 -> 1.16)
+      if (qT < 2.0) {
+        this.queenCrownGroup.visible = false;
+        this.queenCrownHaloMat.opacity = 0.0;
+      } else {
+        const riseU = easeInOutCubic(THREE.MathUtils.clamp((qT - 2.0) / 3.4, 0, 1));
+        this.queenCrownGroup.visible = true;
+        this.queenCrownGroup.position.set(
+          -0.68,
+          THREE.MathUtils.lerp(0.62, 1.16, riseU),
+          0,
+        );
+        this.queenCrownGroup.rotation.y = (qT - 2.0) * 0.55;
+        this.queenCrownHaloMat.opacity = THREE.MathUtils.lerp(0.05, 0.42, riseU);
+        this.crownRevealedInExplore = true;
+        this.crownRevealProgress = riseU;
+      }
 
-      // Distant golden glow pulse during initial reveal
-      const glowPulse = u < 0.35 ? 1.45 + Math.sin(storyT * 6.0) * 0.35 : 0.85;
-      this.goldenArrivalGlow.scale.setScalar(glowPulse);
-
-      const yeshWorldX = dwCenterX + yeshLocalX;
-      const yeshWorldY = dwCenterY;
-      const yeshWorldZ = dwCenterZ;
-
-      const panU = easeInOutSine(u);
+      // Camera frames the elevated Queen's Courtyard, the intimate throne, the glowing circular heart frame, and the rising crown
+      const camU = easeInOutCubic(qT / 6.5);
       this.transitionCamPos.set(
-        THREE.MathUtils.lerp(harshaWorldX - 2.1, harshaWorldX + 0.65, panU),
-        dwCenterY + THREE.MathUtils.lerp(2.15, 1.52, panU),
-        dwCenterZ + THREE.MathUtils.lerp(2.65, 1.85, panU),
+        dwCenterX + THREE.MathUtils.lerp(0.65, 1.45, camU),
+        dwCenterY + THREE.MathUtils.lerp(1.62, 1.42, camU),
+        dwCenterZ + THREE.MathUtils.lerp(1.85, 1.28, camU),
       );
       this.transitionLookPos.set(
-        THREE.MathUtils.lerp(yeshWorldX, (harshaWorldX + yeshWorldX) * 0.5, panU),
-        yeshWorldY + 1.35,
-        yeshWorldZ,
+        dwCenterX + THREE.MathUtils.lerp(3.15, 2.85, camU),
+        dwCenterY + THREE.MathUtils.lerp(1.25, 1.32, camU),
+        dwCenterZ,
       );
-      this.transitionFov = THREE.MathUtils.lerp(52, 45, panU);
-      this.activeStoryCaption =
-        u < 0.3
-          ? 'A Warm Golden Glow Appears Along the Garden Path…'
-          : 'Golden Yeshwanth Approaches Harsha with a Single Rose…';
+      this.transitionFov = THREE.MathUtils.lerp(46, 39, camU);
 
-      return {
-        active: true,
-        camWorldPos: this.transitionCamPos,
-        lookWorldPos: this.transitionLookPos,
-        blendAlpha,
-        fov: this.transitionFov,
-        seatWorldPos: this.transitionSeatPos,
-        seatYaw: this.transitionSeatYaw,
-      };
-    }
-
-    // Keep Yeshwanth standing facing Harsha at (-2.35, 0, 0) -> worldX = dwCenterX - 2.35
-    this.goldenYeshwanthGroup.position.set(-2.35, 0, 0);
-    this.yeshLeftLeg.rotation.x = 0;
-    this.yeshRightLeg.rotation.x = 0;
-    this.goldenArrivalGlow.scale.setScalar(0.65);
-
-    const yeshWorldX = dwCenterX - 2.35;
-    const midTwoShotX = (harshaWorldX + yeshWorldX) * 0.5; // dwCenterX - 3.0
-    const handMeetWorldX = midTwoShotX;
-    const handMeetWorldY = dwCenterY + 1.12;
-    const handMeetWorldZ = dwCenterZ;
-
-    // =========================================================================
-    // SECTION 16: ROSE HANDOFF CINEMATIC (20.5s -> 26.8s, Shots 1 to 10)
-    // =========================================================================
-    if (storyT < 26.8) {
-      const hT = storyT - 20.5; // 0.0 -> 6.3s
-
-      if (hT < 1.6) {
-        // SHOT 1–3: Wide shot slowly moving closer into a medium two-shot
-        const u = easeInOutSine(hT / 1.6);
-        this.yeshRightArm.rotation.x = THREE.MathUtils.lerp(-0.45, -0.75, u);
-        this.transitionCamPos.set(
-          midTwoShotX,
-          dwCenterY + 1.46,
-          dwCenterZ + THREE.MathUtils.lerp(1.95, 1.38, u),
-        );
-        this.transitionLookPos.set(midTwoShotX, dwCenterY + 1.32, dwCenterZ);
-        this.transitionFov = THREE.MathUtils.lerp(45, 41, u);
-        this.activeStoryCaption = 'Golden Yeshwanth Looks Toward Harsha…';
-      } else if (hT < 2.8) {
-        // SHOT 4: Camera gently moves toward the Rose (petals, stem, leaves, golden rim light)
-        const u = easeInOutCubic((hT - 1.6) / 1.2);
-        this.yeshRightArm.rotation.x = THREE.MathUtils.lerp(-0.75, -1.05, u);
-        this.transitionCamPos.set(
-          midTwoShotX + 0.12,
-          handMeetWorldY + 0.12,
-          dwCenterZ + THREE.MathUtils.lerp(1.38, 0.56, u),
-        );
-        this.transitionLookPos.set(midTwoShotX + 0.15, handMeetWorldY + 0.04, dwCenterZ);
-        this.transitionFov = THREE.MathUtils.lerp(41, 35, u);
-        this.activeStoryCaption = 'A Golden-Rimmed Rose ✧ Crimson Petals & Warm Rim Light';
-      } else if (hT < 4.2) {
-        // SHOT 5 & 6: Yeshwanth extends his hand (hold) -> Harsha's hand approaches (hold)
-        const u = easeInOutSine((hT - 2.8) / 1.4);
-        this.yeshRightArm.rotation.x = -1.22;
-        if (hT >= 3.4) {
-          this.avatarBridge?.setRaisingHand?.(true);
-        }
-        this.transitionCamPos.set(
-          midTwoShotX,
-          handMeetWorldY + 0.08,
-          dwCenterZ + 0.52,
-        );
-        this.transitionLookPos.set(handMeetWorldX, handMeetWorldY, handMeetWorldZ);
-        this.transitionFov = 35.0;
+      if (qT < 2.0) {
         this.activeStoryCaption =
-          hT < 3.4
-            ? 'Yeshwanth Extends the Rose Toward Harsha…'
-            : "Harsha's Hand Reaches Gently to Receive the Rose…";
-      } else if (hT < 5.2) {
-        // SHOT 7 & 8: Rose transfers into Harsha's hand + Close detail of their hands
-        this.yeshRoseGroup.visible = false;
-        this.avatarBridge?.setRoseHeld?.(true);
-        this.avatarBridge?.setRaisingHand?.(true);
-        this.yeshRightArm.rotation.x = -1.15;
-
-        this.transitionCamPos.set(
-          midTwoShotX - 0.05,
-          handMeetWorldY + 0.06,
-          dwCenterZ + 0.48,
-        );
-        this.transitionLookPos.set(handMeetWorldX, handMeetWorldY, handMeetWorldZ);
-        this.transitionFov = 34.0;
-        this.activeStoryCaption = 'The Rose is Placed Gently Into Harsha’s Hand ♡';
+          'The Queen’s Courtyard ✧ The Fountain Slows & the Kingdom Grows Quiet…';
+      } else if (qT < 4.8) {
+        this.activeStoryCaption =
+          'The Queen Reveal ✧ The Circular Heart Frame Glows & a Royal Crown Rises from the Crystal Pedestal…';
       } else {
-        // SHOT 9 & 10: Camera slowly rises back to the two-character composition for a quiet emotional beat
-        const u = easeInOutSine((hT - 5.2) / 1.1);
-        this.avatarBridge?.setRaisingHand?.(false);
-        this.yeshRightArm.rotation.x = THREE.MathUtils.lerp(-1.15, -0.35, u);
-        this.transitionCamPos.set(
-          midTwoShotX,
-          THREE.MathUtils.lerp(handMeetWorldY + 0.06, dwCenterY + 1.48, u),
-          dwCenterZ + THREE.MathUtils.lerp(0.48, 1.52, u),
-        );
-        this.transitionLookPos.set(
-          midTwoShotX,
-          THREE.MathUtils.lerp(handMeetWorldY, dwCenterY + 1.36, u),
-          dwCenterZ,
-        );
-        this.transitionFov = THREE.MathUtils.lerp(34, 43, u);
-        this.activeStoryCaption = 'Together in the Little Dream World…';
+        this.activeStoryCaption =
+          'The Crown is Illuminated ✧ Warm Light Returns Across the Courtyard…';
       }
 
       return {
@@ -1646,61 +2181,143 @@ export class CastleTabletopWorld {
       };
     }
 
-    // Ensure Rose is held by Harsha for Sections 17 & 18
-    this.yeshRoseGroup.visible = false;
-    this.avatarBridge?.setRoseHeld?.(true);
-    this.avatarBridge?.setRaisingHand?.(false);
-    this.yeshRightArm.rotation.x = -0.3;
+    // Ensure Crown is fully risen and illuminated for Stages 4–6
+    this.queenCrownGroup.visible = true;
+    this.queenCrownGroup.position.set(-0.68, 1.16, 0);
+    this.queenCrownGroup.rotation.y = (storyT - 16.0) * 0.45;
+    this.queenCrownHaloMat.opacity = 0.38;
+    this.queenArchFrameMat.emissiveIntensity = 1.35;
 
     // =========================================================================
-    // SECTION 17: GOLDEN MAN PERSONAL MESSAGE (26.8s -> 32.2s)
-    // Hold two-shot -> "Harsha, this little world was made for you." -> Pause -> "I LOVE YOU."
+    // STAGE 4: YESHWANTH'S PRESENCE — HAND OVER HEART ("This is your kingdom.") (20.5s -> 25.0s)
+    // - Yeshwanth turns toward Harsha
+    // - Places his right hand over his heart
+    // - Looks toward the crown, then back toward Harsha (no kneeling, no proposal, no rose)
     // =========================================================================
-    if (storyT < 32.2) {
-      const mT = storyT - 26.8; // 0.0 -> 5.4s
+    if (storyT < 25.0) {
+      const yT = storyT - 20.5; // 0.0 -> 4.5s
+      this.applyKingdomIlluminationState(1.0, 1.0, 0.25);
 
-      if (mT < 0.9) {
-        // Quiet emotional hold before any text appears
-        this.messageBanner1.visible = false;
-        this.messageBanner2.visible = false;
-        this.activeStoryCaption = '…';
-      } else if (mT < 3.1) {
-        // Message 1: "Harsha, this little world was made for you."
-        const alpha1 =
-          mT < 1.5
-            ? easeInOutSine((mT - 0.9) / 0.6)
-            : mT > 2.6
-              ? easeInOutSine((3.1 - mT) / 0.5)
-              : 1.0;
-        this.messageBanner1.visible = true;
-        this.messageBanner1Mat.opacity = alpha1;
-        this.messageBanner2.visible = false;
-        this.activeStoryCaption = '"Harsha, this little world was made for you."';
+      // Yeshwanth stands at (2.35, 0, -1.45) and turns smoothly toward Harsha (at 1.35, 0, 0)
+      const turnU = easeInOutSine(THREE.MathUtils.clamp(yT / 1.2, 0, 1));
+      this.goldenYeshwanthGroup.position.set(2.35, 0, -1.45);
+      this.goldenYeshwanthGroup.rotation.y = THREE.MathUtils.lerp(-0.15, -0.58, turnU);
+
+      // Places his right hand over his heart
+      const heartHandU = easeInOutCubic(THREE.MathUtils.clamp((yT - 0.5) / 1.3, 0, 1));
+      this.yeshRightArm.rotation.set(
+        THREE.MathUtils.lerp(0, -0.68, heartHandU),
+        0,
+        THREE.MathUtils.lerp(0, -0.52, heartHandU),
+      );
+
+      // Head gaze: looks toward Harsha -> looks toward the Crown (yT 1.8..3.1) -> looks back toward Harsha (yT 3.1..4.5)
+      let headYaw = 0.0;
+      if (yT >= 1.6 && yT < 3.1) {
+        headYaw = Math.sin(((yT - 1.6) / 1.5) * Math.PI) * -0.42;
+      }
+      this.yeshHeadGroup.rotation.set(0.06, headYaw, 0);
+
+      // Camera frames warm three-way composition: Harsha, the Illuminated Crown, and Golden Yeshwanth with his hand over his heart
+      const panU = easeInOutSine(yT / 4.5);
+      this.transitionCamPos.set(
+        dwCenterX + THREE.MathUtils.lerp(0.85, 0.55, panU),
+        dwCenterY + 1.48,
+        dwCenterZ + THREE.MathUtils.lerp(1.45, 1.75, panU),
+      );
+      this.transitionLookPos.set(
+        dwCenterX + 2.25,
+        dwCenterY + 1.32,
+        dwCenterZ - 0.35,
+      );
+      this.transitionFov = 42.0;
+      this.activeStoryCaption =
+        yT < 2.0
+          ? 'Yeshwanth Turns Toward Harsha & Places His Hand Over His Heart…'
+          : 'He Looks Toward the Crown, Then Back to Harsha — "This is your kingdom."';
+
+      return {
+        active: true,
+        camWorldPos: this.transitionCamPos,
+        lookWorldPos: this.transitionLookPos,
+        blendAlpha,
+        fov: this.transitionFov,
+        seatWorldPos: this.transitionSeatPos,
+        seatYaw: this.transitionSeatYaw,
+      };
+    }
+
+    // Keep Yeshwanth's hand over his heart for Stages 5 & 6
+    this.goldenYeshwanthGroup.position.set(2.35, 0, -1.45);
+    this.goldenYeshwanthGroup.rotation.y = -0.58;
+    this.yeshRightArm.rotation.set(-0.68, 0, -0.52);
+    this.yeshHeadGroup.rotation.set(0.05, 0, 0);
+
+    // =========================================================================
+    // STAGE 5: THE GRATITUDE MOMENT — WORLD-SPACE CINEMATIC TEXT (25.0s -> 32.8s)
+    // 1. "MY QUEEN"
+    // 2. "You are the queen of my life."
+    // 3. "And I am so grateful that I get to have you in mine."
+    // 4. "Thank you for making my world more beautiful."
+    // 5. "I LOVE YOU, HARSHA ❤️"
+    // =========================================================================
+    if (storyT < 32.8) {
+      const gT = storyT - 25.0; // 0.0 -> 7.8s
+      this.applyKingdomIlluminationState(1.0, 1.0, 0.45);
+
+      // 5 sequential beats with gentle fade-in / pause / fade-out
+      let beatIdx = 0;
+      let localBeatT = 0;
+      let beatDur = 1.45;
+      if (gT < 1.45) {
+        beatIdx = 0;
+        localBeatT = gT;
+        beatDur = 1.45;
+        this.activeStoryCaption = 'MY QUEEN';
+      } else if (gT < 2.95) {
+        beatIdx = 1;
+        localBeatT = gT - 1.45;
+        beatDur = 1.5;
+        this.activeStoryCaption = 'You are the queen of my life.';
+      } else if (gT < 4.55) {
+        beatIdx = 2;
+        localBeatT = gT - 2.95;
+        beatDur = 1.6;
+        this.activeStoryCaption = 'And I am so grateful that I get to have you in mine.';
+      } else if (gT < 6.15) {
+        beatIdx = 3;
+        localBeatT = gT - 4.55;
+        beatDur = 1.6;
+        this.activeStoryCaption = 'Thank you for making my world more beautiful.';
       } else {
-        // Message 2 with greater emotional weight: "I LOVE YOU."
-        const alpha2 = easeInOutSine(THREE.MathUtils.clamp((mT - 3.2) / 0.7, 0, 1));
-        this.messageBanner1.visible = false;
-        this.messageBanner2.visible = true;
-        this.messageBanner2Mat.opacity = alpha2;
-        this.activeStoryCaption = 'Golden Yeshwanth: "I LOVE YOU." ♡';
+        beatIdx = 4;
+        localBeatT = gT - 6.15;
+        beatDur = 1.65;
+        this.activeStoryCaption = 'I LOVE YOU, HARSHA ❤️';
       }
 
-      const slowBreath = Math.sin(mT * 0.8) * 0.08;
-      this.messageBanner1.position.set(-2.9, 1.94, 0);
-      this.messageBanner2.position.set(-2.9, 1.94, 0);
+      const fadeIn = easeInOutSine(THREE.MathUtils.clamp(localBeatT / 0.32, 0, 1));
+      const fadeOut =
+        beatIdx === 4
+          ? 1.0
+          : easeInOutSine(THREE.MathUtils.clamp((beatDur - localBeatT) / 0.28, 0, 1));
+      this.setGratitudeBannerBeat(beatIdx, Math.min(fadeIn, fadeOut));
+      this.gratitudeBannerMesh.position.set(2.45, 1.92, 0);
+
+      const slowDrift = Math.sin(gT * 0.65) * 0.1;
       this.transitionCamPos.set(
-        midTwoShotX + slowBreath,
-        dwCenterY + 1.56,
+        dwCenterX + 0.45 + slowDrift,
+        dwCenterY + 1.54,
         dwCenterZ + 2.15,
       );
-      this.transitionLookPos.set(midTwoShotX, dwCenterY + 1.66, dwCenterZ);
-      this.transitionFov = 45.0;
-      const bannerYaw1 = Math.atan2(
-        this.transitionCamPos.x - (dwCenterX - 2.9),
+      this.transitionLookPos.set(dwCenterX + 2.45, dwCenterY + 1.58, dwCenterZ);
+      this.transitionFov = 44.0;
+
+      const bannerYaw = Math.atan2(
+        this.transitionCamPos.x - (dwCenterX + 2.45),
         this.transitionCamPos.z - dwCenterZ,
       );
-      this.messageBanner1.rotation.set(0, bannerYaw1, 0);
-      this.messageBanner2.rotation.set(0, bannerYaw1, 0);
+      this.gratitudeBannerMesh.rotation.set(0, bannerYaw, 0);
 
       return {
         active: true,
@@ -1714,36 +2331,40 @@ export class CastleTabletopWorld {
     }
 
     // =========================================================================
-    // SECTION 18: FINAL CASTLE REVEAL (32.2s -> 36.8s)
-    // Slowly pulls backward revealing Harsha + Rose + Golden Yeshwanth + Garden + Castle + Flowers + Sky + "I LOVE YOU" details -> Hold -> Release
+    // STAGE 6: THE IMPORTANT TWIST — FULL KINGDOM ILLUMINATION & HEART-SHAPED CASTLE REVEAL (32.8s -> 38.0s)
+    // - Camera slowly pulls backward and rises upward
+    // - Every light in the castle turns on (two towers, bridge, garden, fountain, windows, tiny houses, lanterns)
+    // - Reveals that the entire kingdom forms a subtle heart-shaped composition from above
     // =========================================================================
-    const rT = storyT - 32.2; // 0.0 -> 4.6s
-    const pullU = easeInOutCubic(THREE.MathUtils.clamp(rT / 3.2, 0, 1));
-    this.messageBanner1.visible = false;
-    this.messageBanner2.visible = true;
-    this.messageBanner2Mat.opacity = THREE.MathUtils.lerp(1.0, 0.92, pullU);
-    const bannerLocalX = THREE.MathUtils.lerp(-2.9, -1.2, pullU);
-    const bannerLocalY = THREE.MathUtils.lerp(1.94, 2.32, pullU);
-    this.messageBanner2.position.set(bannerLocalX, bannerLocalY, 0);
+    const rT = storyT - 32.8; // 0.0 -> 5.2s
+    const pullU = easeInOutCubic(THREE.MathUtils.clamp(rT / 3.8, 0, 1));
+
+    // Every light in the kingdom turns on!
+    this.applyKingdomIlluminationState(1.0, 1.0, pullU);
+
+    this.setGratitudeBannerBeat(4, THREE.MathUtils.lerp(1.0, 0.92, pullU));
+    const bannerY = THREE.MathUtils.lerp(1.92, 2.25, pullU);
+    this.gratitudeBannerMesh.position.set(2.45, bannerY, 0);
 
     this.transitionCamPos.set(
-      THREE.MathUtils.lerp(midTwoShotX, dwCenterX - 5.2, pullU),
-      dwCenterY + THREE.MathUtils.lerp(1.56, 4.15, pullU),
-      dwCenterZ + THREE.MathUtils.lerp(2.15, 6.2, pullU),
+      THREE.MathUtils.lerp(dwCenterX + 0.45, dwCenterX - 6.8, pullU),
+      dwCenterY + THREE.MathUtils.lerp(1.54, 7.2, pullU),
+      dwCenterZ + THREE.MathUtils.lerp(2.15, 4.8, pullU),
     );
     this.transitionLookPos.set(
-      THREE.MathUtils.lerp(midTwoShotX, dwCenterX + 1.2, pullU),
-      dwCenterY + THREE.MathUtils.lerp(1.66, 2.05, pullU),
+      THREE.MathUtils.lerp(dwCenterX + 2.45, dwCenterX + 0.8, pullU),
+      dwCenterY + THREE.MathUtils.lerp(1.58, 1.4, pullU),
       dwCenterZ,
     );
-    this.transitionFov = THREE.MathUtils.lerp(45, 56, pullU);
+    this.transitionFov = THREE.MathUtils.lerp(44, 56, pullU);
+
     const bannerYaw2 = Math.atan2(
-      this.transitionCamPos.x - (dwCenterX + bannerLocalX),
+      this.transitionCamPos.x - (dwCenterX + 2.45),
       this.transitionCamPos.z - dwCenterZ,
     );
-    this.messageBanner2.rotation.set(0, bannerYaw2, 0);
+    this.gratitudeBannerMesh.rotation.set(0, bannerYaw2, 0);
     this.activeStoryCaption =
-      'Our Little Dream World ✧ Harsha, Golden Yeshwanth & the Twin-Tower Castle ("I LOVE YOU")';
+      'Our Little Kingdom Illuminates ✧ Every Tower, Bridge, Fountain & Lantern Glows in a Heart-Shaped Kingdom ❤️';
 
     return {
       active: true,
@@ -1773,9 +2394,9 @@ export class CastleTabletopWorld {
     const lx = playerPos.x - this.originX;
     const lz = playerPos.z - this.originZ;
 
-    // Animate miniature gate doors when near or transitioning
+    // Animate miniature ornate golden gate doors when near or transitioning
     const shouldOpenGate =
-      (this.transitionState === 'ENTERING_STORY' && this.transitionElapsed >= 3.2) ||
+      (this.transitionState === 'ENTERING_STORY' && this.transitionElapsed >= 2.8) ||
       this.isInsideLittleDreamWorld ||
       this.isNearTabletopGate(lx, lz);
     this.gateOpenRatio = THREE.MathUtils.lerp(
@@ -1791,27 +2412,68 @@ export class CastleTabletopWorld {
     if (this.dreamWorldPortalRing) {
       this.dreamWorldPortalRing.rotation.z = clockTime * 0.85;
     }
-    if (this.dreamWorldFountainStream) {
-      this.dreamWorldFountainStream.rotation.y = clockTime * 1.4;
-      this.dreamWorldFountainStream.scale.y = 0.95 + Math.sin(clockTime * 4.0) * 0.08;
+
+    // Gentle pulse on the central fountain heart & Queen's circular frame heart
+    if (this.fountainCenterHeartGroup) {
+      const pulse = 1.0 + Math.sin(clockTime * 3.2) * 0.06;
+      this.fountainCenterHeartGroup.scale.setScalar(pulse);
+    }
+    if (this.queenFrameHeartGroup) {
+      const pulse = 1.0 + Math.sin(clockTime * 2.6 + 1.0) * 0.05;
+      this.queenFrameHeartGroup.scale.setScalar(pulse);
     }
 
-    // Keep "I LOVE YOU." banner gently floating and oriented toward Harsha during free exploration inside Little Dream World
+    // Physical proximity-driven awakening & Queen's Crown reveal during free exploration inside Our Little Kingdom
     if (this.isInsideLittleDreamWorld && this.transitionState === 'NONE') {
-      this.messageBanner2.visible = true;
-      this.messageBanner2.position.set(
-        -1.2,
-        2.32 + Math.sin(clockTime * 1.6) * 0.04,
+      const relKingdomX = lx - 33.0;
+      const relKingdomZ = lz - 12.0;
+
+      // Any flower or lantern near Harsha's feet blooms/wakes up naturally as she walks!
+      this.awakeningFlowers.forEach((af) => {
+        const dist = Math.hypot(relKingdomX - af.localX, relKingdomZ - af.localZ);
+        if (dist < 2.6) {
+          af.bloomRatio = Math.min(1.0, af.bloomRatio + delta * 1.8);
+          af.group.scale.setScalar(THREE.MathUtils.lerp(0.18, 1.0, af.bloomRatio));
+        }
+      });
+      this.awakeningLanterns.forEach((al) => {
+        const dist = Math.hypot(relKingdomX - al.localX, relKingdomZ - al.localZ);
+        if (dist < 3.2) {
+          al.wakeRatio = Math.min(1.0, al.wakeRatio + delta * 1.6);
+          al.orbMat.emissiveIntensity = THREE.MathUtils.lerp(0.08, 1.45, al.wakeRatio);
+        }
+      });
+
+      // When Harsha walks into the Queen's Courtyard (relKingdomX >= 1.2), smoothly rise & illuminate the Crown if not yet revealed
+      if (relKingdomX >= 1.2 || this.crownRevealedInExplore) {
+        this.crownRevealedInExplore = true;
+        this.crownRevealProgress = Math.min(1.0, this.crownRevealProgress + delta * 0.65);
+        const riseU = easeInOutCubic(this.crownRevealProgress);
+        this.queenCrownGroup.visible = true;
+        this.queenCrownGroup.position.set(
+          -0.68,
+          THREE.MathUtils.lerp(0.62, 1.16, riseU),
+          0,
+        );
+        this.queenCrownGroup.rotation.y = clockTime * 0.55;
+        this.queenCrownHaloMat.opacity = THREE.MathUtils.lerp(0.0, 0.38, riseU);
+      }
+
+      // Keep "I LOVE YOU, HARSHA ❤️" banner floating gently above the Queen's Courtyard and facing Harsha
+      this.setGratitudeBannerBeat(4, 0.92);
+      this.gratitudeBannerMesh.position.set(
+        2.45,
+        2.18 + Math.sin(clockTime * 1.6) * 0.04,
         0,
       );
       const exploreYaw = Math.atan2(
-        lx - (33.0 + this.messageBanner2.position.x),
+        lx - (33.0 + this.gratitudeBannerMesh.position.x),
         lz - 12.0,
       );
-      this.messageBanner2.rotation.set(0, exploreYaw, 0);
+      this.gratitudeBannerMesh.rotation.set(0, exploreYaw, 0);
     }
 
-    // Physical walk-through return gate check inside Little Dream World
+    // Physical walk-through return gate check inside Our Little Kingdom
     if (
       this.isInsideLittleDreamWorld &&
       this.transitionState === 'NONE' &&
@@ -1825,15 +2487,15 @@ export class CastleTabletopWorld {
     // Advance active story/transition state machine
     if (this.transitionState === 'ENTERING_STORY') {
       this.transitionElapsed += delta;
-      if (this.transitionElapsed >= 5.0 && !this.isInsideLittleDreamWorld) {
+      if (this.transitionElapsed >= 4.6 && !this.isInsideLittleDreamWorld) {
         this.completeWorldEntryTeleport();
       }
       if (this.transitionElapsed >= this.ENTER_STORY_DUR) {
         this.skipCinematic();
       }
-    } else if (this.transitionState === 'REPLAY_ROSE') {
+    } else if (this.transitionState === 'REPLAY_QUEEN') {
       this.transitionElapsed += delta;
-      if (this.transitionElapsed >= this.REPLAY_ROSE_DUR) {
+      if (this.transitionElapsed >= this.REPLAY_QUEEN_DUR) {
         this.skipCinematic();
       }
     } else if (this.transitionState === 'EXITING') {
