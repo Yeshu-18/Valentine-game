@@ -129,6 +129,8 @@ export interface PlayerAvatarBundle {
   setRaisingHand: (raising: boolean) => void;
   setRoseHeld: (held: boolean) => void;
   isRoseHeld: () => boolean;
+  setHairRoseVisible?: (visible: boolean) => void;
+  isHairRoseVisible?: () => boolean;
   dispose: () => void;
 }
 
@@ -564,6 +566,50 @@ export function createPlayerAvatar(): PlayerAvatarBundle {
     goldRimHalo,
   );
 
+  // 11. Small Romantic Hair Rose Flower (worn in Harsha's hair upon entering the castle)
+  let hairRoseVisible = false;
+  const hairRoseFlowerGroup = new THREE.Group();
+  hairRoseFlowerGroup.name = 'HarshaHairRoseFlower';
+  hairRoseFlowerGroup.position.set(0.18, 0.08, 0.06);
+  hairRoseFlowerGroup.rotation.set(0.25, 0.35, -0.28);
+  hairRoseFlowerGroup.visible = false;
+  headPivot.add(hairRoseFlowerGroup);
+
+  const hairRoseMat = new THREE.MeshStandardMaterial({
+    color: new THREE.Color('#f43f5e'),
+    emissive: new THREE.Color('#e11d48'),
+    emissiveIntensity: 0.65,
+    roughness: 0.32,
+    metalness: 0.15,
+  });
+  const hairRoseLeafMat = new THREE.MeshStandardMaterial({
+    color: new THREE.Color('#10b981'),
+    roughness: 0.45,
+  });
+  materials.push(hairRoseMat, hairRoseLeafMat);
+
+  const hairRoseBudGeo = new THREE.DodecahedronGeometry(0.042, 1);
+  const hairRoseBud = new THREE.Mesh(hairRoseBudGeo, hairRoseMat);
+  hairRoseBud.castShadow = true;
+
+  const hairRoseOuterPetalsGeo = new THREE.TorusGeometry(0.038, 0.014, 6, 12);
+  hairRoseOuterPetalsGeo.rotateX(Math.PI / 2);
+  const hairRoseOuter = new THREE.Mesh(hairRoseOuterPetalsGeo, hairRoseMat);
+
+  const hairRoseLeafGeo = new THREE.ConeGeometry(0.022, 0.065, 4);
+  hairRoseLeafGeo.rotateZ(Math.PI / 3);
+  hairRoseLeafGeo.translate(-0.025, -0.015, -0.01);
+  const hairRoseLeaf1 = new THREE.Mesh(hairRoseLeafGeo, hairRoseLeafMat);
+  const hairRoseLeaf2 = hairRoseLeaf1.clone();
+  hairRoseLeaf2.rotation.z = -Math.PI / 2.5;
+  hairRoseLeaf2.position.set(0.01, -0.025, -0.01);
+
+  const hairRoseCoreGeo = new THREE.SphereGeometry(0.016, 6, 6);
+  const hairRoseCore = new THREE.Mesh(hairRoseCoreGeo, ribbonGoldMat);
+  hairRoseCore.position.set(0, 0, 0.02);
+
+  hairRoseFlowerGroup.add(hairRoseLeaf1, hairRoseLeaf2, hairRoseBud, hairRoseOuter, hairRoseCore);
+
   geometries.push(
     headGeo,
     hairCapGeo,
@@ -581,6 +627,10 @@ export function createPlayerAvatar(): PlayerAvatarBundle {
     roseBudCoreGeo,
     roseOuterPetalGeo,
     roseLeafGeo,
+    hairRoseBudGeo,
+    hairRoseOuterPetalsGeo,
+    hairRoseLeafGeo,
+    hairRoseCoreGeo,
   );
 
   let walkPhase = 0;
@@ -1637,6 +1687,13 @@ export function createPlayerAvatar(): PlayerAvatarBundle {
     },
     isRoseHeld() {
       return roseHeld;
+    },
+    setHairRoseVisible(visible: boolean) {
+      hairRoseVisible = visible;
+      hairRoseFlowerGroup.visible = visible;
+    },
+    isHairRoseVisible() {
+      return hairRoseVisible;
     },
     dispose() {
       geometries.forEach((g) => g.dispose());

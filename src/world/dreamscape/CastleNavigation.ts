@@ -1,4 +1,8 @@
 import * as THREE from 'three';
+import {
+  AuroraDialogueLine,
+  CASTLE_ENTRANCE_DIALOGUE,
+} from '../cinematics/auroraDialogueData';
 import { getTerrainHeight } from '../terrainMath';
 
 export const CASTLE_ORIGIN_X = 88.0;
@@ -233,6 +237,13 @@ export class CastleNavigationController {
   public yeshwanthRoseExtend: number = 0.0;
   public entranceRosePresented: boolean = false;
   public activeEntranceCaption: string | null = null;
+  private entranceBeatIndex: number = 0;
+  private static readonly ENTRANCE_BEAT_STARTS = [
+    0.0, 2.2, 5.2, 7.6, 10.2, 12.6, 14.0, 15.95,
+  ] as const;
+  private static readonly ENTRANCE_BEAT_STOPS = [
+    2.15, 5.15, 7.55, 10.15, 12.55, 13.95, 15.4, 16.5,
+  ] as const;
   private playedPrimaryTreeChime: boolean = false;
   private playedSecondaryTreeChime: boolean = false;
   private playedWindowsChime: boolean = false;
@@ -826,17 +837,38 @@ export class CastleNavigationController {
     return false;
   }
 
+  public getCurrentEntranceDialogue(): AuroraDialogueLine | null {
+    if (
+      !this.activeCameraFocus ||
+      this.activeCameraFocus.mode !== 'entrance' ||
+      this.entranceBeatIndex < 0 ||
+      this.entranceBeatIndex >= CASTLE_ENTRANCE_DIALOGUE.length
+    ) {
+      return null;
+    }
+    return CASTLE_ENTRANCE_DIALOGUE[this.entranceBeatIndex] ?? null;
+  }
+
   public advanceEntranceCinematicBeat(): boolean {
     if (!this.activeCameraFocus || this.activeCameraFocus.mode !== 'entrance') {
       return false;
     }
-    const e = this.activeCameraFocus.elapsed;
-    const beats = [2.2, 5.2, 7.6, 10.2, 12.6, 14.0, 16.1];
-    for (let i = 0; i < beats.length; i++) {
-      if (e < beats[i] - 0.15) {
-        this.activeCameraFocus.elapsed = beats[i];
-        return true;
+    if (this.entranceBeatIndex < 6) {
+      this.entranceBeatIndex += 1;
+      this.activeCameraFocus.elapsed =
+        CastleNavigationController.ENTRANCE_BEAT_STARTS[this.entranceBeatIndex];
+      if (this.entranceBeatIndex >= 4 && this.doorState === 'CLOSED') {
+        this.doorState = 'OPENING';
+        this.playDoorCreak();
       }
+      return true;
+    }
+    if (this.entranceBeatIndex === 6) {
+      this.entranceBeatIndex = 7;
+      this.finalizeEntranceAwakeningState();
+      this.activeCameraFocus.elapsed =
+        CastleNavigationController.ENTRANCE_BEAT_STARTS[7];
+      return true;
     }
     this.skipCameraFocus();
     return true;
@@ -889,12 +921,15 @@ export class CastleNavigationController {
   public triggerEntranceCinematicTilt(_playerPos?: THREE.Vector3) {
     if (this.hasTriggeredEntranceReveal) return;
     this.hasTriggeredEntranceReveal = true;
+    this.entranceBeatIndex = 0;
+    this.activeEntranceCaption = null;
     this.focusYawOffset = 0;
     this.focusPitchOffset = 0;
 
     this.entranceSeatWorldPos.set(this.originX - 0.52, this.baseY + 0.18, this.originZ - 19.25);
-    this.focusCamPos.set(this.originX - 2.2, this.baseY + 2.1, this.originZ - 24.5);
-    this.focusTargetPos.set(this.originX, this.baseY + 2.8, this.originZ - 16.0);
+    // Pass A Requirement: Initial camera begins from front-left / 3/4 cinematic angle showing Harsha, entrance steps, heart lanterns & doorway
+    this.focusCamPos.set(this.originX - 3.4, this.baseY + 2.15, this.originZ - 23.6);
+    this.focusTargetPos.set(this.originX - 0.4, this.baseY + 2.4, this.originZ - 17.5);
     this.activeCameraFocus = {
       mode: 'entrance',
       position: this.focusCamPos,
@@ -948,6 +983,7 @@ export class CastleNavigationController {
   public skipCameraFocus() {
     if (!this.activeCameraFocus) return;
     if (this.activeCameraFocus.mode === 'entrance') {
+      this.entranceBeatIndex = 7;
       this.finalizeEntranceAwakeningState();
     }
     this.activeCameraFocus.elapsed = Math.max(
@@ -1015,7 +1051,17 @@ export class CastleNavigationController {
 
     // Camera cinematic animation progress
     if (this.activeCameraFocus) {
-      this.activeCameraFocus.elapsed += delta;
+      if (this.activeCameraFocus.mode === 'entrance') {
+        const stopT =
+          CastleNavigationController.ENTRANCE_BEAT_STOPS[this.entranceBeatIndex] ??
+          this.activeCameraFocus.duration;
+        this.activeCameraFocus.elapsed = Math.min(
+          stopT,
+          this.activeCameraFocus.elapsed + delta,
+        );
+      } else {
+        this.activeCameraFocus.elapsed += delta;
+      }
       const totalDur = this.activeCameraFocus.duration;
       const e = this.activeCameraFocus.elapsed;
       const u = THREE.MathUtils.clamp(e / totalDur, 0, 1);
@@ -1026,7 +1072,8 @@ export class CastleNavigationController {
       this.activeCameraFocus.blendAlpha = Math.min(entryAlpha, exitAlpha);
 
       if (this.activeCameraFocus.mode === 'entrance') {
-        // Multi-beat Romantic Grand Castle Entrance Sequence (16.5s total)
+        // Multi-beat Romantic Grand Castle Entrance Sequence (7 explicit player-confirmed beats)
+        this.activeEntranceCaption = null;
         this.primaryTreeAwake = smoothStep01((e - 2.1) / 1.4);
         this.secondaryTreeAwake = smoothStep01((e - 3.5) / 1.4);
         this.castleWindowsAwake = smoothStep01((e - 5.1) / 2.2);
@@ -1074,7 +1121,7 @@ export class CastleNavigationController {
           }
         }
 
-        // Camera & Caption Choreography across the 7 romantic beats:
+        // Camera Choreography across the 7 romantic beats (captions rendered via AuroraDialogueCard):
         let camLX = 0;
         let camLY = 2.2;
         let camLZ = -24.5;
@@ -1084,100 +1131,91 @@ export class CastleNavigationController {
         let fov = 56;
 
         if (e < 2.2) {
-          // Beat 1: CASTLE APPROACH (0.0s - 2.2s)
-          const b = smoothStep01(e / 2.2);
-          camLX = THREE.MathUtils.lerp(-2.4, -3.2, b);
-          camLY = THREE.MathUtils.lerp(2.05, 2.35, b);
-          camLZ = THREE.MathUtils.lerp(-24.8, -23.8, b);
-          lookLX = THREE.MathUtils.lerp(-0.3, -1.8, b);
-          lookLY = THREE.MathUtils.lerp(2.2, 3.4, b);
-          lookLZ = THREE.MathUtils.lerp(-18.2, -17.5, b);
+          // Beat 1: CASTLE APPROACH & FRONT-LEFT 3/4 ANGLE (0.0s - 2.15s)
+          // Starts strictly front-left / 3/4 (not rear follow): Harsha, entrance steps, heart lanterns and doorway are all visible
+          const b = smoothStep01(e / 2.15);
+          camLX = THREE.MathUtils.lerp(-3.4, -3.8, b);
+          camLY = THREE.MathUtils.lerp(2.15, 2.45, b);
+          camLZ = THREE.MathUtils.lerp(-23.6, -24.2, b);
+          lookLX = THREE.MathUtils.lerp(-0.4, -1.2, b);
+          lookLY = THREE.MathUtils.lerp(2.4, 3.2, b);
+          lookLZ = THREE.MathUtils.lerp(-17.5, -17.2, b);
           fov = 56;
-          this.activeEntranceCaption =
-            '✦ Harsha arrives before the Grand Palace of Heart Island... [E] Next Beat · [Space] Skip ✦';
         } else if (e < 5.2) {
-          // Beat 2: HEART TREE AWAKENING (2.2s - 5.2s: Left Pink Tree -> Right Dream Tree)
+          // Beat 2: HEART TREE & GARDEN FLOWER AWAKENING (2.2s - 5.15s: Twin trees bloom in warm light)
           if (e < 3.7) {
             const b = smoothStep01((e - 2.2) / 1.5);
-            camLX = THREE.MathUtils.lerp(-3.2, -2.6, b);
-            camLY = THREE.MathUtils.lerp(2.35, 2.65, b);
-            camLZ = THREE.MathUtils.lerp(-23.8, -25.4, b);
-            lookLX = THREE.MathUtils.lerp(-1.8, -6.8, b);
-            lookLY = THREE.MathUtils.lerp(3.4, 4.4, b);
-            lookLZ = THREE.MathUtils.lerp(-17.5, -19.4, b);
+            camLX = THREE.MathUtils.lerp(-3.8, -3.2, b);
+            camLY = THREE.MathUtils.lerp(2.45, 2.85, b);
+            camLZ = THREE.MathUtils.lerp(-24.2, -25.8, b);
+            lookLX = THREE.MathUtils.lerp(-1.2, -6.5, b);
+            lookLY = THREE.MathUtils.lerp(3.2, 4.2, b);
+            lookLZ = THREE.MathUtils.lerp(-17.2, -19.0, b);
           } else {
-            const b = smoothStep01((e - 3.7) / 1.5);
-            camLX = THREE.MathUtils.lerp(-2.6, 2.6, b);
-            camLY = THREE.MathUtils.lerp(2.65, 2.75, b);
-            camLZ = THREE.MathUtils.lerp(-25.4, -25.4, b);
-            lookLX = THREE.MathUtils.lerp(-6.8, 6.8, b);
-            lookLY = THREE.MathUtils.lerp(4.4, 4.4, b);
-            lookLZ = THREE.MathUtils.lerp(-19.4, -19.4, b);
+            const b = smoothStep01((e - 3.7) / 1.45);
+            camLX = THREE.MathUtils.lerp(-3.2, 1.8, b);
+            camLY = THREE.MathUtils.lerp(2.85, 3.15, b);
+            camLZ = THREE.MathUtils.lerp(-25.8, -26.5, b);
+            lookLX = THREE.MathUtils.lerp(-6.5, 6.5, b);
+            lookLY = THREE.MathUtils.lerp(4.2, 4.4, b);
+            lookLZ = THREE.MathUtils.lerp(-19.0, -19.0, b);
           }
-          fov = 55;
-          this.activeEntranceCaption =
-            '✦ The twin Heart Trees awaken in warm blossom light, drifting petals around Harsha... ✦';
-        } else if (e < 7.6) {
-          // Beat 3: CASTLE AWAKENING (5.2s - 7.6s: Arched windows & golden 'I LOVE YOU, HARSHA' frieze illuminate)
-          const b = smoothStep01((e - 5.2) / 2.4);
-          camLX = THREE.MathUtils.lerp(2.6, 0.0, b);
-          camLY = THREE.MathUtils.lerp(2.75, 3.65, b);
-          camLZ = THREE.MathUtils.lerp(-25.4, -25.8, b);
-          lookLX = THREE.MathUtils.lerp(6.8, 0.0, b);
-          lookLY = THREE.MathUtils.lerp(4.4, 6.8, b);
-          lookLZ = THREE.MathUtils.lerp(-19.4, -16.2, b);
           fov = 56;
-          this.activeEntranceCaption =
-            '✦ Every arched crystal window and golden heart crest across the Dream Castle illuminates... ✦';
+        } else if (e < 7.6) {
+          // Beat 3: PROGRESSIVE LIGHTING & SLOW CINEMATIC DOLLY-OUT (5.2s - 7.55s)
+          // Camera slowly pulls backward and rises slightly to reveal the entire illuminated facade, crystals & spires
+          const b = smoothStep01((e - 5.2) / 2.35);
+          camLX = THREE.MathUtils.lerp(1.8, -0.6, b);
+          camLY = THREE.MathUtils.lerp(3.15, 4.45, b); // slight upward rise
+          camLZ = THREE.MathUtils.lerp(-26.5, -29.2, b); // slow backward dolly-out
+          lookLX = THREE.MathUtils.lerp(6.5, 0.0, b);
+          lookLY = THREE.MathUtils.lerp(4.4, 6.5, b);
+          lookLZ = THREE.MathUtils.lerp(-19.0, -16.0, b);
+          fov = 58;
         } else if (e < 10.2) {
-          // Beat 4: DOORS OPEN & INTERIOR REVEAL (7.6s - 10.2s)
-          const b = smoothStep01((e - 7.6) / 2.6);
-          camLX = THREE.MathUtils.lerp(0.0, -1.65, b);
-          camLY = THREE.MathUtils.lerp(3.65, 2.25, b);
-          camLZ = THREE.MathUtils.lerp(-25.8, -21.2, b);
+          // Beat 4: GRAND DOORS OPEN & FULL CASTLE WIDE SHOT (7.6s - 10.15s)
+          // Holds the wide castle reveal while doors open revealing Chandelier Hall inside, then glides toward profile two-shot
+          const b = smoothStep01((e - 7.6) / 2.55);
+          camLX = THREE.MathUtils.lerp(-0.6, -2.45, b);
+          camLY = THREE.MathUtils.lerp(4.45, 2.25, b);
+          camLZ = THREE.MathUtils.lerp(-29.2, -21.4, b);
           lookLX = THREE.MathUtils.lerp(0.0, 0.0, b);
-          lookLY = THREE.MathUtils.lerp(6.8, 2.65, b);
-          lookLZ = THREE.MathUtils.lerp(-16.2, -6.0, b);
-          fov = 54;
-          this.activeEntranceCaption =
-            '✦ The Grand Palace Doors swing open, revealing the Chandelier Hall within... ✦';
+          lookLY = THREE.MathUtils.lerp(6.5, 2.65, b);
+          lookLZ = THREE.MathUtils.lerp(-16.0, -9.5, b);
+          fov = THREE.MathUtils.lerp(58, 54, b);
         } else if (e < 12.6) {
-          // Beat 5: Yeshwanth APPEARS & DIALOGUE (10.2s - 12.6s)
-          const b = smoothStep01((e - 10.2) / 2.4);
-          camLX = THREE.MathUtils.lerp(-1.65, -2.35, b);
-          camLY = THREE.MathUtils.lerp(2.25, 1.92, b);
-          camLZ = THREE.MathUtils.lerp(-21.2, -20.4, b);
-          lookLX = THREE.MathUtils.lerp(0.0, 0.1, b);
-          lookLY = THREE.MathUtils.lerp(2.65, 1.62, b);
-          lookLZ = THREE.MathUtils.lerp(-6.0, -18.5, b);
-          fov = 50;
-          this.activeEntranceCaption =
-            'Yeshwanth: "Welcome to your Dream Castle, Harsha... Every flower and heart here was made for you."';
+          // Beat 5: Yeshwanth APPEARS & DIALOGUE (10.2s - 12.55s)
+          // Camera glides smoothly into a romantic profile two-shot showing Harsha, doorway & Yeshwanth
+          const b = smoothStep01((e - 10.2) / 2.35);
+          camLX = THREE.MathUtils.lerp(-1.65, -2.65, b);
+          camLY = THREE.MathUtils.lerp(2.25, 1.55, b);
+          camLZ = THREE.MathUtils.lerp(-21.2, -21.4, b);
+          lookLX = THREE.MathUtils.lerp(0.0, 0.05, b);
+          lookLY = THREE.MathUtils.lerp(2.65, 1.38, b);
+          lookLZ = THREE.MathUtils.lerp(-6.0, -18.7, b);
+          fov = THREE.MathUtils.lerp(54, 43, b);
         } else if (e < 14.0) {
-          // Beat 6: ROSE PRESENTATION (12.6s - 14.0s)
-          const b = smoothStep01((e - 12.6) / 1.4);
-          camLX = THREE.MathUtils.lerp(-2.35, -1.75, b);
-          camLY = THREE.MathUtils.lerp(1.92, 1.78, b);
-          camLZ = THREE.MathUtils.lerp(-20.4, -19.85, b);
-          lookLX = THREE.MathUtils.lerp(0.1, 0.0, b);
-          lookLY = THREE.MathUtils.lerp(1.62, 1.48, b);
-          lookLZ = THREE.MathUtils.lerp(-18.5, -18.75, b);
-          fov = 46;
-          this.activeEntranceCaption =
-            'Yeshwanth: "This rose—and my heart—are yours forever. I love you, Harsha. ♥"';
+          // Beat 6: ROSE PROPOSAL & PRESENTATION (12.6s - 13.95s)
+          // Unobstructed, intimate two-shot: Harsha on left profile, glowing rose in center, Yeshwanth on right
+          const b = smoothStep01((e - 12.6) / 1.35);
+          camLX = THREE.MathUtils.lerp(-2.65, -2.85, b);
+          camLY = THREE.MathUtils.lerp(1.55, 1.48, b);
+          camLZ = THREE.MathUtils.lerp(-21.4, -21.6, b);
+          lookLX = THREE.MathUtils.lerp(0.05, 0.05, b);
+          lookLY = THREE.MathUtils.lerp(1.38, 1.34, b);
+          lookLZ = THREE.MathUtils.lerp(-18.7, -18.7, b);
+          fov = 43;
         } else {
-          // Beat 7: FINAL ROMANTIC SHOT (14.0s - 16.5s, 2.5s wide romantic hero hold)
-          // Frames Harsha, Yeshwanth, the rose, the open castle entrance, the Heart Trees, and foreground flowers
-          const b = smoothStep01((e - 14.0) / 1.1);
-          camLX = THREE.MathUtils.lerp(-1.75, 0.0, b);
-          camLY = THREE.MathUtils.lerp(1.78, 2.55, b);
-          camLZ = THREE.MathUtils.lerp(-19.85, -26.8, b);
-          lookLX = 0.0;
-          lookLY = THREE.MathUtils.lerp(1.48, 3.35, b);
-          lookLZ = THREE.MathUtils.lerp(-18.75, -16.8, b);
-          fov = THREE.MathUtils.lerp(46, 55, b);
-          this.activeEntranceCaption =
-            '♥ Yeshwanth & Harsha — Welcome to the Dream Castle of Heart Island ♥';
+          // Beat 7: FINAL ROMANTIC SHOT (14.0s - 15.4s hold, then 15.95s - 16.5s exit release)
+          // Gentle slow cinematic drift maintaining clear view of both lovers and the glowing rose
+          const b = smoothStep01((e - 14.0) / 1.4);
+          camLX = THREE.MathUtils.lerp(-2.85, -3.15, b);
+          camLY = THREE.MathUtils.lerp(1.48, 1.62, b);
+          camLZ = THREE.MathUtils.lerp(-21.6, -22.4, b);
+          lookLX = 0.05;
+          lookLY = THREE.MathUtils.lerp(1.34, 1.42, b);
+          lookLZ = -18.7;
+          fov = THREE.MathUtils.lerp(43, 46, b);
         }
 
         this.activeCameraFocus.position.set(

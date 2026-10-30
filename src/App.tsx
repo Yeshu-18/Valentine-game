@@ -182,6 +182,8 @@ export default function App() {
 
   const [auroraDialogue, setAuroraDialogue] = useState<AuroraDialogueLine | null>(null);
   const lastAuroraDialogueRef = useRef<AuroraDialogueLine | null>(null);
+  const [dialogueRevealSignal, setDialogueRevealSignal] = useState(0);
+  const lastDialogueRevealSignalRef = useRef(0);
 
   const [selectedGalleryFrame, setSelectedGalleryFrame] = useState(0);
   const portraitFileInputRef = useRef<HTMLInputElement | null>(null);
@@ -507,10 +509,15 @@ export default function App() {
         }
       }
 
-      const curDial = auroraCinematic.getCurrentDialogue();
+      const curDial = playerController.getCurrentDialogue();
       if (curDial !== lastAuroraDialogueRef.current) {
         lastAuroraDialogueRef.current = curDial;
         setAuroraDialogue(curDial);
+      }
+      const curRevealSig = playerController.getDialogueRevealFullSignal();
+      if (curRevealSig !== lastDialogueRevealSignalRef.current) {
+        lastDialogueRevealSignalRef.current = curRevealSig;
+        setDialogueRevealSignal(curRevealSig);
       }
 
       if (isSoftwareGl) {
@@ -584,6 +591,7 @@ export default function App() {
   }, []);
 
   const handleEngagePointerLock = () => {
+    if (controllerRef.current?.getCurrentDialogue()) return;
     const canvas = canvasMountRef.current?.querySelector('canvas');
     if (!canvas || document.pointerLockElement === canvas) return;
     // Respect browser security cooldown (~1.3s) after user exits pointer lock via Esc
@@ -954,10 +962,16 @@ export default function App() {
         </div>
       )}
 
-      {/* Romantic Aurora Underground Cinematic Dialogue Card */}
+      {/* Compact Cinematic Dialogue Card (Aurora Underground, Castle Entrance & Little Castle) */}
       <AuroraDialogueCard
         dialogue={auroraDialogue}
-        onAdvance={() => controllerRef.current?.advanceDialogue()}
+        revealFullSignal={dialogueRevealSignal}
+        onTypingComplete={(id) =>
+          controllerRef.current?.notifyDialogueTypingComplete(id)
+        }
+        onAdvance={() =>
+          controllerRef.current?.requestDialogueAdvance('ui_click')
+        }
         onSkip={() => controllerRef.current?.skipDialogueOrCinematic()}
       />
 
@@ -1124,16 +1138,18 @@ export default function App() {
 
       {/* Dream Castle Interaction & Elevator Proximity Prompt */}
       {telemetry.castlePrompt && !telemetry.carnivalOverlay && (
-        <div className="pointer-events-auto absolute bottom-32 left-1/2 -translate-x-1/2 z-20 flex items-center gap-3 bg-slate-950/92 border border-pink-300/40 rounded-xl px-4 py-2.5 text-white shadow-xl">
+        <div className="pointer-events-auto absolute bottom-32 left-1/2 -translate-x-1/2 z-20 flex items-center gap-3 bg-slate-950/92 border border-pink-300/40 rounded-xl px-3.5 py-1.5 text-white shadow-xl max-w-2xl">
           <Sparkles className="w-4 h-4 text-pink-300 shrink-0" />
-          <div className="flex flex-col">
-            <span className="text-xs font-semibold text-pink-200">
-              Pastel Dream Castle
-            </span>
-            <span className="text-xs text-slate-200 whitespace-nowrap">
-              {telemetry.castlePrompt}
-            </span>
-          </div>
+          {!(telemetry.castlePrompt.includes('Freestyle Dance') || telemetry.castlePrompt.includes('Choose Song')) && (
+            <div className="flex flex-col">
+              <span className="text-xs font-semibold text-pink-200">
+                Pastel Dream Castle
+              </span>
+              <span className="text-xs text-slate-200 whitespace-nowrap">
+                {telemetry.castlePrompt}
+              </span>
+            </div>
+          )}
           {telemetry.castlePrompt.includes('Select Floor') ? (
             <div className="ml-2 flex items-center gap-1.5">
               {[
@@ -1164,76 +1180,71 @@ export default function App() {
             </div>
           ) : telemetry.castlePrompt.includes('Freestyle Dance') ||
             telemetry.castlePrompt.includes('Choose Song') ? (
-            <div className="ml-2 flex flex-col gap-1.5">
-              {/* Row 1: 5 Songs Selector */}
-              <div className="flex items-center gap-1">
-                <span className="text-[11px] font-semibold text-pink-300 mr-1">Songs:</span>
+            <div className="flex flex-col gap-1 text-[10px] w-full">
+              {/* Row 1: Songs & Finish */}
+              <div className="flex items-center gap-1.5 flex-nowrap">
+                <span className="text-pink-300 font-semibold uppercase tracking-wider text-[9px] whitespace-nowrap">Songs:</span>
                 {[
-                  { label: '1', name: 'Barbie Pop', idx: 0 },
-                  { label: '2', name: 'Starlight Waltz', idx: 1 },
-                  { label: '3', name: 'Pastel R&B', idx: 2 },
-                  { label: '4', name: 'Electro Heart', idx: 3 },
-                  { label: '5', name: 'Mandu Serenade', idx: 4 },
+                  { label: '1', name: 'Pop', idx: 0 },
+                  { label: '2', name: 'Waltz', idx: 1 },
+                  { label: '3', name: 'R&B', idx: 2 },
+                  { label: '4', name: 'Electro', idx: 3 },
+                  { label: '5', name: 'Serenade', idx: 4 },
                 ].map((s) => (
                   <button
                     key={s.label}
                     type="button"
                     onClick={() => controllerRef.current?.selectDanceSong(s.idx)}
-                    className="px-2 py-0.5 rounded bg-pink-600/80 hover:bg-pink-500 text-white text-[11px] font-medium border border-pink-300/30 transition-colors cursor-pointer whitespace-nowrap"
+                    className="px-1.5 py-0.5 rounded bg-pink-600/70 hover:bg-pink-500 text-white text-[10px] font-medium border border-pink-300/30 transition-colors cursor-pointer whitespace-nowrap"
                   >
                     [{s.label}] {s.name}
                   </button>
                 ))}
+                <button
+                  type="button"
+                  onClick={() => controllerRef.current?.triggerCastleAction()}
+                  className="ml-auto px-2 py-0.5 rounded bg-rose-700 hover:bg-rose-600 text-white text-[10px] font-semibold transition-colors cursor-pointer whitespace-nowrap"
+                >
+                  [E] Finish
+                </button>
               </div>
-              {/* Row 2: 10 Manual Dance Step Keys */}
-              <div className="flex items-center gap-1 flex-wrap">
-                <span className="text-[11px] font-semibold text-amber-300 mr-1">Steps:</span>
+              {/* Row 2: Moves & Choreo */}
+              <div className="flex items-center gap-1 flex-nowrap text-[9px] text-amber-200">
+                <span className="text-amber-300 font-semibold uppercase tracking-wider whitespace-nowrap">Moves:</span>
                 {[
-                  { key: 'W', name: 'Reach & Leap' },
-                  { key: 'A', name: 'Left Sway' },
-                  { key: 'S', name: 'Low Dip' },
-                  { key: 'D', name: 'Right Sway' },
-                  { key: 'F', name: 'Heart Claps' },
-                  { key: 'G', name: 'Pirouette' },
-                  { key: 'H', name: 'Heart Hands 💕' },
-                  { key: 'J', name: 'Jeté Kick' },
-                  { key: 'K', name: 'Shoulder Wave' },
+                  { key: 'W', name: 'Leap' },
+                  { key: 'A', name: 'Sway' },
+                  { key: 'S', name: 'Dip' },
+                  { key: 'G', name: 'Spin' },
+                  { key: 'H', name: '💕' },
+                  { key: 'J', name: 'Jeté' },
                   { key: 'L', name: 'Curtsy' },
                 ].map((m) => (
                   <button
                     key={m.key}
                     type="button"
                     onClick={() => controllerRef.current?.performManualDance(m.key)}
-                    className="px-1.5 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-amber-200 text-[11px] font-medium border border-amber-300/30 transition-colors cursor-pointer whitespace-nowrap"
+                    className="px-1 py-0.5 rounded bg-slate-800/90 hover:bg-slate-700 text-amber-200 font-medium border border-amber-300/30 transition-colors cursor-pointer whitespace-nowrap"
                   >
                     <span className="font-bold text-white">[{m.key}]</span> {m.name}
                   </button>
                 ))}
-                <button
-                  type="button"
-                  onClick={() => controllerRef.current?.triggerCastleAction()}
-                  className="ml-1 px-2.5 py-0.5 rounded bg-rose-700 hover:bg-rose-600 text-white text-[11px] font-semibold transition-colors cursor-pointer whitespace-nowrap"
-                >
-                  [E] Finish
-                </button>
-              </div>
-              {/* Row 3: 5 Predefined Choreography Steps (Keys 6, 7, 8, 9, 0) */}
-              <div className="flex items-center gap-1 flex-wrap">
-                <span className="text-[11px] font-semibold text-rose-300 mr-1">Choreo [6-0]:</span>
+                <span className="text-rose-300 font-semibold ml-1 whitespace-nowrap">Choreo:</span>
                 {[
-                  { key: '6', name: 'Pirouette ✧', stepIdx: 0 },
-                  { key: '7', name: 'Arabesque ✧', stepIdx: 1 },
-                  { key: '8', name: 'Pop Groove ✧', stepIdx: 2 },
-                  { key: '9', name: 'Grand Jeté ✧', stepIdx: 3 },
-                  { key: '0', name: 'Swan Waltz ✧', stepIdx: 4 },
-                ].map((c) => (
+                  { key: '6', title: 'Pirouette' },
+                  { key: '7', title: 'Arabesque' },
+                  { key: '8', title: 'Pop Groove' },
+                  { key: '9', title: 'Grand Jeté' },
+                  { key: '0', title: 'Swan Waltz' },
+                ].map((c, i) => (
                   <button
                     key={c.key}
                     type="button"
-                    onClick={() => controllerRef.current?.performPredefinedDance(c.stepIdx)}
-                    className="px-1.5 py-0.5 rounded bg-gradient-to-r from-pink-800/80 to-purple-800/80 hover:from-pink-600 hover:to-purple-600 text-pink-100 text-[11px] font-medium border border-pink-300/40 transition-colors cursor-pointer whitespace-nowrap"
+                    title={c.title}
+                    onClick={() => controllerRef.current?.performPredefinedDance(i)}
+                    className="px-1 py-0.5 rounded bg-purple-900/80 hover:bg-purple-700 text-pink-200 font-medium border border-pink-300/30 transition-colors cursor-pointer whitespace-nowrap"
                   >
-                    <span className="font-bold text-amber-300">[{c.key}]</span> {c.name}
+                    [{c.key}]
                   </button>
                 ))}
               </div>

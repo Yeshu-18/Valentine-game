@@ -18,6 +18,11 @@ import {
   AuroraUndergroundCinematicBundle,
 } from './cinematics/AuroraUndergroundCinematic';
 import {
+  AuroraDialogueLine,
+  DialogueAdvanceSource,
+  DialogueProgressionController,
+} from './cinematics/auroraDialogueData';
+import {
   CarnivalActiveOverlay,
   CarnivalDistrictBundle,
   CarnivalProximityPrompt,
@@ -123,6 +128,10 @@ export interface PlayerControllerBundle {
     songs: readonly { title: string; genre: string }[];
   } | null;
   performCarnivalGameAction: () => void;
+  getCurrentDialogue: () => AuroraDialogueLine | null;
+  getDialogueRevealFullSignal: () => number;
+  notifyDialogueTypingComplete: (dialogueId: string) => void;
+  requestDialogueAdvance: (source?: DialogueAdvanceSource) => void;
   advanceDialogue: () => void;
   skipDialogueOrCinematic: () => void;
   getTelemetry: () => PlayerTelemetry;
@@ -513,10 +522,64 @@ export function createPlayerController(
     onTelemetryChange?.(buildTelemetry());
   }
 
+  const dialogueController = new DialogueProgressionController();
+  let wasDialogueActiveLastFrame = false;
+
+  function getActiveAuroraDialogue(): AuroraDialogueLine | null {
+    return (
+      auroraCinematic.getCurrentDialogue() ??
+      dreamCastle?.nav.getCurrentEntranceDialogue() ??
+      dreamCastle?.floor2CreativeWing.tabletopWorld.getCurrentDialogue() ??
+      null
+    );
+  }
+
+  function performAuroraStyleDialogueAdvance(): AuroraDialogueLine | null {
+    if (auroraCinematic.getCurrentDialogue()) {
+      auroraCinematic.advanceDialogue();
+      onTelemetryChange?.(buildTelemetry());
+      return getActiveAuroraDialogue();
+    }
+    if (dreamCastle?.nav.getCurrentEntranceDialogue()) {
+      dreamCastle.nav.advanceEntranceCinematicBeat();
+      onTelemetryChange?.(buildTelemetry());
+      return getActiveAuroraDialogue();
+    }
+    if (dreamCastle?.floor2CreativeWing.tabletopWorld.getCurrentDialogue()) {
+      dreamCastle.floor2CreativeWing.tabletopWorld.advanceOrContinueCinematic();
+      onTelemetryChange?.(buildTelemetry());
+      return getActiveAuroraDialogue();
+    }
+    return null;
+  }
+
+  function requestDialogueAdvance(
+    source: DialogueAdvanceSource = 'keyboard_enter',
+  ) {
+    const activeDial = getActiveAuroraDialogue();
+    if (activeDial) {
+      dialogueController.syncActiveDialogue(activeDial);
+      dialogueController.requestDialogueAdvance(
+        source,
+        () => {
+          performAuroraStyleDialogueAdvance();
+        },
+        () => getActiveAuroraDialogue(),
+      );
+      return;
+    }
+    handleAdvanceDialogue();
+  }
+
   /**
-   * Advances the currently active dialogue by exactly one line when the player presses Enter.
+   * Advances the currently active dialogue by exactly one line when the player presses Enter or clicks Continue.
    */
   function handleAdvanceDialogue() {
+    if (getActiveAuroraDialogue()) {
+      requestDialogueAdvance('keyboard_enter');
+      return;
+    }
+
     if (auroraCinematic.isActive()) {
       auroraCinematic.advanceDialogue();
       onTelemetryChange?.(buildTelemetry());
@@ -565,6 +628,20 @@ export function createPlayerController(
   function handleSkipDialogueOrCinematic() {
     if (auroraCinematic.isActive()) {
       skipAuroraCinematicAndRestorePlayer();
+      return;
+    }
+
+    if (dreamCastle?.nav.activeCameraFocus) {
+      dreamCastle.nav.skipCameraFocus();
+      restoreExplorationControls();
+      onTelemetryChange?.(buildTelemetry());
+      return;
+    }
+
+    if (dreamCastle?.floor2CreativeWing.tabletopWorld.isTransitionActive()) {
+      dreamCastle.floor2CreativeWing.tabletopWorld.skipCinematic();
+      restoreExplorationControls();
+      onTelemetryChange?.(buildTelemetry());
       return;
     }
 
@@ -891,10 +968,14 @@ export function createPlayerController(
     }
 
     // Master Dialogue / Cinematic Input Rules:
-    // - Enter advances one dialogue line (never auto-advances, ignores held key repeat)
+    // - Enter advances one dialogue line (if typing, reveals full text first; if waiting_for_input, advances to next beat)
     // - Esc immediately skips the active dialogue/cinematic sequence and restores gameplay
     if (e.code === 'Enter' || e.code === 'NumpadEnter') {
       e.preventDefault();
+      if (getActiveAuroraDialogue()) {
+        requestDialogueAdvance('keyboard_enter');
+        return;
+      }
       if (dreamCastle?.nav.activeCameraFocus) {
         dreamCastle.nav.skipCameraFocus();
         return;
@@ -990,6 +1071,25 @@ export function createPlayerController(
       return;
     }
 
+    // Section 8 & Pass A: While a cinematic dialogue card is active,
+    // only block non-dialogue modal hotkeys (like elevator floor buttons or mystery box interactions),
+    // but preserve WASD/Arrows, Numpad, and rotation keys so the player can walk, look, and inspect freely!
+    if (getActiveAuroraDialogue()) {
+      if (
+        e.code === 'KeyE' ||
+        e.code === 'KeyV' ||
+        e.code === 'KeyF' ||
+        e.code === 'Space' ||
+        e.code === 'Digit1' ||
+        e.code === 'Digit2' ||
+        e.code === 'Digit3' ||
+        e.code === 'Digit4' ||
+        e.code === 'Digit0'
+      ) {
+        return;
+      }
+    }
+
     if (carnivalDistrict.isActive()) {
       if (e.code === 'Space' && !e.repeat) {
         e.preventDefault();
@@ -1080,7 +1180,12 @@ export function createPlayerController(
       })()
     ) {
       e.preventDefault();
-      if (!dreamCastle.floor2CreativeWing.getCameraState().active) {
+      const isAnyCamActive =
+        dreamCastle.floor1Rooms.getCameraState().active ||
+        dreamCastle.floor2Rooms.getCameraState().active ||
+        dreamCastle.floor2CreativeWing.getCameraState().active ||
+        dreamCastle.floor3Rooms.getCameraState().active;
+      if (!isAnyCamActive) {
         restoreExplorationControls();
       }
       onTelemetryChange?.(buildTelemetry());
@@ -1662,6 +1767,13 @@ export function createPlayerController(
     getGalleryFrames: () => dreamCastle?.getGalleryFrames() ?? [],
     getDanceStudioState: () => dreamCastle?.floor2Rooms.getDanceStudioState() ?? null,
     performCarnivalGameAction,
+    getCurrentDialogue: getActiveAuroraDialogue,
+    getDialogueRevealFullSignal: () =>
+      dialogueController.getRevealFullSignal(),
+    notifyDialogueTypingComplete: (dialogueId: string) => {
+      dialogueController.markTypingCompleted(dialogueId);
+    },
+    requestDialogueAdvance,
     advanceDialogue: handleAdvanceDialogue,
     skipDialogueOrCinematic: handleSkipDialogueOrCinematic,
     getTelemetry: buildTelemetry,
@@ -1677,6 +1789,14 @@ export function createPlayerController(
 
       auroraCinematic.update(smoothDt, elapsedTime);
       carnivalDistrict.update(smoothDt, elapsedTime, playerPos, camera, keys);
+
+      const activeDialNow = getActiveAuroraDialogue();
+      dialogueController.syncActiveDialogue(activeDialNow);
+      const isDialActive = activeDialNow !== null;
+      if (isDialActive && !wasDialogueActiveLastFrame && document.pointerLockElement) {
+        document.exitPointerLock?.();
+      }
+      wasDialogueActiveLastFrame = isDialActive;
 
       const isCarnivalActive = carnivalDistrict.isActive();
       if (wasCarnivalActive && !isCarnivalActive) {
@@ -2114,11 +2234,13 @@ export function createPlayerController(
         const rotLeft =
           !lakeMemoryActive &&
           (keys.has('KeyQ') ||
+            keys.has('Numpad4') ||
             ((isElevatorFpv || isCastleFocusActive) &&
               (keys.has('KeyA') || keys.has('ArrowLeft'))));
         const rotRight =
           !lakeMemoryActive &&
           (keys.has('KeyR') ||
+            keys.has('Numpad6') ||
             ((isElevatorFpv || isCastleFocusActive) &&
               (keys.has('KeyD') || keys.has('ArrowRight'))));
         if (rotLeft) {
@@ -2130,15 +2252,21 @@ export function createPlayerController(
           if (isCastleFocusActive) dreamCastle?.nav.applyFocusLookDelta(1.35 * dt, 0);
         }
 
-        if (isElevatorFpv || isCastleFocusActive) {
-          if (keys.has('KeyW') || keys.has('ArrowUp')) {
-            cameraPitch = THREE.MathUtils.clamp(cameraPitch - 1.15 * dt, -0.58, 0.58);
-            if (isCastleFocusActive) dreamCastle?.nav.applyFocusLookDelta(0, -1.05 * dt);
-          }
-          if (keys.has('KeyS') || keys.has('ArrowDown')) {
-            cameraPitch = THREE.MathUtils.clamp(cameraPitch + 1.15 * dt, -0.58, 0.58);
-            if (isCastleFocusActive) dreamCastle?.nav.applyFocusLookDelta(0, 1.05 * dt);
-          }
+        const pitchUp =
+          keys.has('Numpad8') ||
+          ((isElevatorFpv || isCastleFocusActive) &&
+            (keys.has('KeyW') || keys.has('ArrowUp')));
+        const pitchDown =
+          keys.has('Numpad2') ||
+          ((isElevatorFpv || isCastleFocusActive) &&
+            (keys.has('KeyS') || keys.has('ArrowDown')));
+        if (pitchUp) {
+          cameraPitch = THREE.MathUtils.clamp(cameraPitch - 1.15 * dt, -0.68, 1.15);
+          if (isCastleFocusActive) dreamCastle?.nav.applyFocusLookDelta(0, -1.05 * dt);
+        }
+        if (pitchDown) {
+          cameraPitch = THREE.MathUtils.clamp(cameraPitch + 1.15 * dt, -0.68, 1.15);
+          if (isCastleFocusActive) dreamCastle?.nav.applyFocusLookDelta(0, 1.05 * dt);
         }
 
         if (dreamCastle) {
@@ -2193,6 +2321,7 @@ export function createPlayerController(
 
         const anyCastleActivityCamActive =
           isElevatorFpv ||
+          isCastleFocusActive ||
           floor1Active ||
           floor2Active ||
           creativeWingActive ||
@@ -2202,8 +2331,11 @@ export function createPlayerController(
         }
         wasAnyCastleActivityCamActive = anyCastleActivityCamActive;
 
+        // Pass A Requirement: WASD, looking, and rotating are preserved during ordinary dialogue.
+        // Movement is only locked during strictly seated cameras, active elevator FPV, or specific instrument inspect modes.
         const isInstrumentOrInspectLocked =
           isElevatorFpv ||
+          isCastleFocusActive ||
           floor2Active ||
           creativeWingActive ||
           floor3Active ||
@@ -2630,6 +2762,21 @@ export function createPlayerController(
       wizardingSchool.update(dt, elapsedTime, playerPos);
       if (dreamCastle) {
         dreamCastle.update(dt, playerPos, elapsedTime, keys);
+        if (dreamCastle.nav.hasTriggeredEntranceReveal) {
+          const clx = playerPos.x - dreamCastle.nav.originX;
+          const clz = playerPos.z - dreamCastle.nav.originZ;
+          const cpy = playerPos.y - dreamCastle.nav.baseY;
+          // Player enters the house: inside castle perimeter (lz >= -15.4 to 15.0, |lx| <= 15.0)
+          const isInsideHouse =
+            Math.abs(clx) <= 15.0 &&
+            clz >= -15.4 &&
+            clz <= 15.0 &&
+            cpy >= -0.5;
+          if (isInsideHouse && !avatar.isHairRoseVisible?.()) {
+            avatar.setHairRoseVisible?.(true);
+            avatar.setRoseHeld(false);
+          }
+        }
       }
 
       // Apply Castle Gate physical camera shake (Stage 2 seal break shudder & Stage 3 heavy inertia rumble/thud)

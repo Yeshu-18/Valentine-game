@@ -42,6 +42,7 @@ export interface CreativeWingCameraState {
   fov?: number;
   seatWorldPos?: THREE.Vector3;
   seatYaw?: number;
+  isSitting?: boolean;
 }
 
 export interface CastleFloor2CreativeWingBundle {
@@ -2699,6 +2700,7 @@ export class CreativeWing implements CastleFloor2CreativeWingBundle {
         fov: tr.fov,
         seatWorldPos: tr.seatWorldPos,
         seatYaw: tr.seatYaw,
+        isSitting: tr.isSitting,
       };
     }
 
@@ -2971,6 +2973,9 @@ export class CreativeWing implements CastleFloor2CreativeWingBundle {
     }
 
     if (this.tabletopWorld.isTransitionActive()) {
+      if (this.tabletopWorld.getCurrentDialogue() !== null) {
+        return null;
+      }
       return '[E] Continue · [Space] Skip';
     }
     if (this.jewelleryAtelier.isCinematicActive()) {
@@ -3068,8 +3073,10 @@ export class CreativeWing implements CastleFloor2CreativeWingBundle {
   }
 
   public interact(playerPos: THREE.Vector3): boolean {
-    // Section 21: [E] Continue during any active romantic cinematic
     if (this.tabletopWorld.isTransitionActive()) {
+      if (this.tabletopWorld.getCurrentDialogue() !== null) {
+        return true;
+      }
       return this.tabletopWorld.advanceOrContinueCinematic();
     }
     if (this.jewelleryAtelier.isCinematicActive()) {
@@ -3197,9 +3204,12 @@ export class CreativeWing implements CastleFloor2CreativeWingBundle {
         this.lastPlayerLz >= 6.4 &&
         this.lastPlayerLz <= 14.8);
 
-    // Section 21: Allow [Space] to skip active romantic cinematics cleanly
+    // Section 21: Allow [Space] to skip non-dialogue romantic cinematics cleanly (active dialogue uses Esc)
     if (key === ' ') {
       if (this.tabletopWorld.isTransitionActive()) {
+        if (this.tabletopWorld.getCurrentDialogue() !== null) {
+          return true;
+        }
         return this.tabletopWorld.skipCinematic();
       }
       if (this.jewelleryAtelier.isCinematicActive()) {

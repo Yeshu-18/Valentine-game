@@ -4391,23 +4391,57 @@ export function createDreamCastle(): DreamCastleBundle {
   yRightArmPivot.position.set(0.23, 1.28, 0);
   yRightArmPivot.add(new THREE.Mesh(yArmGeo, ySuitMat));
 
-  // Romantic 3D Rose held in Yeshwanth's right hand (offered to Harsha during Beat 6)
+  // Romantic 3D Rose held in Yeshwanth's right hand (offered to Harsha during entrance proposal)
   const yRoseGroup = new THREE.Group();
-  yRoseGroup.position.set(0, -0.52, 0.08);
-  yRoseGroup.rotation.x = Math.PI / 3;
+  yRoseGroup.name = 'YeshwanthProposalRose';
+  yRoseGroup.position.set(0, -0.52, 0.06);
+  yRoseGroup.rotation.x = 1.22; // Upright romantic presentation facing Harsha
   const yRoseStem = new THREE.Mesh(
-    tracker.trackGeo(new THREE.CylinderGeometry(0.01, 0.01, 0.34, 6)).translate(0, 0.14, 0),
+    tracker.trackGeo(new THREE.CylinderGeometry(0.012, 0.012, 0.36, 6)).translate(0, 0.16, 0),
     vineLeafMat,
   );
+  const yRosePetalMat = tracker.trackMat(
+    new THREE.MeshStandardMaterial({
+      color: new THREE.Color('#e11d48'),
+      emissive: new THREE.Color('#ff1744'),
+      emissiveIntensity: 0.95,
+      roughness: 0.28,
+      metalness: 0.12,
+    }),
+  );
   const yRoseBloom = new THREE.Mesh(
-    tracker.trackGeo(new THREE.DodecahedronGeometry(0.075, 1)).translate(0, 0.32, 0),
-    barbiePinkMat,
+    tracker.trackGeo(new THREE.DodecahedronGeometry(0.088, 1)).translate(0, 0.34, 0),
+    yRosePetalMat,
+  );
+  const yRosePetalRing = new THREE.Mesh(
+    tracker.trackGeo(new THREE.TorusGeometry(0.082, 0.024, 8, 16)).translate(0, 0.33, 0),
+    yRosePetalMat,
   );
   const yRoseGoldHalo = new THREE.Mesh(
-    tracker.trackGeo(new THREE.TorusGeometry(0.095, 0.012, 6, 16)).translate(0, 0.32, 0),
+    tracker.trackGeo(new THREE.TorusGeometry(0.108, 0.014, 6, 16)).translate(0, 0.34, 0),
     mats.champagneGold,
   );
-  yRoseGroup.add(yRoseStem, yRoseBloom, yRoseGoldHalo);
+  const yRoseLeafGeo = tracker.trackGeo(new THREE.ConeGeometry(0.035, 0.12, 4));
+  yRoseLeafGeo.rotateZ(Math.PI / 3);
+  yRoseLeafGeo.translate(-0.04, 0.2, 0);
+  const yRoseLeaf1 = new THREE.Mesh(yRoseLeafGeo, vineLeafMat);
+  const yRoseLeaf2 = new THREE.Mesh(yRoseLeafGeo, vineLeafMat);
+  yRoseLeaf2.rotation.y = Math.PI;
+  yRoseLeaf2.position.set(0, -0.04, 0);
+
+  // Dedicated romantic rosy point light radiating from the proposal bloom
+  const yRosePointLight = new THREE.PointLight(0xff2d75, 1.8, 3.8, 2.0);
+  yRosePointLight.position.set(0, 0.36, 0);
+
+  yRoseGroup.add(
+    yRoseStem,
+    yRoseLeaf1,
+    yRoseLeaf2,
+    yRoseBloom,
+    yRosePetalRing,
+    yRoseGoldHalo,
+    yRosePointLight,
+  );
   yRightArmPivot.add(yRoseGroup);
 
   yeshwanthEntranceGroup.add(
@@ -4422,6 +4456,69 @@ export function createDreamCastle(): DreamCastleBundle {
     yRightArmPivot,
   );
   group.add(yeshwanthEntranceGroup);
+
+  // 6 Glowing Heart Lanterns & Romantic Lighting in front of the Castle Entrance Steps
+  const heartLanternMat = tracker.trackMat(
+    new THREE.MeshStandardMaterial({
+      color: new THREE.Color('#ffb6c1'),
+      emissive: new THREE.Color('#ff2d75'),
+      emissiveIntensity: 0.95,
+      roughness: 0.22,
+      metalness: 0.15,
+      transparent: true,
+      opacity: 0.94,
+    }),
+  );
+
+  const entranceHeartLanternGroup = new THREE.Group();
+  entranceHeartLanternGroup.name = 'EntranceHeartLanterns';
+
+  const heartPostColGeo = tracker.trackGeo(new THREE.CylinderGeometry(0.045, 0.065, 1.05, 10));
+  heartPostColGeo.translate(0, 0.525, 0);
+  const heartPostBaseGeo = tracker.trackGeo(new THREE.CylinderGeometry(0.12, 0.16, 0.12, 12));
+  heartPostBaseGeo.translate(0, 0.06, 0);
+  const heartPostCapGeo = tracker.trackGeo(new THREE.TorusGeometry(0.09, 0.02, 6, 16));
+  heartPostCapGeo.rotateX(Math.PI / 2);
+  heartPostCapGeo.translate(0, 1.05, 0);
+
+  const lanternPostPositions = [
+    { lx: -1.95, ly: 0.22, lz: -17.5, rotY: 0.25 },
+    { lx: -2.35, ly: 0.18, lz: -19.8, rotY: 0.42 },
+    { lx: -2.75, ly: 0.12, lz: -22.2, rotY: 0.58 },
+    { lx: 1.95, ly: 0.22, lz: -17.5, rotY: -0.25 },
+    { lx: 2.35, ly: 0.18, lz: -19.8, rotY: -0.42 },
+    { lx: 2.75, ly: 0.12, lz: -22.2, rotY: -0.58 },
+  ];
+
+  lanternPostPositions.forEach((pos) => {
+    const postGrp = new THREE.Group();
+    postGrp.position.set(pos.lx, pos.ly, pos.lz);
+    postGrp.rotation.y = pos.rotY;
+
+    const base = new THREE.Mesh(heartPostBaseGeo, mats.champagneGold);
+    const col = new THREE.Mesh(heartPostColGeo, mats.champagneGold);
+    const cap = new THREE.Mesh(heartPostCapGeo, mats.champagneGold);
+
+    // Sculpted Glowing 3D Heart Light atop post
+    const heartHead = buildSculptedHeart(1.85, heartLanternMat);
+    heartHead.position.set(0, 1.25, 0);
+
+    // Decorative golden halo rim
+    const haloGeo = tracker.trackGeo(new THREE.TorusGeometry(0.14, 0.015, 6, 16));
+    haloGeo.rotateX(Math.PI / 2);
+    const halo = new THREE.Mesh(haloGeo, mats.champagneGold);
+    halo.position.set(0, 1.42, 0);
+
+    postGrp.add(base, col, cap, heartHead, halo);
+    entranceHeartLanternGroup.add(postGrp);
+  });
+
+  const entranceHeartLightL = new THREE.PointLight(0xff4d79, 1.35, 6.5, 1.8);
+  entranceHeartLightL.position.set(-2.2, 1.35, -19.5);
+  const entranceHeartLightR = new THREE.PointLight(0xff4d79, 1.35, 6.5, 1.8);
+  entranceHeartLightR.position.set(2.2, 1.35, -19.5);
+
+  group.add(entranceHeartLanternGroup, entranceHeartLightL, entranceHeartLightR);
 
   // ========================================================================
   // 11. PREALLOCATED PROMPTS & CAMERA FOCUS OBJECTS (ZERO PER-FRAME ALLOCATION)
@@ -4482,6 +4579,9 @@ export function createDreamCastle(): DreamCastleBundle {
     },
 
     getProximityPrompt: (playerPos: THREE.Vector3) => {
+      if (nav.activeCameraFocus?.mode === 'entrance') {
+        return null;
+      }
       // Priority 1: Royal Crystal Elevator (Inside FPV or Outside Entry)
       if (nav.isElevatorFpvActive || nav.isInsideElevatorCabin(playerPos)) {
         return _promptElevatorInside;
@@ -4534,9 +4634,9 @@ export function createDreamCastle(): DreamCastleBundle {
     },
 
     interact: (playerPos?: THREE.Vector3) => {
-      // If the Grand Castle Entrance cinematic is currently playing, [E] advances to the next beat
+      // While the Grand Castle Entrance dialogue sequence is active, only Enter or Click Continue advances beats
       if (nav.activeCameraFocus?.mode === 'entrance') {
-        return nav.advanceEntranceCinematicBeat();
+        return true;
       }
 
       if (playerPos) {
@@ -4650,7 +4750,7 @@ export function createDreamCastle(): DreamCastleBundle {
         _cameraFocusOut.position = creativeCam.camWorldPos;
         _cameraFocusOut.fov = creativeCam.fov ?? 55;
         _cameraFocusOut.blendAlpha = creativeCam.blendAlpha;
-        _cameraFocusOut.isSitting = false;
+        _cameraFocusOut.isSitting = Boolean(creativeCam.isSitting);
         _cameraFocusOut.isFirstPersonSeated = false;
         _cameraFocusOut.seatWorldPos = creativeCam.seatWorldPos;
         _cameraFocusOut.seatYaw = creativeCam.seatYaw;
@@ -4710,6 +4810,13 @@ export function createDreamCastle(): DreamCastleBundle {
       awakeningWindowGlowMat.emissiveIntensity =
         0.35 + winAwake * 1.45 + Math.sin(clockVal * 2.4) * 0.1;
 
+      // Update 6 Glowing Heart Lanterns in front of the castle
+      const heartLightAwake = Math.max(winAwake, primaryTreeAwake);
+      const lanternPulse = 1.0 + Math.sin(clockVal * 2.8) * 0.16;
+      heartLanternMat.emissiveIntensity = (0.55 + heartLightAwake * 1.5) * lanternPulse;
+      entranceHeartLightL.intensity = (0.45 + heartLightAwake * 1.4) * lanternPulse;
+      entranceHeartLightR.intensity = (0.45 + heartLightAwake * 1.4) * (1.0 + Math.cos(clockVal * 2.8) * 0.16);
+
       // Animate Yeshwanth at the Grand Castle Entrance
       const yWalk = nav.yeshwanthWalkProgress;
       const yRoseExt = nav.yeshwanthRoseExtend;
@@ -4726,7 +4833,7 @@ export function createDreamCastle(): DreamCastleBundle {
         yRightLeg.rotation.x = -stride;
         yLeftArmPivot.rotation.x = -stride * 0.6;
         yRightArmPivot.rotation.x = THREE.MathUtils.lerp(-stride * 0.5, -1.18, yRoseExt);
-        yRoseGroup.visible = !nav.entranceRosePresented;
+        yRoseGroup.visible = true; // Rose stays prominently visible throughout the proposal!
       } else if (nav.hasTriggeredEntranceReveal) {
         yeshwanthEntranceGroup.visible = true;
         yeshwanthEntranceGroup.position.set(1.45, 0.25, -17.2);

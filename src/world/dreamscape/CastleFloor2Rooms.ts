@@ -980,12 +980,14 @@ export function createCastleFloor2Rooms(
       'dance_step_4',
       'dance_step_5',
     ];
-    if (stepIdx < 1 || stepIdx > 5) return;
-    activeDanceStepIndex = stepIdx;
-    activeManualDanceName = DANCE_STEP_NAMES[stepIdx - 1];
-    avatarCallbacks?.setActivityPose(poses[stepIdx - 1]);
-    playSparkleArpeggio(440.0 + stepIdx * 75);
-    setTemporaryCaption(`Royal Dance Studio • ${DANCE_STEP_NAMES[stepIdx - 1]}`, 3.2);
+    const normalizedIdx = stepIdx >= 0 && stepIdx <= 4 ? stepIdx + 1 : stepIdx;
+    if (normalizedIdx < 1 || normalizedIdx > 5) return;
+    const realIdx = normalizedIdx - 1;
+    activeDanceStepIndex = normalizedIdx;
+    activeManualDanceName = DANCE_STEP_NAMES[realIdx];
+    avatarCallbacks?.setActivityPose(poses[realIdx]);
+    playSparkleArpeggio(440.0 + normalizedIdx * 75);
+    setTemporaryCaption(`Royal Dance Studio • ${DANCE_STEP_NAMES[realIdx]}`, 3.2);
     dancePulseRingMat.opacity = 1.0;
   };
 

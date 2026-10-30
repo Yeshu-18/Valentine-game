@@ -14,11 +14,284 @@ export interface AuroraDialogueLine {
 
 export type AuroraDialogueSequence = AuroraDialogueLine[];
 
+export type DialogueProgressState =
+  | 'hidden'
+  | 'typing'
+  | 'waiting_for_input'
+  | 'advancing';
+
+export type DialogueAdvanceSource = 'keyboard_enter' | 'ui_click';
+
 const Y = {
   speaker: 'Yeshwanth' as const,
   badge: 'Yeshwanth ♡',
-  typeSpeed: 23,
+  typeSpeed: 28,
 };
+
+/**
+ * Canonical Castle Entrance Cinematic Dialogue Sequence.
+ * Every beat pauses and waits for explicit Enter or Continue confirmation.
+ */
+export const CASTLE_ENTRANCE_DIALOGUE: AuroraDialogueSequence = [
+  {
+    id: 'entrance_01',
+    speaker: 'Yeshwanth',
+    badge: 'Grand Castle Entrance ✧',
+    text: 'Harsha arrives before the Grand Palace of Heart Island...',
+    typeSpeed: 32,
+  },
+  {
+    id: 'entrance_02',
+    speaker: 'Yeshwanth',
+    badge: 'Heart Trees Awaken ✧',
+    text: 'The twin Heart Trees awaken in warm blossom light, drifting petals around Harsha...',
+    typeSpeed: 32,
+  },
+  {
+    id: 'entrance_03',
+    speaker: 'Yeshwanth',
+    badge: 'Palace Illumination ✧',
+    text: 'Every arched crystal window and golden heart crest across the Dream Castle illuminates...',
+    typeSpeed: 32,
+  },
+  {
+    id: 'entrance_04',
+    speaker: 'Yeshwanth',
+    badge: 'Grand Palace Doors ✧',
+    text: 'The Grand Palace Doors swing open, revealing the Chandelier Hall within...',
+    typeSpeed: 32,
+  },
+  {
+    id: 'entrance_05',
+    speaker: 'Yeshwanth',
+    badge: 'Yeshwanth ♡',
+    text: 'Welcome to your Dream Castle, Harsha... Every flower and heart here was made for you.',
+    typeSpeed: 28,
+  },
+  {
+    id: 'entrance_06',
+    speaker: 'Yeshwanth',
+    badge: 'Yeshwanth ♡',
+    text: 'This rose—and my heart—are yours forever. I love you, Harsha. ♥',
+    typeSpeed: 28,
+    isProposal: true,
+  },
+  {
+    id: 'entrance_07',
+    speaker: 'Yeshwanth',
+    badge: 'Dream Castle of Heart Island ♥',
+    text: 'Yeshwanth & Harsha — Welcome to the Dream Castle of Heart Island ♥',
+    typeSpeed: 30,
+    isProposal: true,
+  },
+];
+
+/**
+ * Canonical Little Castle ("Our Little Kingdom") Cinematic Dialogue Sequence.
+ * Every beat pauses and waits for explicit Enter or Continue confirmation.
+ */
+export const LITTLE_CASTLE_DIALOGUE: AuroraDialogueSequence = [
+  {
+    id: 'little_castle_01',
+    speaker: 'Yeshwanth',
+    badge: 'Our Little Kingdom ✧',
+    text: 'OUR LITTLE KINGDOM — Two Connected Towers & the Small Ornate Golden Gate.',
+    typeSpeed: 32,
+  },
+  {
+    id: 'little_castle_02',
+    speaker: 'Yeshwanth',
+    badge: 'Our Little Kingdom ✧',
+    text: 'Stepping through the Ornate Golden Gate into Our Little Kingdom…',
+    typeSpeed: 32,
+  },
+  {
+    id: 'little_castle_03',
+    speaker: 'Yeshwanth',
+    badge: 'The Little Kingdom Awakens ✧',
+    text: 'The Little Kingdom awakens as you arrive — flowers bloom near your feet and two streams meet in a glowing crystal heart.',
+    typeSpeed: 32,
+  },
+  {
+    id: 'little_castle_04',
+    speaker: 'Yeshwanth',
+    badge: 'Two Worlds Become One ✧',
+    text: 'The two connected towers illuminate, and the entrance rose gently dissolves into glowing petals as you reach the Queen’s Courtyard.',
+    typeSpeed: 32,
+  },
+  {
+    id: 'little_castle_05',
+    speaker: 'Yeshwanth',
+    badge: 'The Queen’s Courtyard ✧',
+    text: 'The courtyard grows quiet as the circular heart frame glows, and a royal crown slowly rises from the crystal pedestal.',
+    typeSpeed: 30,
+    isProposal: true,
+  },
+  {
+    id: 'little_castle_06',
+    speaker: 'Yeshwanth',
+    badge: 'Yeshwanth ♡',
+    text: 'Yeshwanth turns toward Harsha, places his hand over his heart, and looks from the crown back to you — "This is your kingdom."',
+    typeSpeed: 30,
+    isProposal: true,
+  },
+  {
+    id: 'little_castle_07',
+    speaker: 'Yeshwanth',
+    badge: 'Yeshwanth ♡',
+    text: 'MY QUEEN',
+    typeSpeed: 26,
+    isProposal: true,
+  },
+  {
+    id: 'little_castle_08',
+    speaker: 'Yeshwanth',
+    badge: 'Yeshwanth ♡',
+    text: 'You are the queen of my life.',
+    typeSpeed: 28,
+    isProposal: true,
+  },
+  {
+    id: 'little_castle_09',
+    speaker: 'Yeshwanth',
+    badge: 'Yeshwanth ♡',
+    text: 'And I am so grateful that I get to have you in mine.',
+    typeSpeed: 28,
+    isProposal: true,
+  },
+  {
+    id: 'little_castle_10',
+    speaker: 'Yeshwanth',
+    badge: 'Yeshwanth ♡',
+    text: 'Thank you for making my world more beautiful.',
+    typeSpeed: 28,
+    isProposal: true,
+  },
+  {
+    id: 'little_castle_11',
+    speaker: 'Yeshwanth',
+    badge: 'Yeshwanth ♡',
+    text: 'I LOVE YOU, HARSHA ❤️',
+    typeSpeed: 26,
+    isProposal: true,
+  },
+  {
+    id: 'little_castle_12',
+    speaker: 'Yeshwanth',
+    badge: 'Our Little Kingdom ❤️',
+    text: 'Every tower, bridge, fountain, and lantern illuminates — a little kingdom shaped like a heart, built just for you.',
+    typeSpeed: 30,
+    isProposal: true,
+  },
+];
+
+/**
+ * Canonical Dialogue Progression Controller (Pass A Contract).
+ * Enforces:
+ * - CINEMATIC STATE -> SHOW DIALOGUE -> TYPE TEXT ('typing') -> WAIT ('waiting_for_input')
+ * - First Enter/Click while 'typing': immediately reveals full text and transitions to 'waiting_for_input'.
+ * - Second Enter/Click while 'waiting_for_input': validates transition guard and advances cinematic state.
+ */
+export class DialogueProgressionController {
+  private state: DialogueProgressState = 'hidden';
+  private activeLine: AuroraDialogueLine | null = null;
+  private isAdvancing = false;
+  private revealFullSignal = 0;
+  private lastActionTimestampMs = 0;
+
+  private logDev(message: string): void {
+    if (import.meta.env.DEV) {
+      console.debug(`[DIALOGUE]\n${message}`);
+    }
+  }
+
+  public getState(): DialogueProgressState {
+    return this.state;
+  }
+
+  public getActiveLine(): AuroraDialogueLine | null {
+    return this.activeLine;
+  }
+
+  public getRevealFullSignal(): number {
+    return this.revealFullSignal;
+  }
+
+  public syncActiveDialogue(line: AuroraDialogueLine | null): void {
+    if (!line) {
+      if (this.activeLine !== null || this.state !== 'hidden') {
+        this.activeLine = null;
+        this.state = 'hidden';
+        this.isAdvancing = false;
+      }
+      return;
+    }
+
+    if (!this.activeLine || this.activeLine.id !== line.id) {
+      this.activeLine = line;
+      this.state = 'typing';
+      this.isAdvancing = false;
+      this.logDev(`state: typing\nid: ${line.id}`);
+    }
+  }
+
+  public markTypingCompleted(dialogueId: string): void {
+    // Guard against stale callbacks from previous dialogue lines (Section 15)
+    if (!this.activeLine || this.activeLine.id !== dialogueId) {
+      return;
+    }
+    if (this.state === 'typing') {
+      this.state = 'waiting_for_input';
+      this.logDev(`state: waiting_for_input\nid: ${dialogueId}`);
+    }
+  }
+
+  public requestDialogueAdvance(
+    source: DialogueAdvanceSource,
+    advanceStoryCallback: () => void,
+    getUpdatedDialogueCallback: () => AuroraDialogueLine | null,
+  ): boolean {
+    if (!this.activeLine || this.state === 'hidden') {
+      return false;
+    }
+
+    // Prevent double advance or same-frame race conditions (Section 14)
+    const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
+    if (this.isAdvancing || now - this.lastActionTimestampMs < 65) {
+      return false;
+    }
+    this.lastActionTimestampMs = now;
+
+    this.logDev(`advance requested\nsource: ${source}`);
+
+    // First Enter / Click while typing: immediately reveal full text and enter waiting_for_input
+    if (this.state === 'typing') {
+      this.revealFullSignal += 1;
+      this.state = 'waiting_for_input';
+      this.logDev(`state: waiting_for_input\nid: ${this.activeLine.id}`);
+      return true;
+    }
+
+    // Second Enter / Click while waiting_for_input: advance cinematic state
+    if (this.state === 'waiting_for_input') {
+      this.isAdvancing = true;
+      this.state = 'advancing';
+      const fromId = this.activeLine.id;
+
+      try {
+        advanceStoryCallback();
+        const nextLine = getUpdatedDialogueCallback();
+        this.logDev(`advancing\nfrom: ${fromId}\nto: ${nextLine?.id ?? 'complete'}`);
+        this.syncActiveDialogue(nextLine);
+      } finally {
+        this.isAdvancing = false;
+      }
+      return true;
+    }
+
+    return false;
+  }
+}
 
 /**
  * Every item is one Enter-controlled dialogue beat.

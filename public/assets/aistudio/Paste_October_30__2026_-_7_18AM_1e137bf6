@@ -1,0 +1,1954 @@
+# PASS A: CASTLE CINEMATIC, DIALOGUE, CAMERA CONTROL & MINI CASTLE QUEEN FINALE
+
+## STATUS
+
+This is a focused implementation pass for the existing Heart Island Dream Castle project.
+
+**Do not begin unrelated feature work.**
+
+This pass combines and locks the following requirements:
+
+1. Explicit player-controlled dialogue progression.
+2. Compact horizontal dialogue UI.
+3. Main Castle entrance camera correction.
+4. Player-controlled camera during ordinary dialogue.
+5. Main Castle full-lighting cinematic with slow zoom-out / reveal.
+6. Mini Castle romantic environment enhancement.
+7. Mini Castle Queen / Crown / Throne cinematic.
+8. Final fireworks with `I LOVE HARSHA ❤️` in the sky.
+9. Proper restoration of gameplay after every cinematic.
+10. Preserve all existing systems that already work.
+
+The goal is not merely to make the features technically function.
+
+The goal is to make the experience feel like a polished romantic interactive game where the **world remains the primary visual focus and the UI supports the story instead of covering it.**
+
+---
+
+# 1. MANDATORY FIRST STEP: INSPECT THE EXISTING REPOSITORY
+
+Before modifying anything:
+
+1. Inspect the current repository.
+2. Inspect the existing cinematic system.
+3. Inspect `AuroraDialogueCard.tsx`.
+4. Inspect the current castle entrance logic.
+5. Inspect `CastleNavigation.ts`.
+6. Inspect the current Little Castle / Tabletop Castle entry and return system.
+7. Inspect `PlayerController.ts`.
+8. Inspect the current camera ownership and camera transition utilities.
+9. Inspect `PlayerCharacter.ts`.
+10. Inspect existing dialogue state handling.
+11. Inspect existing cinematic state handling.
+12. Inspect existing input handling.
+13. Inspect existing `AuroraUndergroundCinematic.ts`.
+14. Inspect all code responsible for the existing main-castle rose scene.
+15. Inspect all code responsible for the Little Castle story.
+16. Inspect the existing lighting system.
+17. Inspect existing firework/particle systems if any exist.
+18. Inspect existing throne/crown/character assets before creating new ones.
+
+Do not assume a subsystem is missing simply because it is not obvious from one file.
+
+Reuse existing systems wherever possible.
+
+Do not duplicate dialogue systems, camera systems, input systems, or cinematic controllers unnecessarily.
+
+---
+
+# 2. SOURCE-OF-TRUTH RULE
+
+Use this hierarchy:
+
+1. Existing repository/runtime behavior
+2. Existing project architecture and contracts
+3. Existing cinematic/dialogue systems
+4. Existing Heart Island design documents
+5. This Pass A specification
+6. Reasonable implementation inference
+
+If an existing system already performs the required behavior correctly, preserve it.
+
+If there is a conflict, do not silently replace working architecture.
+
+Explain the conflict and choose the smallest safe change.
+
+---
+
+# 3. CORE EXPERIENCE RULE
+
+The player should feel like they are inside a world, not interacting with a UI application.
+
+Therefore:
+
+**WORLD > CHARACTER > CINEMATIC > INTERACTION > UI**
+
+The castle must remain visible.
+
+The player must understand where they are.
+
+The dialogue must never become a giant panel that hides the scene.
+
+The camera must never arbitrarily teleport the player.
+
+The player must regain control cleanly after scripted sequences.
+
+---
+
+# 4. DIALOGUE PROGRESSION: EXPLICIT PLAYER ADVANCE
+
+## Required behavior
+
+Dialogue must NOT automatically advance simply because a timer expired.
+
+Every dialogue line must wait for explicit player confirmation.
+
+Required flow:
+
+```text
+SHOW DIALOGUE
+        ↓
+TYPE TEXT
+        ↓
+WAIT
+        ↓
+PLAYER PRESSES ENTER / CLICKS CONTINUE
+        ↓
+ADVANCE
+        ↓
+NEXT DIALOGUE
+```
+
+Do not automatically move to the next dialogue line after a fixed delay.
+
+---
+
+# 5. DIALOGUE STATE MACHINE
+
+Reuse the existing dialogue system if possible.
+
+If an equivalent system does not already exist, use a state model equivalent to:
+
+```ts
+type DialogueProgressState =
+    | 'hidden'
+    | 'typing'
+    | 'waiting_for_input'
+    | 'advancing';
+```
+
+Behavior:
+
+### State: `typing`
+
+Text is being revealed.
+
+If the player presses Enter or clicks Continue:
+
+**First input:**
+
+Reveal the complete line immediately.
+
+Do NOT advance yet.
+
+### State: `waiting_for_input`
+
+The complete line is visible.
+
+The next Enter/click advances to the next line.
+
+### State: `advancing`
+
+Perform the transition exactly once.
+
+Prevent duplicate events.
+
+---
+
+# 6. SINGLE CANONICAL ADVANCE FUNCTION
+
+Keyboard and UI must use the same function.
+
+Use one canonical pathway equivalent to:
+
+```ts
+requestDialogueAdvance()
+```
+
+Both:
+
+```text
+Enter
+```
+
+and:
+
+```text
+Continue click
+```
+
+must call the same function.
+
+Do not maintain separate keyboard and UI dialogue logic.
+
+This prevents synchronization bugs.
+
+---
+
+# 7. PREVENT DOUBLE ADVANCE
+
+Rapid Enter presses must not skip multiple dialogue states.
+
+For example:
+
+```text
+Enter
+Enter
+Enter
+Enter
+```
+
+must not accidentally skip four story states.
+
+Use appropriate state guards.
+
+Only one transition may be accepted per dialogue state.
+
+---
+
+# 8. DIALOGUE CARD: REBUILD AS A COMPACT HORIZONTAL CARD
+
+The current dialogue card is too large and vertically oriented.
+
+Do not merely scale the current card down.
+
+Redesign its layout to be a **horizontal cinematic dialogue strip**.
+
+## Target composition
+
+Approximately:
+
+```text
+┌──────────────────────────────────────────────────────────────┐
+│  CHARACTER   │  Dialogue text flows horizontally     [↵]   │
+└──────────────────────────────────────────────────────────────┘
+```
+
+The exact layout may adapt responsively.
+
+---
+
+# 9. DIALOGUE CARD SIZE
+
+Desktop target:
+
+- Approximately 55–70% screen width.
+- Short vertical height.
+- Bottom-center.
+- Never occupy the majority of the screen.
+
+For smaller screens:
+
+- Increase width if necessary.
+- Do not increase height unnecessarily.
+
+The player must still clearly see:
+
+- Harsha
+- Yeshwanth/golden figure
+- castle architecture
+- flowers
+- lighting
+- cinematic effects
+- important environmental details
+
+---
+
+# 10. DIALOGUE CARD VISUAL STYLE
+
+Use:
+
+- translucent glass
+- subtle blur
+- pearl/ivory foundation
+- champagne-gold border
+- restrained pink/lavender accent
+- soft shadow
+- subtle transparency
+
+Avoid:
+
+- giant opaque rectangles
+- huge headers
+- excessive decorative borders
+- oversized character portraits
+- unnecessary instructional text
+- full-screen dark overlays
+
+The castle should remain visible behind the card.
+
+---
+
+# 11. DIALOGUE CARD ANIMATION
+
+Use subtle motion.
+
+Recommended:
+
+```text
+fade/slide in: 200–300ms
+fade/slide out: 200–300ms
+```
+
+Do not make it bounce dramatically.
+
+The dialogue card should feel like part of the cinematic language.
+
+---
+
+# 12. NO PERMANENT CONTROLS MANUAL
+
+Do not display a giant:
+
+```text
+INSTRUCTIONS
+CONTROLS
+HOW TO PLAY
+```
+
+panel.
+
+Use compact contextual hints only when necessary.
+
+Example:
+
+```text
+[E] Enter Our Little Kingdom
+```
+
+or:
+
+```text
+[Enter / Click] Continue
+```
+
+Keep these small.
+
+---
+
+# 13. MAIN CASTLE ENTRANCE CAMERA
+
+The current entrance camera begins too far behind the player.
+
+Correct this.
+
+When Harsha enters the main castle:
+
+## Initial camera position
+
+The camera must begin from a **left-side / front-left cinematic angle**.
+
+It should NOT be directly behind Harsha.
+
+The camera should allow the player to see:
+
+- Harsha
+- part of the castle interior
+- flowers
+- architectural details
+- the golden Yeshwanth figure when appropriate
+- the depth of the entrance
+
+The composition should feel intentional and cinematic.
+
+---
+
+# 14. MAIN CASTLE CAMERA COMPOSITION
+
+Use a three-quarter composition rather than a rear-follow composition.
+
+Suggested conceptual placement:
+
+```text
+          CASTLE INTERIOR
+                 ↑
+
+       ✦ architecture ✦
+
+       Harsha
+          ↗
+      CAMERA
+   front-left
+```
+
+Do not hardcode arbitrary world coordinates without checking the existing castle geometry.
+
+Derive the camera position from the actual entrance/player position.
+
+---
+
+# 15. CAMERA MUST MOVE WITH THE WORLD
+
+During scripted camera movements:
+
+Interpolate both:
+
+```text
+camera.position
+```
+
+and:
+
+```text
+camera.lookAt / target
+```
+
+together.
+
+Do not move the camera while leaving the target behind.
+
+Do not create sudden rotations.
+
+Use smooth easing.
+
+---
+
+# 16. PLAYER CAMERA CONTROL
+
+During normal dialogue:
+
+**DO NOT unnecessarily freeze camera control.**
+
+The player should be able to look around.
+
+Required:
+
+### WASD
+
+```text
+W = forward
+A = left
+S = backward
+D = right
+```
+
+Use the existing player movement system.
+
+### Mouse / touchpad
+
+Allow:
+
+- horizontal look
+- vertical look
+- 360° camera rotation where the existing camera mode supports it
+
+### Keypad / numpad
+
+Preserve or implement camera/view rotation shortcuts using the existing input architecture.
+
+Do not invent a second camera control system.
+
+The player should be able to:
+
+```text
+move
+look
+rotate
+inspect
+```
+
+during ordinary dialogue.
+
+---
+
+# 17. CINEMATIC CAMERA EXCEPTION
+
+There are specific moments where the camera should temporarily become scripted.
+
+For example:
+
+```text
+MAIN CASTLE LIGHTING REVEAL
+MINI CASTLE QUEEN REVEAL
+CROWN WEARING
+THRONE MOMENT
+FIREWORK FINALE
+```
+
+During those specific cinematic moments:
+
+- temporarily take camera ownership
+- disable conflicting manual camera input
+- perform the cinematic
+- restore the exact previous camera state
+
+Do NOT lock camera input for the entire dialogue sequence.
+
+---
+
+# 18. CAMERA STATE PRESERVATION
+
+Before any cinematic takeover, capture:
+
+```ts
+cameraPosition
+cameraTarget
+playerPosition
+playerYaw
+playerPitch
+cameraMode
+```
+
+After the cinematic:
+
+restore them smoothly.
+
+The player must return to the exact meaningful gameplay position.
+
+No arbitrary teleporting.
+
+---
+
+# 19. MAIN CASTLE LIGHTING REVEAL
+
+This is one of the major cinematic moments.
+
+When Harsha enters the main castle, the castle should gradually awaken.
+
+Do not simply turn every light on at once.
+
+---
+
+# 20. LIGHTING REVEAL SEQUENCE
+
+Suggested progression:
+
+```text
+ENTER CASTLE
+      ↓
+Entrance area softly illuminates
+      ↓
+Nearby flowers glow
+      ↓
+Crystal details activate
+      ↓
+Decorative architectural lights activate
+      ↓
+Chandeliers awaken
+      ↓
+Balconies / towers / windows illuminate
+      ↓
+Heart and crown details glow
+      ↓
+Distant sections of castle come alive
+      ↓
+FULL CASTLE REVEAL
+```
+
+The exact order can be adapted to the existing architecture.
+
+The lighting should feel like the castle is waking up because Harsha arrived.
+
+---
+
+# 21. CINEMATIC ZOOM-OUT
+
+While the castle is lighting up, perform a **slow cinematic zoom-out / dolly-out**.
+
+This must be a real camera movement, not merely changing the FOV instantly.
+
+Sequence:
+
+```text
+LEFT-SIDE CLOSE COMPOSITION
+        ↓
+slow backward movement
+        ↓
+slight upward movement
+        ↓
+wider environmental reveal
+        ↓
+entire castle composition
+        ↓
+hold
+        ↓
+gentle return to gameplay
+```
+
+Use smooth easing.
+
+Do not rush.
+
+---
+
+# 22. CAMERA + LIGHTING SYNCHRONIZATION
+
+The camera movement and lighting progression must feel like one cinematic.
+
+As the camera pulls back:
+
+- more of the castle becomes visible
+- more lights activate
+- more flowers become visible
+- more architectural details glow
+- the visual scale of the castle increases
+
+At the widest shot, the castle should look fully awakened.
+
+---
+
+# 23. FINAL WIDE SHOT
+
+At the peak:
+
+Hold the wide reveal for several seconds.
+
+Do not immediately cut away.
+
+The player should have enough time to appreciate:
+
+- the castle
+- flowers
+- lighting
+- crystals
+- chandeliers
+- heart motifs
+- architecture
+- Harsha's position within the world
+
+Then transition back to gameplay.
+
+---
+
+# 24. MAIN CASTLE DIALOGUE TIMING
+
+The dialogue must wait for the player.
+
+Example:
+
+```text
+Castle lights awaken
+        ↓
+Camera completes reveal
+        ↓
+Dialogue line appears
+        ↓
+WAIT
+        ↓
+PLAYER ENTER / CLICK
+        ↓
+NEXT LINE
+```
+
+Do not use:
+
+```text
+setTimeout(nextDialogue, ...)
+```
+
+as the mechanism for advancing story dialogue.
+
+Visual effects may continue on timers.
+
+Story progression must not.
+
+---
+
+# 25. MINI CASTLE STORY
+
+The Little Castle is **not another proposal scene**.
+
+There are already proposal/rose moments elsewhere.
+
+Do not introduce another proposal.
+
+Do not kneel.
+
+Do not repeat the rose-giving scene.
+
+The Little Castle represents:
+
+# OUR LITTLE KINGDOM
+
+The emotional meaning:
+
+> Harsha is the Queen of Yeshwanth's life, and he is grateful to have her.
+
+---
+
+# 26. MINI CASTLE ENTRY
+
+Flow:
+
+```text
+Approach Little Castle
+        ↓
+Enter
+        ↓
+OUR LITTLE KINGDOM
+        ↓
+Castle awakens
+        ↓
+Flowers begin blooming
+        ↓
+Romantic lighting activates
+        ↓
+Fountain awakens
+        ↓
+Two towers become illuminated
+        ↓
+Bridge / shared garden revealed
+        ↓
+Central courtyard
+        ↓
+Queen reveal
+```
+
+---
+
+# 27. MINI CASTLE ENVIRONMENT
+
+The Little Castle must feel more romantic and alive.
+
+Add/enhance:
+
+### Flowers
+
+Use physical world objects:
+
+- flower beds
+- roses
+- small pastel flowers
+- flower vines
+- glowing flowers
+- garden clusters
+- flower paths
+
+Flowers should be distributed intentionally.
+
+Do not turn the scene into visual clutter.
+
+---
+
+# 28. ROMANTIC LIGHTING
+
+Add layered lighting:
+
+- warm golden window light
+- soft pink garden glow
+- subtle lavender ambient accents
+- fountain illumination
+- crown glow
+- throne illumination
+- tiny garden lights
+- subtle floating particles
+
+Keep the lighting elegant.
+
+Avoid excessive bloom.
+
+Avoid dozens of independent dynamic lights.
+
+Respect existing performance budgets.
+
+---
+
+# 29. CASTLE AWAKENING
+
+When Harsha enters:
+
+First:
+
+- one flower blooms.
+
+Then:
+
+- nearby flowers illuminate.
+
+Then:
+
+- garden path activates.
+
+Then:
+
+- fountain wakes.
+
+Then:
+
+- castle windows illuminate.
+
+Then:
+
+- towers activate.
+
+Then:
+
+- central courtyard becomes fully romantic.
+
+This should feel like the castle recognizes its Queen.
+
+---
+
+# 30. TWO TOWERS
+
+Preserve the existing conceptual symbolism:
+
+- one tower represents Yeshwanth
+- one tower represents Harsha
+
+They are connected by:
+
+- bridge
+- shared garden
+- central courtyard
+
+Do not turn this into a complicated exposition scene.
+
+Let the environment communicate the idea.
+
+---
+
+# 31. QUEEN REVEAL
+
+After the courtyard is revealed:
+
+Create a quiet pause.
+
+Then introduce the crown.
+
+The crown should not simply pop into existence.
+
+Use a cinematic reveal.
+
+Suggested sequence:
+
+```text
+Ambient lights soften
+        ↓
+Crown appears
+        ↓
+Crown floats upward
+        ↓
+Crown moves toward Harsha
+        ↓
+Camera shifts to front / three-quarter view
+        ↓
+Crown is visibly worn by Harsha
+```
+
+---
+
+# 32. CROWN VISIBILITY
+
+This is critical.
+
+The player must actually be able to SEE the crown.
+
+Do not place the camera behind Harsha.
+
+Use a:
+
+- front three-quarter shot
+- slightly elevated angle
+- flattering portrait framing
+
+The crown must remain visually readable.
+
+---
+
+# 33. CROWN WEARING
+
+If the existing character system supports attachment/bone/head transforms:
+
+Attach the crown correctly to the head.
+
+Do not fake the crown by placing it at a fixed world coordinate.
+
+If the character is procedural, use the existing head transform hierarchy.
+
+The crown must follow:
+
+- head movement
+- character position
+- character rotation
+
+---
+
+# 34. THRONE SEQUENCE
+
+After Harsha wears the crown:
+
+Harsha should walk/sit on the throne.
+
+Required sequence:
+
+```text
+Crown worn
+   ↓
+short pause
+   ↓
+Harsha approaches throne
+   ↓
+Harsha sits
+   ↓
+throne activates
+   ↓
+romantic lighting intensifies
+```
+
+Use the existing character/controller architecture.
+
+Do not teleport the character into the throne.
+
+If a cinematic positioning correction is required, use a controlled animation/transition.
+
+---
+
+# 35. THRONE PRESENTATION CAMERA
+
+Once Harsha sits:
+
+Use a flattering cinematic composition showing:
+
+- Harsha
+- crown
+- throne
+- Yeshwanth golden figure
+- castle background
+- flowers
+- romantic lighting
+
+Do not frame only the throne.
+
+The player should understand the relationship between Harsha, Yeshwanth, and the kingdom.
+
+---
+
+# 36. YESHWANTH GOLDEN FIGURE
+
+The golden Yeshwanth figure should stand nearby.
+
+Do not make him perform another proposal.
+
+Use a simple emotional gesture:
+
+```text
+hand over heart
+```
+
+This communicates gratitude and devotion.
+
+---
+
+# 37. GRATITUDE DIALOGUE
+
+The dialogue should communicate:
+
+- she is the Queen of his life
+- he is grateful to have her
+- this is their little kingdom
+- this moment belongs to them
+
+Keep it simple.
+
+Do not create a long speech.
+
+The player must explicitly click/press Enter to continue each dialogue line.
+
+---
+
+# 38. FINAL QUEEN MESSAGE
+
+The visual culmination should include:
+
+```text
+MY QUEEN
+```
+
+and then:
+
+```text
+I LOVE YOU, HARSHA ❤️
+```
+
+These should be presented as part of the world/cinematic, not as giant UI panels.
+
+---
+
+# 39. FIREWORK FINALE
+
+After Harsha sits on the throne:
+
+The background sky becomes the final celebration area.
+
+Launch romantic fireworks behind the throne.
+
+They should be:
+
+- heart-shaped
+- flower-like
+- soft pink/gold/lavender
+- elegant
+- particle-efficient
+
+Avoid generic explosive fireworks.
+
+---
+
+# 40. SKY TEXT
+
+The fireworks must form:
+
+# I LOVE HARSHA ❤️
+
+in the sky.
+
+The text should be made from:
+
+- particles
+- glowing points
+- light trails
+- fireworks
+
+It must exist as part of the 3D/world presentation.
+
+Do not use a giant HTML overlay.
+
+The text should appear gradually.
+
+Suggested:
+
+```text
+firework launches
+      ↓
+heart burst
+      ↓
+particle letters begin forming
+      ↓
+I LOVE HARSHA ❤️
+      ↓
+hold
+      ↓
+letters softly dissolve
+```
+
+---
+
+# 41. FIREWORK TIMING
+
+Do not rush the finale.
+
+Suggested approximate pacing:
+
+```text
+2–3 sec: quiet throne hold
+2–3 sec: first firework
+2–3 sec: additional fireworks
+2–4 sec: text formation
+3–5 sec: I LOVE HARSHA ❤️ hold
+2–4 sec: dissolve
+```
+
+These are guidance values, not mandatory hardcoded timings.
+
+The emotional pacing matters more than exact milliseconds.
+
+---
+
+# 42. CAMERA DURING FIREWORKS
+
+Camera should slowly pull back or rise slightly.
+
+The final frame should show:
+
+```text
+        FIREWORKS
+   I LOVE HARSHA ❤️
+
+       ✦ SKY ✦
+
+       HARsha
+      on throne
+
+     YESHWANTH
+
+   LITTLE KINGDOM
+```
+
+The camera should reveal the whole environment.
+
+Do not zoom so far away that Harsha becomes unreadable.
+
+---
+
+# 43. MINI CASTLE FINAL WIDE SHOT
+
+At the end:
+
+Show:
+
+- throne
+- crowned Harsha
+- Yeshwanth
+- flowers
+- fountain
+- towers
+- castle lights
+- fireworks
+- `I LOVE HARSHA ❤️`
+
+Hold long enough for the player to absorb the scene.
+
+Then transition back to exploration.
+
+---
+
+# 44. NO SECOND ROSE
+
+Important:
+
+There is already a rose-giving moment in the main castle.
+
+Do NOT add another rose-giving scene inside the Little Castle.
+
+The Little Castle's emotional object is:
+
+**CROWN → QUEEN → THRONE → KINGDOM → GRATITUDE**
+
+not:
+
+**ROSE → PROPOSAL**
+
+---
+
+# 45. LITTLE CASTLE DIALOGUE
+
+Use exactly the same dialogue progression system as the main castle.
+
+Do NOT create a separate Little Castle dialogue implementation.
+
+Both systems must use:
+
+```text
+requestDialogueAdvance()
+```
+
+and the same dialogue state machine.
+
+---
+
+# 46. PLAYER CAMERA AFTER DIALOGUE
+
+After normal dialogue:
+
+Immediately restore:
+
+- WASD movement
+- mouse/touchpad camera
+- keypad camera controls
+- normal player camera
+- interaction input
+
+Do not leave the player trapped in cinematic camera mode.
+
+---
+
+# 47. CINEMATIC RESTORATION
+
+Every cinematic must have an explicit exit state.
+
+Example:
+
+```ts
+CINEMATIC_START
+    ↓
+CINEMATIC_ACTIVE
+    ↓
+CINEMATIC_COMPLETE
+    ↓
+RESTORE_PLAYER_STATE
+    ↓
+EXPLORATION
+```
+
+Do not rely on a timeout alone.
+
+---
+
+# 48. CAMERA RESTORE SAFETY
+
+Before entering the cinematic, capture the player's state.
+
+After the cinematic:
+
+Restore the captured state.
+
+If the player had been looking toward a specific direction, preserve that direction unless the story intentionally requires a new orientation.
+
+Do not:
+
+- teleport randomly
+- rotate the player unexpectedly
+- reset camera to world north
+- reset player position unnecessarily
+
+---
+
+# 49. INPUT OWNERSHIP
+
+There must always be one clear owner of input.
+
+Example:
+
+```text
+EXPLORATION
+    PlayerController owns input
+
+DIALOGUE
+    PlayerController still owns movement/look
+    Dialogue system owns advance input
+
+SCRIPTED CINEMATIC
+    Cinematic controller temporarily owns camera
+
+CINEMATIC COMPLETE
+    PlayerController regains ownership
+```
+
+Do not allow multiple systems to fight over the same keyboard/mouse events.
+
+---
+
+# 50. PERFORMANCE
+
+Preserve existing performance architecture.
+
+Do not solve this by adding huge numbers of:
+
+- PointLights
+- particles
+- meshes
+- transparent planes
+- post-processing effects
+
+Prefer:
+
+- shared materials
+- instancing
+- shared geometry
+- controlled particle counts
+- existing lighting systems
+- reused animation infrastructure
+
+The fireworks must be visually impressive without destroying frame rate.
+
+---
+
+# 51. NO PER-FRAME ALLOCATIONS
+
+Do not introduce unnecessary per-frame:
+
+```ts
+new THREE.Vector3()
+new THREE.Color()
+new THREE.Quaternion()
+new THREE.Matrix4()
+```
+
+inside hot loops.
+
+Use reusable scratch objects.
+
+---
+
+# 52. CINEMATIC PERFORMANCE
+
+Cinematic camera movement must not create frame spikes.
+
+Avoid loading large assets during the cinematic.
+
+Preload required:
+
+- crown
+- throne effects
+- flower effects
+- fireworks
+- lighting resources
+
+before the sequence begins where practical.
+
+---
+
+# 53. AUDIO
+
+If existing audio infrastructure exists, synchronize subtle audio cues with:
+
+- castle lighting
+- crown reveal
+- throne activation
+- fireworks
+
+Do not introduce a completely separate audio architecture.
+
+Audio should enhance the moment, not overwhelm it.
+
+---
+
+# 54. IMPORTANT: DO NOT BREAK EXISTING SYSTEMS
+
+Do not break:
+
+- existing main castle entrance
+- existing rose scene
+- existing Aurora proposal scene
+- existing Little Castle return path
+- existing player movement
+- existing 360° camera
+- existing interactions
+- existing room navigation
+- existing Floor 2/Floor 3 systems
+- existing dialogue rendering architecture
+
+Only modify what is necessary.
+
+---
+
+# 55. DO NOT ADD UNRELATED FEATURES
+
+This pass does NOT include:
+
+- new rooms
+- new floors
+- new dance choreography
+- Dance Studio repair
+- Pop Stage repair
+- new songs
+- new jewellery system
+- new gallery system
+- new tabletop architecture
+- new game mechanics
+
+Those are separate passes.
+
+Stop after this pass.
+
+---
+
+# 56. IMPLEMENTATION PREFERENCE
+
+Prefer small focused modules.
+
+Do NOT make `DreamCastle.ts` even more of a god object.
+
+If appropriate, isolate:
+
+```text
+CastleEntranceCinematicController
+DialogueProgressController
+MiniCastleQueenCinematic
+CastleLightingRevealController
+FireworkLoveMessageController
+```
+
+or equivalent existing architecture.
+
+Reuse existing systems if equivalent modules already exist.
+
+Do not create duplicate controllers unnecessarily.
+
+---
+
+# 57. STATE MACHINE RECOMMENDATION
+
+Use explicit state machines.
+
+Main Castle:
+
+```text
+EXPLORATION
+    ↓
+CASTLE_ENTRY
+    ↓
+LIGHTING_REVEAL
+    ↓
+ZOOM_OUT_REVEAL
+    ↓
+DIALOGUE_WAIT
+    ↓
+DIALOGUE_WAIT
+    ↓
+EXPLORATION
+```
+
+Mini Castle:
+
+```text
+EXPLORATION
+    ↓
+LITTLE_CASTLE_ENTRY
+    ↓
+CASTLE_AWAKENING
+    ↓
+COURTYARD_REVEAL
+    ↓
+QUEEN_REVEAL
+    ↓
+CROWN_WEARING
+    ↓
+THRONE_SEATING
+    ↓
+GRATITUDE_DIALOGUE
+    ↓
+FIREWORK_FINALE
+    ↓
+RETURN_TO_EXPLORATION
+```
+
+Do not advance state simply because a timer ended if the state represents dialogue.
+
+---
+
+# 58. VISUAL TIMERS VS STORY TIMERS
+
+Separate:
+
+### Visual timers
+
+These may automatically continue:
+
+- flower bloom
+- light fade
+- particle animation
+- firework particle lifetime
+- camera interpolation
+
+### Story timers
+
+These must NOT automatically advance:
+
+- dialogue lines
+- story decisions
+- player confirmation
+- Continue actions
+
+This distinction is mandatory.
+
+---
+
+# 59. DIALOGUE DURING CINEMATICS
+
+If a dialogue line is displayed during a cinematic:
+
+The visual camera sequence may continue only if the story design explicitly allows it.
+
+However:
+
+**the dialogue line itself must remain until the player advances it.**
+
+Do not remove dialogue because a timer expired.
+
+Do not automatically switch to the next story state because the camera finished moving.
+
+---
+
+# 60. TYPEWRITER SAFETY
+
+When changing dialogue:
+
+- cancel stale typewriter timers
+- prevent old callbacks from modifying new dialogue
+- prevent duplicate advancement
+- ensure the final line remains visible until the player confirms
+
+Test rapid input.
+
+---
+
+# 61. RESPONSIVE UI
+
+The horizontal dialogue card must work at different resolutions.
+
+Do not hardcode desktop-only pixel dimensions.
+
+Use responsive sizing.
+
+The UI should never cover:
+
+- the player's face
+- crown
+- throne
+- important cinematic subject
+- major environmental reveal
+
+If necessary, dynamically adjust vertical placement during cinematic framing.
+
+---
+
+# 62. DEBUGGING
+
+Temporarily add useful development logs.
+
+Example:
+
+```text
+[Dialogue] state=typing
+[Dialogue] state=waiting_for_input
+[Dialogue] advance requested
+[Dialogue] next line
+[Dialogue] cinematic paused
+[Dialogue] cinematic resumed
+
+[CastleEntry] lighting reveal started
+[CastleEntry] zoom-out started
+[CastleEntry] wide reveal reached
+
+[LittleCastle] crown reveal
+[LittleCastle] crown equipped
+[LittleCastle] throne seated
+[LittleCastle] fireworks started
+[LittleCastle] love message formed
+[LittleCastle] exploration restored
+```
+
+Remove noisy production logs or gate them behind the existing debug mode.
+
+---
+
+# 63. REQUIRED TEST: MAIN CASTLE
+
+Test exactly:
+
+1. Approach main castle.
+2. Enter.
+3. Verify camera starts from left/front-left.
+4. Verify camera is not behind the player.
+5. Castle begins softly lit.
+6. Lighting progressively activates.
+7. Camera slowly pulls backward.
+8. Camera slightly rises.
+9. Castle progressively fills the frame.
+10. Entire castle becomes illuminated.
+11. Wide shot holds.
+12. Dialogue appears as a compact horizontal card.
+13. Wait 10–15 seconds.
+14. Confirm dialogue does NOT automatically advance.
+15. Press Enter.
+16. Verify next line appears.
+17. Click Continue.
+18. Verify same behavior.
+19. During ordinary dialogue, verify WASD movement.
+20. Verify mouse/touchpad rotation.
+21. Verify keypad camera controls.
+22. Complete dialogue.
+23. Verify camera returns to exploration.
+24. Verify no teleport.
+25. Verify no stuck input state.
+
+---
+
+# 64. REQUIRED TEST: RAPID DIALOGUE INPUT
+
+Spam:
+
+```text
+Enter Enter Enter Enter
+```
+
+and click Continue rapidly.
+
+Expected:
+
+- no skipped story states
+- no duplicate dialogue
+- no camera corruption
+- no multiple callbacks
+- no React/UI race
+- no frozen dialogue
+
+---
+
+# 65. REQUIRED TEST: MINI CASTLE
+
+Test:
+
+1. Enter Little Castle.
+2. Verify dialogue waits for explicit input.
+3. Verify flowers progressively activate.
+4. Verify romantic lighting activates.
+5. Verify fountain activates.
+6. Verify towers illuminate.
+7. Reach courtyard.
+8. Crown appears.
+9. Crown visibly moves toward Harsha.
+10. Crown attaches to Harsha.
+11. Camera shows front/three-quarter view.
+12. Crown is clearly visible.
+13. Harsha walks to throne.
+14. Harsha sits.
+15. Throne lighting activates.
+16. Yeshwanth golden figure performs hand-over-heart gesture.
+17. Gratitude dialogue appears.
+18. Dialogue waits for explicit input.
+19. Fireworks begin.
+20. Fireworks form hearts/flowers.
+21. `I LOVE HARSHA ❤️` forms in the sky.
+22. Hold the final composition.
+23. Camera gently reveals the full Little Castle.
+24. Return to exploration.
+25. WASD works.
+26. Mouse/touchpad works.
+27. Keypad controls work.
+28. No teleport corruption.
+29. No stuck cinematic mode.
+
+---
+
+# 66. REQUIRED CAMERA TEST
+
+Test every transition:
+
+```text
+Exploration
+→ Main Castle cinematic
+→ Dialogue
+→ Exploration
+
+Exploration
+→ Little Castle cinematic
+→ Dialogue
+→ Queen sequence
+→ Fireworks
+→ Exploration
+```
+
+For every transition verify:
+
+- player position
+- player rotation
+- camera position
+- camera target
+- camera mode
+- input ownership
+
+---
+
+# 67. BUILD VALIDATION
+
+After implementation run the repository's actual validation commands.
+
+At minimum where supported:
+
+```bash
+npx tsc --noEmit
+npm run build
+```
+
+If the project uses different scripts, inspect `package.json` and use the repository's actual commands.
+
+Do not claim a build passed unless it actually passed.
+
+---
+
+# 68. RUNTIME VALIDATION
+
+If the environment allows runtime validation:
+
+Test:
+
+- main castle entry
+- lighting reveal
+- camera zoom-out
+- dialogue
+- movement
+- camera rotation
+- Little Castle entry
+- crown
+- throne
+- fireworks
+- final text
+- restoration
+
+If runtime cannot be executed, explicitly report:
+
+```text
+RUNTIME VERIFIED: NOT AVAILABLE
+```
+
+Do not fabricate verification.
+
+---
+
+# 69. ACCEPTANCE CRITERIA
+
+Pass A is accepted only when:
+
+### Dialogue
+
+- [ ] dialogue does not auto-advance
+- [ ] Enter advances
+- [ ] click advances
+- [ ] first Enter while typing reveals full line
+- [ ] rapid input does not skip lines
+- [ ] same system works in both castles
+
+### Dialogue UI
+
+- [ ] horizontal
+- [ ] compact
+- [ ] translucent
+- [ ] does not dominate screen
+- [ ] does not hide important gameplay
+- [ ] no giant instruction panel
+
+### Main Castle
+
+- [ ] camera begins left/front-left
+- [ ] castle progressively lights up
+- [ ] flowers participate in reveal
+- [ ] camera slowly zooms/dollies out
+- [ ] camera rises slightly
+- [ ] wide castle reveal holds
+- [ ] player regains control
+
+### Camera
+
+- [ ] WASD works
+- [ ] mouse/touchpad look works
+- [ ] keypad camera controls work
+- [ ] cinematic camera ownership is explicit
+- [ ] camera state restores correctly
+
+### Little Castle
+
+- [ ] flowers added/enhanced
+- [ ] romantic lighting added/enhanced
+- [ ] castle awakening feels progressive
+- [ ] crown visibly worn
+- [ ] front/three-quarter crown view
+- [ ] Harsha sits on throne
+- [ ] Yeshwanth performs gratitude gesture
+- [ ] fireworks appear
+- [ ] fireworks form `I LOVE HARSHA ❤️`
+- [ ] final wide shot holds
+- [ ] exploration restored
+
+### Safety
+
+- [ ] existing proposal scene not duplicated
+- [ ] existing rose scene not duplicated
+- [ ] no second rose scene
+- [ ] no arbitrary teleport
+- [ ] no giant UI
+- [ ] no broken controls
+- [ ] no unrelated scope expansion
+
+### Performance
+
+- [ ] no excessive dynamic lights
+- [ ] no uncontrolled particle growth
+- [ ] no per-frame allocation regressions
+- [ ] no obvious frame spikes
+- [ ] existing performance budgets preserved
+
+---
+
+# 70. IMPORTANT FINAL RULE
+
+Do not treat this specification as permission to rewrite the project.
+
+This is a surgical improvement pass.
+
+Before changing any file, determine:
+
+1. What currently controls this behavior?
+2. Can the existing system be extended?
+3. What is the smallest architectural change?
+4. What existing behavior could this change break?
+
+Prefer:
+
+```text
+extend existing system
+```
+
+over:
+
+```text
+replace existing system
+```
+
+Prefer:
+
+```text
+small dedicated controller
+```
+
+over:
+
+```text
+more logic inside DreamCastle.ts
+```
+
+Prefer:
+
+```text
+physical world interaction
+```
+
+over:
+
+```text
+HTML overlay
+```
+
+Prefer:
+
+```text
+player-controlled camera
+```
+
+over:
+
+```text
+forced camera
+```
+
+except during clearly defined cinematic moments.
+
+Prefer:
+
+```text
+explicit player confirmation
+```
+
+over:
+
+```text
+automatic story progression
+```
+
+---
+
+# 71. STOP CONDITION
+
+After completing Pass A:
+
+**STOP.**
+
+Do not automatically continue into:
+
+- Dance Studio repair
+- Pop Stage repair
+- choreography system
+- music synchronization
+- jewellery animation
+- photography improvements
+- new rooms
+- new castle content
+
+Report:
+
+```text
+PASS A IMPLEMENTATION STATUS
+BUILD STATUS
+RUNTIME STATUS
+FILES MODIFIED
+DIALOGUE SYSTEM CHANGES
+MAIN CASTLE CAMERA CHANGES
+LIGHTING REVEAL CHANGES
+MINI CASTLE QUEEN CHANGES
+FIREWORK CHANGES
+KNOWN ISSUES
+```
+
+Do not start Pass B or Pass C without explicit instruction.
+
+# FINAL EXPERIENCE TARGET
+
+The finished sequence should feel like this:
+
+### MAIN CASTLE
+
+**Harsha enters.**
+
+The camera is beside her.
+
+The castle is quiet.
+
+A flower glows.
+
+Then another.
+
+Crystal details awaken.
+
+The castle begins to illuminate around her.
+
+The camera slowly pulls backward and rises.
+
+More of the castle appears.
+
+The chandeliers awaken.
+
+The distant architecture glows.
+
+The entire castle is suddenly alive.
+
+The camera holds the wide reveal.
+
+A compact horizontal dialogue card appears.
+
+Harsha can still look around.
+
+She chooses when the story continues.
+
+Then normal exploration resumes.
+
+### LITTLE CASTLE
+
+**Harsha enters Our Little Kingdom.**
+
+Flowers bloom.
+
+The fountain wakes.
+
+The towers illuminate.
+
+Warm romantic lights fill the garden.
+
+The crown appears.
+
+It moves toward her.
+
+She wears it.
+
+The camera moves to the front so the crown can actually be seen.
+
+She walks to the throne.
+
+She sits.
+
+The throne glows.
+
+Yeshwanth stands nearby with his hand over his heart.
+
+The sky begins to sparkle.
+
+Fireworks rise.
+
+Hearts bloom in the sky.
+
+Then glowing letters form:
+
+# I LOVE HARSHA ❤️
+
+The camera slowly pulls back.
+
+The entire little kingdom glows beneath the fireworks.
+
+Hold.
+
+Let the moment breathe.
+
+Then return the player to the exact exploration state.
+
+This should feel like **a playable memory**, not a sequence of UI screens.
