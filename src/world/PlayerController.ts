@@ -43,7 +43,7 @@ import {
   isWalkablePosition,
 } from './terrainMath';
 
-export type CameraMode = 'third-person' | 'first-person';
+export type CameraMode = 'third-person' | 'first-person' | 'camera-control';
 export type LocomotionState =
   | 'walk'
   | 'mounting'
@@ -838,6 +838,9 @@ export function createPlayerController(
   let lastFreeMouseX: number | null = null;
   let lastFreeMouseY: number | null = null;
   let wasAnyCastleActivityCamActive = false;
+  const cameraTargetPosition = new THREE.Vector3();
+  const cameraTargetLookAt = new THREE.Vector3();
+  const cameraControlVel = new THREE.Vector3();
 
   function restoreExplorationControls() {
     isDragging = false;
@@ -1067,6 +1070,12 @@ export function createPlayerController(
           dismountBroomAndReturnToStand();
           return;
         }
+        if (cameraMode === 'camera-control') {
+          e.preventDefault();
+          setCameraMode('third-person');
+          onTelemetryChange?.(buildTelemetry());
+          return;
+        }
       }
       return;
     }
@@ -1150,7 +1159,14 @@ export function createPlayerController(
 
     if (e.code === 'KeyV' && !e.repeat) {
       toggleCameraMode();
-    } else if (e.code === 'KeyE' && !e.repeat) {
+      onTelemetryChange?.(buildTelemetry());
+    } else if (e.code === 'KeyC' && !e.repeat && locomotionState === 'walk') {
+      e.preventDefault();
+      const nextMode: CameraMode =
+        cameraMode === 'camera-control' ? 'third-person' : 'camera-control';
+      setCameraMode(nextMode);
+      onTelemetryChange?.(buildTelemetry());
+    } else if (e.code === 'KeyE' && !e.repeat && cameraMode !== 'camera-control') {
       e.preventDefault();
       handleInteractBroom();
     } else if (e.code === 'KeyF' && !e.repeat && locomotionState === 'flight') {
@@ -1435,6 +1451,20 @@ export function createPlayerController(
   document.addEventListener('pointerlockchange', onPointerLockChange);
 
   function setCameraMode(mode: CameraMode) {
+    if (mode === 'camera-control' && cameraMode !== 'camera-control') {
+      cameraTargetPosition.copy(currentCamPos);
+      cameraControlVel.set(0, 0, 0);
+      const dx = currentLookAt.x - currentCamPos.x;
+      const dy = currentLookAt.y - currentCamPos.y;
+      const dz = currentLookAt.z - currentCamPos.z;
+      const dist = Math.hypot(dx, dy, dz) || 1.0;
+      cameraYaw = Math.atan2(dx, dz);
+      cameraPitch = THREE.MathUtils.clamp(
+        Math.asin(THREE.MathUtils.clamp(-dy / dist, -0.95, 0.95)),
+        -0.68,
+        1.15,
+      );
+    }
     cameraMode = mode;
     if (locomotionState !== 'mystery_cinematic') {
       avatar.setFirstPersonVisibility(mode === 'first-person');
@@ -1442,7 +1472,12 @@ export function createPlayerController(
   }
 
   function toggleCameraMode(): CameraMode {
-    const next = cameraMode === 'third-person' ? 'first-person' : 'third-person';
+    const next: CameraMode =
+      cameraMode === 'third-person'
+        ? 'first-person'
+        : cameraMode === 'first-person'
+          ? 'camera-control'
+          : 'third-person';
     setCameraMode(next);
     return next;
   }
@@ -2231,18 +2266,45 @@ export function createPlayerController(
         const lakeMemoryActive = wizardingSchool.isLakeMemoryActive();
         const isElevatorFpv = Boolean(dreamCastle?.nav.isElevatorFpvActive);
         const isCastleFocusActive = Boolean(dreamCastle?.nav.activeCameraFocus);
+        const isCameraControlMode =
+          cameraMode === 'camera-control' &&
+          !lakeMemoryActive &&
+          !isElevatorFpv &&
+          !isCastleFocusActive;
+
+        // During Castle Cinematic Focus:
+        // WASD + R/F (or PageUp/PageDown) physically shifts the camera position (CAMERA POSITION != CAMERA ROTATION)
+        // Arrow keys / Numpad / Mouse rotate the camera orientation
+        if (isCastleFocusActive && dreamCastle) {
+          const focusMoveFwd =
+            (keys.has('KeyW') ? 1 : 0) - (keys.has('KeyS') ? 1 : 0);
+          const focusMoveRight =
+            (keys.has('KeyD') ? 1 : 0) - (keys.has('KeyA') ? 1 : 0);
+          const focusMoveUp =
+            (keys.has('KeyR') || keys.has('PageUp') ? 1 : 0) -
+            (keys.has('KeyF') || keys.has('PageDown') ? 1 : 0);
+          dreamCastle.nav.updateFocusPositionOffset(
+            dt,
+            focusMoveFwd,
+            focusMoveRight,
+            focusMoveUp,
+          );
+        }
+
         const rotLeft =
           !lakeMemoryActive &&
-          (keys.has('KeyQ') ||
-            keys.has('Numpad4') ||
-            ((isElevatorFpv || isCastleFocusActive) &&
-              (keys.has('KeyA') || keys.has('ArrowLeft'))));
+          (keys.has('Numpad4') ||
+            (!isCameraControlMode && keys.has('KeyQ')) ||
+            ((isElevatorFpv || isCastleFocusActive || isCameraControlMode) &&
+              keys.has('ArrowLeft')) ||
+            (isElevatorFpv && keys.has('KeyA')));
         const rotRight =
           !lakeMemoryActive &&
-          (keys.has('KeyR') ||
-            keys.has('Numpad6') ||
-            ((isElevatorFpv || isCastleFocusActive) &&
-              (keys.has('KeyD') || keys.has('ArrowRight'))));
+          (keys.has('Numpad6') ||
+            (!isCameraControlMode && !isCastleFocusActive && keys.has('KeyR')) ||
+            ((isElevatorFpv || isCastleFocusActive || isCameraControlMode) &&
+              keys.has('ArrowRight')) ||
+            (isElevatorFpv && keys.has('KeyD')));
         if (rotLeft) {
           cameraYaw = wrapAnglePi(cameraYaw + 1.85 * dt);
           if (isCastleFocusActive) dreamCastle?.nav.applyFocusLookDelta(-1.35 * dt, 0);
@@ -2254,12 +2316,14 @@ export function createPlayerController(
 
         const pitchUp =
           keys.has('Numpad8') ||
-          ((isElevatorFpv || isCastleFocusActive) &&
-            (keys.has('KeyW') || keys.has('ArrowUp')));
+          ((isElevatorFpv || isCastleFocusActive || isCameraControlMode) &&
+            keys.has('ArrowUp')) ||
+          (isElevatorFpv && keys.has('KeyW'));
         const pitchDown =
           keys.has('Numpad2') ||
-          ((isElevatorFpv || isCastleFocusActive) &&
-            (keys.has('KeyS') || keys.has('ArrowDown')));
+          ((isElevatorFpv || isCastleFocusActive || isCameraControlMode) &&
+            keys.has('ArrowDown')) ||
+          (isElevatorFpv && keys.has('KeyS'));
         if (pitchUp) {
           cameraPitch = THREE.MathUtils.clamp(cameraPitch - 1.15 * dt, -0.68, 1.15);
           if (isCastleFocusActive) dreamCastle?.nav.applyFocusLookDelta(0, -1.05 * dt);
@@ -2333,9 +2397,11 @@ export function createPlayerController(
 
         // Pass A Requirement: WASD, looking, and rotating are preserved during ordinary dialogue.
         // Movement is only locked during strictly seated cameras, active elevator FPV, or specific instrument inspect modes.
+        // Mode 2 — Camera Control Mode: Player movement is paused while WASD/R/F moves the camera position
         const isInstrumentOrInspectLocked =
           isElevatorFpv ||
           isCastleFocusActive ||
+          isCameraControlMode ||
           floor2Active ||
           creativeWingActive ||
           floor3Active ||
@@ -2514,19 +2580,16 @@ export function createPlayerController(
           isCastleSitting,
         );
 
-        const isCastleEntranceFraming =
-          dreamCastle?.nav.isWithinEntranceFramingZone(playerPos) ?? false;
+        // Locked Correction Pass Section 2: ZERO early zoom-out during castle entrance approach!
         const isCastleGazeboVista =
           dreamCastle?.rearGarden.isWithinGazeboVista(playerPos) ?? false;
         const isRidingCastleElevator =
           dreamCastle?.nav.isInsideElevatorCabin(playerPos) ?? false;
-        const framingDistanceBonus = isCastleEntranceFraming
-          ? 1.35
-          : isRidingCastleElevator
-            ? 0.85
-            : isCastleGazeboVista
-              ? 0.75
-              : 0.0;
+        const framingDistanceBonus = isRidingCastleElevator
+          ? 0.85
+          : isCastleGazeboVista
+            ? 0.75
+            : 0.0;
 
         currentCameraDistance = THREE.MathUtils.lerp(
           currentCameraDistance,
@@ -2534,7 +2597,149 @@ export function createPlayerController(
           1 - Math.exp(-10 * dt),
         );
 
-        if ((cameraMode === 'first-person' || isElevatorFpv) && !lakeMemoryActive) {
+        if (isCameraControlMode) {
+          // ==================================================================
+          // MODE 2 — CAMERA POSITION CONTROL MODE (Sections 7–13)
+          // CAMERA POSITION != CAMERA ROTATION
+          // W/S/A/D moves cameraTargetPosition horizontally relative to cameraYaw
+          // R/F (or PageUp/PageDown or E/Q) moves cameraTargetPosition vertically (Y)
+          // Mouse / Arrow keys / Numpad rotate cameraYaw & cameraPitch independently
+          // ==================================================================
+          const camFast = keys.has('ShiftLeft') || keys.has('ShiftRight');
+          const horizMoveSpeed = camFast ? 14.0 : 7.5;
+          const vertMoveSpeed = camFast ? 9.5 : 5.2;
+
+          const camFwdIn = (keys.has('KeyW') ? 1 : 0) - (keys.has('KeyS') ? 1 : 0);
+          const camRightIn = (keys.has('KeyD') ? 1 : 0) - (keys.has('KeyA') ? 1 : 0);
+          const camUpIn =
+            (keys.has('KeyR') || keys.has('PageUp') || keys.has('KeyE') ? 1 : 0) -
+            (keys.has('KeyF') || keys.has('PageDown') || keys.has('KeyQ') ? 1 : 0);
+
+          const fwdX = Math.sin(cameraYaw);
+          const fwdZ = Math.cos(cameraYaw);
+          const rightX = -fwdZ;
+          const rightZ = fwdX;
+
+          let desVx = (fwdX * camFwdIn + rightX * camRightIn) * horizMoveSpeed;
+          let desVz = (fwdZ * camFwdIn + rightZ * camRightIn) * horizMoveSpeed;
+          if (camFwdIn !== 0 && camRightIn !== 0) {
+            desVx *= 0.7071;
+            desVz *= 0.7071;
+          }
+          const desVy = camUpIn * vertMoveSpeed;
+
+          const velAlpha = dampAlpha(12.0, dt);
+          cameraControlVel.x = THREE.MathUtils.lerp(cameraControlVel.x, desVx, velAlpha);
+          cameraControlVel.y = THREE.MathUtils.lerp(cameraControlVel.y, desVy, velAlpha);
+          cameraControlVel.z = THREE.MathUtils.lerp(cameraControlVel.z, desVz, velAlpha);
+
+          cameraTargetPosition.x += cameraControlVel.x * dt;
+          cameraTargetPosition.y += cameraControlVel.y * dt;
+          cameraTargetPosition.z += cameraControlVel.z * dt;
+
+          // Safe Camera Boundaries (Section 12):
+          // 1. Horizontal range clamp around player so camera stays in valid world bounds
+          const relPlayerX = cameraTargetPosition.x - playerPos.x;
+          const relPlayerZ = cameraTargetPosition.z - playerPos.z;
+          const distFromPlayer = Math.hypot(relPlayerX, relPlayerZ);
+          const maxCamRange = 68.0;
+          if (distFromPlayer > maxCamRange) {
+            const scale = maxCamRange / distFromPlayer;
+            cameraTargetPosition.x = playerPos.x + relPlayerX * scale;
+            cameraTargetPosition.z = playerPos.z + relPlayerZ * scale;
+          }
+
+          // 2. Castle walls & obstacle collision resolution
+          if (dreamCastle) {
+            dreamCastle.nav.resolveEntranceDoorBarrier(cameraTargetPosition, 0.42);
+            dreamCastle.nav.resolveCastleWallCollisions(cameraTargetPosition, 0.42);
+          }
+          const camColliders = queryNearbyColliders(
+            cameraTargetPosition.x,
+            cameraTargetPosition.z,
+          );
+          for (let i = 0; i < camColliders.length; i++) {
+            const c = camColliders[i];
+            if (c.y !== undefined) {
+              const ch = c.height ?? 3.8;
+              if (
+                cameraTargetPosition.y < c.y - 0.3 ||
+                cameraTargetPosition.y > c.y + ch + 0.3
+              ) {
+                continue;
+              }
+            }
+            const cdx = cameraTargetPosition.x - c.x;
+            const cdz = cameraTargetPosition.z - c.z;
+            const cdist = Math.hypot(cdx, cdz);
+            const minColDist = c.radius + 0.42;
+            if (cdist < minColDist && cdist > 0.0001) {
+              const push = minColDist - cdist;
+              cameraTargetPosition.x += (cdx / cdist) * push;
+              cameraTargetPosition.z += (cdz / cdist) * push;
+            }
+          }
+
+          // 3. Prevent clipping inside Harsha's character mesh
+          const charCenterY = playerPos.y + 1.05;
+          const charDx = cameraTargetPosition.x - playerPos.x;
+          const charDy = cameraTargetPosition.y - charCenterY;
+          const charDz = cameraTargetPosition.z - playerPos.z;
+          const charDist = Math.hypot(charDx, charDy, charDz);
+          if (charDist < 0.68 && charDist > 0.0001) {
+            const push = 0.68 - charDist;
+            cameraTargetPosition.x += (charDx / charDist) * push;
+            cameraTargetPosition.y += (charDy / charDist) * push;
+            cameraTargetPosition.z += (charDz / charDist) * push;
+          }
+
+          // 4. Minimum height above terrain/floor & maximum height / ceiling clamp
+          const camGroundY = getTerrainHeight(
+            cameraTargetPosition.x,
+            cameraTargetPosition.z,
+          );
+          const camFloorY = dreamCastle
+            ? Math.max(
+                camGroundY,
+                dreamCastle.getSurfaceHeight(
+                  cameraTargetPosition.x,
+                  cameraTargetPosition.z,
+                  cameraTargetPosition.y,
+                  camGroundY,
+                ),
+              )
+            : camGroundY;
+          const minCamY = camFloorY + 0.52;
+          const maxCamY = Math.max(camFloorY + 38.0, 52.0);
+          cameraTargetPosition.y = THREE.MathUtils.clamp(
+            cameraTargetPosition.y,
+            minCamY,
+            maxCamY,
+          );
+          if (dreamCastle) {
+            const ceilY = dreamCastle.nav.getCeilingHeight(
+              cameraTargetPosition.x,
+              cameraTargetPosition.z,
+              cameraTargetPosition.y - 0.6,
+            );
+            if (ceilY !== null && cameraTargetPosition.y > ceilY - 0.42) {
+              cameraTargetPosition.y = Math.max(minCamY, ceilY - 0.42);
+            }
+          }
+
+          // Smooth camera position interpolation (Section 10):
+          // cameraTargetPosition -> smooth lerp -> currentCamPos -> camera.position
+          currentCamPos.lerp(cameraTargetPosition, dampAlpha(10.0, dt));
+          const lookDist = 12.0;
+          cameraTargetLookAt.set(
+            currentCamPos.x + Math.sin(cameraYaw) * Math.cos(cameraPitch) * lookDist,
+            currentCamPos.y - Math.sin(cameraPitch) * lookDist,
+            currentCamPos.z + Math.cos(cameraYaw) * Math.cos(cameraPitch) * lookDist,
+          );
+          currentLookAt.lerp(cameraTargetLookAt, dampAlpha(14.0, dt));
+          camera.position.copy(currentCamPos);
+          camera.lookAt(currentLookAt);
+        } else if ((cameraMode === 'first-person' || isElevatorFpv) && !lakeMemoryActive) {
           const fpvEyeHeight =
             isElevatorFpv && dreamCastle
               ? dreamCastle.nav.elevatorCabinY - playerPos.y + 1.55
@@ -2555,7 +2760,7 @@ export function createPlayerController(
         } else {
           _desiredLookAt.set(
             playerPos.x,
-            playerPos.y + (isCastleEntranceFraming ? 1.85 : 1.38),
+            playerPos.y + 1.38,
             playerPos.z,
           );
 

@@ -1288,39 +1288,11 @@ export function createDistantLandmarks(): DistantLandmarksBundle {
   armillaryGroup.add(armRing1, armRing2, armCore);
 
   // ============================================================================
-  // 4. EAST (+80, +5): PASTEL DREAMSCAPE / DOLL WORLD (PAGE 4 OF PDF)
-  // Upgraded: The interactive 5-Level Dream Castle at (88, 18) now anchors this zone.
-  // We keep only the high-altitude whimsical hot-air balloon so castle interiors remain 100% clear.
+  // 4. EAST (+80, +5): PASTEL DREAMSCAPE / DOLL WORLD
+  // The interactive 5-Level HARSHA Royal Dream Castle at (88, 18) is the sole hero
+  // of this zone. All floating balloon decorations have been removed so the castle
+  // architecture, crystal windows, and central HARSHA heart command full attention.
   // ============================================================================
-  const dollGroup = new THREE.Group();
-  const dollBaseY = getTerrainHeight(80, 5);
-  dollGroup.position.set(80, dollBaseY, 5);
-  dollGroup.rotation.y = -Math.PI / 2;
-  group.add(dollGroup);
-
-  const coralPinkMat = tracker.trackMat(
-    new THREE.MeshPhysicalMaterial({
-      color: new THREE.Color('#f472b6'),
-      roughness: 0.34,
-      clearcoat: 0.2,
-    }),
-  );
-
-  // Landmark 4E: Pastel Hot-Air Balloon floating above Fashion World (Page 4!)
-  const balloonGroup = new THREE.Group();
-  balloonGroup.position.set(-4, 26, -6);
-  dollGroup.add(balloonGroup);
-  const balloonEnvelopeGeo = tracker.trackGeo(
-    new THREE.SphereGeometry(4.4, 20, 20),
-  );
-  balloonEnvelopeGeo.scale(1, 1.28, 1);
-  const balloonBasketGeo = tracker.trackGeo(
-    new THREE.CylinderGeometry(1.1, 0.9, 1.4, 10),
-  );
-  balloonBasketGeo.translate(0, -7.0, 0);
-  const balloonEnv = new THREE.Mesh(balloonEnvelopeGeo, coralPinkMat);
-  const balloonBasket = new THREE.Mesh(balloonBasketGeo, goldMat);
-  balloonGroup.add(balloonEnv, balloonBasket);
 
   // ============================================================================
   // 5. NORTH (0, +74): AURORA LAKE, ISLAND CASTLE & COZY RETREAT TERRACE (PAGE 9)
@@ -1544,11 +1516,7 @@ export function createDistantLandmarks(): DistantLandmarksBundle {
         coasterCars[c].lookAt(pos.clone().add(tangent));
       }
 
-      // 4. Gently bob the Pastel Hot-Air Balloon above East Fashion World
-      balloonGroup.position.y = 26 + Math.sin(elapsedTime * 0.95) * 1.2;
-      balloonGroup.rotation.y = elapsedTime * 0.15;
-
-      // 5. Shimmer the Northern Aurora Lake Sky Curtain & pulse the Aurora Heart
+      // 4. Shimmer the Northern Aurora Lake Sky Curtain & pulse the Aurora Heart
       auroraCurtainMat.uniforms.uTime.value = elapsedTime;
       auroraHeartMesh.position.y = Math.sin(elapsedTime * 1.2) * 0.4;
     },

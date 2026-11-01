@@ -37,6 +37,7 @@ import {
   createCastleHeartTrees,
   HeartTreePlacement,
 } from './CastleHeartTrees';
+import { createCastleRoyalExterior } from './CastleRoyalExterior';
 
 export interface DreamCastleBundle {
   group: THREE.Group;
@@ -3832,59 +3833,59 @@ export function createDreamCastle(): DreamCastleBundle {
   };
 
   const heartTreePlacements: HeartTreePlacement[] = [
-    // 1. Two Large Framing Heart Trees at the Grand Castle Entrance (Section 10)
+    // 1. Two Large Framing Heart Trees flanking the Grand Castle Forecourt (widened so Hero Camera sightline is 100% clear)
     {
-      lx: -7.6,
-      y: sampleLocalGroundY(-7.6, -19.6),
-      lz: -19.6,
-      scale: 1.32,
+      lx: -11.4,
+      y: sampleLocalGroundY(-11.4, -20.4),
+      lz: -20.4,
+      scale: 1.22,
       rotY: 0.25,
       variant: 'pink',
       awakeningRole: 'entrance_primary',
     },
     {
-      lx: 7.6,
-      y: sampleLocalGroundY(7.6, -19.6),
-      lz: -19.6,
-      scale: 1.32,
+      lx: 11.4,
+      y: sampleLocalGroundY(11.4, -20.4),
+      lz: -20.4,
+      scale: 1.22,
       rotY: -0.25,
       variant: 'dream',
       awakeningRole: 'entrance_secondary',
     },
-    // 2. Main Approach Path Heart Trees
+    // 2. Main Approach Avenue Framing Heart Trees (framing outer edges, never blocking facade or Hero Camera)
     {
-      lx: -6.8,
-      y: sampleLocalGroundY(-6.8, -27.2),
-      lz: -27.2,
-      scale: 1.12,
+      lx: -13.2,
+      y: sampleLocalGroundY(-13.2, -28.8),
+      lz: -28.8,
+      scale: 1.1,
       rotY: 0.42,
       variant: 'lavender',
       awakeningRole: 'ambient',
     },
     {
-      lx: 6.8,
-      y: sampleLocalGroundY(6.8, -27.2),
-      lz: -27.2,
-      scale: 1.12,
+      lx: 13.2,
+      y: sampleLocalGroundY(13.2, -28.8),
+      lz: -28.8,
+      scale: 1.1,
       rotY: -0.38,
       variant: 'golden',
       awakeningRole: 'ambient',
     },
-    // 3. Courtyard / Forecourt Viewpoints
+    // 3. Outer Courtyard / Forecourt Viewpoints
     {
-      lx: -13.6,
-      y: sampleLocalGroundY(-13.6, -22.5),
-      lz: -22.5,
-      scale: 1.05,
+      lx: -18.6,
+      y: sampleLocalGroundY(-18.6, -23.5),
+      lz: -23.5,
+      scale: 1.04,
       rotY: 0.55,
       variant: 'golden',
       awakeningRole: 'ambient',
     },
     {
-      lx: 13.6,
-      y: sampleLocalGroundY(13.6, -22.5),
-      lz: -22.5,
-      scale: 1.05,
+      lx: 18.6,
+      y: sampleLocalGroundY(18.6, -23.5),
+      lz: -23.5,
+      scale: 1.04,
       rotY: -0.55,
       variant: 'lavender',
       awakeningRole: 'ambient',
@@ -4028,7 +4029,11 @@ export function createDreamCastle(): DreamCastleBundle {
     return tex;
   };
 
-  // 1. CASTLE ENTRANCE FRAME & GOLD ENGRAVING (Sections 10, 15, 22)
+  // 0. HARSHA ROYAL DREAM CASTLE EXTERIOR REDESIGN (Central HARSHA Heart, Layered Roofs, Tower Layering, Royal Balcony & Florals)
+  const royalExterior = createCastleRoyalExterior(tracker, mats, sampleLocalGroundY);
+  group.add(royalExterior.group);
+
+  // 1. CASTLE ENTRANCE FRAME & GOLD ENGRAVING (Sections 6, 10, 15 — HARSHA is uniquely engraved in the Central Heart above)
   const entranceFrameGroup = new THREE.Group();
   entranceFrameGroup.name = 'RomanticCastleEntranceFrame';
   group.add(entranceFrameGroup);
@@ -4036,8 +4041,8 @@ export function createDreamCastle(): DreamCastleBundle {
   const entranceEngravingMat = tracker.trackMat(
     new THREE.MeshBasicMaterial({
       map: createRomanticEngravingTex(
-        '♥ I LOVE YOU, HARSHA ♥',
-        'Welcome to your Dream Castle on Heart Island',
+        '✦ ROYAL DREAM PALACE ✦',
+        'Welcome to our forever sanctuary on Heart Island',
         'gold',
       ),
       side: THREE.FrontSide,
@@ -4157,13 +4162,26 @@ export function createDreamCastle(): DreamCastleBundle {
     }
   });
 
-  // 2. ARCHED EXTERIOR WINDOWS & ROUNDED FLOWER BALCONIES (Sections 11 & 12)
+  // 2. ARCHED EXTERIOR WINDOWS & ROUNDED FLOWER BALCONIES (Section 8: Varied Emission, Pink/Lavender Crystal & Gold Frames)
   const winPaneGeo = tracker.trackGeo(new THREE.BoxGeometry(1.38, 2.25, 0.08));
+  const winArchFanGeo = tracker.trackGeo(new THREE.CircleGeometry(0.68, 20, 0, Math.PI));
   const winArchCrownGeo = tracker.trackGeo(
-    new THREE.TorusGeometry(0.69, 0.075, 8, 18, Math.PI),
+    new THREE.TorusGeometry(0.69, 0.078, 10, 22, Math.PI),
   );
-  const winFrameSideGeo = tracker.trackGeo(new THREE.BoxGeometry(0.09, 2.25, 0.14));
-  const winSillBoxGeo = tracker.trackGeo(new THREE.BoxGeometry(1.62, 0.28, 0.42));
+  const winInnerArchGeo = tracker.trackGeo(
+    new THREE.TorusGeometry(0.56, 0.04, 8, 18, Math.PI),
+  );
+  const winFrameSideGeo = tracker.trackGeo(new THREE.BoxGeometry(0.095, 2.25, 0.15));
+  const winMullionVertGeo = tracker.trackGeo(new THREE.BoxGeometry(0.045, 2.22, 0.12));
+  const winMullionHorizGeo = tracker.trackGeo(new THREE.BoxGeometry(1.34, 0.045, 0.12));
+  const winSillBoxGeo = tracker.trackGeo(new THREE.BoxGeometry(1.68, 0.28, 0.44));
+
+  const windowGlowPalette = [
+    royalExterior.windowGlowMats.warmIvory,
+    royalExterior.windowGlowMats.softPink,
+    royalExterior.windowGlowMats.pastelLavender,
+  ];
+  let windowVariantCounter = 0;
 
   const buildExteriorRomanticWindow = (
     x: number,
@@ -4175,18 +4193,36 @@ export function createDreamCastle(): DreamCastleBundle {
     wg.position.set(x, y, z);
     wg.rotation.y = rotY;
 
-    const pane = new THREE.Mesh(winPaneGeo, awakeningWindowGlowMat);
+    const glowMat = windowGlowPalette[windowVariantCounter % windowGlowPalette.length];
+    const archGlassMat =
+      windowVariantCounter % 2 === 0
+        ? royalExterior.windowGlowMats.softPink
+        : royalExterior.windowGlowMats.pastelLavender;
+    windowVariantCounter++;
+
+    const pane = new THREE.Mesh(winPaneGeo, glowMat);
+    const archFan = new THREE.Mesh(winArchFanGeo, archGlassMat);
+    archFan.position.set(0, 1.12, 0.045);
+
     const arch = new THREE.Mesh(winArchCrownGeo, mats.champagneGold);
-    arch.position.set(0, 1.12, 0.04);
+    arch.position.set(0, 1.12, 0.05);
+    const innerArch = new THREE.Mesh(winInnerArchGeo, mats.champagneGold);
+    innerArch.position.set(0, 1.12, 0.055);
+
     const stL = new THREE.Mesh(winFrameSideGeo, mats.champagneGold);
     stL.position.set(-0.69, 0, 0.04);
     const stR = new THREE.Mesh(winFrameSideGeo, mats.champagneGold);
     stR.position.set(0.69, 0, 0.04);
+    const mulV = new THREE.Mesh(winMullionVertGeo, mats.champagneGold);
+    mulV.position.set(0, 0, 0.05);
+    const mulH = new THREE.Mesh(winMullionHorizGeo, mats.champagneGold);
+    mulH.position.set(0, 0.22, 0.05);
+
     const sill = new THREE.Mesh(winSillBoxGeo, mats.pearlWhite);
     sill.position.set(0, -1.22, 0.16);
 
-    const heartMotif = buildSculptedHeart(0.95, mats.champagneGold);
-    heartMotif.position.set(0, 0.85, 0.08);
+    const heartMotif = buildSculptedHeart(1.05, mats.champagneGold);
+    heartMotif.position.set(0, 1.38, 0.08);
 
     // Flower-box roses along the window sill
     for (let f = -2; f <= 2; f++) {
@@ -4194,11 +4230,11 @@ export function createDreamCastle(): DreamCastleBundle {
         vineBlossomGeo,
         f % 2 === 0 ? barbiePinkMat : mats.softLavender,
       );
-      fl.position.set(f * 0.28, -1.04, 0.22);
+      fl.position.set(f * 0.28, -1.04, 0.24);
       wg.add(fl);
     }
 
-    wg.add(pane, arch, stL, stR, sill, heartMotif);
+    wg.add(pane, archFan, arch, innerArch, stL, stR, mulV, mulH, sill, heartMotif);
     group.add(wg);
   };
 
@@ -4810,22 +4846,28 @@ export function createDreamCastle(): DreamCastleBundle {
       awakeningWindowGlowMat.emissiveIntensity =
         0.35 + winAwake * 1.45 + Math.sin(clockVal * 2.4) * 0.1;
 
-      // Update 6 Glowing Heart Lanterns in front of the castle
+      // Update Central HARSHA Heart Living Glow, Varied Royal Windows & Colourful Ambient Lights
       const heartLightAwake = Math.max(winAwake, primaryTreeAwake);
+      royalExterior.update(delta, clockVal, heartLightAwake);
+
+      // Update 6 Glowing Heart Lanterns in front of the castle
       const lanternPulse = 1.0 + Math.sin(clockVal * 2.8) * 0.16;
       heartLanternMat.emissiveIntensity = (0.55 + heartLightAwake * 1.5) * lanternPulse;
       entranceHeartLightL.intensity = (0.45 + heartLightAwake * 1.4) * lanternPulse;
       entranceHeartLightR.intensity = (0.45 + heartLightAwake * 1.4) * (1.0 + Math.cos(clockVal * 2.8) * 0.16);
 
       // Animate Yeshwanth at the Grand Castle Entrance
+      // Harsha is on Screen-LEFT (+0.62, 0.20, -18.65, yaw -1.16)
+      // Yeshwanth walks to Screen-RIGHT (-0.52, 0.20, -18.15, yaw Math.PI - 1.12) so the rose is dead-center between them!
       const yWalk = nav.yeshwanthWalkProgress;
       const yRoseExt = nav.yeshwanthRoseExtend;
       if (isEntranceReveal) {
-        yeshwanthEntranceGroup.visible = nav.doorOpenRatio > 0.08 || yWalk > 0.01;
-        const yZ = THREE.MathUtils.lerp(-15.4, -18.35, yWalk);
-        const yY = THREE.MathUtils.lerp(0.25, 0.19, yWalk);
-        yeshwanthEntranceGroup.position.set(0.52, yY, yZ);
-        yeshwanthEntranceGroup.rotation.y = Math.PI + 0.25; // Facing Harsha at (-0.52, -19.25)
+        yeshwanthEntranceGroup.visible = nav.doorOpenRatio > 0.04 || yWalk > 0.01;
+        const yX = THREE.MathUtils.lerp(-0.38, -0.52, yWalk);
+        const yZ = THREE.MathUtils.lerp(-15.4, -18.15, yWalk);
+        const yY = THREE.MathUtils.lerp(0.25, 0.20, yWalk);
+        yeshwanthEntranceGroup.position.set(yX, yY, yZ);
+        yeshwanthEntranceGroup.rotation.y = Math.PI - 1.12; // Three-quarter angle facing Harsha at (+0.62, -18.65)
 
         const isWalking = yWalk > 0.01 && yWalk < 0.99;
         const stride = isWalking ? Math.sin(clockVal * 7.5) * 0.38 : 0.0;
@@ -4836,8 +4878,8 @@ export function createDreamCastle(): DreamCastleBundle {
         yRoseGroup.visible = true; // Rose stays prominently visible throughout the proposal!
       } else if (nav.hasTriggeredEntranceReveal) {
         yeshwanthEntranceGroup.visible = true;
-        yeshwanthEntranceGroup.position.set(1.45, 0.25, -17.2);
-        yeshwanthEntranceGroup.rotation.y = Math.PI + Math.sin(clockVal * 0.8) * 0.12;
+        yeshwanthEntranceGroup.position.set(-1.45, 0.25, -17.2);
+        yeshwanthEntranceGroup.rotation.y = Math.PI - 0.35 + Math.sin(clockVal * 0.8) * 0.12;
         yLeftLeg.rotation.x = 0;
         yRightLeg.rotation.x = 0;
         yLeftArmPivot.rotation.x = 0;

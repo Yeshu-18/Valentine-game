@@ -1404,11 +1404,17 @@ export default function App() {
                     }`}
                   >
                     <Camera className="w-3.5 h-3.5" />
-                    <span>3rd Person (Default)</span>
+                    <span>3rd Person</span>
                   </button>
                   <button
                     type="button"
-                    onClick={handleToggleCameraMode}
+                    onClick={() => {
+                      controllerRef.current?.setCameraMode('first-person');
+                      setTelemetry((prev) => ({
+                        ...prev,
+                        cameraMode: 'first-person',
+                      }));
+                    }}
                     className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
                       telemetry.cameraMode === 'first-person'
                         ? 'bg-rose-500 text-white shadow-sm'
@@ -1416,6 +1422,27 @@ export default function App() {
                     }`}
                   >
                     <span>1st Person (V)</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const nextMode =
+                        telemetry.cameraMode === 'camera-control'
+                          ? 'third-person'
+                          : 'camera-control';
+                      controllerRef.current?.setCameraMode(nextMode);
+                      setTelemetry((prev) => ({
+                        ...prev,
+                        cameraMode: nextMode,
+                      }));
+                    }}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
+                      telemetry.cameraMode === 'camera-control'
+                        ? 'bg-amber-500 text-slate-950 font-semibold shadow-sm'
+                        : 'text-slate-300 hover:text-white'
+                    }`}
+                  >
+                    <span>Camera Move (C)</span>
                   </button>
                 </div>
 
@@ -1532,7 +1559,7 @@ export default function App() {
               </div>
             </div>
 
-            {/* Row 2: Clean Input Instructions (Flight vs Walk) */}
+            {/* Row 2: Clean Input Instructions (Flight vs Camera Control vs Walk) */}
             <div className="pt-2 border-t border-white/10 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-400">
               <div className="flex flex-wrap items-center gap-2">
                 <span className="flex items-center gap-1 text-slate-200 font-medium">
@@ -1540,7 +1567,9 @@ export default function App() {
                   <span>
                     {telemetry.locomotionState === 'flight'
                       ? 'W Forward (15 m/s) · Shift+W Boost (22 m/s) · S Brake/Reverse · A/D Yaw & Bank · Space Ascend · Ctrl/C Descend · E/Esc Dismount'
-                      : 'WASD / Arrows to Walk · Hold Shift to Sprint · Press E near Broom Stand or Mystery Box'}
+                      : telemetry.cameraMode === 'camera-control'
+                        ? 'Camera Position Mode: WASD Move Camera (Fwd/Back/Left/Right) · R/F or PageUp/PageDown Move Up/Down · Mouse/Arrows Rotate · Press C or Esc to Return'
+                        : 'WASD / Arrows to Walk · Hold Shift to Sprint · Press C for Free Camera Position · Press E to Interact'}
                   </span>
                 </span>
               </div>

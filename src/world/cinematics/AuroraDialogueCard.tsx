@@ -125,53 +125,66 @@ export const AuroraDialogueCard: React.FC<AuroraDialogueCardProps> = ({
   };
 
   return (
-    <div className="pointer-events-none fixed inset-x-0 bottom-6 sm:bottom-8 z-40 flex justify-center px-3">
-      {/* Sleek horizontal cinematic dialogue strip: ~30-32vw on desktop, translucent glass, zero screen obstruction */}
+    <div className="pointer-events-none fixed inset-x-0 bottom-4 sm:bottom-6 z-40 flex justify-center px-3 sm:px-6">
+      {/* Wide, horizontal cinematic dialogue box (~54-58% desktop width, 84-90% mobile width, auto height, zero clipping) */}
       <div
-        className={`pointer-events-auto relative w-[92vw] sm:w-[50vw] lg:w-[32vw] max-w-[480px] overflow-hidden rounded-2xl border px-3.5 py-2.5 sm:px-4 sm:py-3 backdrop-blur-md transition-all duration-250 ease-out shadow-2xl ${
+        className={`pointer-events-auto relative w-[90vw] sm:w-[84vw] md:w-[58vw] lg:w-[54vw] max-w-3xl h-auto rounded-2xl border px-4 py-3 sm:px-6 sm:py-3.5 backdrop-blur-md transition-all duration-250 ease-out shadow-2xl ${
           isProposal
-            ? 'border-rose-200/35 bg-slate-950/45 shadow-[0_8px_32px_rgba(244,114,182,0.18),inset_0_1px_0_rgba(255,255,255,0.18)]'
-            : 'border-amber-200/30 bg-slate-950/45 shadow-[0_8px_30px_rgba(15,23,42,0.45),inset_0_1px_0_rgba(255,255,255,0.16)]'
+            ? 'border-rose-200/40 bg-slate-950/65 shadow-[0_8px_32px_rgba(244,114,182,0.22),inset_0_1px_0_rgba(255,255,255,0.18)]'
+            : 'border-amber-200/35 bg-slate-950/65 shadow-[0_8px_30px_rgba(15,23,42,0.5),inset_0_1px_0_rgba(255,255,255,0.16)]'
         } ${isVisible ? 'translate-y-0 opacity-100 scale-100' : 'translate-y-2 opacity-0 scale-98'}`}
       >
         {/* Subtle top crystal hairline */}
-        <div className="pointer-events-none absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-amber-200/35 to-transparent" />
+        <div className="pointer-events-none absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-amber-200/40 to-transparent" />
 
-        {/* Horizontal Cinematic Layout: [Character Badge] [Text Stream] [Continue Button] */}
-        <div className="relative flex items-center justify-between gap-3">
-          {/* Left: Speaker Badge Pill */}
-          <div
-            className={`shrink-0 inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 ${
-              isProposal
-                ? 'border-rose-200/35 bg-rose-400/15 text-rose-100'
-                : 'border-amber-200/30 bg-amber-400/10 text-amber-100'
-            }`}
-          >
-            {isProposal ? (
-              <Heart className="h-3 w-3 fill-rose-300/85 text-rose-200 shrink-0" />
-            ) : (
-              <Sparkles className="h-3 w-3 text-amber-200 shrink-0" />
-            )}
-            <span className="text-[10px] font-semibold tracking-wider uppercase whitespace-nowrap">
-              {dialogue.badge}
-            </span>
-          </div>
-
-          {/* Middle: Horizontal Dialogue Text with soft romantic shadow */}
-          <div className="min-w-0 flex-1 px-1">
-            <p
-              className={`font-serif text-xs sm:text-[13px] leading-snug tracking-wide line-clamp-3 ${
+        {/* Vertical Flex Layout: [Top: Speaker Badge + Skip] -> [Middle: Full Unclipped Dialogue Text] -> [Bottom: Right-Aligned Continue Button] */}
+        <div className="relative flex flex-col gap-1.5 sm:gap-2">
+          {/* Top Row: Speaker Name Badge & Optional Skip */}
+          <div className="flex items-center justify-between gap-2">
+            <div
+              className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 ${
                 isProposal
-                  ? 'font-medium text-rose-50 drop-shadow-[0_1px_6px_rgba(244,114,182,0.25)]'
-                  : 'font-normal text-white/95 drop-shadow-[0_1px_5px_rgba(0,0,0,0.4)]'
+                  ? 'border-rose-200/40 bg-rose-400/15 text-rose-100'
+                  : 'border-amber-200/35 bg-amber-400/12 text-amber-100'
               }`}
             >
-              <span className="text-white/35">“</span>
+              {isProposal ? (
+                <Heart className="h-3 w-3 fill-rose-300/85 text-rose-200 shrink-0" />
+              ) : (
+                <Sparkles className="h-3 w-3 text-amber-200 shrink-0" />
+              )}
+              <span className="text-[11px] font-semibold tracking-wider uppercase">
+                {dialogue.badge}
+              </span>
+            </div>
+
+            {onSkip && (
+              <button
+                type="button"
+                onClick={onSkip}
+                title="Skip Cinematic (Esc)"
+                className="inline-flex items-center px-2 py-0.5 rounded text-[10px] uppercase tracking-wider text-white/55 hover:text-white/90 transition-colors cursor-pointer"
+              >
+                Esc · Skip
+              </button>
+            )}
+          </div>
+
+          {/* Middle Row: Full Dialogue Text (No line-clamp, no overflow-hidden, natural wrapping) */}
+          <div className="w-full py-0.5">
+            <p
+              className={`font-serif text-sm sm:text-[15px] leading-relaxed tracking-wide whitespace-normal break-words ${
+                isProposal
+                  ? 'font-medium text-rose-50 drop-shadow-[0_1px_6px_rgba(244,114,182,0.28)]'
+                  : 'font-normal text-white/95 drop-shadow-[0_1px_5px_rgba(0,0,0,0.45)]'
+              }`}
+            >
+              <span className="text-white/45">“</span>
               {displayedText}
-              <span className="text-white/35">”</span>
+              <span className="text-white/45">”</span>
               {isTyping && (
                 <span
-                  className={`ml-0.5 inline-block h-3 w-px translate-y-[1px] animate-pulse ${
+                  className={`ml-0.5 inline-block h-3.5 w-px translate-y-[2px] animate-pulse ${
                     isProposal ? 'bg-rose-200' : 'bg-amber-200'
                   }`}
                 />
@@ -179,29 +192,19 @@ export const AuroraDialogueCard: React.FC<AuroraDialogueCardProps> = ({
             </p>
           </div>
 
-          {/* Right: Compact Enter/Click Continue Pill */}
-          <div className="shrink-0 flex items-center gap-1.5">
-            {onSkip && (
-              <button
-                type="button"
-                onClick={onSkip}
-                title="Skip Cinematic (Esc)"
-                className="hidden sm:inline-flex items-center px-1.5 py-1 rounded text-[9px] uppercase tracking-wider text-white/50 hover:text-white/80 transition-colors cursor-pointer"
-              >
-                Esc
-              </button>
-            )}
+          {/* Bottom Row: Right-Aligned [ENTER] / Continue Action Button */}
+          <div className="flex items-center justify-end pt-0.5">
             <button
               type="button"
               onClick={handleAdvanceAction}
-              className={`inline-flex items-center gap-1 rounded-lg border px-2 py-1 text-[10px] font-semibold tracking-wider uppercase transition-all duration-150 cursor-pointer ${
+              className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1 text-[11px] font-semibold tracking-wider uppercase transition-all duration-150 cursor-pointer ${
                 isProposal
-                  ? 'border-rose-200/40 bg-rose-500/25 hover:bg-rose-500/35 text-rose-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.15)]'
-                  : 'border-amber-200/35 bg-amber-400/20 hover:bg-amber-400/30 text-amber-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.15)]'
+                  ? 'border-rose-200/45 bg-rose-500/30 hover:bg-rose-500/45 text-rose-50 shadow-[inset_0_1px_0_rgba(255,255,255,0.2)]'
+                  : 'border-amber-200/40 bg-amber-400/25 hover:bg-amber-400/40 text-amber-50 shadow-[inset_0_1px_0_rgba(255,255,255,0.2)]'
               }`}
             >
-              <span>{isTyping ? 'Reveal' : 'Next'}</span>
-              <CornerDownLeft className="h-2.5 w-2.5 opacity-80" />
+              <span>{isTyping ? 'Reveal [Enter]' : 'Continue [Enter]'}</span>
+              <CornerDownLeft className="h-3 w-3 opacity-85" />
             </button>
           </div>
         </div>
