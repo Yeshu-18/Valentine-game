@@ -328,20 +328,534 @@ export function createCastleFloor3Rooms(
   );
 
   // ==========================================================================
-  // 0. CENTRAL ROYAL PROMENADE & ARCHITECTURAL WAYFINDING
-  //    Connects F2->F3 Stair Arrival (lx: 7.5, lz: 13.8), Elevator Lobby (lx: 0, lz: 5.85),
-  //    F3->F4 Stair Bottom Landing (lx: -7.5, lz: 5.5), and all 4 Wing Entrances!
+  // 0. FLOOR 3 CENTRAL PLAZA: SMALL ROMANTIC CRYSTAL FOUNTAIN & INLAID FLOOR INSCRIPTION
+  //    ("YESHWANTH LOVES HARSHA" physically inlaid in curved champagne-gold serif lettering)
+  //    Centered at (lx = -0.35, lz = +1.25) with generous walkable circulation to all 4 wings & stairs!
   // ==========================================================================
-  const promenadeRunnerGeo = tracker.trackGeo(new THREE.BoxGeometry(3.4, 0.018, 15.6));
-  const promenadeRunner = new THREE.Mesh(promenadeRunnerGeo, galleryRoseMarbleMat);
-  promenadeRunner.position.set(0.5, y0 + 0.009, 2.2);
-  promenadeRunner.receiveShadow = true;
-  group.add(promenadeRunner);
+  const plazaFountainX = -0.35;
+  const plazaFountainZ = 1.25;
+  const plazaFountainGroup = new THREE.Group();
+  plazaFountainGroup.name = 'Floor3RomanticCrystalFountain';
+  plazaFountainGroup.position.set(plazaFountainX, y0, plazaFountainZ);
+  group.add(plazaFountainGroup);
 
-  const promenadeTrimGeo = tracker.trackGeo(new THREE.BoxGeometry(3.52, 0.014, 15.72));
-  const promenadeTrim = new THREE.Mesh(promenadeTrimGeo, mats.champagneGold);
-  promenadeTrim.position.set(0.5, y0 + 0.006, 2.2);
-  group.add(promenadeTrim);
+  const fountainGoldMat = tracker.trackMat(
+    new THREE.MeshPhysicalMaterial({
+      color: new THREE.Color('#f7d782'),
+      emissive: new THREE.Color('#d97706'),
+      emissiveIntensity: 0.22,
+      roughness: 0.16,
+      metalness: 0.88,
+      clearcoat: 0.75,
+      clearcoatRoughness: 0.1,
+    }),
+  );
+  const fountainWaterMat = tracker.trackMat(
+    new THREE.MeshPhysicalMaterial({
+      color: new THREE.Color('#f5d0fe'),
+      emissive: new THREE.Color('#ec4899'),
+      emissiveIntensity: 0.22,
+      roughness: 0.04,
+      metalness: 0.08,
+      transmission: 0.72,
+      transparent: true,
+      opacity: 0.88,
+      clearcoat: 1.0,
+      clearcoatRoughness: 0.03,
+      ior: 1.333,
+    }),
+  );
+  const fountainStreamMat = tracker.trackMat(
+    new THREE.MeshPhysicalMaterial({
+      color: new THREE.Color('#fdf4ff'),
+      emissive: new THREE.Color('#f472b6'),
+      emissiveIntensity: 0.28,
+      roughness: 0.06,
+      metalness: 0.05,
+      transmission: 0.78,
+      transparent: true,
+      opacity: 0.72,
+      clearcoat: 1.0,
+    }),
+  );
+  const fountainSoftGlowMat = tracker.trackMat(
+    new THREE.MeshBasicMaterial({
+      color: new THREE.Color('#fef08a'),
+    }),
+  );
+  const fountainPinkGlowMat = tracker.trackMat(
+    new THREE.MeshBasicMaterial({
+      color: new THREE.Color('#fbcfe8'),
+    }),
+  );
+
+  // --- 0.1 CIRCULAR MARBLE FLOOR COMPOSITION & CURVED INLAID GOLD INSCRIPTION ("YESHWANTH LOVES HARSHA") ---
+  // High-resolution 2048x2048 circular floor inlay texture + 3D raised champagne-gold letter plaques
+  const createPlazaFloorInscriptionTexture = (): THREE.CanvasTexture => {
+    const canvas = document.createElement('canvas');
+    canvas.width = 2048;
+    canvas.height = 2048;
+    const ctx = canvas.getContext('2d');
+    if (ctx) {
+      const C = 1024;
+      ctx.clearRect(0, 0, 2048, 2048);
+
+      // Concentric polished blush-pink & pearl marble floor rings (outer radius 980px => 2.68m)
+      const bgGrad = ctx.createRadialGradient(C, C, 460, C, C, 990);
+      bgGrad.addColorStop(0, '#fce7f3');
+      bgGrad.addColorStop(0.45, '#fdf2f8');
+      bgGrad.addColorStop(0.76, '#fbcfe8');
+      bgGrad.addColorStop(0.95, '#f9a8d4');
+      bgGrad.addColorStop(1, 'rgba(249, 168, 212, 0.0)');
+      ctx.fillStyle = bgGrad;
+      ctx.beginPath();
+      ctx.arc(C, C, 990, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Subtle radial champagne-gold geometric lines across the outer motif band
+      ctx.strokeStyle = 'rgba(217, 119, 6, 0.25)';
+      ctx.lineWidth = 3;
+      for (let i = 0; i < 24; i++) {
+        const ang = (i / 24) * Math.PI * 2;
+        ctx.beginPath();
+        ctx.moveTo(C + Math.cos(ang) * 610, C + Math.sin(ang) * 610);
+        ctx.lineTo(C + Math.cos(ang) * 960, C + Math.sin(ang) * 960);
+        ctx.stroke();
+      }
+
+      // Concentric champagne-gold inlay rings framing the inscription band (r = 635px..830px)
+      [625, 642, 822, 838, 968].forEach((rPx, idx) => {
+        ctx.beginPath();
+        ctx.arc(C, C, rPx, 0, Math.PI * 2);
+        ctx.strokeStyle = idx % 2 === 0 ? '#f59e0b' : '#fef08a';
+        ctx.lineWidth = idx === 4 ? 10 : 5;
+        ctx.stroke();
+      });
+
+      // Darker blush-rose marble inscription channel (r = 642px..822px) so gold serif letters pop with high contrast
+      ctx.beginPath();
+      ctx.arc(C, C, 822, 0, Math.PI * 2);
+      ctx.arc(C, C, 642, 0, Math.PI * 2, true);
+      ctx.fillStyle = 'rgba(190, 24, 93, 0.16)';
+      ctx.fill();
+
+      // Helper to render curved inlaid champagne-gold serif lettering along a circular arc
+      // Viewer standing outside at centerPhi looking inward reads left-to-right (decreasing phi) with letter tops pointing inward
+      const drawCurvedGoldInscription = (text: string, centerPhi: number, radiusPx: number) => {
+        const charCount = text.length;
+        const totalArc = 1.62; // radians (~93 degrees)
+        const stepPhi = totalArc / Math.max(1, charCount - 1);
+        const startPhi = centerPhi + totalArc * 0.5;
+
+        ctx.save();
+        ctx.font = 'bold 68px Georgia, "Times New Roman", serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+
+        for (let i = 0; i < charCount; i++) {
+          const ch = text[i];
+          const phi = startPhi - i * stepPhi;
+          const x = C + Math.cos(phi) * radiusPx;
+          const y = C + Math.sin(phi) * radiusPx;
+
+          ctx.save();
+          ctx.translate(x, y);
+          // Rotate so letter top (0, -1) points inward (-cos phi, -sin phi) and letter right (+1, 0) points along decreasing phi
+          ctx.rotate(phi - Math.PI * 0.5);
+
+          // Engraved marble shadow bevel
+          ctx.fillStyle = 'rgba(131, 24, 67, 0.72)';
+          ctx.fillText(ch, 3, 4);
+
+          // Warm golden glow halo
+          ctx.shadowColor = 'rgba(254, 240, 138, 0.95)';
+          ctx.shadowBlur = 12;
+          ctx.fillStyle = '#f59e0b';
+          ctx.fillText(ch, 0, 0);
+
+          // Bright champagne-gold metallic face + specular highlight stroke
+          ctx.shadowBlur = 0;
+          ctx.fillStyle = '#fef08a';
+          ctx.fillText(ch, -1, -1);
+          ctx.strokeStyle = '#b45309';
+          ctx.lineWidth = 1.8;
+          ctx.strokeText(ch, 0, 0);
+
+          ctx.restore();
+        }
+        ctx.restore();
+      };
+
+      const inscriptionText = 'YESHWANTH LOVES HARSHA';
+      // Primary Front Arc (facing the player in the West/North-West Plaza & Stair view, e.g. X 82m / Z 21m)
+      // plus Opposite Arc (facing the Heart Gallery & South-East Promenade) so it is readable from every approach
+      drawCurvedGoldInscription(inscriptionText, Math.PI * 0.78, 732);
+      drawCurvedGoldInscription(inscriptionText, -Math.PI * 0.22, 732);
+    }
+
+    const tex = tracker.trackTex(new THREE.CanvasTexture(canvas));
+    tex.colorSpace = THREE.SRGBColorSpace;
+    tex.anisotropy = 8;
+    tex.needsUpdate = true;
+    return tex;
+  };
+
+  const plazaFloorInlayTex = createPlazaFloorInscriptionTexture();
+  const plazaFloorInlayMat = tracker.trackMat(
+    new THREE.MeshStandardMaterial({
+      map: plazaFloorInlayTex,
+      emissive: new THREE.Color('#fde68a'),
+      emissiveMap: plazaFloorInlayTex,
+      emissiveIntensity: 0.22,
+      roughness: 0.14,
+      metalness: 0.28,
+      transparent: true,
+    }),
+  );
+
+  const plazaFloorDiscGeo = tracker.trackGeo(new THREE.PlaneGeometry(5.5, 5.5));
+  plazaFloorDiscGeo.rotateX(-Math.PI / 2);
+  const plazaFloorDisc = new THREE.Mesh(plazaFloorDiscGeo, plazaFloorInlayMat);
+  plazaFloorDisc.position.y = 0.012;
+  plazaFloorDisc.receiveShadow = true;
+  plazaFountainGroup.add(plazaFloorDisc);
+
+  // Physical 3D Concentric Champagne-Gold & Glow Rings inlaid into the circular marble floor
+  [
+    { r: 1.72, tube: 0.022, mat: fountainGoldMat },
+    { r: 2.25, tube: 0.024, mat: fountainGoldMat },
+    { r: 2.64, tube: 0.03, mat: fountainGoldMat },
+    { r: 2.67, tube: 0.016, mat: fountainSoftGlowMat },
+  ].forEach(({ r, tube, mat }) => {
+    const ringGeo = tracker.trackGeo(new THREE.TorusGeometry(r, tube, 10, 64));
+    ringGeo.rotateX(Math.PI / 2);
+    const ringMesh = new THREE.Mesh(ringGeo, mat);
+    ringMesh.position.y = 0.016;
+    plazaFountainGroup.add(ringMesh);
+  });
+
+  // Physical Raised/Inlaid 3D Champagne-Gold Letter Relief Bars along the Circular Inscription Path (r = 1.98m)
+  // Gives real 3D specular highlights to every character of "YESHWANTH LOVES HARSHA" on the floor
+  const letterReliefBarGeo = tracker.trackGeo(new THREE.BoxGeometry(0.068, 0.008, 0.11));
+  const inscriptionPhrase = 'YESHWANTH LOVES HARSHA';
+  [Math.PI * 0.78, -Math.PI * 0.22].forEach((centerPhi) => {
+    const totalArc = 1.62;
+    const stepPhi = totalArc / (inscriptionPhrase.length - 1);
+    const startPhi = centerPhi + totalArc * 0.5;
+    for (let i = 0; i < inscriptionPhrase.length; i++) {
+      if (inscriptionPhrase[i] === ' ') continue;
+      const phi = startPhi - i * stepPhi;
+      const rLet = 1.98;
+      const bar = new THREE.Mesh(letterReliefBarGeo, fountainGoldMat);
+      bar.position.set(Math.cos(phi) * rLet, 0.014, Math.sin(phi) * rLet);
+      bar.rotation.y = -phi + Math.PI * 0.5;
+      plazaFountainGroup.add(bar);
+    }
+  });
+
+  // 8 Inlaid Heart-Shaped Geometric Motifs & Crystal Inlays around the Outer Floor Ring (r = 2.45m)
+  const floorHeartBezelGeo = buildExtrudedHeartGeometry(tracker, 0.26, 0.022, 0.008);
+  floorHeartBezelGeo.rotateX(-Math.PI / 2);
+  const floorHeartCrystalGeo = buildExtrudedHeartGeometry(tracker, 0.2, 0.026, 0.008);
+  floorHeartCrystalGeo.rotateX(-Math.PI / 2);
+  const floorDiamondCrystalGeo = tracker.trackGeo(new THREE.OctahedronGeometry(0.042, 0));
+
+  for (let h = 0; h < 8; h++) {
+    const ang = (h / 8) * Math.PI * 2 + Math.PI * 0.125;
+    const hr = 2.45;
+    const hx = Math.cos(ang) * hr;
+    const hz = Math.sin(ang) * hr;
+
+    const hBezel = new THREE.Mesh(floorHeartBezelGeo, fountainGoldMat);
+    hBezel.position.set(hx, 0.015, hz);
+    hBezel.rotation.y = -ang + Math.PI * 0.5;
+
+    const hCrystal = new THREE.Mesh(floorHeartCrystalGeo, floatingHeartCrystalMat);
+    hCrystal.position.set(hx, 0.018, hz);
+    hCrystal.rotation.y = -ang + Math.PI * 0.5;
+
+    // Small lavender/pink crystal inlay between the heart motifs
+    const midAng = ang + Math.PI / 8;
+    const inlay = new THREE.Mesh(floorDiamondCrystalGeo, crystalArchMat);
+    inlay.position.set(Math.cos(midAng) * 2.45, 0.016, Math.sin(midAng) * 2.45);
+    inlay.scale.set(1.0, 0.35, 1.0);
+
+    plazaFountainGroup.add(hBezel, hCrystal, inlay);
+  }
+
+  // --- 0.2 SHALLOW CIRCULAR POLISHED BLUSH-MARBLE BASIN (Diameter = 2.68m, Radius = 1.34m) ---
+  const basinBaseStepGeo = tracker.trackGeo(new THREE.CylinderGeometry(1.48, 1.54, 0.09, 48));
+  const basinBaseStep = new THREE.Mesh(basinBaseStepGeo, fountainGoldMat);
+  basinBaseStep.position.y = 0.045;
+
+  const basinUnderGlowGeo = tracker.trackGeo(new THREE.TorusGeometry(1.53, 0.024, 8, 48));
+  basinUnderGlowGeo.rotateX(Math.PI / 2);
+  const basinUnderGlow = new THREE.Mesh(basinUnderGlowGeo, fountainSoftGlowMat);
+  basinUnderGlow.position.y = 0.02;
+
+  const basinOuterWallGeo = tracker.trackGeo(new THREE.CylinderGeometry(1.34, 1.38, 0.38, 48));
+  const basinOuterWall = new THREE.Mesh(basinOuterWallGeo, galleryRoseMarbleMat);
+  basinOuterWall.position.y = 0.25;
+  basinOuterWall.receiveShadow = true;
+
+  const basinTopGoldRimGeo = tracker.trackGeo(new THREE.TorusGeometry(1.32, 0.055, 14, 48));
+  basinTopGoldRimGeo.rotateX(Math.PI / 2);
+  const basinTopGoldRim = new THREE.Mesh(basinTopGoldRimGeo, fountainGoldMat);
+  basinTopGoldRim.position.y = 0.44;
+
+  const basinInnerLipGeo = tracker.trackGeo(new THREE.CylinderGeometry(1.24, 1.24, 0.06, 40));
+  const basinInnerLip = new THREE.Mesh(basinInnerLipGeo, mats.pearlWhite);
+  basinInnerLip.position.y = 0.42;
+
+  plazaFountainGroup.add(
+    basinBaseStep,
+    basinUnderGlow,
+    basinOuterWall,
+    basinTopGoldRim,
+    basinInnerLip,
+  );
+
+  // 8 Subtle Engraved & Illuminated Heart Patterns around the Exterior of the Blush-Marble Basin
+  const basinHeartFrameGeo = buildExtrudedHeartGeometry(tracker, 0.25, 0.04, 0.015);
+  const basinHeartInnerGeo = buildExtrudedHeartGeometry(tracker, 0.18, 0.05, 0.012);
+  for (let bh = 0; bh < 8; bh++) {
+    const ang = (bh / 8) * Math.PI * 2;
+    const br = 1.36;
+    const bx = Math.cos(ang) * br;
+    const bz = Math.sin(ang) * br;
+    const rotY = Math.atan2(bx, bz);
+
+    const hFrame = new THREE.Mesh(basinHeartFrameGeo, fountainGoldMat);
+    hFrame.position.set(bx, 0.26, bz);
+    hFrame.rotation.y = rotY;
+
+    const hInner = new THREE.Mesh(
+      basinHeartInnerGeo,
+      bh % 2 === 0 ? fountainSoftGlowMat : fountainPinkGlowMat,
+    );
+    hInner.position.set(Math.cos(ang) * (br + 0.012), 0.26, Math.sin(ang) * (br + 0.012));
+    hInner.rotation.y = rotY;
+
+    plazaFountainGroup.add(hFrame, hInner);
+  }
+
+  // Shallow Layer of Clear Reflective Water inside the Basin + Animated Concentric Ripple Rings
+  const waterDiscGeo = tracker.trackGeo(new THREE.CylinderGeometry(1.25, 1.25, 0.03, 44));
+  const waterDisc = new THREE.Mesh(waterDiscGeo, fountainWaterMat);
+  waterDisc.position.y = 0.39;
+  plazaFountainGroup.add(waterDisc);
+
+  const plazaFountainRippleRings: THREE.Mesh[] = [];
+  [0.45, 0.78, 1.08].forEach((rInit) => {
+    const ripGeo = tracker.trackGeo(new THREE.TorusGeometry(1.0, 0.012, 8, 40));
+    ripGeo.rotateX(Math.PI / 2);
+    const ripMesh = new THREE.Mesh(ripGeo, fountainPinkGlowMat);
+    ripMesh.position.y = 0.41;
+    ripMesh.scale.setScalar(rInit);
+    plazaFountainRippleRings.push(ripMesh);
+    plazaFountainGroup.add(ripMesh);
+  });
+
+  // --- 0.3 CENTRAL PEDESTAL, UPPER SPILL BOWL & SMALL ELEGANT CRYSTAL CENTERPIECE ---
+  // Central Fluted Blush-Marble Column + Upper Scalloped Spill Bowl
+  const centerStemBaseGeo = tracker.trackGeo(new THREE.CylinderGeometry(0.36, 0.44, 0.14, 24));
+  const centerStemBase = new THREE.Mesh(centerStemBaseGeo, fountainGoldMat);
+  centerStemBase.position.y = 0.45;
+
+  const centerStemColGeo = tracker.trackGeo(new THREE.CylinderGeometry(0.24, 0.31, 0.48, 24));
+  const centerStemCol = new THREE.Mesh(centerStemColGeo, galleryRoseMarbleMat);
+  centerStemCol.position.y = 0.72;
+
+  const upperBowlGeo = tracker.trackGeo(new THREE.CylinderGeometry(0.66, 0.32, 0.18, 36));
+  const upperBowl = new THREE.Mesh(upperBowlGeo, galleryRoseMarbleMat);
+  upperBowl.position.y = 0.98;
+
+  const upperBowlGoldRimGeo = tracker.trackGeo(new THREE.TorusGeometry(0.66, 0.032, 12, 36));
+  upperBowlGoldRimGeo.rotateX(Math.PI / 2);
+  const upperBowlGoldRim = new THREE.Mesh(upperBowlGoldRimGeo, fountainGoldMat);
+  upperBowlGoldRim.position.y = 1.07;
+
+  const upperBowlWaterGeo = tracker.trackGeo(new THREE.CylinderGeometry(0.62, 0.62, 0.025, 32));
+  const upperBowlWater = new THREE.Mesh(upperBowlWaterGeo, fountainWaterMat);
+  upperBowlWater.position.y = 1.06;
+
+  plazaFountainGroup.add(
+    centerStemBase,
+    centerStemCol,
+    upperBowl,
+    upperBowlGoldRim,
+    upperBowlWater,
+  );
+
+  // Two Graceful Curved Champagne-Gold Forms Rising Toward Each Other
+  // (Subtly suggesting two people coming together around the suspended translucent pink heart crystal)
+  const centerpieceBaseOrbGeo = tracker.trackGeo(new THREE.SphereGeometry(0.11, 16, 14));
+  const centerpieceBaseOrb = new THREE.Mesh(centerpieceBaseOrbGeo, fountainGoldMat);
+  centerpieceBaseOrb.position.y = 1.11;
+  plazaFountainGroup.add(centerpieceBaseOrb);
+
+  [-1, 1].forEach((side) => {
+    const outerEmbraceCurve = new THREE.CubicBezierCurve3(
+      new THREE.Vector3(side * 0.04, 1.1, 0),
+      new THREE.Vector3(side * 0.56, 1.32, 0),
+      new THREE.Vector3(side * 0.52, 1.82, 0),
+      new THREE.Vector3(side * 0.03, 1.72, 0),
+    );
+    const outerEmbraceGeo = tracker.trackGeo(
+      new THREE.TubeGeometry(outerEmbraceCurve, 28, 0.036, 12, false),
+    );
+    const outerEmbraceMesh = new THREE.Mesh(outerEmbraceGeo, fountainGoldMat);
+
+    const innerEmbraceCurve = new THREE.CubicBezierCurve3(
+      new THREE.Vector3(side * 0.03, 1.14, 0),
+      new THREE.Vector3(side * 0.42, 1.34, 0.04 * side),
+      new THREE.Vector3(side * 0.38, 1.72, -0.04 * side),
+      new THREE.Vector3(side * 0.02, 1.66, 0),
+    );
+    const innerEmbraceGeo = tracker.trackGeo(
+      new THREE.TubeGeometry(innerEmbraceCurve, 24, 0.018, 10, false),
+    );
+    const innerEmbraceMesh = new THREE.Mesh(innerEmbraceGeo, fountainSoftGlowMat);
+
+    plazaFountainGroup.add(outerEmbraceMesh, innerEmbraceMesh);
+  });
+
+  // Small Translucent Pink Heart Crystal Suspended Between the Two Champagne-Gold Forms
+  const plazaFountainHeartPivot = new THREE.Group();
+  plazaFountainHeartPivot.position.set(0, 1.46, 0);
+  const suspendedHeartGeo = buildExtrudedHeartGeometry(tracker, 0.42, 0.16, 0.04);
+  const suspendedHeartMesh = new THREE.Mesh(suspendedHeartGeo, floatingHeartCrystalMat);
+  const suspendedHeartCoreGeo = buildExtrudedHeartGeometry(tracker, 0.24, 0.1, 0.02);
+  const suspendedHeartCore = new THREE.Mesh(suspendedHeartCoreGeo, fountainPinkGlowMat);
+  plazaFountainHeartPivot.add(suspendedHeartMesh, suspendedHeartCore);
+
+  // Tiny Companion Crown Heart Finial atop the Gold Embrace Arch
+  const topFinialHeartGeo = buildExtrudedHeartGeometry(tracker, 0.18, 0.09, 0.022);
+  const topFinialHeart = new THREE.Mesh(topFinialHeartGeo, floatingHeartCrystalMat);
+  topFinialHeart.position.set(0, 1.86, 0);
+  const topFinialRim = new THREE.Mesh(
+    buildExtrudedHeartGeometry(tracker, 0.22, 0.07, 0.018),
+    fountainGoldMat,
+  );
+  topFinialRim.position.set(0, 1.86, 0);
+
+  plazaFountainGroup.add(plazaFountainHeartPivot, topFinialHeart, topFinialRim);
+
+  // --- 0.4 CALM, SMOOTH FLOWING WATER STREAMS (Zero Large Waterfall, Restrained Peaceful Shimmer) ---
+  // 4 Delicate Upper Streams flowing from beneath the suspended crystal into the upper bowl
+  for (let us = 0; us < 4; us++) {
+    const ang = (us / 4) * Math.PI * 2 + Math.PI * 0.25;
+    const uCurve = new THREE.QuadraticBezierCurve3(
+      new THREE.Vector3(Math.cos(ang) * 0.06, 1.32, Math.sin(ang) * 0.06),
+      new THREE.Vector3(Math.cos(ang) * 0.28, 1.26, Math.sin(ang) * 0.28),
+      new THREE.Vector3(Math.cos(ang) * 0.46, 1.06, Math.sin(ang) * 0.46),
+    );
+    const uStreamGeo = tracker.trackGeo(new THREE.TubeGeometry(uCurve, 16, 0.016, 8, false));
+    plazaFountainGroup.add(new THREE.Mesh(uStreamGeo, fountainStreamMat));
+  }
+
+  // 8 Smooth Arching Water Streams flowing from the upper bowl lip down into the main basin
+  const splashRingGeo = tracker.trackGeo(new THREE.TorusGeometry(0.085, 0.009, 6, 20));
+  splashRingGeo.rotateX(Math.PI / 2);
+  for (let ls = 0; ls < 8; ls++) {
+    const ang = (ls / 8) * Math.PI * 2;
+    const lCurve = new THREE.QuadraticBezierCurve3(
+      new THREE.Vector3(Math.cos(ang) * 0.62, 1.05, Math.sin(ang) * 0.62),
+      new THREE.Vector3(Math.cos(ang) * 0.92, 0.86, Math.sin(ang) * 0.92),
+      new THREE.Vector3(Math.cos(ang) * 1.04, 0.39, Math.sin(ang) * 1.04),
+    );
+    const lStreamGeo = tracker.trackGeo(new THREE.TubeGeometry(lCurve, 18, 0.022, 8, false));
+    const lStreamMesh = new THREE.Mesh(lStreamGeo, fountainStreamMat);
+
+    const splashRing = new THREE.Mesh(splashRingGeo, fountainPinkGlowMat);
+    splashRing.position.set(Math.cos(ang) * 1.04, 0.405, Math.sin(ang) * 1.04);
+
+    plazaFountainGroup.add(lStreamMesh, splashRing);
+  }
+
+  // 12 Subtle Instanced Water Shimmer Motes gliding smoothly along the streams (Zero Excessive Particles)
+  const PLAZA_FOUNTAIN_SHIMMER_COUNT = 12;
+  const shimmerMoteGeo = tracker.trackGeo(new THREE.SphereGeometry(0.026, 8, 8));
+  const plazaFountainWaterShimmerInst = new THREE.InstancedMesh(
+    shimmerMoteGeo,
+    fountainPinkGlowMat,
+    PLAZA_FOUNTAIN_SHIMMER_COUNT,
+  );
+  plazaFountainWaterShimmerInst.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+  plazaFountainGroup.add(plazaFountainWaterShimmerInst);
+
+  // --- 0.5 SMALL ROMANTIC FLOWER CLUSTERS & MINIATURE GOLD LANTERNS AROUND BASIN EDGE ---
+  // Hugs the immediate outer edge of the basin (r = 1.48m), leaving the "YESHWANTH LOVES HARSHA"
+  // floor inscription (r = 1.98m) and surrounding walking paths 100% clear and unobstructed!
+  const smallRoseGeo = tracker.trackGeo(new THREE.DodecahedronGeometry(0.058, 1));
+  const tinyWhiteFlowerGeo = tracker.trackGeo(new THREE.SphereGeometry(0.036, 8, 8));
+  const clusterLeafGeo = tracker.trackGeo(new THREE.ConeGeometry(0.048, 0.12, 5));
+  const lavenderFlowerMat = tracker.trackMat(
+    new THREE.MeshStandardMaterial({
+      color: new THREE.Color('#d8b4fe'),
+      emissive: new THREE.Color('#a855f7'),
+      emissiveIntensity: 0.14,
+      roughness: 0.38,
+    }),
+  );
+
+  for (let fc = 0; fc < 4; fc++) {
+    const centerAng = (fc / 4) * Math.PI * 2 + Math.PI * 0.25;
+    // 7 small blossoms per cluster curving along the basin base
+    for (let b = -3; b <= 3; b++) {
+      const ang = centerAng + b * 0.085;
+      const rad = 1.46 + (Math.abs(b) % 2) * 0.04;
+      const fx = Math.cos(ang) * rad;
+      const fz = Math.sin(ang) * rad;
+
+      const leaf = new THREE.Mesh(clusterLeafGeo, pastelHedgeMat);
+      leaf.position.set(fx, 0.08, fz);
+      leaf.rotation.x = Math.PI * 0.35;
+      leaf.rotation.y = ang;
+
+      const roseMat =
+        b % 3 === 0
+          ? puppySnowMat
+          : b % 2 === 0
+            ? bubbleIridescentMat
+            : lavenderFlowerMat;
+      const blossom = new THREE.Mesh(
+        b % 3 === 0 ? tinyWhiteFlowerGeo : smallRoseGeo,
+        roseMat,
+      );
+      blossom.position.set(fx, 0.14 + (1 - Math.abs(b) * 0.15) * 0.04, fz);
+
+      plazaFountainGroup.add(leaf, blossom);
+    }
+
+    // Small romantic champagne-gold lantern between the 4 flower clusters (r = 1.50m)
+    const lanAng = (fc / 4) * Math.PI * 2;
+    const lxPos = Math.cos(lanAng) * 1.5;
+    const lzPos = Math.sin(lanAng) * 1.5;
+    const lanGrp = new THREE.Group();
+    lanGrp.position.set(lxPos, 0.06, lzPos);
+
+    const lanBase = new THREE.Mesh(
+      tracker.trackGeo(new THREE.CylinderGeometry(0.09, 0.11, 0.06, 6)),
+      fountainGoldMat,
+    );
+    const lanGlass = new THREE.Mesh(
+      tracker.trackGeo(new THREE.CylinderGeometry(0.075, 0.065, 0.18, 6)),
+      fountainSoftGlowMat,
+    );
+    lanGlass.position.y = 0.12;
+    const lanRoof = new THREE.Mesh(
+      tracker.trackGeo(new THREE.ConeGeometry(0.11, 0.1, 6)),
+      fountainGoldMat,
+    );
+    lanRoof.position.y = 0.25;
+    lanGrp.add(lanBase, lanGlass, lanRoof);
+    plazaFountainGroup.add(lanGrp);
+  }
+
+  // Register collider strictly for the physical marble basin (r = 1.46m) so the player can walk
+  // freely over the entire circular floor composition & "YESHWANTH LOVES HARSHA" inscription!
+  registerLocalCollider(plazaFountainX, plazaFountainZ, 1.46, 2.1);
 
   // Helper to build elegant Palace Archways with Pearl Columns, Gold Trim & Subtle Crystal Heart Crest (Zero Giant Floating Text Signs)
   const buildPalacePortalArch = (
@@ -935,9 +1449,9 @@ export function createCastleFloor3Rooms(
   // promenade edge (lx = +2.35, outside the 3.6m entrance corridor) so looking through the Main Archway
   // matches the deep multi-column background vista in the reference image.
   const vistaColumnCoords = [
-    { lx: 2.35, lz: 2.85 },
-    { lx: 1.55, lz: 1.15 },
-    { lx: 2.35, lz: -0.55 },
+    { lx: 2.65, lz: 2.95 },
+    { lx: 2.65, lz: -0.65 },
+    { lx: 0.65, lz: -2.15 },
   ];
   vistaColumnCoords.forEach(({ lx, lz }) => {
     const vCol = buildClassicalFlutedColumn(0.95);
@@ -1643,25 +2157,20 @@ export function createCastleFloor3Rooms(
     }),
   );
 
-  for (let i = 0; i < galleryMemories.length; i++) {
-    const p = exhibitPlacements[i];
-    const scaleMult = p.isHeroExhibit ? 1.08 : 1.0;
-
-    const canvas = document.createElement('canvas');
-    canvas.width = 512;
-    canvas.height = 680;
-    galleryCanvases.push(canvas);
-
-    const tex = tracker.trackTex(new THREE.CanvasTexture(canvas));
-    tex.colorSpace = THREE.SRGBColorSpace;
-    tex.flipY = true;
-    galleryTextures.push(tex);
-
-    drawGalleryCanvas(i, i === 0);
-
+  // Reusable builder for all 7 physical portrait exhibits (5 interactive memories + 2 decorative architectural portraits)
+  // Guarantees identical 3D Rococo frame geometry, top glowing pink heart crest, bottom gold plaque,
+  // and physical overhead gold picture-light fixture + warm bulb + downward beam cone + wall wash.
+  const buildGalleryPortraitExhibit = (
+    lx: number,
+    lz: number,
+    rotY: number,
+    scaleMult: number,
+    tex: THREE.CanvasTexture,
+    outerFrameMat: THREE.Material,
+  ) => {
     const exhibitGroup = new THREE.Group();
-    exhibitGroup.position.set(p.lx, y0, p.lz);
-    exhibitGroup.rotation.y = p.rotY;
+    exhibitGroup.position.set(lx, y0, lz);
+    exhibitGroup.rotation.y = rotY;
     exhibitGroup.scale.setScalar(scaleMult);
 
     const centerY = 2.22;
@@ -1677,24 +2186,13 @@ export function createCastleFloor3Rooms(
     exhibitGroup.add(shadowBack);
 
     // 3. Multi-Layered 3D Molded Champagne-Gold Portrait Frame
-    const haloMat = tracker.trackMat(
-      new THREE.MeshStandardMaterial({
-        color: new THREE.Color('#f5d076'),
-        emissive: new THREE.Color('#fbbf24'),
-        emissiveIntensity: i === 0 ? 0.55 : 0.24,
-        roughness: 0.18,
-        metalness: 0.85,
-      }),
-    );
-    galleryFrameHalos.push(haloMat);
-
-    const topRail = new THREE.Mesh(frameOuterHorizGeo, haloMat);
+    const topRail = new THREE.Mesh(frameOuterHorizGeo, outerFrameMat);
     topRail.position.set(0, centerY + frameH * 0.5, 0.075);
-    const botRail = new THREE.Mesh(frameOuterHorizGeo, haloMat);
+    const botRail = new THREE.Mesh(frameOuterHorizGeo, outerFrameMat);
     botRail.position.set(0, centerY - frameH * 0.5, 0.075);
-    const leftRail = new THREE.Mesh(frameOuterVertGeo, haloMat);
+    const leftRail = new THREE.Mesh(frameOuterVertGeo, outerFrameMat);
     leftRail.position.set(-frameW * 0.5, centerY, 0.075);
-    const rightRail = new THREE.Mesh(frameOuterVertGeo, haloMat);
+    const rightRail = new THREE.Mesh(frameOuterVertGeo, outerFrameMat);
     rightRail.position.set(frameW * 0.5, centerY, 0.075);
 
     const inTop = new THREE.Mesh(frameInnerHorizGeo, galleryRoyalGoldMat);
@@ -1776,7 +2274,168 @@ export function createCastleFloor3Rooms(
 
     exhibitGroup.add(canopy, arm, hood, bulb, beamCone);
     heartGalleryGroup.add(exhibitGroup);
+  };
+
+  // Instantiate the 5 Interactive Memory Portraits (indices 0..4)
+  for (let i = 0; i < galleryMemories.length; i++) {
+    const p = exhibitPlacements[i];
+    const scaleMult = p.isHeroExhibit ? 1.08 : 1.0;
+
+    const canvas = document.createElement('canvas');
+    canvas.width = 512;
+    canvas.height = 680;
+    galleryCanvases.push(canvas);
+
+    const tex = tracker.trackTex(new THREE.CanvasTexture(canvas));
+    tex.colorSpace = THREE.SRGBColorSpace;
+    tex.flipY = true;
+    galleryTextures.push(tex);
+
+    drawGalleryCanvas(i, i === 0);
+
+    const haloMat = tracker.trackMat(
+      new THREE.MeshStandardMaterial({
+        color: new THREE.Color('#f5d076'),
+        emissive: new THREE.Color('#fbbf24'),
+        emissiveIntensity: i === 0 ? 0.55 : 0.24,
+        roughness: 0.18,
+        metalness: 0.85,
+      }),
+    );
+    galleryFrameHalos.push(haloMat);
+
+    buildGalleryPortraitExhibit(p.lx, p.lz, p.rotY, scaleMult, tex, haloMat);
   }
+
+  // --- 1.12 TWO DECORATIVE ARCHITECTURAL PORTRAIT EXHIBITS (Total Visible Portraits = 7) ---
+  // Symmetrically flank Memory 5 Hero (lx = 14.66, lz = -3.8) along the uninterrupted East / Apse Wall
+  // at lz = -0.65 and lz = -6.95 (outside the East sconces & floral pedestals), without modifying the
+  // 5-memory interactive system, localStorage model, or getGalleryFrames().
+  const createDecorativePortraitTexture = (variant: 0 | 1): THREE.CanvasTexture => {
+    const canvas = document.createElement('canvas');
+    canvas.width = 512;
+    canvas.height = 680;
+    const ctx = canvas.getContext('2d');
+    if (ctx) {
+      const W = 512;
+      const H = 680;
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.clearRect(0, 0, W, H);
+
+      if (variant === 0) {
+        // Decorative Portrait 1 (North-East Apse): Enchanted Pastel Rose Garden Pergola at Twilight
+        const sky = ctx.createLinearGradient(0, 0, 0, 420);
+        sky.addColorStop(0, '#581c87');
+        sky.addColorStop(0.48, '#be185d');
+        sky.addColorStop(0.85, '#f472b6');
+        sky.addColorStop(1, '#fef08a');
+        ctx.fillStyle = sky;
+        ctx.fillRect(0, 0, W, 420);
+
+        const pathGrad = ctx.createLinearGradient(0, 420, 0, H);
+        pathGrad.addColorStop(0, '#fbcfe8');
+        pathGrad.addColorStop(0.5, '#9d174d');
+        pathGrad.addColorStop(1, '#3b0764');
+        ctx.fillStyle = pathGrad;
+        ctx.fillRect(0, 420, W, H - 420);
+
+        // Classical garden pergola columns & arch in soft silhouette
+        ctx.strokeStyle = '#fde68a';
+        ctx.lineWidth = 10;
+        ctx.strokeRect(108, 165, 296, 360);
+        ctx.beginPath();
+        ctx.arc(256, 165, 148, Math.PI, 0);
+        ctx.stroke();
+
+        // Climbing pastel rose blossoms & warm lantern motes
+        for (let r = 0; r < 28; r++) {
+          const ang = (r / 28) * Math.PI;
+          const rx = 256 + Math.cos(ang) * 148 + ((r % 3) - 1) * 12;
+          const ry = 165 - Math.sin(ang) * 148 + ((r % 2) * 10);
+          ctx.fillStyle = r % 2 === 0 ? '#fbcfe8' : '#f472b6';
+          ctx.beginPath();
+          ctx.arc(rx, ry, 14 + (r % 3) * 4, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      } else {
+        // Decorative Portrait 2 (South-East Apse): Dreamy Rose-Gold Palace Bridge & Starlit Lagoon
+        const sky = ctx.createLinearGradient(0, 0, 0, 400);
+        sky.addColorStop(0, '#311042');
+        sky.addColorStop(0.45, '#9d174d');
+        sky.addColorStop(0.82, '#fb7185');
+        sky.addColorStop(1, '#fde68a');
+        ctx.fillStyle = sky;
+        ctx.fillRect(0, 0, W, 400);
+
+        const lagoon = ctx.createLinearGradient(0, 400, 0, H);
+        lagoon.addColorStop(0, '#f472b6');
+        lagoon.addColorStop(0.55, '#701a75');
+        lagoon.addColorStop(1, '#1e1b4b');
+        ctx.fillStyle = lagoon;
+        ctx.fillRect(0, 400, W, H - 400);
+
+        // Graceful arched palace bridge & shimmering reflections
+        ctx.fillStyle = '#4a044e';
+        ctx.beginPath();
+        ctx.moveTo(56, 415);
+        ctx.quadraticCurveTo(256, 310, 456, 415);
+        ctx.lineTo(456, 435);
+        ctx.quadraticCurveTo(256, 355, 56, 435);
+        ctx.closePath();
+        ctx.fill();
+
+        ctx.fillStyle = 'rgba(254, 240, 138, 0.65)';
+        for (let l = 0; l < 11; l++) {
+          const lxPos = 86 + l * 34;
+          const u = (lxPos - 256) / 200;
+          const lyPos = 355 + u * u * 55;
+          ctx.beginPath();
+          ctx.arc(lxPos, lyPos, 5, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.fillRect(lxPos - 8, 445 + l * 14, 16, 3);
+        }
+      }
+
+      // Matching subtle inner golden picture mat border
+      ctx.strokeStyle = 'rgba(253, 224, 71, 0.65)';
+      ctx.lineWidth = 6;
+      ctx.strokeRect(8, 8, W - 16, H - 16);
+    }
+
+    const tex = tracker.trackTex(new THREE.CanvasTexture(canvas));
+    tex.colorSpace = THREE.SRGBColorSpace;
+    tex.flipY = true;
+    tex.needsUpdate = true;
+    return tex;
+  };
+
+  const decorativeFrameMat = tracker.trackMat(
+    new THREE.MeshStandardMaterial({
+      color: new THREE.Color('#f5d076'),
+      emissive: new THREE.Color('#fbbf24'),
+      emissiveIntensity: 0.24,
+      roughness: 0.18,
+      metalness: 0.85,
+    }),
+  );
+
+  // Place the 2 decorative portraits on the East / Apse wall flanking [Memory 5 Hero]
+  buildGalleryPortraitExhibit(
+    14.66,
+    -0.65,
+    -Math.PI * 0.5,
+    1.0,
+    createDecorativePortraitTexture(0),
+    decorativeFrameMat,
+  );
+  buildGalleryPortraitExhibit(
+    14.66,
+    -6.95,
+    -Math.PI * 0.5,
+    1.0,
+    createDecorativePortraitTexture(1),
+    decorativeFrameMat,
+  );
 
   const applySavedGalleryImage = (frameIndex: number, imageSrc: string, persist = true) => {
     if (frameIndex < 0 || frameIndex >= galleryMemories.length) return;
@@ -2925,6 +3584,28 @@ export function createCastleFloor3Rooms(
       if (salonGroomCelebrationTimer > 0) {
         salonGroomCelebrationTimer = Math.max(0, salonGroomCelebrationTimer - delta);
       }
+
+      // 0. Animate Floor 3 Central Plaza Romantic Crystal Fountain (Suspended Heart, Gentle Ripples & Smooth Water Shimmer)
+      plazaFountainHeartPivot.position.y = 1.46 + Math.sin(elapsedTime * 1.6) * 0.035;
+      plazaFountainHeartPivot.rotation.y = Math.sin(elapsedTime * 0.85) * 0.22;
+
+      for (let r = 0; r < plazaFountainRippleRings.length; r++) {
+        const ripPhase = (elapsedTime * 0.36 + r / plazaFountainRippleRings.length) % 1.0;
+        const ripScale = 0.35 + ripPhase * 0.85;
+        plazaFountainRippleRings[r].scale.setScalar(ripScale);
+      }
+
+      for (let sm = 0; sm < PLAZA_FOUNTAIN_SHIMMER_COUNT; sm++) {
+        const sCycle = (elapsedTime * 0.55 + sm * (1.0 / PLAZA_FOUNTAIN_SHIMMER_COUNT)) % 1.0;
+        const sAng = (sm / PLAZA_FOUNTAIN_SHIMMER_COUNT) * Math.PI * 2;
+        const sRad = 0.62 + sCycle * 0.42;
+        const sY = 1.05 - sCycle * sCycle * 0.66;
+        _dummy.position.set(Math.cos(sAng) * sRad, sY, Math.sin(sAng) * sRad);
+        _dummy.scale.setScalar(0.65 + Math.sin(sCycle * Math.PI) * 0.45);
+        _dummy.updateMatrix();
+        plazaFountainWaterShimmerInst.setMatrixAt(sm, _dummy.matrix);
+      }
+      plazaFountainWaterShimmerInst.instanceMatrix.needsUpdate = true;
 
       // 1. Animate Heart Gallery Floating Crystal Heart & Orbiting Light Motes
       floatingCrystalHeartPivot.position.y =

@@ -2434,20 +2434,6 @@ export function createDreamCastle(): DreamCastleBundle {
     cameraOccluders.push(mesh);
   });
 
-  // Central Royal Starlight Lobby Floor Medallion on Floor 3 (flush on y = 10.25m plaza)
-  const f3LobbyMedallionOuterGeo = tracker.trackGeo(new THREE.CylinderGeometry(3.2, 3.25, 0.024, 36));
-  f3LobbyMedallionOuterGeo.translate(0, 10.262, -1.2);
-  const f3LobbyMedallionRingGeo = tracker.trackGeo(new THREE.TorusGeometry(3.22, 0.032, 8, 36));
-  f3LobbyMedallionRingGeo.rotateX(Math.PI / 2);
-  f3LobbyMedallionRingGeo.translate(0, 10.275, -1.2);
-  const f3LobbyMedallionInnerGeo = tracker.trackGeo(new THREE.CylinderGeometry(1.85, 1.88, 0.028, 32));
-  f3LobbyMedallionInnerGeo.translate(0, 10.265, -1.2);
-  group.add(
-    new THREE.Mesh(f3LobbyMedallionOuterGeo, mats.blushRoseMarble),
-    new THREE.Mesh(f3LobbyMedallionRingGeo, loveRibbonGoldMat),
-    new THREE.Mesh(f3LobbyMedallionInnerGeo, mats.softLavender),
-  );
-
   // Protective Gold Balustrade Rail on Floor 3 at the south drop-off edge of the F2->F3 stairwell (z = 8.42, lx = 5.8..9.2)
   const wellBackRailGeo = tracker.trackGeo(new THREE.BoxGeometry(3.3, 0.92, 0.12));
   const f3WellBackRail = new THREE.Mesh(wellBackRailGeo, loveRibbonGoldMat);
