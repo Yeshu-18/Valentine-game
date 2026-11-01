@@ -400,113 +400,818 @@ export function createCastleFloor3Rooms(
   };
 
   // ==========================================================================
-  // 1. HEART GALLERY (PRIORITY #1 — LARGEST SPACE ON FLOOR 3)
+  // 1. ROYAL HEART GALLERY (REFERENCE-LOCKED RECONSTRUCTION)
   //    East & South-East Grand Wing: lx in [+4.8, +15.0], lz in [-15.0, +7.8] (~232 m²)
+  //    Primary Visual Source of Truth: Supplied Royal Heart Gallery Reference Image
   // ==========================================================================
   const heartGalleryGroup = new THREE.Group();
   heartGalleryGroup.name = 'HeartGalleryWing';
   group.add(heartGalleryGroup);
 
-  // Rose-marble gallery floor inlay covering the East Grand Wing
-  const galleryFloorGeo = tracker.trackGeo(new THREE.BoxGeometry(9.8, 0.02, 22.2));
-  const galleryFloor = new THREE.Mesh(galleryFloorGeo, galleryRoseMarbleMat);
-  galleryFloor.position.set(9.9, y0 + 0.01, -3.5);
+  // --- 1.1 REFERENCE-LOCKED GALLERY MATERIALS ---
+  const galleryPolishedFloorMat = tracker.trackMat(
+    new THREE.MeshPhysicalMaterial({
+      color: new THREE.Color('#fce7f3'),
+      emissive: new THREE.Color('#f472b6'),
+      emissiveIntensity: 0.06,
+      roughness: 0.09,
+      metalness: 0.06,
+      clearcoat: 0.9,
+      clearcoatRoughness: 0.05,
+      reflectivity: 0.85,
+    }),
+  );
+  const galleryBlushWallMat = tracker.trackMat(
+    new THREE.MeshStandardMaterial({
+      color: new THREE.Color('#f7d4e3'),
+      emissive: new THREE.Color('#f472b6'),
+      emissiveIntensity: 0.04,
+      roughness: 0.34,
+      metalness: 0.04,
+    }),
+  );
+  const galleryRoyalGoldMat = tracker.trackMat(
+    new THREE.MeshPhysicalMaterial({
+      color: new THREE.Color('#f5d076'),
+      emissive: new THREE.Color('#d97706'),
+      emissiveIntensity: 0.18,
+      roughness: 0.18,
+      metalness: 0.86,
+      clearcoat: 0.65,
+      clearcoatRoughness: 0.12,
+    }),
+  );
+  const galleryWarmLinearGlowMat = tracker.trackMat(
+    new THREE.MeshBasicMaterial({
+      color: new THREE.Color('#fef08a'),
+    }),
+  );
+  const gallerySheerCurtainMat = tracker.trackMat(
+    new THREE.MeshPhysicalMaterial({
+      color: new THREE.Color('#f9a8d4'),
+      emissive: new THREE.Color('#ec4899'),
+      emissiveIntensity: 0.2,
+      roughness: 0.22,
+      metalness: 0.02,
+      transmission: 0.46,
+      transparent: true,
+      opacity: 0.86,
+      sheen: 0.9,
+      sheenColor: new THREE.Color('#fce7f3'),
+      side: THREE.DoubleSide,
+    }),
+  );
+  const galleryBurgundyBenchMat = tracker.trackMat(
+    new THREE.MeshPhysicalMaterial({
+      color: new THREE.Color('#9f1239'),
+      emissive: new THREE.Color('#4c0519'),
+      emissiveIntensity: 0.12,
+      roughness: 0.42,
+      metalness: 0.04,
+      sheen: 0.85,
+      sheenColor: new THREE.Color('#fda4af'),
+      clearcoat: 0.15,
+    }),
+  );
+  const galleryRoseLeafMat = tracker.trackMat(
+    new THREE.MeshStandardMaterial({
+      color: new THREE.Color('#15803d'),
+      emissive: new THREE.Color('#14532d'),
+      emissiveIntensity: 0.06,
+      roughness: 0.48,
+      metalness: 0.04,
+    }),
+  );
+  const galleryRoseDeepPinkMat = tracker.trackMat(
+    new THREE.MeshStandardMaterial({
+      color: new THREE.Color('#ec4899'),
+      emissive: new THREE.Color('#be185d'),
+      emissiveIntensity: 0.14,
+      roughness: 0.35,
+      metalness: 0.04,
+    }),
+  );
+  const galleryRoseSoftPinkMat = tracker.trackMat(
+    new THREE.MeshStandardMaterial({
+      color: new THREE.Color('#f9a8d4'),
+      emissive: new THREE.Color('#f472b6'),
+      emissiveIntensity: 0.12,
+      roughness: 0.35,
+      metalness: 0.04,
+    }),
+  );
+  const galleryRoseCreamMat = tracker.trackMat(
+    new THREE.MeshStandardMaterial({
+      color: new THREE.Color('#fff1f2'),
+      emissive: new THREE.Color('#fecdd3'),
+      emissiveIntensity: 0.1,
+      roughness: 0.35,
+      metalness: 0.04,
+    }),
+  );
+  const galleryShadowBackingMat = tracker.trackMat(
+    new THREE.MeshStandardMaterial({
+      color: new THREE.Color('#2e101d'),
+      roughness: 0.85,
+      metalness: 0.05,
+    }),
+  );
+
+  // Soft Warm Downward Light Spill Texture for Portrait Picture Lights & Wall Sconces
+  const createWarmWallWashTexture = (isCone: boolean): THREE.CanvasTexture => {
+    const canvas = document.createElement('canvas');
+    canvas.width = 256;
+    canvas.height = 256;
+    const ctx = canvas.getContext('2d');
+    if (ctx) {
+      ctx.clearRect(0, 0, 256, 256);
+      if (isCone) {
+        // Downward warm light cone from the gold picture light hood
+        const grad = ctx.createRadialGradient(128, 22, 4, 128, 128, 130);
+        grad.addColorStop(0, 'rgba(254, 249, 195, 0.92)');
+        grad.addColorStop(0.22, 'rgba(253, 224, 71, 0.56)');
+        grad.addColorStop(0.55, 'rgba(251, 191, 36, 0.22)');
+        grad.addColorStop(1, 'rgba(251, 191, 36, 0.0)');
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.moveTo(128, 10);
+        ctx.lineTo(248, 248);
+        ctx.lineTo(8, 248);
+        ctx.closePath();
+        ctx.fill();
+      } else {
+        // Radial warm wall glow behind crystal sconces
+        const grad = ctx.createRadialGradient(128, 128, 6, 128, 128, 120);
+        grad.addColorStop(0, 'rgba(254, 240, 138, 0.85)');
+        grad.addColorStop(0.38, 'rgba(244, 114, 182, 0.42)');
+        grad.addColorStop(0.72, 'rgba(244, 114, 182, 0.12)');
+        grad.addColorStop(1, 'rgba(244, 114, 182, 0.0)');
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, 0, 256, 256);
+      }
+    }
+    const tex = tracker.trackTex(new THREE.CanvasTexture(canvas));
+    tex.colorSpace = THREE.SRGBColorSpace;
+    tex.needsUpdate = true;
+    return tex;
+  };
+
+  const portraitWashTex = createWarmWallWashTexture(true);
+  const sconceWashTex = createWarmWallWashTexture(false);
+
+  const portraitWallWashMat = tracker.trackMat(
+    new THREE.MeshBasicMaterial({
+      map: portraitWashTex,
+      transparent: true,
+      opacity: 0.78,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+      side: THREE.DoubleSide,
+    }),
+  );
+  const sconceWallWashMat = tracker.trackMat(
+    new THREE.MeshBasicMaterial({
+      map: sconceWashTex,
+      transparent: true,
+      opacity: 0.72,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+      side: THREE.DoubleSide,
+    }),
+  );
+
+  // --- 1.2 POLISHED BLUSH-ROSE MARBLE FLOOR INLAY ---
+  const galleryFloorGeo = tracker.trackGeo(new THREE.BoxGeometry(10.2, 0.022, 23.0));
+  const galleryFloor = new THREE.Mesh(galleryFloorGeo, galleryPolishedFloorMat);
+  galleryFloor.position.set(9.9, y0 + 0.011, -3.5);
   galleryFloor.receiveShadow = true;
   heartGalleryGroup.add(galleryFloor);
 
-  // Heart Gallery West Colonnade Wall segments at lx = +4.8 with two wide grand archways:
-  //   - Primary Grand Crystal Entrance Archway at lz = +1.5 (width 3.6m, lz: -0.3..+3.3)
-  //   - South Promenade Archway at lz = -9.5 (width 3.2m, lz: -11.1..-7.9)
-  const buildGalleryWallSegment = (minZ: number, maxZ: number) => {
-    const len = maxZ - minZ;
-    const midZ = (minZ + maxZ) * 0.5;
-    const wallGeo = tracker.trackGeo(new THREE.BoxGeometry(0.36, 4.2, len));
-    const wall = new THREE.Mesh(wallGeo, mats.pearlWhite);
-    wall.position.set(4.8, y0 + 2.1, midZ);
+  // --- 1.3 GALLERY PERIMETER WALLS WITH CORNICE COVE LIGHT, DADO RAIL & STEPPED GOLD BASEBOARD ---
+  // West Colonnade Wall at lx = +4.8 has two grand portals matching CastleNavigation:
+  //   - Main Grand Entrance Archway: lz in [-0.3, +3.3] (center lz = +1.5, width 3.6m)
+  //   - Secondary Ornate Archway: lz in [-11.1, -7.9] (center lz = -9.5, width 3.2m)
+  const buildReferenceGalleryWall = (
+    cx: number,
+    cz: number,
+    len: number,
+    alongZ: boolean,
+    height = 4.35,
+  ) => {
+    const thickness = 0.34;
+    const w = alongZ ? thickness : len;
+    const d = alongZ ? len : thickness;
+
+    const wallGeo = tracker.trackGeo(new THREE.BoxGeometry(w, height, d));
+    const wall = new THREE.Mesh(wallGeo, galleryBlushWallMat);
+    wall.position.set(cx, y0 + height * 0.5, cz);
     wall.receiveShadow = true;
-    const wainscotGeo = tracker.trackGeo(new THREE.BoxGeometry(0.4, 0.14, len + 0.04));
-    const wainscot = new THREE.Mesh(wainscotGeo, mats.champagneGold);
-    wainscot.position.set(4.8, y0 + 0.07, midZ);
-    const corniceGeo = tracker.trackGeo(new THREE.BoxGeometry(0.42, 0.16, len + 0.04));
-    const cornice = new THREE.Mesh(corniceGeo, mats.champagneGold);
-    cornice.position.set(4.8, y0 + 4.18, midZ);
-    heartGalleryGroup.add(wall, wainscot, cornice);
+
+    // Stepped Champagne-Gold Baseboard Plinth + Continuous Lower Linear Light Strip + Gold Dado Rail
+    const baseOuterGeo = tracker.trackGeo(
+      new THREE.BoxGeometry(alongZ ? thickness + 0.09 : len + 0.04, 0.16, alongZ ? len + 0.04 : thickness + 0.09),
+    );
+    const baseOuter = new THREE.Mesh(baseOuterGeo, galleryRoyalGoldMat);
+    baseOuter.position.set(cx, y0 + 0.08, cz);
+
+    const baseGlowGeo = tracker.trackGeo(
+      new THREE.BoxGeometry(alongZ ? thickness + 0.1 : len + 0.02, 0.028, alongZ ? len + 0.02 : thickness + 0.1),
+    );
+    const baseGlow = new THREE.Mesh(baseGlowGeo, galleryWarmLinearGlowMat);
+    baseGlow.position.set(cx, y0 + 0.18, cz);
+
+    const dadoRailGeo = tracker.trackGeo(
+      new THREE.BoxGeometry(alongZ ? thickness + 0.07 : len + 0.02, 0.055, alongZ ? len + 0.02 : thickness + 0.07),
+    );
+    const dadoRail = new THREE.Mesh(dadoRailGeo, galleryRoyalGoldMat);
+    dadoRail.position.set(cx, y0 + 0.56, cz);
+
+    const dadoGlowGeo = tracker.trackGeo(
+      new THREE.BoxGeometry(alongZ ? thickness + 0.075 : len + 0.02, 0.022, alongZ ? len + 0.02 : thickness + 0.075),
+    );
+    const dadoGlow = new THREE.Mesh(dadoGlowGeo, galleryWarmLinearGlowMat);
+    dadoGlow.position.set(cx, y0 + 0.52, cz);
+
+    // Upper Stepped Champagne-Gold Cornice + Continuous Warm Cove Light Strip
+    const corniceGeo = tracker.trackGeo(
+      new THREE.BoxGeometry(alongZ ? thickness + 0.12 : len + 0.06, 0.18, alongZ ? len + 0.06 : thickness + 0.12),
+    );
+    const cornice = new THREE.Mesh(corniceGeo, galleryRoyalGoldMat);
+    cornice.position.set(cx, y0 + height - 0.06, cz);
+
+    const coveGlowGeo = tracker.trackGeo(
+      new THREE.BoxGeometry(alongZ ? thickness + 0.09 : len + 0.02, 0.035, alongZ ? len + 0.02 : thickness + 0.09),
+    );
+    const coveGlow = new THREE.Mesh(coveGlowGeo, galleryWarmLinearGlowMat);
+    coveGlow.position.set(cx, y0 + height - 0.17, cz);
+
+    heartGalleryGroup.add(wall, baseOuter, baseGlow, dadoRail, dadoGlow, cornice, coveGlow);
     partitionMeshes.push(wall);
   };
-  buildGalleryWallSegment(-15.0, -11.1);
-  buildGalleryWallSegment(-7.9, -0.3);
-  buildGalleryWallSegment(3.3, 7.8);
 
-  // North Gallery Colonnade Wall at lz = +7.8 (lx: 4.8..15.0, with 2.8m open portal at lx: 10.2..13.0)
-  [
-    { x1: 4.8, x2: 10.2 },
-    { x1: 13.0, x2: 15.0 },
-  ].forEach(({ x1, x2 }) => {
-    const w = x2 - x1;
-    const mx = (x1 + x2) * 0.5;
-    const nWallGeo = tracker.trackGeo(new THREE.BoxGeometry(w, 4.2, 0.36));
-    const nWall = new THREE.Mesh(nWallGeo, mats.pearlWhite);
-    nWall.position.set(mx, y0 + 2.1, 7.8);
-    const nTrimGeo = tracker.trackGeo(new THREE.BoxGeometry(w + 0.04, 0.14, 0.4));
-    const nTrim = new THREE.Mesh(nTrimGeo, mats.champagneGold);
-    nTrim.position.set(mx, y0 + 0.07, 7.8);
-    heartGalleryGroup.add(nWall, nTrim);
-    partitionMeshes.push(nWall);
+  // West Gallery Wall segments (lx = +4.8):
+  // Left of Main Archway (lz: +3.3 .. +8.1), Between Main & Secondary Archways (lz: -7.9 .. -0.3), South of Secondary Archway (lz: -15.0 .. -11.1)
+  buildReferenceGalleryWall(4.8, (3.3 + 8.1) * 0.5, 8.1 - 3.3, true);
+  buildReferenceGalleryWall(4.8, (-7.9 + -0.3) * 0.5, -0.3 - -7.9, true);
+  buildReferenceGalleryWall(4.8, (-15.0 + -11.1) * 0.5, -11.1 - -15.0, true);
+
+  // North Gallery Wall segments at lz = +7.8 (lx: 4.8..10.2 and 13.0..15.0, preserving 2.8m North Portal at lx: 10.2..13.0)
+  buildReferenceGalleryWall((4.8 + 10.2) * 0.5, 7.8, 10.2 - 4.8, false);
+  buildReferenceGalleryWall((13.0 + 15.0) * 0.5, 7.8, 15.0 - 13.0, false);
+
+  // Interior East Gallery Wall Trim along lx = +14.85 (lz: -14.8 .. +7.6) so East Apse matches the West Wall's luxury trim
+  buildReferenceGalleryWall(14.85, -3.6, 22.4, true);
+
+  // --- 1.4 REUSABLE CLASSICAL FLUTED COLUMN BUILDER (Multi-Tiered Gold Base, 16-Flute Pearl Shaft, Corinthian Gold Capital) ---
+  const flColPlinthGeo = tracker.trackGeo(new THREE.BoxGeometry(0.74, 0.14, 0.74));
+  const flColBaseTorus1Geo = tracker.trackGeo(new THREE.TorusGeometry(0.31, 0.055, 10, 24));
+  flColBaseTorus1Geo.rotateX(Math.PI / 2);
+  const flColBaseTorus2Geo = tracker.trackGeo(new THREE.TorusGeometry(0.27, 0.042, 10, 24));
+  flColBaseTorus2Geo.rotateX(Math.PI / 2);
+  const flColShaftGeo = tracker.trackGeo(new THREE.CylinderGeometry(0.225, 0.245, 3.32, 24));
+  const flColFluteRibGeo = tracker.trackGeo(new THREE.CylinderGeometry(0.022, 0.025, 3.22, 6));
+  const flColCapBellGeo = tracker.trackGeo(new THREE.CylinderGeometry(0.33, 0.23, 0.34, 20));
+  const flColVoluteGeo = tracker.trackGeo(new THREE.TorusGeometry(0.068, 0.022, 8, 14, Math.PI * 1.35));
+  const flColAbacusGeo = tracker.trackGeo(new THREE.BoxGeometry(0.76, 0.12, 0.76));
+
+  const buildClassicalFlutedColumn = (scale = 1.0): THREE.Group => {
+    const colGrp = new THREE.Group();
+    colGrp.scale.setScalar(scale);
+
+    // Multi-stepped gold base
+    const plinth = new THREE.Mesh(flColPlinthGeo, galleryRoyalGoldMat);
+    plinth.position.set(0, 0.07, 0);
+    const torus1 = new THREE.Mesh(flColBaseTorus1Geo, galleryRoyalGoldMat);
+    torus1.position.set(0, 0.18, 0);
+    const torus2 = new THREE.Mesh(flColBaseTorus2Geo, galleryRoyalGoldMat);
+    torus2.position.set(0, 0.27, 0);
+
+    // Fluted pearl-blush shaft (core cylinder + 16 carved vertical flute ridges)
+    const shaft = new THREE.Mesh(flColShaftGeo, mats.pearlWhite);
+    shaft.position.set(0, 1.96, 0);
+    colGrp.add(plinth, torus1, torus2, shaft);
+
+    for (let f = 0; f < 16; f++) {
+      const ang = (f / 16) * Math.PI * 2;
+      const rib = new THREE.Mesh(flColFluteRibGeo, galleryBlushWallMat);
+      rib.position.set(Math.cos(ang) * 0.228, 1.96, Math.sin(ang) * 0.228);
+      colGrp.add(rib);
+    }
+
+    // Ornate Corinthian/classical gold capital
+    const neckRing = new THREE.Mesh(flColBaseTorus2Geo, galleryRoyalGoldMat);
+    neckRing.position.set(0, 3.62, 0);
+    const capBell = new THREE.Mesh(flColCapBellGeo, galleryRoyalGoldMat);
+    capBell.position.set(0, 3.82, 0);
+    const abacus = new THREE.Mesh(flColAbacusGeo, galleryRoyalGoldMat);
+    abacus.position.set(0, 4.05, 0);
+    colGrp.add(neckRing, capBell, abacus);
+
+    for (let v = 0; v < 8; v++) {
+      const ang = (v / 8) * Math.PI * 2;
+      const vol = new THREE.Mesh(flColVoluteGeo, galleryRoyalGoldMat);
+      vol.position.set(Math.cos(ang) * 0.28, 3.88, Math.sin(ang) * 0.28);
+      vol.rotation.y = -ang;
+      colGrp.add(vol);
+    }
+
+    return colGrp;
+  };
+
+  // --- 1.5 MAIN GRAND ENTRANCE ARCHWAY (lx = +4.8, lz = +1.5, width = 3.6m) ---
+  // Reconstructs every detail from the reference image:
+  // - Fluted classical columns on stepped gold bases with ornate gold capitals
+  // - 2 side glowing faceted pink crystal hearts atop the left & right column capitals
+  // - Central large faceted glowing pink crystal heart in a double gold heart bezel at the arch apex
+  // - Gold baroque scrollwork volutes flanking the central heart along the arch extrados
+  // - Warm stud lights along the gold arch ring
+  // - 9 hanging vertical crystal bead garlands with pink heart drops inside the upper arch
+  // - Gathered sheer translucent blush-pink curtains tied back on both sides with warm fairy sparkles
+  const mainArchGroup = new THREE.Group();
+  mainArchGroup.position.set(4.8, y0, 1.5);
+  mainArchGroup.rotation.y = Math.PI / 2; // Local +Z points East (+X) into the Heart Gallery
+  heartGalleryGroup.add(mainArchGroup);
+
+  const mainArchHalfW = 1.82;
+  const sideCrystalHeartGeo = buildExtrudedHeartGeometry(tracker, 0.46, 0.16, 0.04);
+  const centerApexHeartGeo = buildExtrudedHeartGeometry(tracker, 0.82, 0.22, 0.055);
+  const centerOuterGoldHeartGeo = buildExtrudedHeartGeometry(tracker, 1.05, 0.14, 0.045);
+  const centerInnerGoldHeartGeo = buildExtrudedHeartGeometry(tracker, 0.92, 0.18, 0.04);
+
+  [-mainArchHalfW, mainArchHalfW].forEach((px) => {
+    const col = buildClassicalFlutedColumn(1.0);
+    col.position.set(px, 0, 0);
+    mainArchGroup.add(col);
+
+    // Glowing Faceted Pink Crystal Heart mounted atop each column capital
+    const sideHeartPedestal = new THREE.Mesh(
+      tracker.trackGeo(new THREE.CylinderGeometry(0.16, 0.22, 0.1, 16)),
+      galleryRoyalGoldMat,
+    );
+    sideHeartPedestal.position.set(px, 4.16, 0);
+    const sideHeart = new THREE.Mesh(sideCrystalHeartGeo, floatingHeartCrystalMat);
+    sideHeart.position.set(px, 4.42, 0.04);
+    mainArchGroup.add(sideHeartPedestal, sideHeart);
   });
 
-  // Grand Entrance Portals into the Heart Gallery
-  buildPalacePortalArch(4.8, 1.5, 3.6, 3.85, Math.PI / 2, floatingHeartCrystalMat);
-  buildPalacePortalArch(4.8, -9.5, 3.2, 3.65, Math.PI / 2, crystalArchMat);
-  buildPalacePortalArch(11.6, 7.8, 2.8, 3.65, 0, crystalArchMat);
+  // Multi-layered Champagne-Gold Arch Ring spanning between the two column capitals
+  const archSpanR = mainArchHalfW;
+  const archCenterY = 3.28;
+  const mainArchOuterRingGeo = tracker.trackGeo(
+    new THREE.TorusGeometry(archSpanR, 0.13, 14, 40, Math.PI),
+  );
+  const mainArchInnerRingGeo = tracker.trackGeo(
+    new THREE.TorusGeometry(archSpanR - 0.14, 0.065, 12, 36, Math.PI),
+  );
+  const mainArchOuterRing = new THREE.Mesh(mainArchOuterRingGeo, galleryRoyalGoldMat);
+  mainArchOuterRing.position.set(0, archCenterY, 0);
+  const mainArchInnerRing = new THREE.Mesh(mainArchInnerRingGeo, galleryRoyalGoldMat);
+  mainArchInnerRing.position.set(0, archCenterY, 0);
+  mainArchGroup.add(mainArchOuterRing, mainArchInnerRing);
 
-  // --- CENTRAL MEMORY COURT & FLOATING CRYSTAL HEART CENTERPIECE (lx = 9.6, lz = -3.5) ---
-  const courtCenterX = 9.6;
-  const courtCenterZ = -3.5;
+  // Warm recessed stud lights along the gold arch curve
+  const archStudGeo = tracker.trackGeo(new THREE.SphereGeometry(0.036, 10, 10));
+  for (let s = 1; s < 14; s++) {
+    const ang = (s / 14) * Math.PI;
+    const sx = Math.cos(ang) * (archSpanR - 0.06);
+    const sy = archCenterY + Math.sin(ang) * (archSpanR - 0.06);
+    const studFront = new THREE.Mesh(archStudGeo, galleryWarmLinearGlowMat);
+    studFront.position.set(sx, sy, 0.11);
+    const studBack = new THREE.Mesh(archStudGeo, galleryWarmLinearGlowMat);
+    studBack.position.set(sx, sy, -0.11);
+    mainArchGroup.add(studFront, studBack);
+  }
 
-  const courtFloorRingOuterGeo = tracker.trackGeo(new THREE.CylinderGeometry(3.5, 3.55, 0.028, 40));
-  const courtFloorRingOuter = new THREE.Mesh(courtFloorRingOuterGeo, mats.pearlWhite);
-  courtFloorRingOuter.position.set(courtCenterX, y0 + 0.018, courtCenterZ);
-  const courtGoldRingGeo = tracker.trackGeo(new THREE.TorusGeometry(3.52, 0.036, 10, 48));
-  courtGoldRingGeo.rotateX(Math.PI / 2);
-  const courtGoldRing = new THREE.Mesh(courtGoldRingGeo, mats.champagneGold);
-  courtGoldRing.position.set(courtCenterX, y0 + 0.034, courtCenterZ);
-  const courtInnerRoseGeo = tracker.trackGeo(new THREE.CylinderGeometry(2.15, 2.2, 0.034, 36));
-  const courtInnerRose = new THREE.Mesh(courtInnerRoseGeo, mats.blushRoseMarble);
-  courtInnerRose.position.set(courtCenterX, y0 + 0.022, courtCenterZ);
-  heartGalleryGroup.add(courtFloorRingOuter, courtGoldRing, courtInnerRose);
+  // Central Apex Faceted Glowing Pink Crystal Heart inside Double Gold Heart Bezel
+  const apexY = archCenterY + archSpanR + 0.02;
+  const apexOuterBezel = new THREE.Mesh(centerOuterGoldHeartGeo, galleryRoyalGoldMat);
+  apexOuterBezel.position.set(0, apexY, 0.08);
+  const apexInnerBezel = new THREE.Mesh(centerInnerGoldHeartGeo, galleryWarmLinearGlowMat);
+  apexInnerBezel.position.set(0, apexY, 0.1);
+  const apexCrystalHeart = new THREE.Mesh(centerApexHeartGeo, floatingHeartCrystalMat);
+  apexCrystalHeart.position.set(0, apexY, 0.15);
+  mainArchGroup.add(apexOuterBezel, apexInnerBezel, apexCrystalHeart);
 
-  // Circular Pearl & Champagne-Gold Pedestal beneath the Floating Crystal Heart
-  const heartPedestalBaseGeo = tracker.trackGeo(new THREE.CylinderGeometry(0.92, 1.08, 0.36, 28));
-  heartPedestalBaseGeo.translate(0, 0.18, 0);
-  const heartPedestalColGeo = tracker.trackGeo(new THREE.CylinderGeometry(0.62, 0.74, 0.72, 24));
-  heartPedestalColGeo.translate(0, 0.68, 0);
-  const heartPedestalCrownGeo = tracker.trackGeo(new THREE.TorusGeometry(0.76, 0.045, 10, 32));
-  heartPedestalCrownGeo.rotateX(Math.PI / 2);
-  heartPedestalCrownGeo.translate(0, 1.04, 0);
+  // Baroque Gold Scrollwork Volutes flanking the Central Apex Heart along the top of the arch
+  const scrollMajorGeo = tracker.trackGeo(
+    new THREE.TorusGeometry(0.32, 0.038, 10, 24, Math.PI * 1.45),
+  );
+  const scrollMinorGeo = tracker.trackGeo(
+    new THREE.TorusGeometry(0.19, 0.032, 10, 20, Math.PI * 1.6),
+  );
+  [-1, 1].forEach((side) => {
+    const majorScroll = new THREE.Mesh(scrollMajorGeo, galleryRoyalGoldMat);
+    majorScroll.position.set(side * 0.78, apexY - 0.18, 0.1);
+    majorScroll.rotation.z = side * -0.45;
+    const minorScroll = new THREE.Mesh(scrollMinorGeo, galleryRoyalGoldMat);
+    minorScroll.position.set(side * 1.22, apexY - 0.36, 0.1);
+    minorScroll.rotation.z = side * 0.85;
+    mainArchGroup.add(majorScroll, minorScroll);
+  });
 
+  // Hanging Vertical Crystal Bead Garlands & Glowing Pink Heart Drops inside the Main Archway
+  const crystalBeadGeo = tracker.trackGeo(new THREE.OctahedronGeometry(0.034, 0));
+  const garlandDropHeartGeo = buildExtrudedHeartGeometry(tracker, 0.16, 0.08, 0.02);
+  const numStrands = 9;
+  for (let st = 0; st < numStrands; st++) {
+    const u = (st - (numStrands - 1) * 0.5) / ((numStrands - 1) * 0.5); // -1 .. +1
+    const gx = u * 1.18;
+    const archTopAtX = archCenterY + Math.sqrt(Math.max(0.1, (archSpanR - 0.18) ** 2 - gx * gx));
+    // Parabolic / chandelier-style drop length
+    const strandLen = 0.52 + (1.0 - Math.abs(u)) * 0.42 + (st % 2 === 0 ? 0.14 : 0);
+    const beadCount = Math.floor(strandLen / 0.12);
+    for (let b = 0; b < beadCount; b++) {
+      const by = archTopAtX - 0.08 - b * 0.12;
+      const bead = new THREE.Mesh(
+        crystalBeadGeo,
+        b % 2 === 0 ? crystalArchMat : galleryWarmLinearGlowMat,
+      );
+      bead.position.set(gx, by, 0);
+      mainArchGroup.add(bead);
+    }
+    const bottomHeart = new THREE.Mesh(garlandDropHeartGeo, floatingHeartCrystalMat);
+    bottomHeart.position.set(gx, archTopAtX - 0.1 - beadCount * 0.12, 0);
+    mainArchGroup.add(bottomHeart);
+  }
+
+  // Draped Translucent Blush-Pink Curtains on both sides of an archway
+  const buildArchwaySheerDrapes = (parentArch: THREE.Group, halfSpan: number, archH: number) => {
+    const tiebackRingGeo = tracker.trackGeo(new THREE.TorusGeometry(0.16, 0.028, 8, 18));
+    tiebackRingGeo.rotateX(Math.PI / 2);
+    const lowerSkirtFoldGeo = tracker.trackGeo(new THREE.CylinderGeometry(0.055, 0.085, 1.65, 10));
+
+    [-1, 1].forEach((side) => {
+      const drapeSideGrp = new THREE.Group();
+      const anchorX = side * (halfSpan - 0.24);
+
+      // 5 pleated sheer folds sweeping from upper arch down to the column tieback at y = 1.65m
+      for (let f = 0; f < 5; f++) {
+        const startX = side * (0.28 + f * 0.26);
+        const startY = archH + Math.sqrt(Math.max(0.05, (halfSpan - 0.15) ** 2 - startX * startX)) - 0.08;
+        const midX = side * (halfSpan - 0.42 + f * 0.04);
+        const midY = 2.45 + f * 0.08;
+        const endX = anchorX + (f - 2) * 0.03;
+        const endY = 1.65;
+        const zOff = (f - 2) * 0.028;
+
+        const curve = new THREE.QuadraticBezierCurve3(
+          new THREE.Vector3(startX, startY, zOff),
+          new THREE.Vector3(midX, midY, zOff + 0.04),
+          new THREE.Vector3(endX, endY, zOff),
+        );
+        const foldGeo = tracker.trackGeo(
+          new THREE.TubeGeometry(curve, 16, 0.058 + (f % 2) * 0.015, 8, false),
+        );
+        const foldMesh = new THREE.Mesh(foldGeo, gallerySheerCurtainMat);
+        drapeSideGrp.add(foldMesh);
+
+        // Lower vertical pleated skirt from tieback down to floor
+        const lowerFold = new THREE.Mesh(lowerSkirtFoldGeo, gallerySheerCurtainMat);
+        lowerFold.position.set(endX, 0.825, zOff);
+        drapeSideGrp.add(lowerFold);
+      }
+
+      // Gold tieback ring + warm fairy-light sparkles along the curtain edge
+      const tieRing = new THREE.Mesh(tiebackRingGeo, galleryRoyalGoldMat);
+      tieRing.position.set(anchorX, 1.65, 0);
+      drapeSideGrp.add(tieRing);
+
+      for (let sp = 0; sp < 6; sp++) {
+        const spark = new THREE.Mesh(archStudGeo, galleryWarmLinearGlowMat);
+        spark.scale.setScalar(0.65);
+        spark.position.set(
+          side * (halfSpan - 0.36 - sp * 0.12),
+          1.4 + sp * 0.42,
+          0.09,
+        );
+        drapeSideGrp.add(spark);
+      }
+
+      parentArch.add(drapeSideGrp);
+    });
+  };
+
+  buildArchwaySheerDrapes(mainArchGroup, mainArchHalfW, archCenterY);
+
+  // --- 1.6 SECONDARY ORNATE ARCHWAY (Far Right in Reference: lx = +4.8, lz = -9.5, width = 3.2m) ---
+  // Flanked by fluted columns with gold capitals and crowned by 3 glowing faceted pink crystal hearts
+  const secondaryArchGroup = new THREE.Group();
+  secondaryArchGroup.position.set(4.8, y0, -9.5);
+  secondaryArchGroup.rotation.y = Math.PI / 2;
+  heartGalleryGroup.add(secondaryArchGroup);
+
+  const secArchHalfW = 1.6;
+  [-secArchHalfW, secArchHalfW].forEach((px) => {
+    const col = buildClassicalFlutedColumn(0.96);
+    col.position.set(px, 0, 0);
+    secondaryArchGroup.add(col);
+  });
+
+  const secArchRingGeo = tracker.trackGeo(
+    new THREE.TorusGeometry(secArchHalfW, 0.11, 12, 32, Math.PI),
+  );
+  const secArchRing = new THREE.Mesh(secArchRingGeo, galleryRoyalGoldMat);
+  secArchRing.position.set(0, 3.15, 0);
+  const secLintelGeo = tracker.trackGeo(new THREE.BoxGeometry(secArchHalfW * 2 + 0.72, 0.22, 0.48));
+  const secLintel = new THREE.Mesh(secLintelGeo, galleryRoyalGoldMat);
+  secLintel.position.set(0, 4.02, 0);
+  secondaryArchGroup.add(secArchRing, secLintel);
+
+  // 3 Glowing Pink Crystal Hearts across the top of the Secondary Archway (Left Column, Center Crown, Right Column)
+  [-secArchHalfW, 0, secArchHalfW].forEach((hx, hIdx) => {
+    const hy = hIdx === 1 ? 4.38 : 4.44;
+    const hMesh = new THREE.Mesh(sideCrystalHeartGeo, floatingHeartCrystalMat);
+    hMesh.position.set(hx, hy, 0.04);
+    secondaryArchGroup.add(hMesh);
+  });
+
+  buildArchwaySheerDrapes(secondaryArchGroup, secArchHalfW, 3.15);
+
+  // North Gallery Portal Archway at (lx = 11.6, lz = 7.8, width = 2.8m)
+  buildPalacePortalArch(11.6, 7.8, 2.8, 3.85, 0, floatingHeartCrystalMat);
+
+  // --- 1.7 THROUGH-ARCHWAY PROMENADE COLONNADE VISTA (Visible through the Main Entrance Archway) ---
+  // Places classical fluted columns with gold capitals and floating crystal hearts along the outer
+  // promenade edge (lx = +2.35, outside the 3.6m entrance corridor) so looking through the Main Archway
+  // matches the deep multi-column background vista in the reference image.
+  const vistaColumnCoords = [
+    { lx: 2.35, lz: 2.85 },
+    { lx: 1.55, lz: 1.15 },
+    { lx: 2.35, lz: -0.55 },
+  ];
+  vistaColumnCoords.forEach(({ lx, lz }) => {
+    const vCol = buildClassicalFlutedColumn(0.95);
+    vCol.position.set(lx, y0, lz);
+    heartGalleryGroup.add(vCol);
+    registerLocalCollider(lx, lz, 0.34, 3.8);
+  });
+
+  // Floating glowing pink crystal hearts suspended in the upper atrium visible through the Main Archway
+  [
+    { lx: 2.8, ly: 3.45, lz: 2.35, s: 0.55 },
+    { lx: 2.4, ly: 3.25, lz: 1.45, s: 0.65 },
+    { lx: 2.8, ly: 3.4, lz: 0.55, s: 0.55 },
+    { lx: 1.8, ly: 2.15, lz: 1.55, s: 0.72 },
+  ].forEach(({ lx, ly, lz, s }) => {
+    const vh = new THREE.Mesh(sideCrystalHeartGeo, floatingHeartCrystalMat);
+    vh.position.set(lx, y0 + ly, lz);
+    vh.rotation.y = Math.PI / 2;
+    vh.scale.setScalar(s);
+    heartGalleryGroup.add(vh);
+  });
+
+  // --- 1.8 FACETED PINK CRYSTAL WALL SCONCES (6 on West Wall + 2 on East Apse) ---
+  const sconceBracketGeo = tracker.trackGeo(new THREE.BoxGeometry(0.12, 0.28, 0.14));
+  const sconceLanternTopGeo = tracker.trackGeo(new THREE.ConeGeometry(0.16, 0.26, 6));
+  const sconceLanternBotGeo = tracker.trackGeo(new THREE.ConeGeometry(0.16, 0.28, 6));
+  sconceLanternBotGeo.rotateX(Math.PI);
+  const sconceFinialGeo = tracker.trackGeo(new THREE.ConeGeometry(0.055, 0.18, 8));
+  sconceFinialGeo.rotateX(Math.PI);
+  const sconceBulbGeo = tracker.trackGeo(new THREE.SphereGeometry(0.065, 10, 10));
+  const sconceWashPlaneGeo = tracker.trackGeo(new THREE.PlaneGeometry(0.95, 1.15));
+
+  const buildCrystalWallSconce = (lx: number, lz: number, rotY: number) => {
+    const scGrp = new THREE.Group();
+    scGrp.position.set(lx, y0 + 2.24, lz);
+    scGrp.rotation.y = rotY;
+
+    // Soft radial warm glow on the wall behind the sconce
+    const washPlane = new THREE.Mesh(sconceWashPlaneGeo, sconceWallWashMat);
+    washPlane.position.set(0, 0.04, 0.02);
+    scGrp.add(washPlane);
+
+    const wallPlate = new THREE.Mesh(sconceBracketGeo, galleryRoyalGoldMat);
+    wallPlate.position.set(0, 0, 0.05);
+
+    const arm = new THREE.Mesh(
+      tracker.trackGeo(new THREE.BoxGeometry(0.05, 0.05, 0.18)),
+      galleryRoyalGoldMat,
+    );
+    arm.position.set(0, -0.06, 0.14);
+
+    // Faceted diamond-lantern pink crystal shade + inner warm bulb + gold crown & bottom finial
+    const lanternTop = new THREE.Mesh(sconceLanternTopGeo, floatingHeartCrystalMat);
+    lanternTop.position.set(0, 0.14, 0.22);
+    const lanternBot = new THREE.Mesh(sconceLanternBotGeo, floatingHeartCrystalMat);
+    lanternBot.position.set(0, -0.13, 0.22);
+    const innerBulb = new THREE.Mesh(sconceBulbGeo, galleryWarmLinearGlowMat);
+    innerBulb.position.set(0, 0.01, 0.22);
+
+    const goldRing = new THREE.Mesh(
+      tracker.trackGeo(new THREE.TorusGeometry(0.16, 0.02, 8, 6)),
+      galleryRoyalGoldMat,
+    );
+    goldRing.rotation.x = Math.PI / 2;
+    goldRing.position.set(0, 0.01, 0.22);
+
+    const botFinial = new THREE.Mesh(sconceFinialGeo, galleryRoyalGoldMat);
+    botFinial.position.set(0, -0.34, 0.22);
+
+    scGrp.add(wallPlate, arm, lanternTop, lanternBot, innerBulb, goldRing, botFinial);
+    heartGalleryGroup.add(scGrp);
+  };
+
+  // West Wall Sconces (3 flanking Left Portrait Pair, 3 flanking Right Portrait Pair — exact match with reference!)
+  [7.68, 5.65, 3.62, -1.05, -3.85, -6.72].forEach((sz) => {
+    buildCrystalWallSconce(4.98, sz, Math.PI / 2);
+  });
+  // East Apse Sconces flanking the 5th Memory Exhibit
+  [-5.15, -2.45].forEach((sz) => {
+    buildCrystalWallSconce(14.66, sz, -Math.PI / 2);
+  });
+
+  // --- 1.9 MARBLE & GOLD FLORAL PEDESTALS WITH HEART EMBLEMS & GOLD ROSE URNS ---
+  const pedBaseGeo = tracker.trackGeo(new THREE.BoxGeometry(0.74, 0.12, 0.74));
+  const pedStepGeo = tracker.trackGeo(new THREE.BoxGeometry(0.66, 0.08, 0.66));
+  const pedBodyGeo = tracker.trackGeo(new THREE.BoxGeometry(0.58, 0.68, 0.58));
+  const pedCapGeo = tracker.trackGeo(new THREE.BoxGeometry(0.7, 0.09, 0.7));
+  const pedGlowGeo = tracker.trackGeo(new THREE.BoxGeometry(0.76, 0.026, 0.76));
+  const pedHeartBezelGeo = buildExtrudedHeartGeometry(tracker, 0.28, 0.06, 0.02);
+  const pedHeartGemGeo = buildExtrudedHeartGeometry(tracker, 0.22, 0.08, 0.02);
+
+  const urnFootGeo = tracker.trackGeo(new THREE.CylinderGeometry(0.11, 0.17, 0.12, 16));
+  const urnBowlGeo = tracker.trackGeo(new THREE.SphereGeometry(0.22, 18, 14));
+  const urnRimGeo = tracker.trackGeo(new THREE.TorusGeometry(0.19, 0.026, 8, 20));
+  urnRimGeo.rotateX(Math.PI / 2);
+  const roseBloomGeo = tracker.trackGeo(new THREE.DodecahedronGeometry(0.075, 1));
+  const roseLeafGeo = tracker.trackGeo(new THREE.ConeGeometry(0.055, 0.14, 5));
+
+  const buildFloralHeartPedestal = (lx: number, lz: number, rotY: number) => {
+    const pedGrp = new THREE.Group();
+    pedGrp.position.set(lx, y0, lz);
+    pedGrp.rotation.y = rotY;
+
+    // Stepped Gold Base + Warm Floor Edge Glow + Pearl-Blush Body + Stepped Gold Cap
+    const floorGlow = new THREE.Mesh(pedGlowGeo, galleryWarmLinearGlowMat);
+    floorGlow.position.set(0, 0.015, 0);
+    const base = new THREE.Mesh(pedBaseGeo, galleryRoyalGoldMat);
+    base.position.set(0, 0.07, 0);
+    const step = new THREE.Mesh(pedStepGeo, galleryRoyalGoldMat);
+    step.position.set(0, 0.16, 0);
+    const body = new THREE.Mesh(pedBodyGeo, mats.pearlWhite);
+    body.position.set(0, 0.54, 0);
+    const cap = new THREE.Mesh(pedCapGeo, galleryRoyalGoldMat);
+    cap.position.set(0, 0.92, 0);
+
+    // Front Recessed Glowing Pink Heart Emblem in Gold Bezel
+    const heartBezel = new THREE.Mesh(pedHeartBezelGeo, galleryRoyalGoldMat);
+    heartBezel.position.set(0, 0.54, 0.295);
+    const heartGem = new THREE.Mesh(pedHeartGemGeo, floatingHeartCrystalMat);
+    heartGem.position.set(0, 0.54, 0.315);
+
+    // Sculpted Gold Urn atop the Pedestal
+    const urnFoot = new THREE.Mesh(urnFootGeo, galleryRoyalGoldMat);
+    urnFoot.position.set(0, 1.02, 0);
+    const urnBowl = new THREE.Mesh(urnBowlGeo, galleryRoyalGoldMat);
+    urnBowl.position.set(0, 1.19, 0);
+    urnBowl.scale.set(1.0, 0.88, 1.0);
+    const urnRim = new THREE.Mesh(urnRimGeo, galleryRoyalGoldMat);
+    urnRim.position.set(0, 1.32, 0);
+
+    pedGrp.add(floorGlow, base, step, body, cap, heartBezel, heartGem, urnFoot, urnBowl, urnRim);
+
+    // Lush Rounded Bouquet of Pink, Blush & Cream Roses with Green Foliage
+    const roseMats = [galleryRoseDeepPinkMat, galleryRoseSoftPinkMat, galleryRoseCreamMat];
+    for (let r = 0; r < 19; r++) {
+      const ring = r === 0 ? 0 : r < 7 ? 1 : 2;
+      const countInRing = ring === 1 ? 6 : 12;
+      const idxInRing = ring === 1 ? r - 1 : r - 7;
+      const ang = (idxInRing / countInRing) * Math.PI * 2 + ring * 0.4;
+      const rad = ring === 0 ? 0 : ring === 1 ? 0.13 : 0.25;
+      const ry = ring === 0 ? 1.56 : ring === 1 ? 1.51 : 1.41;
+
+      const rose = new THREE.Mesh(roseBloomGeo, roseMats[r % 3]);
+      rose.position.set(Math.cos(ang) * rad, ry, Math.sin(ang) * rad);
+      rose.rotation.set(r * 0.5, ang, r * 0.3);
+      pedGrp.add(rose);
+
+      if (ring === 2 && r % 2 === 0) {
+        const leaf = new THREE.Mesh(roseLeafGeo, galleryRoseLeafMat);
+        leaf.position.set(Math.cos(ang) * 0.29, 1.35, Math.sin(ang) * 0.29);
+        leaf.rotation.z = -Math.cos(ang) * 1.1;
+        leaf.rotation.x = Math.sin(ang) * 1.1;
+        pedGrp.add(leaf);
+      }
+    }
+
+    heartGalleryGroup.add(pedGrp);
+    registerLocalCollider(lx, lz, 0.42, 1.6);
+  };
+
+  // 3 West-Wall Floral Pedestals at exact reference positions + 2 East-Apse Floral Pedestals
+  buildFloralHeartPedestal(5.38, 5.65, Math.PI / 2); // Between Left Portrait 1 & Portrait 2
+  buildFloralHeartPedestal(5.38, -1.12, Math.PI / 2); // Between Right Main Arch Column & Portrait 3
+  buildFloralHeartPedestal(5.38, -6.82, Math.PI / 2); // Between Portrait 4 & Secondary Right Archway
+  buildFloralHeartPedestal(14.28, -5.25, -Math.PI / 2);
+  buildFloralHeartPedestal(14.28, -2.35, -Math.PI / 2);
+
+  // --- 1.10 CENTRAL MEMORY COURT, FLUTED BLUSH-PEARL PEDESTAL, FOCAL CRYSTAL HEART & VELVET BENCHES ---
+  const courtCenterX = 10.6;
+  const courtCenterZ = -3.8;
+
+  // Concentric Glowing Champagne-Gold Floor Medallion Rings (flush on the polished marble floor)
+  [3.85, 2.65, 1.62].forEach((ringR, idx) => {
+    const ringGeo = tracker.trackGeo(new THREE.TorusGeometry(ringR, idx === 0 ? 0.042 : 0.032, 10, 56));
+    ringGeo.rotateX(Math.PI / 2);
+    const ringMesh = new THREE.Mesh(
+      ringGeo,
+      idx < 2 ? galleryWarmLinearGlowMat : galleryRoyalGoldMat,
+    );
+    ringMesh.position.set(courtCenterX, y0 + 0.025, courtCenterZ);
+    heartGalleryGroup.add(ringMesh);
+  });
+
+  // Fluted Circular Blush-Pearl Pedestal with Wide Stepped Gold Base Ring & Under-Glow
   const heartPedestalGroup = new THREE.Group();
   heartPedestalGroup.position.set(courtCenterX, y0, courtCenterZ);
+
+  const pedUnderGlow = new THREE.Mesh(
+    tracker.trackGeo(new THREE.TorusGeometry(1.56, 0.035, 8, 48)).rotateX(Math.PI / 2),
+    galleryWarmLinearGlowMat,
+  );
+  pedUnderGlow.position.y = 0.028;
+
+  const pedGoldBase1 = new THREE.Mesh(
+    tracker.trackGeo(new THREE.CylinderGeometry(1.44, 1.56, 0.12, 40)),
+    galleryRoyalGoldMat,
+  );
+  pedGoldBase1.position.y = 0.06;
+
+  const pedGoldBase2 = new THREE.Mesh(
+    tracker.trackGeo(new THREE.CylinderGeometry(1.22, 1.36, 0.12, 40)),
+    galleryRoyalGoldMat,
+  );
+  pedGoldBase2.position.y = 0.16;
+
+  const pedFlutedDrum = new THREE.Mesh(
+    tracker.trackGeo(new THREE.CylinderGeometry(0.96, 1.16, 0.86, 36)),
+    galleryBlushWallMat,
+  );
+  pedFlutedDrum.position.y = 0.64;
+
+  // 28 Vertical Carved Flutes around the Circular Pedestal Drum
+  const drumFluteGeo = tracker.trackGeo(new THREE.CylinderGeometry(0.032, 0.038, 0.82, 6));
+  for (let df = 0; df < 28; df++) {
+    const ang = (df / 28) * Math.PI * 2;
+    const flute = new THREE.Mesh(drumFluteGeo, mats.pearlWhite);
+    flute.position.set(Math.cos(ang) * 1.05, 0.64, Math.sin(ang) * 1.05);
+    flute.rotation.z = Math.cos(ang) * 0.22;
+    flute.rotation.x = Math.sin(ang) * 0.22;
+    heartPedestalGroup.add(flute);
+  }
+
+  const pedTopGoldCornice = new THREE.Mesh(
+    tracker.trackGeo(new THREE.CylinderGeometry(1.12, 1.02, 0.12, 40)),
+    galleryRoyalGoldMat,
+  );
+  pedTopGoldCornice.position.y = 1.11;
+
+  const pedTopGlowRing = new THREE.Mesh(
+    tracker.trackGeo(new THREE.TorusGeometry(1.06, 0.03, 8, 40)).rotateX(Math.PI / 2),
+    galleryWarmLinearGlowMat,
+  );
+  pedTopGlowRing.position.y = 1.18;
+
   heartPedestalGroup.add(
-    new THREE.Mesh(heartPedestalBaseGeo, mats.pearlWhite),
-    new THREE.Mesh(heartPedestalColGeo, mats.blushRoseMarble),
-    new THREE.Mesh(heartPedestalCrownGeo, mats.champagneGold),
+    pedUnderGlow,
+    pedGoldBase1,
+    pedGoldBase2,
+    pedFlutedDrum,
+    pedTopGoldCornice,
+    pedTopGlowRing,
   );
   heartGalleryGroup.add(heartPedestalGroup);
-  registerLocalCollider(courtCenterX, courtCenterZ, 1.12, 2.8);
+  registerLocalCollider(courtCenterX, courtCenterZ, 1.48, 2.8);
 
-  // Rotating Floating Crystal Heart Sculpture above the Central Memory Court Pedestal
+  // Large Faceted Glowing Pink Crystal Heart Sculpture with Curving Gold Orbital Ribbons
   const floatingCrystalHeartPivot = new THREE.Group();
-  floatingCrystalHeartPivot.position.set(courtCenterX, y0 + 2.05, courtCenterZ);
-  const mainFloatingHeartGeo = buildExtrudedHeartGeometry(tracker, 1.35, 0.24, 0.06);
+  floatingCrystalHeartPivot.position.set(courtCenterX, y0 + 2.08, courtCenterZ);
+  const mainFloatingHeartGeo = buildExtrudedHeartGeometry(tracker, 1.48, 0.28, 0.068);
   const mainFloatingHeartMesh = new THREE.Mesh(mainFloatingHeartGeo, floatingHeartCrystalMat);
-  const floatingHeartHaloGeo = tracker.trackGeo(new THREE.TorusGeometry(0.95, 0.024, 10, 36));
-  const floatingHeartHalo = new THREE.Mesh(floatingHeartHaloGeo, mats.champagneGold);
-  floatingCrystalHeartPivot.add(mainFloatingHeartMesh, floatingHeartHalo);
+  const innerHeartCoreGeo = buildExtrudedHeartGeometry(tracker, 0.92, 0.16, 0.03);
+  const innerHeartCoreMesh = new THREE.Mesh(innerHeartCoreGeo, galleryWarmLinearGlowMat);
+
+  // Curving Gold Orbital Ribbons cradling the Focal Crystal Heart
+  const floatingHeartHaloGeo = tracker.trackGeo(new THREE.TorusGeometry(1.05, 0.032, 12, 44));
+  const floatingHeartHalo = new THREE.Mesh(floatingHeartHaloGeo, galleryRoyalGoldMat);
+  const secondGoldRibbonGeo = tracker.trackGeo(
+    new THREE.TorusGeometry(0.96, 0.028, 10, 40, Math.PI * 1.35),
+  );
+  const secondGoldRibbon = new THREE.Mesh(secondGoldRibbonGeo, galleryRoyalGoldMat);
+  secondGoldRibbon.rotation.z = -Math.PI * 0.68;
+  secondGoldRibbon.position.y = -0.12;
+
+  floatingCrystalHeartPivot.add(
+    mainFloatingHeartMesh,
+    innerHeartCoreMesh,
+    floatingHeartHalo,
+    secondGoldRibbon,
+  );
   heartGalleryGroup.add(floatingCrystalHeartPivot);
 
-  // Restrained Instanced Crystal Light Motes orbiting the Floating Crystal Heart (Zero Dynamic Lights)
+  // Restrained Instanced Crystal Light Motes orbiting the Focal Crystal Heart (Zero Dynamic Lights)
   const HEART_MOTE_COUNT = 18;
-  const heartMoteGeo = tracker.trackGeo(new THREE.OctahedronGeometry(0.055, 0));
+  const heartMoteGeo = tracker.trackGeo(new THREE.OctahedronGeometry(0.052, 0));
   const heartMoteInstanced = new THREE.InstancedMesh(
     heartMoteGeo,
     mats.warmLanternGlow,
@@ -515,25 +1220,46 @@ export function createCastleFloor3Rooms(
   heartMoteInstanced.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
   heartGalleryGroup.add(heartMoteInstanced);
 
-  // Two Velvet Viewing Settees on the North & South edges of the Central Memory Court (outside the 2.8m+ viewing path)
-  const setteeGeo = tracker.trackGeo(new THREE.BoxGeometry(1.75, 0.44, 0.62));
-  const setteeTrimGeo = tracker.trackGeo(new THREE.BoxGeometry(1.82, 0.08, 0.68));
-  [-7.2, 0.2].forEach((sz) => {
-    const settee = new THREE.Mesh(setteeGeo, mats.velvetPlum);
-    settee.position.set(7.6, y0 + 0.22, sz);
-    const trim = new THREE.Mesh(setteeTrimGeo, mats.champagneGold);
-    trim.position.set(7.6, y0 + 0.04, sz);
-    heartGalleryGroup.add(settee, trim);
-    registerLocalCollider(7.6, sz, 0.68, 0.9);
-  });
+  // Rectangular Rose-Burgundy Velvet Gallery Benches with Recessed Gold Plinth Bases
+  // Positioned at exact reference coordinates flanking the circular court while keeping >= 3.0m clear promenade
+  const benchCushionGeo = tracker.trackGeo(new THREE.BoxGeometry(0.76, 0.32, 2.12));
+  const benchTopPadGeo = tracker.trackGeo(new THREE.BoxGeometry(0.72, 0.08, 2.08));
+  const benchGoldBaseGeo = tracker.trackGeo(new THREE.BoxGeometry(0.74, 0.1, 2.1));
+  const benchGlowStripGeo = tracker.trackGeo(new THREE.BoxGeometry(0.78, 0.024, 2.14));
 
-  // --- 5 DEDICATED ARCHITECTURAL MEMORY EXHIBITS (Preserving all 5 Memories & Custom Photo Persistence) ---
+  const buildGalleryVelvetBench = (bx: number, bz: number, rotY = 0) => {
+    const bGrp = new THREE.Group();
+    bGrp.position.set(bx, y0, bz);
+    bGrp.rotation.y = rotY;
+
+    const glow = new THREE.Mesh(benchGlowStripGeo, galleryWarmLinearGlowMat);
+    glow.position.y = 0.014;
+    const base = new THREE.Mesh(benchGoldBaseGeo, galleryRoyalGoldMat);
+    base.position.y = 0.06;
+    const cushion = new THREE.Mesh(benchCushionGeo, galleryBurgundyBenchMat);
+    cushion.position.y = 0.26;
+    const topPad = new THREE.Mesh(benchTopPadGeo, galleryBurgundyBenchMat);
+    topPad.position.y = 0.44;
+
+    bGrp.add(glow, base, cushion, topPad);
+    heartGalleryGroup.add(bGrp);
+    registerLocalCollider(bx, bz, 0.72, 0.9);
+  };
+
+  buildGalleryVelvetBench(7.55, -2.15, 0); // Foreground Right Bench in Reference
+  buildGalleryVelvetBench(7.55, -7.65, 0); // Background Right Bench in Reference
+  buildGalleryVelvetBench(13.35, -3.8, 0); // East Court Companion Bench
+
+  // --- 1.11 5 INTERACTIVE MEMORY PORTRAITS IN VERTICAL ORNATE ROCOCO GOLD FRAMES ---
+  // Preserves all 5 existing gallery memories, custom photo persistence, and inspection controls,
+  // while rendering the 4 West-Wall Reference Portraits + 1 East-Apse Hero Portrait in vertical Rococo frames
+  // with top glowing pink heart crests, bottom gold cartouche plaques, and physical overhead gold picture lights!
   const galleryMemories: GalleryMemory[] = [
     {
       title: 'First Starlight Kiss',
       subtitle: 'Central Plaza Fountain · Memory I',
       quote: '"Every star in the sky paused to watch us."',
-      skyTop: '#3b0764',
+      skyTop: '#9d174d',
       skyBottom: '#f472b6',
       accentColor: '#fde047',
       customImage: null,
@@ -543,9 +1269,9 @@ export function createCastleFloor3Rooms(
       title: 'The Crag Magic Flight',
       subtitle: 'Above Heart Island · Memory II',
       quote: '"I want you beside me across every horizon."',
-      skyTop: '#1e1b4b',
+      skyTop: '#831843',
       skyBottom: '#ec4899',
-      accentColor: '#38bdf8',
+      accentColor: '#fbcfe8',
       customImage: null,
       customImageUrl: null,
     },
@@ -553,8 +1279,8 @@ export function createCastleFloor3Rooms(
       title: 'The Royal Ballroom Waltz',
       subtitle: 'Pastel Dream Castle · Memory III',
       quote: '"Two hearts spinning in golden candlelight."',
-      skyTop: '#831843',
-      skyBottom: '#fbcfe8',
+      skyTop: '#78350f',
+      skyBottom: '#fde68a',
       accentColor: '#facc15',
       customImage: null,
       customImageUrl: null,
@@ -563,7 +1289,7 @@ export function createCastleFloor3Rooms(
       title: 'Sunset at the Gazebo',
       subtitle: 'Enchanted Rose Garden · Memory IV',
       quote: '"Where every petal whispers your name, Harsha."',
-      skyTop: '#701a75',
+      skyTop: '#581c87',
       skyBottom: '#fda4af',
       accentColor: '#fde047',
       customImage: null,
@@ -573,7 +1299,7 @@ export function createCastleFloor3Rooms(
       title: 'Two Hearts, One Light',
       subtitle: 'Aurora Underground Lake · Memory V',
       quote: '"Forever ours, written in crystal and starlight."',
-      skyTop: '#0f172a',
+      skyTop: '#1e1b4b',
       skyBottom: '#c084fc',
       accentColor: '#67e8f9',
       customImage: null,
@@ -585,6 +1311,8 @@ export function createCastleFloor3Rooms(
   const galleryTextures: THREE.CanvasTexture[] = [];
   const galleryFrameHalos: THREE.MeshStandardMaterial[] = [];
 
+  // Renders the 5 vertical portrait canvases (512 x 680) matching the exact painted subjects in the reference image
+  // (or user-uploaded custom photos when present) without dark UI banners covering the artwork.
   const drawGalleryCanvas = (idx: number, isHighlighted: boolean) => {
     const canvas = galleryCanvases[idx];
     const tex = galleryTextures[idx];
@@ -593,74 +1321,268 @@ export function createCastleFloor3Rooms(
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
+    const W = 512;
+    const H = 680;
     ctx.setTransform(1, 0, 0, 1, 0, 0);
-    ctx.clearRect(0, 0, 512, 384);
+    ctx.clearRect(0, 0, W, H);
 
     if (mem.customImage) {
       const img = mem.customImage;
-      const scale = Math.max(512 / img.width, 384 / img.height);
+      const scale = Math.max(W / img.width, H / img.height);
       const dw = img.width * scale;
       const dh = img.height * scale;
-      ctx.drawImage(img, (512 - dw) * 0.5, (384 - dh) * 0.5, dw, dh);
+      ctx.drawImage(img, (W - dw) * 0.5, (H - dh) * 0.5, dw, dh);
+    } else if (idx === 0) {
+      // PORTRAIT 1 (Outer Left in Reference): Romantic Couple Silhouette at Sunset by the Ocean
+      const sky = ctx.createLinearGradient(0, 0, 0, 430);
+      sky.addColorStop(0, '#c084fc');
+      sky.addColorStop(0.38, '#f472b6');
+      sky.addColorStop(0.72, '#fb923c');
+      sky.addColorStop(1, '#fef08a');
+      ctx.fillStyle = sky;
+      ctx.fillRect(0, 0, W, 430);
 
-      const bottomGrad = ctx.createLinearGradient(0, 220, 0, 384);
-      bottomGrad.addColorStop(0, 'rgba(15, 23, 42, 0.0)');
-      bottomGrad.addColorStop(1, 'rgba(80, 7, 36, 0.86)');
-      ctx.fillStyle = bottomGrad;
-      ctx.fillRect(0, 220, 512, 164);
+      // Glowing sunset sun & soft pink clouds
+      const sunGlow = ctx.createRadialGradient(270, 340, 10, 270, 340, 160);
+      sunGlow.addColorStop(0, 'rgba(255, 255, 255, 0.95)');
+      sunGlow.addColorStop(0.35, 'rgba(254, 240, 138, 0.65)');
+      sunGlow.addColorStop(1, 'rgba(244, 114, 182, 0.0)');
+      ctx.fillStyle = sunGlow;
+      ctx.fillRect(0, 140, W, 290);
+
+      ctx.fillStyle = 'rgba(244, 114, 182, 0.38)';
+      for (let c = 0; c < 7; c++) {
+        ctx.beginPath();
+        ctx.ellipse(90 + c * 62, 115 + (c % 3) * 42, 95, 22, 0, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      // Shimmering sunset ocean horizon
+      const sea = ctx.createLinearGradient(0, 425, 0, H);
+      sea.addColorStop(0, '#f97316');
+      sea.addColorStop(0.35, '#be185d');
+      sea.addColorStop(1, '#4c0519');
+      ctx.fillStyle = sea;
+      ctx.fillRect(0, 425, W, H - 425);
+
+      ctx.fillStyle = 'rgba(254, 240, 138, 0.45)';
+      for (let w = 0; w < 14; w++) {
+        ctx.fillRect(190 + (w % 3) * 12, 432 + w * 14, 130 - w * 6, 4);
+      }
+
+      // Couple standing close together looking out at the sunset ocean (Her on left, Him on right)
+      // Her silhouette & flowing hair + soft rose dress
+      ctx.fillStyle = '#3b0a20';
+      ctx.beginPath();
+      ctx.arc(198, 412, 42, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.moveTo(138, H);
+      ctx.quadraticCurveTo(155, 480, 206, 456);
+      ctx.quadraticCurveTo(245, 480, 256, H);
+      ctx.closePath();
+      ctx.fillStyle = '#9d174d';
+      ctx.fill();
+
+      // His silhouette & warm linen shirt beside her
+      ctx.fillStyle = '#2a0815';
+      ctx.beginPath();
+      ctx.arc(296, 386, 44, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.moveTo(232, H);
+      ctx.quadraticCurveTo(242, 455, 302, 438);
+      ctx.quadraticCurveTo(372, 455, 396, H);
+      ctx.closePath();
+      ctx.fillStyle = '#7c2d12';
+      ctx.fill();
+    } else if (idx === 1) {
+      // PORTRAIT 2 (Inner Left in Reference): Macro Blooming Pink Rose with Water Droplets
+      const bg = ctx.createRadialGradient(256, 340, 40, 256, 340, 380);
+      bg.addColorStop(0, '#f472b6');
+      bg.addColorStop(0.65, '#831843');
+      bg.addColorStop(1, '#1f2937');
+      ctx.fillStyle = bg;
+      ctx.fillRect(0, 0, W, H);
+
+      // Soft emerald garden bokeh leaves in corners
+      ctx.fillStyle = 'rgba(21, 128, 61, 0.55)';
+      ctx.beginPath();
+      ctx.ellipse(75, 590, 95, 48, -0.5, 0, Math.PI * 2);
+      ctx.ellipse(430, 120, 85, 44, 0.4, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Concentric multi-layered velvety pink rose petals
+      const cx = 256;
+      const cy = 355;
+      for (let ring = 6; ring >= 0; ring--) {
+        const count = 5 + ring * 2;
+        const rDist = 18 + ring * 31;
+        const pRadX = 28 + ring * 16;
+        const pRadY = 22 + ring * 12;
+        for (let p = 0; p < count; p++) {
+          const ang = (p / count) * Math.PI * 2 + ring * 0.52;
+          const px = cx + Math.cos(ang) * rDist;
+          const py = cy + Math.sin(ang) * rDist * 0.92;
+          const pGrad = ctx.createRadialGradient(px, py - 8, 4, px, py, pRadX);
+          pGrad.addColorStop(0, '#fbcfe8');
+          pGrad.addColorStop(0.55, '#f472b6');
+          pGrad.addColorStop(1, '#be185d');
+
+          ctx.save();
+          ctx.translate(px, py);
+          ctx.rotate(ang + Math.PI * 0.5);
+          ctx.beginPath();
+          ctx.ellipse(0, 0, pRadX, pRadY, 0, 0, Math.PI * 2);
+          ctx.fillStyle = pGrad;
+          ctx.fill();
+          ctx.strokeStyle = 'rgba(255, 241, 242, 0.38)';
+          ctx.lineWidth = 2;
+          ctx.stroke();
+          ctx.restore();
+        }
+      }
+
+      // Glistening crystal dewdrops on the rose petals
+      for (let d = 0; d < 22; d++) {
+        const dx = 110 + ((d * 67) % 292);
+        const dy = 195 + ((d * 53) % 310);
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
+        ctx.beginPath();
+        ctx.arc(dx, dy, 3.5 + (d % 3) * 1.5, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    } else if (idx === 2) {
+      // PORTRAIT 3 (Inner Right in Reference): Couple Embracing in a Sunlit Golden Palace Colonnade
+      const glow = ctx.createRadialGradient(256, 260, 20, 256, 340, 390);
+      glow.addColorStop(0, '#fef9c3');
+      glow.addColorStop(0.35, '#fbbf24');
+      glow.addColorStop(0.75, '#92400e');
+      glow.addColorStop(1, '#451a03');
+      ctx.fillStyle = glow;
+      ctx.fillRect(0, 0, W, H);
+
+      // Perspective golden palace arches & columns
+      ctx.strokeStyle = '#fde68a';
+      ctx.lineWidth = 14;
+      [48, 118, 394, 464].forEach((colX) => {
+        ctx.fillStyle = '#78350f';
+        ctx.fillRect(colX - 18, 90, 36, 470);
+      });
+      ctx.beginPath();
+      ctx.arc(256, 220, 195, Math.PI, 0);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.arc(256, 235, 138, Math.PI, 0);
+      ctx.stroke();
+
+      // Warm hanging fairy lights along the archways
+      ctx.fillStyle = '#ffffff';
+      for (let f = 0; f < 26; f++) {
+        const fx = 65 + ((f * 37) % 380);
+        const fy = 70 + ((f * 29) % 190);
+        ctx.beginPath();
+        ctx.arc(fx, fy, 3.5, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      // Couple silhouette embracing in the golden colonnade center
+      ctx.fillStyle = '#291005';
+      ctx.beginPath();
+      ctx.arc(236, 368, 22, 0, Math.PI * 2);
+      ctx.arc(276, 354, 24, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.moveTo(198, 585);
+      ctx.lineTo(220, 392);
+      ctx.lineTo(292, 382);
+      ctx.lineTo(312, 585);
+      ctx.closePath();
+      ctx.fill();
+    } else if (idx === 3) {
+      // PORTRAIT 4 (Outer Right in Reference): Fairytale Spired Castle at Sunset over Reflecting Water
+      const sky = ctx.createLinearGradient(0, 0, 0, 440);
+      sky.addColorStop(0, '#a855f7');
+      sky.addColorStop(0.45, '#f472b6');
+      sky.addColorStop(0.82, '#fb923c');
+      sky.addColorStop(1, '#fef08a');
+      ctx.fillStyle = sky;
+      ctx.fillRect(0, 0, W, 440);
+
+      // Reflecting sunset water below
+      const water = ctx.createLinearGradient(0, 440, 0, H);
+      water.addColorStop(0, '#f472b6');
+      water.addColorStop(0.5, '#7e22ce');
+      water.addColorStop(1, '#3b0764');
+      ctx.fillStyle = water;
+      ctx.fillRect(0, 440, W, H - 440);
+
+      // Fairytale multi-spired castle silhouette
+      ctx.fillStyle = '#4c1d95';
+      const towers = [
+        { x: 145, w: 36, h: 170, spireH: 65 },
+        { x: 195, w: 44, h: 220, spireH: 80 },
+        { x: 256, w: 58, h: 285, spireH: 105 },
+        { x: 318, w: 46, h: 230, spireH: 85 },
+        { x: 368, w: 34, h: 165, spireH: 60 },
+      ];
+      towers.forEach((t) => {
+        const baseY = 440 - t.h;
+        ctx.fillRect(t.x - t.w * 0.5, baseY, t.w, t.h);
+        ctx.beginPath();
+        ctx.moveTo(t.x - t.w * 0.62, baseY);
+        ctx.lineTo(t.x, baseY - t.spireH);
+        ctx.lineTo(t.x + t.w * 0.62, baseY);
+        ctx.closePath();
+        ctx.fill();
+      });
+
+      // Warm glowing castle windows & water reflections
+      ctx.fillStyle = '#fef08a';
+      for (let w = 0; w < 18; w++) {
+        const wx = 155 + ((w * 29) % 205);
+        const wy = 240 + ((w * 37) % 185);
+        ctx.fillRect(wx, wy, 6, 12);
+        ctx.fillRect(wx - 8, 455 + (w * 11), 22, 3);
+      }
     } else {
-      const grad = ctx.createLinearGradient(0, 0, 0, 384);
-      grad.addColorStop(0, mem.skyTop);
-      grad.addColorStop(1, mem.skyBottom);
-      ctx.fillStyle = grad;
-      ctx.fillRect(0, 0, 512, 384);
+      // PORTRAIT 5 (East Royal Apse Hero Exhibit): Two Hearts, One Light over Starlight Lake
+      const sky = ctx.createLinearGradient(0, 0, 0, H);
+      sky.addColorStop(0, mem.skyTop);
+      sky.addColorStop(0.6, mem.skyBottom);
+      sky.addColorStop(1, '#3b0764');
+      ctx.fillStyle = sky;
+      ctx.fillRect(0, 0, W, H);
 
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.78)';
-      for (let s = 0; s < 28; s++) {
-        const sx = ((s * 97 + idx * 53) % 460) + 26;
-        const sy = ((s * 61 + idx * 29) % 190) + 24;
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
+      for (let s = 0; s < 36; s++) {
+        const sx = ((s * 97) % 460) + 26;
+        const sy = ((s * 61) % 320) + 24;
         ctx.beginPath();
         ctx.arc(sx, sy, (s % 3) + 1.2, 0, Math.PI * 2);
         ctx.fill();
       }
 
       ctx.save();
-      ctx.translate(256, 152);
-      ctx.fillStyle = mem.accentColor;
-      ctx.shadowColor = mem.accentColor;
-      ctx.shadowBlur = isHighlighted ? 26 : 14;
-      ctx.font = 'bold 74px Georgia, serif';
+      ctx.translate(256, 310);
+      ctx.fillStyle = '#fbcfe8';
+      ctx.shadowColor = '#f472b6';
+      ctx.shadowBlur = 28;
+      ctx.font = 'bold 120px Georgia, serif';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.fillText('♥', 0, 0);
       ctx.restore();
     }
 
-    ctx.strokeStyle = isHighlighted ? '#fde047' : '#fbcfe8';
-    ctx.lineWidth = isHighlighted ? 12 : 7;
-    ctx.strokeRect(14, 14, 484, 356);
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.65)';
-    ctx.lineWidth = 2.5;
-    ctx.strokeRect(26, 26, 460, 332);
-
-    ctx.textAlign = 'center';
-    ctx.fillStyle = '#fef08a';
-    ctx.font = 'bold 18px Georgia, serif';
-    ctx.fillText(mem.subtitle.toUpperCase(), 256, 268);
-
-    ctx.fillStyle = '#ffffff';
-    ctx.font = 'bold 31px Georgia, serif';
-    ctx.fillText(mem.title, 256, 306);
-
-    ctx.fillStyle = '#fce7f3';
-    ctx.font = 'italic 18px Georgia, serif';
-    ctx.fillText(mem.quote, 256, 342);
+    // Subtle inner golden picture mat border (keeps the painting unobstructed)
+    ctx.strokeStyle = isHighlighted ? '#fef08a' : 'rgba(253, 224, 71, 0.65)';
+    ctx.lineWidth = isHighlighted ? 10 : 6;
+    ctx.strokeRect(8, 8, W - 16, H - 16);
 
     tex.needsUpdate = true;
   };
 
-  // Each of the 5 memories is presented in its own architectural exhibit niche around the Heart Gallery
-  // with >= 2.8m clear viewing plaza in front of every exhibit!
   interface GalleryExhibitPlacement {
     lx: number;
     lz: number;
@@ -669,32 +1591,52 @@ export function createCastleFloor3Rooms(
     isHeroExhibit?: boolean;
   }
 
+  // Exact Reference-Locked Portrait Placements:
+  // - Exhibits 0 & 1: Left of the Main Archway on the West Wall (lx = 4.98, facing East +X -> rotY = +Math.PI / 2)
+  // - Exhibits 2 & 3: Right of the Main Archway on the West Wall (lx = 4.98, facing East +X -> rotY = +Math.PI / 2)
+  // - Exhibit 4: East Apse Hero Portrait across the Central Memory Court (lx = 14.66, facing West -X -> rotY = -Math.PI / 2)
   const exhibitPlacements: GalleryExhibitPlacement[] = [
-    // Exhibit 1: North-East Royal Alcove (angled toward the North-East promenade & court)
-    { lx: 13.5, lz: 5.2, rotY: -Math.PI * 0.35, camDist: 2.85 },
-    // Exhibit 2: Upper East Niche (facing West into the gallery promenade)
-    { lx: 14.3, lz: 0.6, rotY: -Math.PI * 0.5, camDist: 2.85 },
-    // Exhibit 3: Central Grand Apse Hero Exhibit (directly opposite the Floating Crystal Heart)
-    { lx: 14.35, lz: -3.5, rotY: -Math.PI * 0.5, camDist: 3.05, isHeroExhibit: true },
-    // Exhibit 4: Lower East Niche (facing West into the gallery promenade)
-    { lx: 14.3, lz: -7.6, rotY: -Math.PI * 0.5, camDist: 2.85 },
-    // Exhibit 5: South-East Grand Alcove (facing North toward the Central Memory Court)
-    { lx: 10.6, lz: -14.2, rotY: Math.PI, camDist: 2.95 },
+    { lx: 4.98, lz: 6.68, rotY: Math.PI * 0.5, camDist: 2.65 },
+    { lx: 4.98, lz: 4.62, rotY: Math.PI * 0.5, camDist: 2.65 },
+    { lx: 4.98, lz: -2.35, rotY: Math.PI * 0.5, camDist: 2.65 },
+    { lx: 4.98, lz: -5.35, rotY: Math.PI * 0.5, camDist: 2.65 },
+    { lx: 14.66, lz: -3.8, rotY: -Math.PI * 0.5, camDist: 2.85, isHeroExhibit: true },
   ];
 
-  const nicheBackGeo = tracker.trackGeo(new THREE.BoxGeometry(2.75, 3.55, 0.24));
-  const nichePedestalGeo = tracker.trackGeo(new THREE.BoxGeometry(2.35, 0.56, 0.62));
-  const nicheColumnGeo = tracker.trackGeo(new THREE.CylinderGeometry(0.14, 0.17, 3.35, 14));
-  const nicheArchGeo = tracker.trackGeo(new THREE.TorusGeometry(1.22, 0.08, 10, 26, Math.PI));
-  const frameOuterGeo = tracker.trackGeo(new THREE.BoxGeometry(2.26, 1.72, 0.1));
-  const frameCanvasGeo = tracker.trackGeo(new THREE.PlaneGeometry(2.04, 1.52));
-  const spotlightConeGeo = tracker.trackGeo(new THREE.ConeGeometry(0.85, 2.2, 18, 1, true));
+  // Shared Geometries for Vertical Ornate Rococo Gold Portrait Frames (1.46m wide x 1.92m tall)
+  const frameW = 1.46;
+  const frameH = 1.92;
+  const artW = 1.22;
+  const artH = 1.62;
 
-  const spotlightBeamMat = tracker.trackMat(
+  const frameShadowBackGeo = tracker.trackGeo(new THREE.BoxGeometry(frameW + 0.08, frameH + 0.08, 0.04));
+  const frameOuterHorizGeo = tracker.trackGeo(new THREE.BoxGeometry(frameW + 0.06, 0.11, 0.11));
+  const frameOuterVertGeo = tracker.trackGeo(new THREE.BoxGeometry(0.11, frameH + 0.06, 0.11));
+  const frameInnerHorizGeo = tracker.trackGeo(new THREE.BoxGeometry(artW + 0.1, 0.065, 0.135));
+  const frameInnerVertGeo = tracker.trackGeo(new THREE.BoxGeometry(0.065, artH + 0.1, 0.135));
+  const frameCornerScrollGeo = tracker.trackGeo(
+    new THREE.TorusGeometry(0.13, 0.028, 8, 16, Math.PI * 1.45),
+  );
+  const frameTopHeartBezelGeo = buildExtrudedHeartGeometry(tracker, 0.36, 0.09, 0.03);
+  const frameTopHeartGemGeo = buildExtrudedHeartGeometry(tracker, 0.27, 0.12, 0.03);
+  const frameBottomPlaqueGeo = tracker.trackGeo(new THREE.BoxGeometry(0.56, 0.14, 0.06));
+  const frameCanvasGeo = tracker.trackGeo(new THREE.PlaneGeometry(artW, artH));
+
+  // Shared Geometries for the Physical Gold Overhead Picture Light & Downward Light Spill
+  const picLightCanopyGeo = tracker.trackGeo(new THREE.CylinderGeometry(0.075, 0.09, 0.06, 16));
+  picLightCanopyGeo.rotateX(Math.PI / 2);
+  const picLightArmGeo = tracker.trackGeo(new THREE.CylinderGeometry(0.022, 0.022, 0.24, 10));
+  picLightArmGeo.rotateX(Math.PI / 2);
+  const picLightHoodGeo = tracker.trackGeo(new THREE.ConeGeometry(0.11, 0.16, 18, 1, true));
+  const picLightBulbGeo = tracker.trackGeo(new THREE.SphereGeometry(0.048, 10, 10));
+  const picWallWashPlaneGeo = tracker.trackGeo(new THREE.PlaneGeometry(1.95, 2.35));
+  const picBeamConeGeo = tracker.trackGeo(new THREE.ConeGeometry(0.78, 1.85, 18, 1, true));
+
+  const picBeamConeMat = tracker.trackMat(
     new THREE.MeshBasicMaterial({
-      color: new THREE.Color('#fdf2f8'),
+      color: new THREE.Color('#fef9c3'),
       transparent: true,
-      opacity: 0.09,
+      opacity: 0.085,
       side: THREE.DoubleSide,
       depthWrite: false,
       blending: THREE.AdditiveBlending,
@@ -703,11 +1645,11 @@ export function createCastleFloor3Rooms(
 
   for (let i = 0; i < galleryMemories.length; i++) {
     const p = exhibitPlacements[i];
-    const scaleMult = p.isHeroExhibit ? 1.12 : 1.0;
+    const scaleMult = p.isHeroExhibit ? 1.08 : 1.0;
 
     const canvas = document.createElement('canvas');
     canvas.width = 512;
-    canvas.height = 384;
+    canvas.height = 680;
     galleryCanvases.push(canvas);
 
     const tex = tracker.trackTex(new THREE.CanvasTexture(canvas));
@@ -722,59 +1664,117 @@ export function createCastleFloor3Rooms(
     exhibitGroup.rotation.y = p.rotY;
     exhibitGroup.scale.setScalar(scaleMult);
 
-    // Architectural Backing Niche & Velvet Pedestal
-    const nicheBack = new THREE.Mesh(nicheBackGeo, mats.pearlWhite);
-    nicheBack.position.set(0, 1.85, -0.14);
-    const nichePedestal = new THREE.Mesh(nichePedestalGeo, mats.blushRoseMarble);
-    nichePedestal.position.set(0, 0.28, 0.12);
-    const pedestalGoldTrim = new THREE.Mesh(
-      tracker.trackGeo(new THREE.BoxGeometry(2.42, 0.06, 0.68)),
-      mats.champagneGold,
-    );
-    pedestalGoldTrim.position.set(0, 0.56, 0.12);
-    exhibitGroup.add(nicheBack, nichePedestal, pedestalGoldTrim);
+    const centerY = 2.22;
 
-    // Twin Pearl & Gold Side Pilasters + Crystal Arch Header
-    [-1.22, 1.22].forEach((cx) => {
-      const col = new THREE.Mesh(nicheColumnGeo, mats.pearlWhite);
-      col.position.set(cx, 1.72, 0.06);
-      exhibitGroup.add(col);
-    });
-    const archHeader = new THREE.Mesh(nicheArchGeo, crystalArchMat);
-    archHeader.position.set(0, 3.35, 0.08);
-    const archHeart = new THREE.Mesh(
-      buildExtrudedHeartGeometry(tracker, 0.34, 0.12, 0.03),
-      mats.champagneGold,
-    );
-    archHeart.position.set(0, 3.68, 0.12);
-    exhibitGroup.add(archHeader, archHeart);
+    // 1. Warm Downward Wall-Wash Spill Plane behind & above the Portrait Frame
+    const wallWash = new THREE.Mesh(picWallWashPlaneGeo, portraitWallWashMat);
+    wallWash.position.set(0, centerY + 0.36, 0.015);
+    exhibitGroup.add(wallWash);
 
-    // Ornate Crystal & Champagne-Gold Memory Frame
+    // 2. Dark Contact-Shadow Backing Plate
+    const shadowBack = new THREE.Mesh(frameShadowBackGeo, galleryShadowBackingMat);
+    shadowBack.position.set(0, centerY, 0.03);
+    exhibitGroup.add(shadowBack);
+
+    // 3. Multi-Layered 3D Molded Champagne-Gold Portrait Frame
     const haloMat = tracker.trackMat(
       new THREE.MeshStandardMaterial({
-        color: new THREE.Color('#fde047'),
-        emissive: new THREE.Color('#f472b6'),
-        emissiveIntensity: i === 0 ? 0.92 : 0.32,
-        roughness: 0.2,
-        metalness: 0.68,
+        color: new THREE.Color('#f5d076'),
+        emissive: new THREE.Color('#fbbf24'),
+        emissiveIntensity: i === 0 ? 0.55 : 0.24,
+        roughness: 0.18,
+        metalness: 0.85,
       }),
     );
     galleryFrameHalos.push(haloMat);
 
-    const frameOuter = new THREE.Mesh(frameOuterGeo, haloMat);
-    frameOuter.position.set(0, 1.92, 0.04);
+    const topRail = new THREE.Mesh(frameOuterHorizGeo, haloMat);
+    topRail.position.set(0, centerY + frameH * 0.5, 0.075);
+    const botRail = new THREE.Mesh(frameOuterHorizGeo, haloMat);
+    botRail.position.set(0, centerY - frameH * 0.5, 0.075);
+    const leftRail = new THREE.Mesh(frameOuterVertGeo, haloMat);
+    leftRail.position.set(-frameW * 0.5, centerY, 0.075);
+    const rightRail = new THREE.Mesh(frameOuterVertGeo, haloMat);
+    rightRail.position.set(frameW * 0.5, centerY, 0.075);
+
+    const inTop = new THREE.Mesh(frameInnerHorizGeo, galleryRoyalGoldMat);
+    inTop.position.set(0, centerY + artH * 0.5 + 0.02, 0.09);
+    const inBot = new THREE.Mesh(frameInnerHorizGeo, galleryRoyalGoldMat);
+    inBot.position.set(0, centerY - artH * 0.5 - 0.02, 0.09);
+    const inLeft = new THREE.Mesh(frameInnerVertGeo, galleryRoyalGoldMat);
+    inLeft.position.set(-artW * 0.5 - 0.02, centerY, 0.09);
+    const inRight = new THREE.Mesh(frameInnerVertGeo, galleryRoyalGoldMat);
+    inRight.position.set(artW * 0.5 + 0.02, centerY, 0.09);
+
+    exhibitGroup.add(topRail, botRail, leftRail, rightRail, inTop, inBot, inLeft, inRight);
+
+    // 4. Sculpted Corner Rococo Scroll Flourishes at all 4 Corners
+    [
+      { cx: -frameW * 0.5, cy: centerY + frameH * 0.5, rz: 0.4 },
+      { cx: frameW * 0.5, cy: centerY + frameH * 0.5, rz: -2.0 },
+      { cx: -frameW * 0.5, cy: centerY - frameH * 0.5, rz: 2.0 },
+      { cx: frameW * 0.5, cy: centerY - frameH * 0.5, rz: -0.4 },
+    ].forEach(({ cx, cy, rz }) => {
+      const scroll = new THREE.Mesh(frameCornerScrollGeo, galleryRoyalGoldMat);
+      scroll.position.set(cx, cy, 0.11);
+      scroll.rotation.z = rz;
+      exhibitGroup.add(scroll);
+    });
+
+    // 5. Top-Center Glowing Faceted Pink Heart Gem inside Ornate Gold Heart Crest + Flanking Scroll Wings
+    const topCrestY = centerY + frameH * 0.5 + 0.14;
+    const topHeartBezel = new THREE.Mesh(frameTopHeartBezelGeo, galleryRoyalGoldMat);
+    topHeartBezel.position.set(0, topCrestY, 0.11);
+    const topHeartGem = new THREE.Mesh(frameTopHeartGemGeo, floatingHeartCrystalMat);
+    topHeartGem.position.set(0, topCrestY, 0.14);
+    exhibitGroup.add(topHeartBezel, topHeartGem);
+
+    [-1, 1].forEach((side) => {
+      const wing = new THREE.Mesh(frameCornerScrollGeo, galleryRoyalGoldMat);
+      wing.position.set(side * 0.28, topCrestY - 0.06, 0.11);
+      wing.rotation.z = side * -0.65;
+      exhibitGroup.add(wing);
+    });
+
+    // 6. Bottom-Center Curved Gold Cartouche Nameplate Plaque
+    const plaque = new THREE.Mesh(frameBottomPlaqueGeo, galleryRoyalGoldMat);
+    plaque.position.set(0, centerY - frameH * 0.5 - 0.02, 0.12);
+    exhibitGroup.add(plaque);
+
+    // 7. Portrait Canvas Surface (Lit from above by the Picture Light — non-self-luminous UI look)
     const artMat = tracker.trackMat(
-      new THREE.MeshBasicMaterial({ map: tex, side: THREE.FrontSide }),
+      new THREE.MeshStandardMaterial({
+        map: tex,
+        emissive: new THREE.Color('#fff1f2'),
+        emissiveMap: tex,
+        emissiveIntensity: 0.42,
+        roughness: 0.28,
+        metalness: 0.02,
+        side: THREE.FrontSide,
+      }),
     );
     const artMesh = new THREE.Mesh(frameCanvasGeo, artMat);
-    artMesh.position.set(0, 1.92, 0.1);
+    artMesh.position.set(0, centerY, 0.088);
+    exhibitGroup.add(artMesh);
 
-    // Soft overhead architectural spotlight cone (emissive volumetric cone, zero dynamic light cost)
-    const spotBeam = new THREE.Mesh(spotlightConeGeo, spotlightBeamMat);
-    spotBeam.position.set(0, 2.75, 0.35);
-    spotBeam.rotation.x = 0.22;
+    // 8. Physical Gold Overhead Picture-Light Fixture + Downward Light Cone
+    const fixtureY = centerY + frameH * 0.5 + 0.56;
+    const canopy = new THREE.Mesh(picLightCanopyGeo, galleryRoyalGoldMat);
+    canopy.position.set(0, fixtureY, 0.03);
+    const arm = new THREE.Mesh(picLightArmGeo, galleryRoyalGoldMat);
+    arm.position.set(0, fixtureY, 0.14);
+    const hood = new THREE.Mesh(picLightHoodGeo, galleryRoyalGoldMat);
+    hood.position.set(0, fixtureY - 0.05, 0.25);
+    hood.rotation.x = -0.22;
+    const bulb = new THREE.Mesh(picLightBulbGeo, galleryWarmLinearGlowMat);
+    bulb.position.set(0, fixtureY - 0.09, 0.24);
 
-    exhibitGroup.add(frameOuter, artMesh, spotBeam);
+    const beamCone = new THREE.Mesh(picBeamConeGeo, picBeamConeMat);
+    beamCone.position.set(0, fixtureY - 0.92, 0.18);
+    beamCone.rotation.x = -0.08;
+    beamCone.scale.set(1.05, 1.0, 0.35);
+
+    exhibitGroup.add(canopy, arm, hood, bulb, beamCone);
     heartGalleryGroup.add(exhibitGroup);
   }
 
@@ -2142,16 +3142,19 @@ export function createCastleFloor3Rooms(
         const ex = exhibitPlacements[currentGalleryIndex];
         const normalX = Math.sin(ex.rotY);
         const normalZ = Math.cos(ex.rotY);
+        const rightX = Math.cos(ex.rotY);
+        const rightZ = -Math.sin(ex.rotY);
         const camWx = originX + ex.lx + normalX * ex.camDist;
         const camWz = originZ + ex.lz + normalZ * ex.camDist;
         const lookWx = originX + ex.lx;
         const lookWz = originZ + ex.lz;
+        const panOffset = Math.sin(lookYawOffset) * 0.85;
 
-        camState.camWorldPos.set(camWx, floor3WorldY + 1.85, camWz);
+        camState.camWorldPos.set(camWx, floor3WorldY + 2.18, camWz);
         camState.lookWorldPos.set(
-          lookWx + Math.sin(lookYawOffset) * 1.1,
-          floor3WorldY + 1.92 + Math.sin(lookPitchOffset) * 0.8,
-          lookWz + Math.cos(lookYawOffset) * 0.35,
+          lookWx + rightX * panOffset,
+          floor3WorldY + 2.22 + Math.sin(lookPitchOffset) * 0.75,
+          lookWz + rightZ * panOffset,
         );
       }
     },
