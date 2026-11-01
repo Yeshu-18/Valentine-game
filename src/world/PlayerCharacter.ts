@@ -514,57 +514,210 @@ export function createPlayerAvatar(): PlayerAvatarBundle {
   comboHeartOrb.add(chOrbCore, chOrbL, chOrbR);
   bodyGroup.add(comboHeartOrb);
 
-  // 10. Wearable Golden-Rimmed Rose on Right Hand (for Little Dream World Rose Handoff)
+  // 10. High-Realism 24-Petal Botanical Rose on Right Hand (anchored at stem grip pivot (0,0,0))
   const heldRoseGroup = new THREE.Group();
   heldRoseGroup.name = 'HeldGoldenRoseGroup';
-  heldRoseGroup.position.set(0.01, -0.02, 0.045);
-  heldRoseGroup.rotation.set(Math.PI * 0.35, 0, -0.15);
+  heldRoseGroup.position.set(0.0, -0.025, 0.035);
+  heldRoseGroup.rotation.set(Math.PI * 0.34, 0, -0.12);
   heldRoseGroup.visible = false;
   rightHandAnchor.add(heldRoseGroup);
 
-  const roseStemGeo = new THREE.CylinderGeometry(0.0045, 0.0055, 0.22, 8);
-  roseStemGeo.translate(0, 0.08, 0);
+  const createDeformedPetalGeometry = (
+    cupDepth: number,
+    lipCurlStrength: number,
+    sCurveDepth: number,
+    asymOffset: number,
+  ): THREE.BufferGeometry => {
+    const geo = new THREE.PlaneGeometry(1, 1, 10, 12);
+    const pos = geo.attributes.position;
+    for (let idx = 0; idx < pos.count; idx++) {
+      const u = pos.getX(idx); // [-0.5, 0.5]
+      const v = pos.getY(idx) + 0.5; // [0, 1] from base (0) to tip (1)
+      const widthProfile = 0.18 + 0.92 * Math.sin(Math.pow(v, 0.68) * Math.PI * 0.88);
+      const notch =
+        v > 0.75
+          ? Math.exp(-Math.pow(u * 6.5, 2)) * Math.pow((v - 0.75) / 0.25, 1.6) * 0.065
+          : 0.0;
+      const px = u * widthProfile + Math.sin(v * Math.PI) * asymOffset;
+      const py = v - notch;
+      let pz = (u * u) * (1.2 - 0.5 * v) * cupDepth;
+      if (v > 0.65) {
+        pz -= Math.pow((v - 0.65) / 0.35, 2.2) * lipCurlStrength;
+      }
+      pz += Math.sin(u * Math.PI * 3.0) * 0.015 * v;
+      pz += Math.sin(v * Math.PI) * sCurveDepth;
+      pos.setXYZ(idx, px, py, pz);
+    }
+    geo.computeVertexNormals();
+    return geo;
+  };
+
+  const rosePetalInnerGeo = createDeformedPetalGeometry(0.42, 0.08, 0.06, 0.018);
+  const rosePetalMidGeo = createDeformedPetalGeometry(0.34, 0.22, 0.08, -0.022);
+  const rosePetalOuterGeo = createDeformedPetalGeometry(0.26, 0.38, 0.1, 0.025);
+
+  const roseStemCurve = new THREE.CatmullRomCurve3([
+    new THREE.Vector3(0.0, -0.13, -0.008),
+    new THREE.Vector3(0.003, 0.0, 0.004),
+    new THREE.Vector3(0.0, 0.11, 0.0),
+  ]);
+  const roseStemGeo = new THREE.TubeGeometry(roseStemCurve, 14, 0.0045, 8, false);
+  const roseReceptacleGeo = new THREE.SphereGeometry(0.016, 10, 8);
+  roseReceptacleGeo.scale(1.0, 1.28, 1.0);
+  roseReceptacleGeo.translate(0, 0.112, 0);
+
+  const roseSepalGeo = new THREE.ConeGeometry(0.009, 0.042, 5);
+  roseSepalGeo.translate(0, 0.021, 0);
+  const roseThornGeo = new THREE.ConeGeometry(0.0032, 0.011, 5);
+  roseThornGeo.rotateZ(-Math.PI * 0.38);
+
+  const roseLeafletGeo = createDeformedPetalGeometry(0.18, 0.12, 0.04, 0.01);
+  roseLeafletGeo.scale(0.022, 0.038, 0.022);
+
   const roseStemMat = new THREE.MeshStandardMaterial({
-    color: new THREE.Color('#10b981'),
-    roughness: 0.45,
-    metalness: 0.1,
+    color: new THREE.Color('#15803d'),
+    roughness: 0.44,
+    metalness: 0.05,
   });
-  const rosePetalMat = new THREE.MeshStandardMaterial({
-    color: new THREE.Color('#f43f5e'),
-    emissive: new THREE.Color('#fbbf24'),
-    emissiveIntensity: 0.45,
-    roughness: 0.22,
-    metalness: 0.25,
+  const roseLeafMat = new THREE.MeshStandardMaterial({
+    color: new THREE.Color('#166534'),
+    roughness: 0.42,
+    metalness: 0.05,
+    side: THREE.DoubleSide,
   });
-  materials.push(roseStemMat, rosePetalMat);
-
-  const roseBudCoreGeo = new THREE.ConeGeometry(0.022, 0.045, 10);
-  roseBudCoreGeo.rotateX(Math.PI);
-  roseBudCoreGeo.translate(0, 0.2, 0);
-  const roseOuterPetalGeo = new THREE.SphereGeometry(0.026, 10, 8);
-  roseOuterPetalGeo.scale(1.15, 0.85, 1.15);
-  roseOuterPetalGeo.translate(0, 0.195, 0);
-  const roseLeafGeo = new THREE.SphereGeometry(0.014, 8, 6);
-  roseLeafGeo.scale(1.6, 0.35, 0.75);
-
-  const leafL = new THREE.Mesh(roseLeafGeo, roseStemMat);
-  leafL.position.set(-0.016, 0.11, 0);
-  leafL.rotation.z = 0.45;
-  const leafR = new THREE.Mesh(roseLeafGeo, roseStemMat);
-  leafR.position.set(0.016, 0.13, 0);
-  leafR.rotation.z = -0.45;
-  const goldRimHalo = new THREE.Mesh(ringBandGeo, ribbonGoldMat);
-  goldRimHalo.scale.setScalar(1.25);
-  goldRimHalo.position.set(0, 0.2, 0);
+  const roseCoreCrimsonMat = new THREE.MeshPhysicalMaterial({
+    color: new THREE.Color('#881337'),
+    emissive: new THREE.Color('#4c0519'),
+    emissiveIntensity: 0.28,
+    roughness: 0.52,
+    metalness: 0.02,
+    sheen: 0.85,
+    sheenColor: new THREE.Color('#fb7185'),
+    side: THREE.DoubleSide,
+  });
+  const roseMidRubyMat = new THREE.MeshPhysicalMaterial({
+    color: new THREE.Color('#be123c'),
+    emissive: new THREE.Color('#881337'),
+    emissiveIntensity: 0.32,
+    roughness: 0.46,
+    metalness: 0.03,
+    sheen: 0.82,
+    sheenColor: new THREE.Color('#fda4af'),
+    side: THREE.DoubleSide,
+  });
+  const roseOuterVelvetMat = new THREE.MeshPhysicalMaterial({
+    color: new THREE.Color('#e11d48'),
+    emissive: new THREE.Color('#9f1239'),
+    emissiveIntensity: 0.35,
+    roughness: 0.42,
+    metalness: 0.03,
+    sheen: 0.78,
+    sheenColor: new THREE.Color('#fecdd3'),
+    side: THREE.DoubleSide,
+  });
+  const roseBudCoreGeo = rosePetalInnerGeo;
+  const roseOuterPetalGeo = rosePetalMidGeo;
+  const roseLeafGeo = rosePetalOuterGeo;
+  materials.push(
+    roseStemMat,
+    roseLeafMat,
+    roseCoreCrimsonMat,
+    roseMidRubyMat,
+    roseOuterVelvetMat,
+  );
+  geometries.push(roseReceptacleGeo, roseSepalGeo, roseThornGeo, roseLeafletGeo);
 
   heldRoseGroup.add(
     new THREE.Mesh(roseStemGeo, roseStemMat),
-    new THREE.Mesh(roseOuterPetalGeo, rosePetalMat),
-    new THREE.Mesh(roseBudCoreGeo, ribbonGoldMat),
-    leafL,
-    leafR,
-    goldRimHalo,
+    new THREE.Mesh(roseReceptacleGeo, roseStemMat),
   );
+
+  // 5 Pointed Calyx Sepals beneath the bloom (y = +0.112m)
+  for (let s = 0; s < 5; s++) {
+    const sepal = new THREE.Mesh(roseSepalGeo, roseStemMat);
+    const sAng = (s * Math.PI * 2) / 5 + 0.25;
+    sepal.position.set(Math.cos(sAng) * 0.011, 0.112, Math.sin(sAng) * 0.011);
+    sepal.rotation.y = -sAng;
+    sepal.rotation.z = 1.12 + (s % 2) * 0.1;
+    heldRoseGroup.add(sepal);
+  }
+
+  // 24-Petal Golden-Angle Whorl (137.50776 deg) across 4 tiers
+  const GOLDEN_ANGLE = 137.50776 * (Math.PI / 180);
+  const BLOOM_Y = 0.115;
+  const BLOOM_VISUAL_MULT = 1.55;
+  for (let i = 0; i < 24; i++) {
+    const t = i / 23;
+    const angle = i * GOLDEN_ANGLE + Math.sin(i * 7.13) * 0.04;
+    const radius = (0.004 + Math.pow(t, 1.35) * 0.032) * BLOOM_VISUAL_MULT;
+    const tilt = THREE.MathUtils.lerp(0.14, 1.18, Math.pow(t, 1.15));
+    const pScale = THREE.MathUtils.lerp(0.022, 0.052, Math.pow(t, 0.8)) * BLOOM_VISUAL_MULT;
+
+    const pGeo = i < 5 ? rosePetalInnerGeo : i < 16 ? rosePetalMidGeo : rosePetalOuterGeo;
+    const pMat = i < 6 ? roseCoreCrimsonMat : i < 16 ? roseMidRubyMat : roseOuterVelvetMat;
+
+    const petalPivot = new THREE.Group();
+    petalPivot.position.set(
+      Math.cos(angle) * radius,
+      BLOOM_Y + (1.0 - t) * 0.008,
+      Math.sin(angle) * radius,
+    );
+    petalPivot.rotation.y = -angle + Math.PI / 2;
+    petalPivot.rotation.x = tilt;
+
+    const petalMesh = new THREE.Mesh(pGeo, pMat);
+    petalMesh.scale.set(pScale * 0.92, pScale * 1.08, pScale);
+    petalPivot.add(petalMesh);
+    heldRoseGroup.add(petalPivot);
+  }
+
+  // 3 Tiny Curved Thorns (strictly outside the (0,0,0) hand-grip zone)
+  [
+    { y: -0.085, ang: 0.4 },
+    { y: -0.052, ang: 2.5 },
+    { y: 0.068, ang: -1.2 },
+  ].forEach((th) => {
+    const thorn = new THREE.Mesh(roseThornGeo, roseStemMat);
+    thorn.position.set(Math.cos(th.ang) * 0.0045, th.y, Math.sin(th.ang) * 0.0045);
+    thorn.rotation.y = -th.ang;
+    heldRoseGroup.add(thorn);
+  });
+
+  // 2 Compound 3-Leaflet Rose Branches at 45% (y = -0.022m) and 70% (y = +0.038m) stem height, 135° apart
+  [
+    { y: -0.022, rotY: 0.35, scale: 0.92 },
+    { y: 0.038, rotY: 0.35 + 2.356, scale: 1.0 },
+  ].forEach((br) => {
+    const branchGroup = new THREE.Group();
+    branchGroup.position.set(0, br.y, 0);
+    branchGroup.rotation.y = br.rotY;
+    branchGroup.rotation.z = -0.48;
+    branchGroup.scale.setScalar(br.scale);
+
+    const petioleGeo = new THREE.CylinderGeometry(0.0018, 0.0022, 0.026, 5);
+    petioleGeo.rotateZ(-Math.PI / 2);
+    petioleGeo.translate(0.013, 0, 0);
+    geometries.push(petioleGeo);
+    branchGroup.add(new THREE.Mesh(petioleGeo, roseStemMat));
+
+    // Terminal leaflet + 2 opposing lateral leaflets
+    const termLeaf = new THREE.Mesh(roseLeafletGeo, roseLeafMat);
+    termLeaf.position.set(0.026, 0, 0);
+    termLeaf.rotation.set(0.2, 0, -Math.PI / 2);
+
+    const latLeafL = new THREE.Mesh(roseLeafletGeo, roseLeafMat);
+    latLeafL.position.set(0.014, 0, 0.006);
+    latLeafL.rotation.set(0.35, -0.55, -Math.PI / 2);
+    latLeafL.scale.setScalar(0.76);
+
+    const latLeafR = new THREE.Mesh(roseLeafletGeo, roseLeafMat);
+    latLeafR.position.set(0.014, 0, -0.006);
+    latLeafR.rotation.set(-0.35, 0.55, -Math.PI / 2);
+    latLeafR.scale.setScalar(0.76);
+
+    branchGroup.add(termLeaf, latLeafL, latLeafR);
+    heldRoseGroup.add(branchGroup);
+  });
 
   // 11. Small Romantic Hair Rose Flower (worn in Harsha's hair upon entering the castle)
   let hairRoseVisible = false;

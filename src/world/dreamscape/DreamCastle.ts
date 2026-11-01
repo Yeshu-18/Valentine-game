@@ -1997,6 +1997,7 @@ export function createDreamCastle(): DreamCastleBundle {
     y: number;
     z: number;
     isFlowerSupport: boolean;
+    rotY?: number;
   }
   const balusterPlacements: BalusterPlacement[] = [];
   const heroCrystalDropPlacements: Array<{ x: number; y: number; z: number; isRose: boolean }> = [];
@@ -2209,29 +2210,92 @@ export function createDreamCastle(): DreamCastleBundle {
     cameraOccluders.push(mesh);
   });
 
-  // Mezzanine Balcony Balustrade Rails framing the open central atrium & stairwells
-  const mezCenterRailGeo = tracker.trackGeo(new THREE.BoxGeometry(10.4, 0.12, 0.16));
-  mezCenterRailGeo.translate(0, 6.15, 0);
-  const mezSouthRail = new THREE.Mesh(mezCenterRailGeo, loveRibbonGoldMat);
-  mezSouthRail.position.set(0, 0, -6.0);
-  const mezNorthCenterRail = new THREE.Mesh(mezCenterRailGeo, loveRibbonGoldMat);
-  mezNorthCenterRail.position.set(0, 0, 3.8);
-  group.add(mezSouthRail, mezNorthCenterRail);
+  // Mezzanine Balcony "Love Ribbon" Safety Balustrades framing the open central atrium & stairwells
+  const mezCenterRailGeo = tracker.trackGeo(new THREE.BoxGeometry(10.4, 0.09, 0.14));
+  const mezCenterPinkRibbonGeo = tracker.trackGeo(new THREE.BoxGeometry(10.36, 0.045, 0.16));
+  const mezCenterBotRailGeo = tracker.trackGeo(new THREE.BoxGeometry(10.4, 0.06, 0.12));
+  [-6.0, 3.8].forEach((bz, rIdx) => {
+    const topRail = new THREE.Mesh(mezCenterRailGeo, loveRibbonGoldMat);
+    topRail.position.set(0, 6.18, bz);
+    const pinkRib = new THREE.Mesh(mezCenterPinkRibbonGeo, loveRibbonPinkMat);
+    pinkRib.position.set(0, 5.84, bz);
+    const botRail = new THREE.Mesh(mezCenterBotRailGeo, loveRibbonGoldMat);
+    botRail.position.set(0, 5.34, bz);
+    group.add(topRail, pinkRib, botRail);
 
-  const mezLobbySideRailGeo = tracker.trackGeo(new THREE.BoxGeometry(0.16, 0.12, 2.2));
-  mezLobbySideRailGeo.translate(0, 6.15, 0);
-  [-5.2, 5.2].forEach((bx) => {
-    const lobbyRail = new THREE.Mesh(mezLobbySideRailGeo, loveRibbonGoldMat);
-    lobbyRail.position.set(bx, 0, 4.9);
-    group.add(lobbyRail);
+    // Populate instanced negative-space heart balusters ♡ & 5-petal flowers along X-aligned atrium overlook
+    const numHorizPosts = 9;
+    for (let pIdx = 0; pIdx < numHorizPosts; pIdx++) {
+      const px = -4.4 + pIdx * 1.1;
+      balusterPlacements.push({
+        x: px,
+        y: 5.25,
+        z: bz,
+        isFlowerSupport: (pIdx + rIdx) % 3 === 1,
+        rotY: Math.PI / 2,
+      });
+      if (pIdx % 2 === 1) {
+        heroCrystalDropPlacements.push({
+          x: px,
+          y: 6.02,
+          z: bz,
+          isRose: (pIdx + rIdx) % 4 === 1,
+        });
+      }
+    }
   });
 
-  const mezSideWellRailGeo = tracker.trackGeo(new THREE.BoxGeometry(0.16, 0.12, 12.0));
-  mezSideWellRailGeo.translate(0, 6.15, 0);
-  [-8.6, 8.6].forEach((bx) => {
+  const mezLobbySideRailGeo = tracker.trackGeo(new THREE.BoxGeometry(0.14, 0.09, 2.2));
+  const mezLobbySidePinkGeo = tracker.trackGeo(new THREE.BoxGeometry(0.16, 0.045, 2.18));
+  const mezLobbySideBotGeo = tracker.trackGeo(new THREE.BoxGeometry(0.12, 0.06, 2.2));
+  [-5.2, 5.2].forEach((bx, sIdx) => {
+    const lobbyRail = new THREE.Mesh(mezLobbySideRailGeo, loveRibbonGoldMat);
+    lobbyRail.position.set(bx, 6.18, 4.9);
+    const lobbyPink = new THREE.Mesh(mezLobbySidePinkGeo, loveRibbonPinkMat);
+    lobbyPink.position.set(bx, 5.84, 4.9);
+    const lobbyBot = new THREE.Mesh(mezLobbySideBotGeo, loveRibbonGoldMat);
+    lobbyBot.position.set(bx, 5.34, 4.9);
+    group.add(lobbyRail, lobbyPink, lobbyBot);
+
+    [4.2, 5.5].forEach((pz, pIdx) => {
+      balusterPlacements.push({
+        x: bx,
+        y: 5.25,
+        z: pz,
+        isFlowerSupport: (pIdx + sIdx) % 2 === 0,
+      });
+    });
+  });
+
+  const mezSideWellRailGeo = tracker.trackGeo(new THREE.BoxGeometry(0.14, 0.09, 12.0));
+  const mezSideWellPinkGeo = tracker.trackGeo(new THREE.BoxGeometry(0.16, 0.045, 11.96));
+  const mezSideWellBotGeo = tracker.trackGeo(new THREE.BoxGeometry(0.12, 0.06, 12.0));
+  [-8.6, 8.6].forEach((bx, sIdx) => {
     const railSide = new THREE.Mesh(mezSideWellRailGeo, loveRibbonGoldMat);
-    railSide.position.set(bx, 0, 0);
-    group.add(railSide);
+    railSide.position.set(bx, 6.18, 0);
+    const pinkSide = new THREE.Mesh(mezSideWellPinkGeo, loveRibbonPinkMat);
+    pinkSide.position.set(bx, 5.84, 0);
+    const botSide = new THREE.Mesh(mezSideWellBotGeo, loveRibbonGoldMat);
+    botSide.position.set(bx, 5.34, 0);
+    group.add(railSide, pinkSide, botSide);
+
+    for (let pIdx = 0; pIdx < 9; pIdx++) {
+      const pz = -5.2 + pIdx * 1.3;
+      balusterPlacements.push({
+        x: bx,
+        y: 5.25,
+        z: pz,
+        isFlowerSupport: (pIdx + sIdx) % 3 === 1,
+      });
+      if (pIdx % 3 === 1) {
+        heroCrystalDropPlacements.push({
+          x: bx,
+          y: 6.02,
+          z: pz,
+          isRose: pIdx % 2 === 0,
+        });
+      }
+    }
   });
 
   // --- 6.2 FLOOR 2 -> FLOOR 3 EAST GALLERY STAIRCASE (Driven by CASTLE_STAIRCASE_CONFIGS[2]) ---
@@ -2392,22 +2456,28 @@ export function createDreamCastle(): DreamCastleBundle {
   const balDummy = new THREE.Object3D();
   for (let i = 0; i < totalBalusters; i++) {
     const bp = balusterPlacements[i];
+    const yaw = bp.rotY ?? 0;
+    const isXAligned = Math.abs(yaw) > 0.1;
+    const offX = isXAligned ? 0.075 : 0;
+    const offZ = isXAligned ? 0 : 0.075;
+    const baseYaw = isXAligned ? 0 : Math.PI / 2;
+
     balDummy.position.set(bp.x, bp.y, bp.z);
-    balDummy.rotation.set(0, Math.PI / 2, 0);
+    balDummy.rotation.set(0, baseYaw, 0);
     balDummy.scale.setScalar(1);
     balDummy.updateMatrix();
     balusterStemInst.setMatrixAt(i, balDummy.matrix);
 
-    // Left half of negative-space heart (facing along the stair flight)
-    balDummy.position.set(bp.x, bp.y + 0.54, bp.z - 0.075);
-    balDummy.rotation.set(0, Math.PI / 2, Math.PI * 0.42);
+    // Left half of negative-space heart
+    balDummy.position.set(bp.x - offX, bp.y + 0.54, bp.z - offZ);
+    balDummy.rotation.set(0, baseYaw, Math.PI * 0.42);
     balDummy.updateMatrix();
     heartScrollLeftInst.setMatrixAt(i, balDummy.matrix);
     heartTrimLeftInst.setMatrixAt(i, balDummy.matrix);
 
     // Right half of negative-space heart (mirroring left half to enclose a heart silhouette ♡)
-    balDummy.position.set(bp.x, bp.y + 0.54, bp.z + 0.075);
-    balDummy.rotation.set(0, -Math.PI / 2, Math.PI * 0.42);
+    balDummy.position.set(bp.x + offX, bp.y + 0.54, bp.z + offZ);
+    balDummy.rotation.set(0, baseYaw + Math.PI, Math.PI * 0.42);
     balDummy.updateMatrix();
     heartScrollRightInst.setMatrixAt(i, balDummy.matrix);
     heartTrimRightInst.setMatrixAt(i, balDummy.matrix);
@@ -2429,20 +2499,22 @@ export function createDreamCastle(): DreamCastleBundle {
   // 1D. Instanced 5-Petal Barbie Flowers on every 3rd major support (~1-2% visual mass)
   for (let fIdx = 0; fIdx < numFlowerSupports; fIdx++) {
     const fp = flowerSupportPlacements[fIdx];
+    const isXAligned = Math.abs(fp.rotY ?? 0) > 0.1;
     balDummy.position.set(fp.x, fp.y + 0.56, fp.z);
-    balDummy.rotation.set(0, 0, 0);
+    balDummy.rotation.set(0, isXAligned ? Math.PI / 2 : 0, 0);
     balDummy.scale.setScalar(1);
     balDummy.updateMatrix();
     balusterFlowerCenterInst.setMatrixAt(fIdx, balDummy.matrix);
 
     for (let p = 0; p < 5; p++) {
       const pAng = (p * Math.PI * 2) / 5;
+      const radial = Math.cos(pAng) * 0.068;
       balDummy.position.set(
-        fp.x,
+        fp.x + (isXAligned ? radial : 0),
         fp.y + 0.56 + Math.sin(pAng) * 0.068,
-        fp.z + Math.cos(pAng) * 0.068,
+        fp.z + (isXAligned ? 0 : radial),
       );
-      balDummy.rotation.set(pAng, Math.PI / 2, 0);
+      balDummy.rotation.set(pAng, isXAligned ? 0 : Math.PI / 2, 0);
       balDummy.scale.setScalar(1);
       balDummy.updateMatrix();
       balusterFlowerPetalInst.setMatrixAt(fIdx * 5 + p, balDummy.matrix);
@@ -4433,143 +4505,271 @@ export function createDreamCastle(): DreamCastleBundle {
   yLeftArmPivot.add(new THREE.Mesh(yHandGeo, ySkinMat));
   yRightArmPivot.add(new THREE.Mesh(yHandGeo, ySkinMat));
 
-  // Section 3: Realistic 3D Rose held in Yeshwanth's right hand (layered asymmetric petals, green sepals, stem & leaves)
+  // Section 4A: High-Realism 24-Petal Golden-Angle Botanical Rose anchored at the hand-grip pivot (0, 0, 0)
   const yRoseGroup = new THREE.Group();
   yRoseGroup.name = 'YeshwanthProposalRose';
-  yRoseGroup.position.set(0, -0.54, 0.06);
-  yRoseGroup.rotation.x = 1.24; // Upright presentation angled toward Harsha's hand
+  yRoseGroup.position.set(0, -0.54, 0.05);
+  yRoseGroup.rotation.x = 1.18; // Upright presentation angled toward Harsha's hand
 
   const roseStemMat = tracker.trackMat(
     new THREE.MeshStandardMaterial({
       color: new THREE.Color('#15803d'),
       emissive: new THREE.Color('#064e3b'),
-      emissiveIntensity: 0.22,
-      roughness: 0.48,
-      metalness: 0.05,
-    }),
-  );
-  const roseInnerCrimsonMat = tracker.trackMat(
-    new THREE.MeshPhysicalMaterial({
-      color: new THREE.Color('#9f1239'),
-      emissive: new THREE.Color('#881337'),
-      emissiveIntensity: 0.42,
-      roughness: 0.34,
+      emissiveIntensity: 0.2,
+      roughness: 0.58,
       metalness: 0.04,
-      clearcoat: 0.35,
-      clearcoatRoughness: 0.4,
       side: THREE.DoubleSide,
     }),
   );
-  const roseOuterVelvetMat = tracker.trackMat(
+  // 3 Shared Velvet Rose Petal Materials (Core #881337, Mid #be123c, Outer #e11d48)
+  const roseCorePetalMat = tracker.trackMat(
+    new THREE.MeshPhysicalMaterial({
+      color: new THREE.Color('#881337'),
+      emissive: new THREE.Color('#4c0519'),
+      emissiveIntensity: 0.34,
+      roughness: 0.54,
+      metalness: 0.02,
+      sheen: 0.85,
+      sheenRoughness: 0.42,
+      sheenColor: new THREE.Color('#fda4af'),
+      clearcoat: 0.14,
+      clearcoatRoughness: 0.5,
+      side: THREE.DoubleSide,
+    }),
+  );
+  const roseMidPetalMat = tracker.trackMat(
+    new THREE.MeshPhysicalMaterial({
+      color: new THREE.Color('#be123c'),
+      emissive: new THREE.Color('#881337'),
+      emissiveIntensity: 0.38,
+      roughness: 0.52,
+      metalness: 0.02,
+      sheen: 0.85,
+      sheenRoughness: 0.4,
+      sheenColor: new THREE.Color('#fda4af'),
+      clearcoat: 0.16,
+      clearcoatRoughness: 0.45,
+      side: THREE.DoubleSide,
+    }),
+  );
+  const roseOuterPetalMat = tracker.trackMat(
     new THREE.MeshPhysicalMaterial({
       color: new THREE.Color('#e11d48'),
-      emissive: new THREE.Color('#be123c'),
-      emissiveIntensity: 0.48,
-      roughness: 0.3,
-      metalness: 0.05,
-      clearcoat: 0.42,
-      clearcoatRoughness: 0.35,
+      emissive: new THREE.Color('#9f1239'),
+      emissiveIntensity: 0.42,
+      roughness: 0.5,
+      metalness: 0.02,
+      sheen: 0.85,
+      sheenRoughness: 0.38,
+      sheenColor: new THREE.Color('#fecdd3'),
+      clearcoat: 0.18,
+      clearcoatRoughness: 0.42,
       side: THREE.DoubleSide,
     }),
   );
 
-  // Slender green stem + receptacle
+  // 3 Pre-Deformed Botanical Petal Geometry Templates (Inner, Mid, Outer)
+  const buildBotanicalPetalTemplate = (
+    widthScale: number,
+    heightScale: number,
+    cupDepth: number,
+    lipReflex: number,
+    waveAmp: number,
+  ): THREE.BufferGeometry => {
+    const geo = tracker.trackGeo(new THREE.PlaneGeometry(1, 1, 10, 12));
+    const pos = geo.attributes.position;
+    for (let i = 0; i < pos.count; i++) {
+      const u = pos.getX(i); // [-0.5, +0.5]
+      const v = pos.getY(i) + 0.5; // [0, 1] from base to upper lip
+      const uNorm = u * 2.0; // [-1, +1]
+      const profileW = Math.pow(Math.sin(Math.min(1, Math.max(0.03, v)) * Math.PI * 0.86), 0.62);
+      const x = u * widthScale * (0.22 + 0.88 * profileW);
+      const y = v * heightScale;
+      const bowl = (1.0 - uNorm * uNorm) * Math.sin(v * Math.PI * 0.92) * cupDepth;
+      const reflex =
+        v > 0.64 ? -Math.pow((v - 0.64) / 0.36, 1.85) * lipReflex * (0.45 + 0.55 * uNorm * uNorm) : 0;
+      const wave =
+        v > 0.68 ? Math.sin(uNorm * Math.PI * 2.5) * waveAmp * ((v - 0.68) / 0.32) : 0;
+      pos.setXYZ(i, x, y, bowl + reflex + wave);
+    }
+    geo.computeVertexNormals();
+    return geo;
+  };
+
+  const innerPetalTemplate = buildBotanicalPetalTemplate(0.032, 0.048, 0.012, 0.004, 0.0012);
+  const midPetalTemplate = buildBotanicalPetalTemplate(0.044, 0.056, 0.014, 0.011, 0.0022);
+  const outerPetalTemplate = buildBotanicalPetalTemplate(0.054, 0.062, 0.013, 0.019, 0.0034);
+
+  // Curved Botanical Stem (TubeGeometry along 4-point CatmullRomCurve3, length ≈ 0.24m, radius ≈ 0.0045m)
+  // Grip pivot at (0, 0, 0): stem extends from -0.09m below palm to +0.15m at the flower receptacle
+  const stemCurve = new THREE.CatmullRomCurve3([
+    new THREE.Vector3(0, -0.09, 0.004),
+    new THREE.Vector3(0.002, 0.0, 0.0),
+    new THREE.Vector3(-0.002, 0.08, -0.003),
+    new THREE.Vector3(0, 0.15, 0),
+  ]);
   const yRoseStem = new THREE.Mesh(
-    tracker.trackGeo(new THREE.CylinderGeometry(0.009, 0.012, 0.38, 8)).translate(0, 0.17, 0),
+    tracker.trackGeo(new THREE.TubeGeometry(stemCurve, 16, 0.0048, 8, false)),
     roseStemMat,
   );
+  // Swollen green receptacle (hypanthium) beneath the bloom
   const yRoseReceptacle = new THREE.Mesh(
-    tracker.trackGeo(new THREE.SphereGeometry(0.024, 10, 8))
-      .scale(1.0, 1.25, 1.0)
-      .translate(0, 0.345, 0),
+    tracker.trackGeo(new THREE.SphereGeometry(0.015, 10, 8))
+      .scale(0.95, 1.32, 0.95)
+      .translate(0, 0.152, 0),
     roseStemMat,
   );
   yRoseGroup.add(yRoseStem, yRoseReceptacle);
 
-  // 5 Green Calyx Sepals curling beneath the rose head
-  const sepalGeo = tracker.trackGeo(new THREE.ConeGeometry(0.016, 0.068, 5));
-  sepalGeo.translate(0, 0.034, 0);
+  // 5 Pointed Green Calyx Sepals radiating from the receptacle and reflexing downward
+  const sepalGeo = tracker.trackGeo(new THREE.ConeGeometry(0.0065, 0.038, 5));
+  sepalGeo.scale(1.0, 1.0, 0.36);
+  sepalGeo.translate(0, 0.019, 0);
   for (let s = 0; s < 5; s++) {
     const sepal = new THREE.Mesh(sepalGeo, roseStemMat);
-    const sAng = (s * Math.PI * 2) / 5 + 0.2;
-    sepal.position.set(Math.cos(sAng) * 0.018, 0.348, Math.sin(sAng) * 0.018);
-    sepal.rotation.y = -sAng;
-    sepal.rotation.z = 1.08 + (s % 2) * 0.12;
+    const sAng = (s * Math.PI * 2) / 5 + 0.22;
+    sepal.position.set(Math.cos(sAng) * 0.011, 0.154, Math.sin(sAng) * 0.011);
+    sepal.rotation.y = -sAng + Math.PI / 2;
+    sepal.rotation.x = 1.18 + (s % 2) * 0.12;
     yRoseGroup.add(sepal);
   }
 
-  // Sculpted Curved Petal Geometry (cupped shell with natural organic curl)
-  const curvedPetalGeo = tracker.trackGeo(
-    new THREE.SphereGeometry(0.048, 12, 10, 0, Math.PI * 0.82, 0.12, Math.PI * 0.72),
-  );
-  curvedPetalGeo.translate(0, 0.018, 0);
+  // 24-Petal Golden-Angle Whorl (137.50776° = 2.399963 rad) across 4 tiers
+  const GOLDEN_ANGLE = 2.39996323;
+  const bloomBaseY = 0.154;
+  for (let p = 0; p < 24; p++) {
+    let templateGeo: THREE.BufferGeometry;
+    let petalMat: THREE.Material;
+    let radius: number;
+    let yOff: number;
+    let tiltX: number;
+    let scaleW: number;
+    let scaleH: number;
 
-  // Inner tight spiral core bud (deep crimson)
-  const coreBud = new THREE.Mesh(
-    tracker.trackGeo(new THREE.CylinderGeometry(0.016, 0.024, 0.056, 12, 1, true)).translate(
-      0,
-      0.382,
-      0,
-    ),
-    roseInnerCrimsonMat,
-  );
-  yRoseGroup.add(coreBud);
+    if (p < 4) {
+      // Tier 1 (Core Bud: 4 petals)
+      templateGeo = innerPetalTemplate;
+      petalMat = roseCorePetalMat;
+      radius = 0.003 + p * 0.0014;
+      yOff = 0.005 - p * 0.0005;
+      tiltX = 0.14 + p * 0.045;
+      scaleW = 0.78 + p * 0.05;
+      scaleH = 0.88 + p * 0.03;
+    } else if (p < 9) {
+      // Tier 2 (Inner Cup: 5 petals)
+      const tIdx = p - 4;
+      templateGeo = innerPetalTemplate;
+      petalMat = tIdx < 3 ? roseCorePetalMat : roseMidPetalMat;
+      radius = 0.0085 + tIdx * 0.0016;
+      yOff = 0.003 - tIdx * 0.0004;
+      tiltX = 0.32 + tIdx * 0.045;
+      scaleW = 0.96 + tIdx * 0.04;
+      scaleH = 0.96 + tIdx * 0.02;
+    } else if (p < 16) {
+      // Tier 3 (Mid Velvet Whorl: 7 petals)
+      const tIdx = p - 9;
+      templateGeo = midPetalTemplate;
+      petalMat = roseMidPetalMat;
+      radius = 0.0155 + tIdx * 0.0017;
+      yOff = 0.001 - tIdx * 0.0004;
+      tiltX = 0.54 + tIdx * 0.042;
+      scaleW = 0.95 + tIdx * 0.03;
+      scaleH = 0.98 + tIdx * 0.015;
+    } else {
+      // Tier 4 (Outer Guard Petals: 8 petals)
+      const tIdx = p - 16;
+      templateGeo = outerPetalTemplate;
+      petalMat = roseOuterPetalMat;
+      radius = 0.025 + tIdx * 0.0016;
+      yOff = -0.002 - tIdx * 0.0004;
+      tiltX = 0.82 + tIdx * 0.045;
+      scaleW = 0.98 + (tIdx % 3) * 0.04;
+      scaleH = 1.0 + (tIdx % 2) * 0.03;
+    }
 
-  // Layer 1: 4 Inner tightly cupped crimson petals (asymmetric golden-angle offset)
-  for (let p = 0; p < 4; p++) {
-    const petal = new THREE.Mesh(curvedPetalGeo, roseInnerCrimsonMat);
-    const ang = p * 1.57 + 0.35;
-    petal.position.set(Math.cos(ang) * 0.012, 0.362, Math.sin(ang) * 0.012);
-    petal.rotation.y = -ang + Math.PI / 2;
-    petal.rotation.x = 0.22 + (p % 2) * 0.06;
-    petal.scale.set(0.68, 0.82, 0.68);
-    yRoseGroup.add(petal);
+    const theta = p * GOLDEN_ANGLE;
+    const petalPivot = new THREE.Group();
+    petalPivot.position.set(
+      Math.cos(theta) * radius,
+      bloomBaseY + yOff,
+      Math.sin(theta) * radius,
+    );
+    petalPivot.rotation.y = -theta - Math.PI / 2;
+
+    const petalMesh = new THREE.Mesh(templateGeo, petalMat);
+    petalMesh.rotation.x = tiltX;
+    petalMesh.scale.set(scaleW, scaleH, 1.0);
+    petalPivot.add(petalMesh);
+    yRoseGroup.add(petalPivot);
   }
 
-  // Layer 2: 6 Middle overlapping velvet-red petals
-  for (let p = 0; p < 6; p++) {
-    const petal = new THREE.Mesh(curvedPetalGeo, p % 2 === 0 ? roseOuterVelvetMat : roseInnerCrimsonMat);
-    const ang = (p * Math.PI * 2) / 6 + 0.52;
-    petal.position.set(Math.cos(ang) * 0.022, 0.358, Math.sin(ang) * 0.022);
-    petal.rotation.y = -ang + Math.PI / 2;
-    petal.rotation.x = 0.42 + (p % 3) * 0.05;
-    petal.scale.set(0.88, 0.94, 0.85);
-    yRoseGroup.add(petal);
-  }
-
-  // Layer 3: 7 Outer gently unfurling soft red petals
-  for (let p = 0; p < 7; p++) {
-    const petal = new THREE.Mesh(curvedPetalGeo, roseOuterVelvetMat);
-    const ang = (p * Math.PI * 2) / 7 + 0.18;
-    petal.position.set(Math.cos(ang) * 0.032, 0.352, Math.sin(ang) * 0.032);
-    petal.rotation.y = -ang + Math.PI / 2;
-    petal.rotation.x = 0.68 + (p % 2) * 0.08;
-    petal.scale.set(1.06, 1.02, 1.04);
-    yRoseGroup.add(petal);
-  }
-
-  // 3 Natural Sculpted Green Leaves along the stem
-  const naturalLeafGeo = tracker.trackGeo(new THREE.SphereGeometry(0.038, 10, 8));
-  naturalLeafGeo.scale(0.55, 0.14, 1.35);
-  naturalLeafGeo.translate(0, 0, 0.048);
-
-  const leafConfigs = [
-    { y: 0.24, rotY: 0.35, tiltX: -0.38, scale: 1.0 },
-    { y: 0.17, rotY: -2.15, tiltX: -0.42, scale: 0.92 },
-    { y: 0.11, rotY: 1.85, tiltX: -0.35, scale: 0.82 },
+  // 3 Tiny Curved Thorns placed clear of the (0,0,0) hand-grip zone
+  const thornGeo = tracker.trackGeo(new THREE.ConeGeometry(0.0022, 0.0085, 5));
+  thornGeo.rotateX(Math.PI * 0.42);
+  const thornConfigs = [
+    { y: -0.055, rotY: 0.4 },
+    { y: 0.055, rotY: 2.5 },
+    { y: 0.105, rotY: -1.6 },
   ];
-  for (const lc of leafConfigs) {
-    const leafMesh = new THREE.Mesh(naturalLeafGeo, roseStemMat);
-    leafMesh.position.set(0, lc.y, 0);
-    leafMesh.rotation.y = lc.rotY;
-    leafMesh.rotation.x = lc.tiltX;
-    leafMesh.scale.setScalar(lc.scale);
-    yRoseGroup.add(leafMesh);
+  for (const tc of thornConfigs) {
+    const thorn = new THREE.Mesh(thornGeo, roseStemMat);
+    thorn.position.set(0, tc.y, 0);
+    thorn.rotation.y = tc.rotY;
+    yRoseGroup.add(thorn);
+  }
+
+  // 2 Compound Rose Leaf Branches (at 45% and 70% stem height, rotated 135° apart)
+  // Each branch features a slender petiole + 3 ovate leaflets (1 larger terminal + 2 smaller lateral)
+  const leafletGeo = tracker.trackGeo(new THREE.PlaneGeometry(0.022, 0.038, 5, 6));
+  const lfPos = leafletGeo.attributes.position;
+  for (let i = 0; i < lfPos.count; i++) {
+    const u = lfPos.getX(i) / 0.011;
+    const v = (lfPos.getY(i) + 0.019) / 0.038;
+    const ovate = Math.sin(Math.min(1, Math.max(0, v)) * Math.PI);
+    const serrate = v > 0.15 && v < 0.9 ? Math.sin(v * Math.PI * 10) * 0.0012 : 0;
+    lfPos.setX(i, u * (0.011 * ovate + serrate));
+    lfPos.setY(i, v * 0.038);
+    lfPos.setZ(i, -Math.abs(u) * 0.0025 - v * v * 0.004);
+  }
+  leafletGeo.computeVertexNormals();
+  const petioleGeo = tracker.trackGeo(new THREE.CylinderGeometry(0.0012, 0.0016, 0.026, 5));
+  petioleGeo.rotateX(Math.PI / 2);
+  petioleGeo.translate(0, 0, 0.013);
+
+  const branchConfigs = [
+    { y: 0.032, rotY: 0.55, tiltX: 0.35, scale: 0.95 }, // ~45% stem height
+    { y: 0.088, rotY: 0.55 + Math.PI * 0.75, tiltX: 0.3, scale: 1.05 }, // ~70% stem height (135° apart)
+  ];
+  for (const bc of branchConfigs) {
+    const branchGroup = new THREE.Group();
+    branchGroup.position.set(0, bc.y, 0);
+    branchGroup.rotation.y = bc.rotY;
+    branchGroup.rotation.x = bc.tiltX;
+    branchGroup.scale.setScalar(bc.scale);
+
+    branchGroup.add(new THREE.Mesh(petioleGeo, roseStemMat));
+
+    const termLeaf = new THREE.Mesh(leafletGeo, roseStemMat);
+    termLeaf.position.set(0, 0, 0.025);
+    termLeaf.rotation.x = 1.25;
+    branchGroup.add(termLeaf);
+
+    const latLeafL = new THREE.Mesh(leafletGeo, roseStemMat);
+    latLeafL.position.set(-0.005, 0, 0.015);
+    latLeafL.rotation.set(1.2, 0, 0.95);
+    latLeafL.scale.setScalar(0.72);
+    const latLeafR = new THREE.Mesh(leafletGeo, roseStemMat);
+    latLeafR.position.set(0.005, 0, 0.015);
+    latLeafR.rotation.set(1.2, 0, -0.95);
+    latLeafR.scale.setScalar(0.72);
+    branchGroup.add(latLeafL, latLeafR);
+
+    yRoseGroup.add(branchGroup);
   }
 
   // Warm romantic rosy point light illuminating the petals and both sets of hands
-  const yRosePointLight = new THREE.PointLight(0xff2d75, 1.65, 3.6, 2.0);
-  yRosePointLight.position.set(0, 0.38, 0.04);
+  const yRosePointLight = new THREE.PointLight(0xff2d75, 1.55, 3.4, 2.0);
+  yRosePointLight.position.set(0, 0.18, 0.04);
   yRoseGroup.add(yRosePointLight);
 
   yRightArmPivot.add(yRoseGroup);
@@ -4973,7 +5173,8 @@ export function createDreamCastle(): DreamCastleBundle {
         yRightLeg.rotation.x = -stride;
         yLeftArmPivot.rotation.x = THREE.MathUtils.lerp(-stride * 0.6, -0.62, yRoseExt * 0.65);
         yRightArmPivot.rotation.x = THREE.MathUtils.lerp(-stride * 0.5, -1.24, yRoseExt);
-        yRoseGroup.visible = true; // Realistic 3D Rose stays prominently visible in the hand-to-hand exchange!
+        // Yeshwanth holds the botanical rose during Beat 6..7; at Beat 8 (entranceRosePresented = true) it transfers cleanly into Harsha's hand!
+        yRoseGroup.visible = !nav.entranceRosePresented;
       } else if (nav.hasTriggeredEntranceReveal) {
         yeshwanthEntranceGroup.visible = true;
         yeshwanthEntranceGroup.position.set(-1.45, 0.25, -17.2);

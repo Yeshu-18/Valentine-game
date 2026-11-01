@@ -1048,7 +1048,7 @@ export function createPlayerController(
         }
         if (dreamCastle?.floor2CreativeWing.getCameraState().active) {
           e.preventDefault();
-          dreamCastle.floor2CreativeWing.exitActiveCameraMode();
+          dreamCastle.floor2CreativeWing.exitActiveCameraMode(playerPos);
           restoreExplorationControls();
           onTelemetryChange?.(buildTelemetry());
           return;
@@ -2596,6 +2596,9 @@ export function createPlayerController(
             isElevatorFpv ||
             Boolean(castleFocusNow?.isFirstPersonSeated),
         );
+        if (dreamCastle?.nav.activeCameraFocus?.mode === 'entrance') {
+          avatar.setRaisingHand(dreamCastle.nav.isEntranceRoseHandoverMoment());
+        }
         avatar.updateAnimation(
           dt,
           isCastlePosed ? 0 : horizSpeed,

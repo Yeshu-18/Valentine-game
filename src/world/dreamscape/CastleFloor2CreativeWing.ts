@@ -68,7 +68,7 @@ export interface CastleFloor2CreativeWingBundle {
   triggerTakePortrait: () => boolean;
   inspectFilmStrip: () => boolean;
   keepCapturedMemory: () => boolean;
-  exitActiveCameraMode: () => void;
+  exitActiveCameraMode: (playerPos?: THREE.Vector3) => void;
   getProximityPrompt: (playerPos: THREE.Vector3) => string | null;
   getActiveRoomCaption: () => string | null;
   interact: (playerPos: THREE.Vector3) => boolean;
@@ -483,6 +483,9 @@ export class CreativeWing implements CastleFloor2CreativeWingBundle {
         color: '#fff5f7',
         roughness: 0.78,
         metalness: 0.06,
+        polygonOffset: true,
+        polygonOffsetFactor: -1,
+        polygonOffsetUnits: -1,
       }),
     );
 
@@ -642,24 +645,37 @@ export class CreativeWing implements CastleFloor2CreativeWingBundle {
     const wallMat = mats.creamStone;
     const marbleTrimMat = mats.blushRoseMarble;
     const goldTrimMat = mats.champagneGold;
-    const archTorusGeo = tracker.trackGeo(new THREE.TorusGeometry(1.2, 0.06, 8, 24, Math.PI));
+    const archTorusGeo = tracker.trackGeo(new THREE.TorusGeometry(1.4, 0.06, 8, 24, Math.PI));
+    const grandArchTorusGeo = tracker.trackGeo(new THREE.TorusGeometry(1.6, 0.065, 8, 26, Math.PI));
+    const pilasterGeo = tracker.trackGeo(new THREE.CylinderGeometry(0.12, 0.14, 4.38, 12));
+    pilasterGeo.translate(0, 2.19, 0);
+    const addCornerPilaster = (px: number, pz: number) => {
+      const p = new THREE.Mesh(pilasterGeo, goldTrimMat);
+      p.position.set(px, y0, pz);
+      group.add(p);
+    };
 
-    // A. PHOTOGRAPHY STUDIO WEST WALL & ARCHED DOORWAY (lx = 8.8, lz in [-15.2, -6.2], doorway lz in [-11.8, -9.4])
-    const photoWestSouthGeo = tracker.trackGeo(new THREE.BoxGeometry(0.38, 4.4, 3.4));
-    photoWestSouthGeo.translate(8.8, y0 + 2.2, -13.5);
+    // A. PHOTOGRAPHY STUDIO WEST WALL & ARCHED DOORWAY (lx = 8.8, lz in [-15.2, -6.2], 2.8m portal lz in [-12.0, -9.2])
+    const photoWestSouthGeo = tracker.trackGeo(new THREE.BoxGeometry(0.38, 4.4, 3.2));
+    photoWestSouthGeo.translate(8.8, y0 + 2.2, -13.6);
     const photoWestSouth = new THREE.Mesh(photoWestSouthGeo, wallMat);
 
-    const photoWestNorthGeo = tracker.trackGeo(new THREE.BoxGeometry(0.38, 4.4, 3.2));
-    photoWestNorthGeo.translate(8.8, y0 + 2.2, -7.8);
+    const photoWestNorthGeo = tracker.trackGeo(new THREE.BoxGeometry(0.38, 4.4, 3.0));
+    photoWestNorthGeo.translate(8.8, y0 + 2.2, -7.7);
     const photoWestNorth = new THREE.Mesh(photoWestNorthGeo, wallMat);
 
-    const photoWestHeaderGeo = tracker.trackGeo(new THREE.BoxGeometry(0.42, 1.2, 2.4));
+    const photoWestHeaderGeo = tracker.trackGeo(new THREE.BoxGeometry(0.42, 1.2, 2.8));
     photoWestHeaderGeo.translate(8.8, y0 + 3.8, -10.6);
     const photoWestHeader = new THREE.Mesh(photoWestHeaderGeo, marbleTrimMat);
 
     const photoWestArchTrim = new THREE.Mesh(archTorusGeo, goldTrimMat);
     photoWestArchTrim.rotation.y = Math.PI / 2;
     photoWestArchTrim.position.set(8.8, y0 + 2.8, -10.6);
+
+    addCornerPilaster(8.8, -15.2);
+    addCornerPilaster(8.8, -12.0);
+    addCornerPilaster(8.8, -9.2);
+    addCornerPilaster(8.8, -6.2);
 
     group.add(photoWestSouth, photoWestNorth, photoWestHeader, photoWestArchTrim);
     partitionMeshes.push(photoWestSouth, photoWestNorth, photoWestHeader);
@@ -686,21 +702,25 @@ export class CreativeWing implements CastleFloor2CreativeWingBundle {
     group.add(photoWestSignMesh, photoWestSignInner);
     this.addHeartCrest(group, 8.56, y0 + 4.22, -10.6, Math.PI / 2);
 
-    // B. PARTITION WALL & ARCHED DOORWAY BETWEEN PHOTOGRAPHY STUDIO & BOUTIQUE (lz = -6.2, doorway lx in [10.8, 13.2])
-    const partGeo1 = tracker.trackGeo(new THREE.BoxGeometry(2.2, 4.4, 0.38));
-    partGeo1.translate(14.3, y0 + 2.2, -6.2);
+    // B. PARTITION WALL & ARCHED DOORWAY BETWEEN PHOTOGRAPHY STUDIO & BOUTIQUE (lz = -6.2, 2.8m portal lx in [10.6, 13.4])
+    const partGeo1 = tracker.trackGeo(new THREE.BoxGeometry(2.0, 4.4, 0.38));
+    partGeo1.translate(14.4, y0 + 2.2, -6.2);
     const partMesh1 = new THREE.Mesh(partGeo1, wallMat);
 
-    const partGeo2 = tracker.trackGeo(new THREE.BoxGeometry(2.0, 4.4, 0.38));
-    partGeo2.translate(9.8, y0 + 2.2, -6.2);
+    const partGeo2 = tracker.trackGeo(new THREE.BoxGeometry(1.8, 4.4, 0.38));
+    partGeo2.translate(9.7, y0 + 2.2, -6.2);
     const partMesh2 = new THREE.Mesh(partGeo2, wallMat);
 
-    const archHeaderGeo1 = tracker.trackGeo(new THREE.BoxGeometry(2.4, 1.2, 0.42));
+    const archHeaderGeo1 = tracker.trackGeo(new THREE.BoxGeometry(2.8, 1.2, 0.42));
     archHeaderGeo1.translate(12.0, y0 + 3.8, -6.2);
     const archHeaderMesh1 = new THREE.Mesh(archHeaderGeo1, marbleTrimMat);
 
     const archTrimMesh1 = new THREE.Mesh(archTorusGeo, goldTrimMat);
     archTrimMesh1.position.set(12.0, y0 + 2.8, -6.2);
+
+    addCornerPilaster(10.6, -6.2);
+    addCornerPilaster(13.4, -6.2);
+    addCornerPilaster(15.35, -6.2);
 
     group.add(partMesh1, partMesh2, archHeaderMesh1, archTrimMesh1);
     partitionMeshes.push(partMesh1, partMesh2, archHeaderMesh1);
@@ -716,37 +736,52 @@ export class CreativeWing implements CastleFloor2CreativeWingBundle {
     group.add(photoSignMesh, photoSignInner);
     this.addHeartCrest(group, 12.0, y0 + 4.22, -5.96, 0);
 
-    // C. BOUTIQUE WEST FACADE WALL & ARCHED ENTRANCE (lx = 8.8, lz in [-5.8, +5.8], doorway lz in [-1.2, +1.2])
-    const boutiqueWallSouthGeo = tracker.trackGeo(new THREE.BoxGeometry(0.38, 4.4, 4.6));
-    boutiqueWallSouthGeo.translate(8.8, y0 + 2.2, -3.5);
+    // C. BOUTIQUE & DREAM RUNWAY SHOWROOM WEST FACADE WALL (lx = 8.8, lz in [-5.8, +5.8], 3.2m grand portal lz in [-1.6, +1.6])
+    const boutiqueWallSouthGeo = tracker.trackGeo(new THREE.BoxGeometry(0.38, 4.4, 4.2));
+    boutiqueWallSouthGeo.translate(8.8, y0 + 2.2, -3.7);
     const boutiqueWallSouth = new THREE.Mesh(boutiqueWallSouthGeo, wallMat);
 
-    const boutiqueWallNorthGeo = tracker.trackGeo(new THREE.BoxGeometry(0.38, 4.4, 4.6));
-    boutiqueWallNorthGeo.translate(8.8, y0 + 2.2, 3.5);
+    const boutiqueWallNorthGeo = tracker.trackGeo(new THREE.BoxGeometry(0.38, 4.4, 4.2));
+    boutiqueWallNorthGeo.translate(8.8, y0 + 2.2, 3.7);
     const boutiqueWallNorth = new THREE.Mesh(boutiqueWallNorthGeo, wallMat);
 
-    const boutiqueDoorHeaderGeo = tracker.trackGeo(new THREE.BoxGeometry(0.42, 1.2, 2.4));
+    const boutiqueDoorHeaderGeo = tracker.trackGeo(new THREE.BoxGeometry(0.42, 1.2, 3.2));
     boutiqueDoorHeaderGeo.translate(8.8, y0 + 3.8, 0.0);
     const boutiqueDoorHeader = new THREE.Mesh(boutiqueDoorHeaderGeo, marbleTrimMat);
 
-    const boutiqueArchTrim = new THREE.Mesh(archTorusGeo, goldTrimMat);
+    const boutiqueArchTrim = new THREE.Mesh(grandArchTorusGeo, goldTrimMat);
     boutiqueArchTrim.rotation.y = Math.PI / 2;
     boutiqueArchTrim.position.set(8.8, y0 + 2.8, 0.0);
 
-    group.add(boutiqueWallSouth, boutiqueWallNorth, boutiqueDoorHeader, boutiqueArchTrim);
+    // Continuous East Wing Promenade Ceiling Crown Cornice (y = y0 + 4.37 = 9.62m)
+    const eastPromenadeCornice = new THREE.Mesh(
+      tracker.trackGeo(new THREE.BoxGeometry(0.46, 0.18, 21.4)).translate(8.8, y0 + 4.37, -4.7),
+      goldTrimMat,
+    );
+    addCornerPilaster(8.8, -1.6);
+    addCornerPilaster(8.8, 1.6);
+    addCornerPilaster(8.8, 5.8);
+
+    group.add(
+      boutiqueWallSouth,
+      boutiqueWallNorth,
+      boutiqueDoorHeader,
+      boutiqueArchTrim,
+      eastPromenadeCornice,
+    );
     partitionMeshes.push(boutiqueWallSouth, boutiqueWallNorth, boutiqueDoorHeader);
 
     const boutiqueSignTex = createSignboardTexture(
       tracker,
-      "♕ HARSHA'S COUTURE CORNER ♕",
-      'Bespoke Castle Fashion, Accessories & Tailoring',
+      "♕ HARSHA'S COUTURE & DREAM RUNWAY ♕",
+      'Bespoke Castle Fashion, Crystal Catwalk & Jewellery Atelier',
       '#831843',
       '#fde047',
     );
     const boutiqueSignMat = tracker.trackMat(
       new THREE.MeshBasicMaterial({ map: boutiqueSignTex, side: THREE.FrontSide }),
     );
-    const boutiqueSignGeo = tracker.trackGeo(new THREE.PlaneGeometry(2.2, 0.52));
+    const boutiqueSignGeo = tracker.trackGeo(new THREE.PlaneGeometry(2.35, 0.52));
     // Exterior West face (x = 8.58): faces -X toward Atrium (rotation.y = -Math.PI / 2)
     const boutiqueSignMesh = new THREE.Mesh(boutiqueSignGeo, boutiqueSignMat);
     boutiqueSignMesh.position.set(8.58, y0 + 3.82, 0.0);
@@ -757,16 +792,16 @@ export class CreativeWing implements CastleFloor2CreativeWingBundle {
     boutiqueSignInner.rotation.y = Math.PI / 2;
     group.add(boutiqueSignMesh, boutiqueSignInner);
 
-    // D. PARTITION WALL & PLAYFUL ARCHWAY BETWEEN BOUTIQUE & DOLL PLAYROOM (lz = +6.2, doorway lx in [10.8, 13.2])
-    const dollWallGeo1 = tracker.trackGeo(new THREE.BoxGeometry(2.2, 4.4, 0.38));
-    dollWallGeo1.translate(14.3, y0 + 2.2, 6.2);
+    // D. PARTITION WALL & PLAYFUL ARCHWAY BETWEEN BOUTIQUE & DOLL PLAYROOM (lz = +6.2, 2.8m portal lx in [10.6, 13.4])
+    const dollWallGeo1 = tracker.trackGeo(new THREE.BoxGeometry(2.0, 4.4, 0.38));
+    dollWallGeo1.translate(14.4, y0 + 2.2, 6.2);
     const dollWallMesh1 = new THREE.Mesh(dollWallGeo1, wallMat);
 
-    const dollWallGeo2 = tracker.trackGeo(new THREE.BoxGeometry(1.6, 4.4, 0.38));
-    dollWallGeo2.translate(10.0, y0 + 2.2, 6.2);
+    const dollWallGeo2 = tracker.trackGeo(new THREE.BoxGeometry(1.4, 4.4, 0.38));
+    dollWallGeo2.translate(9.9, y0 + 2.2, 6.2);
     const dollWallMesh2 = new THREE.Mesh(dollWallGeo2, wallMat);
 
-    const dollArchHeaderGeo = tracker.trackGeo(new THREE.BoxGeometry(2.4, 1.2, 0.42));
+    const dollArchHeaderGeo = tracker.trackGeo(new THREE.BoxGeometry(2.8, 1.2, 0.42));
     dollArchHeaderGeo.translate(12.0, y0 + 3.8, 6.2);
     const dollArchHeaderMesh = new THREE.Mesh(dollArchHeaderGeo, marbleTrimMat);
 
@@ -776,6 +811,12 @@ export class CreativeWing implements CastleFloor2CreativeWingBundle {
     const dollWestWallGeo = tracker.trackGeo(new THREE.BoxGeometry(0.38, 4.4, 8.6));
     dollWestWallGeo.translate(9.2, y0 + 2.2, 10.5);
     const dollWestWallMesh = new THREE.Mesh(dollWestWallGeo, wallMat);
+
+    addCornerPilaster(9.2, 6.2);
+    addCornerPilaster(10.6, 6.2);
+    addCornerPilaster(13.4, 6.2);
+    addCornerPilaster(15.35, 6.2);
+    addCornerPilaster(9.2, 14.8);
 
     group.add(dollWallMesh1, dollWallMesh2, dollArchHeaderMesh, dollArchTrimMesh, dollWestWallMesh);
     partitionMeshes.push(dollWallMesh1, dollWallMesh2, dollArchHeaderMesh, dollWestWallMesh);
@@ -801,7 +842,7 @@ export class CreativeWing implements CastleFloor2CreativeWingBundle {
     group.add(dollSignMesh, dollSignInner);
     this.addHeartCrest(group, 12.0, y0 + 4.22, 5.96, 0);
 
-    // E. ARCHITECTURAL FLOORS & CEILINGS FOR ALL 3 ROOMS
+    // E. ARCHITECTURAL FLOORS, RUGS (y0 + 0.03m with polygonOffset) & CEILINGS FOR ALL 3 ROOMS
     // Room 1 (Photography Studio): Recessed Studio Ceiling Grid + Circular Pearl Studio Rug
     const photoCeilingPanelGeo = tracker.trackGeo(new THREE.BoxGeometry(5.6, 0.08, 7.6));
     photoCeilingPanelGeo.translate(12.05, yCeil, -10.6);
@@ -815,18 +856,18 @@ export class CreativeWing implements CastleFloor2CreativeWingBundle {
     });
 
     const photoRugGeo = tracker.trackGeo(new THREE.CylinderGeometry(2.8, 2.8, 0.024, 32));
-    photoRugGeo.translate(12.05, y0 + 0.012, -10.6);
+    photoRugGeo.translate(12.05, y0 + 0.03, -10.6);
     const photoRug = new THREE.Mesh(photoRugGeo, this.photoRugMat);
     photoRug.receiveShadow = true;
     const photoRugGoldRingGeo = tracker.trackGeo(new THREE.RingGeometry(2.55, 2.72, 32));
     photoRugGoldRingGeo.rotateX(-Math.PI / 2);
-    photoRugGoldRingGeo.translate(12.05, y0 + 0.026, -10.6);
+    photoRugGoldRingGeo.translate(12.05, y0 + 0.044, -10.6);
     const photoRugInnerRoseGeo = tracker.trackGeo(new THREE.RingGeometry(1.35, 1.42, 24));
     photoRugInnerRoseGeo.rotateX(-Math.PI / 2);
-    photoRugInnerRoseGeo.translate(12.05, y0 + 0.026, -10.6);
+    photoRugInnerRoseGeo.translate(12.05, y0 + 0.044, -10.6);
     const centerHeartDiscGeo = tracker.trackGeo(new THREE.CircleGeometry(0.18, 16));
     centerHeartDiscGeo.rotateX(-Math.PI / 2);
-    centerHeartDiscGeo.translate(12.05, y0 + 0.027, -10.6);
+    centerHeartDiscGeo.translate(12.05, y0 + 0.045, -10.6);
     group.add(
       photoRug,
       new THREE.Mesh(photoRugGoldRingGeo, goldTrimMat),
@@ -834,18 +875,79 @@ export class CreativeWing implements CastleFloor2CreativeWingBundle {
       new THREE.Mesh(centerHeartDiscGeo, this.roseAccentMat),
     );
 
-    // Room 2 (Mini Fashion Boutique): Soft Marble Floor + Plush Display Rug + Crown Ceiling Medallion & Chandelier
+    // Room 2 (Couture & Dream Runway Showroom): Translucent Pink Crystal Catwalk + Instanced Heart LED Floor Panels
+    const bFloorMat = tracker.trackMat(
+      new THREE.MeshStandardMaterial({
+        color: '#fce7f3',
+        roughness: 0.35,
+        metalness: 0.05,
+        polygonOffset: true,
+        polygonOffsetFactor: -1,
+        polygonOffsetUnits: -1,
+      }),
+    );
     const bFloorGeo = tracker.trackGeo(new THREE.BoxGeometry(6.3, 0.02, 11.4));
-    bFloorGeo.translate(12.05, y0 + 0.01, 0);
-    const bFloor = new THREE.Mesh(bFloorGeo, marbleTrimMat);
+    bFloorGeo.translate(12.05, y0 + 0.025, 0);
+    const bFloor = new THREE.Mesh(bFloorGeo, bFloorMat);
     bFloor.receiveShadow = true;
+
+    // Variant C ('dream_runway'): Translucent Pink Crystal Catwalk + Sequential Glowing Heart LED Floor Panels
+    const runwayCrystalMat = tracker.trackMat(
+      new THREE.MeshPhysicalMaterial({
+        color: '#fbcfe8',
+        emissive: '#f472b6',
+        emissiveIntensity: 0.22,
+        roughness: 0.14,
+        metalness: 0.1,
+        transmission: 0.45,
+        transparent: true,
+        opacity: 0.88,
+        polygonOffset: true,
+        polygonOffsetFactor: -2,
+        polygonOffsetUnits: -2,
+      }),
+    );
+    const runwayCatwalkGeo = tracker.trackGeo(new THREE.BoxGeometry(1.65, 0.024, 7.6));
+    runwayCatwalkGeo.translate(12.05, y0 + 0.038, 0.0);
+    const runwayCatwalkMesh = new THREE.Mesh(runwayCatwalkGeo, runwayCrystalMat);
+
+    const runwayLedPanelGeo = tracker.trackGeo(new THREE.CylinderGeometry(0.36, 0.36, 0.012, 18));
+    const runwayLedMat = tracker.trackMat(
+      new THREE.MeshStandardMaterial({
+        color: '#fda4af',
+        emissive: '#f43f5e',
+        emissiveIntensity: 1.35,
+        roughness: 0.18,
+        polygonOffset: true,
+        polygonOffsetFactor: -3,
+        polygonOffsetUnits: -3,
+      }),
+    );
+    const runwayLedZ = [-3.0, -2.0, -1.0, 0.0, 1.0, 2.0, 3.0];
+    const runwayLedInst = new THREE.InstancedMesh(
+      runwayLedPanelGeo,
+      runwayLedMat,
+      runwayLedZ.length,
+    );
+    const rDummy = new THREE.Object3D();
+    runwayLedZ.forEach((rz, idx) => {
+      rDummy.position.set(12.05, y0 + 0.052, rz);
+      rDummy.rotation.set(0, 0, 0);
+      rDummy.scale.setScalar(1);
+      rDummy.updateMatrix();
+      runwayLedInst.setMatrixAt(idx, rDummy.matrix);
+    });
+    runwayLedInst.instanceMatrix.needsUpdate = true;
+
     const bCenterRugGeo = tracker.trackGeo(new THREE.CylinderGeometry(1.85, 1.85, 0.026, 28));
-    bCenterRugGeo.translate(12.05, y0 + 0.014, 0);
+    bCenterRugGeo.translate(12.05, y0 + 0.032, 0);
     const bMedallionGeo = tracker.trackGeo(new THREE.CylinderGeometry(1.15, 1.25, 0.08, 24));
     bMedallionGeo.translate(12.05, yCeil, 0);
     group.add(
       bFloor,
       new THREE.Mesh(bCenterRugGeo, this.photoRugMat),
+      runwayCatwalkMesh,
+      runwayLedInst,
       new THREE.Mesh(bMedallionGeo, goldTrimMat),
     );
 
@@ -868,19 +970,29 @@ export class CreativeWing implements CastleFloor2CreativeWingBundle {
     bChandelier.add(centerHeartCrystal);
     group.add(bChandelier);
 
-    // Room 3 (Doll Playroom): Warm Pastel Wood-Plank Floor + Giant Soft Play Rug + Ceiling Clouds
+    // Room 3 (Doll Playroom): Warm Pastel Wood-Plank Floor + Giant Soft Play Rug (y0 + 0.03m with polygonOffset) + Ceiling Clouds
     const dollWoodFloorGeo = tracker.trackGeo(new THREE.BoxGeometry(5.9, 0.018, 8.4));
-    dollWoodFloorGeo.translate(12.3, y0 + 0.009, 10.6);
+    dollWoodFloorGeo.translate(12.3, y0 + 0.022, 10.6);
     const dollWoodFloorMat = tracker.trackMat(
-      new THREE.MeshStandardMaterial({ color: '#fde8e8', roughness: 0.72, metalness: 0.04 }),
+      new THREE.MeshStandardMaterial({
+        color: '#fde8e8',
+        roughness: 0.72,
+        metalness: 0.04,
+        polygonOffset: true,
+        polygonOffsetFactor: -1,
+        polygonOffsetUnits: -1,
+      }),
     );
     const dRugGeo = tracker.trackGeo(new THREE.CylinderGeometry(2.35, 2.35, 0.026, 32));
-    dRugGeo.translate(12.85, y0 + 0.013, 11.85);
+    dRugGeo.translate(12.85, y0 + 0.032, 11.85);
     const dRugMat = tracker.trackMat(
       new THREE.MeshStandardMaterial({
         color: '#fdf4ff',
         roughness: 0.9,
         metalness: 0.02,
+        polygonOffset: true,
+        polygonOffsetFactor: -2,
+        polygonOffsetUnits: -2,
       }),
     );
     group.add(
@@ -1698,12 +1810,12 @@ export class CreativeWing implements CastleFloor2CreativeWingBundle {
     boutiqueGroup.name = 'MiniFashionBoutique';
     group.add(boutiqueGroup);
 
-    // Two miniature mannequins flanking Boutique entrance (lx = 8.48, lz = -1.42 and +1.42)
+    // Two miniature mannequins flanking Boutique entrance outside the 3.2m portal (lx = 8.48, lz = -1.88 and +1.88)
     const miniMannequinSkirtGeo = tracker.trackGeo(new THREE.ConeGeometry(0.22, 0.48, 12));
     miniMannequinSkirtGeo.translate(0, 0.42, 0);
     const miniMannequinStandGeo = tracker.trackGeo(new THREE.CylinderGeometry(0.14, 0.18, 0.18, 12));
     miniMannequinStandGeo.translate(0, 0.09, 0);
-    [-1.42, 1.42].forEach((mz, idx) => {
+    [-1.88, 1.88].forEach((mz, idx) => {
       const mm = new THREE.Group();
       mm.position.set(8.48, y0, mz);
       mm.add(
@@ -1893,11 +2005,11 @@ export class CreativeWing implements CastleFloor2CreativeWingBundle {
     tableBaseGeo.translate(0, 0.275, 0);
     miniCastleTable.add(new THREE.Mesh(tableBaseGeo, mats.creamStone));
 
-    // Approach Carpet Runner leading from the South Archway toward the Front Miniature Gate (12.85, 10.97)
+    // Approach Carpet Runner leading from the South Archway toward the Front Miniature Gate (elevated to y0 + 0.032m)
     const runnerGeo = tracker.trackGeo(new THREE.BoxGeometry(1.15, 0.022, 3.3));
-    runnerGeo.translate(12.85, y0 + 0.014, 8.95);
+    runnerGeo.translate(12.85, y0 + 0.032, 8.95);
     const runnerBorderGeo = tracker.trackGeo(new THREE.BoxGeometry(1.24, 0.018, 3.38));
-    runnerBorderGeo.translate(12.85, y0 + 0.011, 8.95);
+    runnerBorderGeo.translate(12.85, y0 + 0.029, 8.95);
     dollRoomGroup.add(
       new THREE.Mesh(runnerBorderGeo, goldTrimMat),
       new THREE.Mesh(runnerGeo, this.photoRugMat),
@@ -2651,7 +2763,8 @@ export class CreativeWing implements CastleFloor2CreativeWingBundle {
     return true;
   }
 
-  public exitActiveCameraMode(): void {
+  public exitActiveCameraMode(playerPos?: THREE.Vector3): void {
+    const prevMode = this.activeCameraMode;
     if (this.jewelleryAtelier.isCinematicActive()) {
       this.jewelleryAtelier.skipCinematic();
     }
@@ -2679,7 +2792,19 @@ export class CreativeWing implements CastleFloor2CreativeWingBundle {
       this.beginReturnToCaptureLocation();
       return;
     }
-    // Exiting Portrait Camera without taking a photo does NOT create or trigger a photo anchor (Section 13)
+    // Exiting Portrait Camera, Couture Boutique, or Doll Playroom cleanly restores Floor 2 walkable Y (baseY + 5.25)
+    // at a safe clear disembark position outside all furniture colliders (Section 2).
+    if (playerPos) {
+      if (prevMode === 'portrait_atelier') {
+        playerPos.set(this.originX + 11.4, this.baseY + this.y0, this.originZ - 10.6);
+      } else if (prevMode === 'couture_boutique') {
+        playerPos.set(this.originX + 11.2, this.baseY + this.y0, this.originZ + 0.0);
+      } else if (prevMode === 'doll_playroom') {
+        playerPos.set(this.originX + 11.6, this.baseY + this.y0, this.originZ + 9.2);
+      } else {
+        playerPos.y = this.baseY + this.y0;
+      }
+    }
     this.avatarBridge?.resetNeutralPose?.();
     this.activeCameraMode = 'none';
     this.cameraTransitionElapsed = 0.0;

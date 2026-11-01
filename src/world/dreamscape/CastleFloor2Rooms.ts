@@ -207,6 +207,7 @@ function createWardrobeMuralTexture(tracker: ResourceTracker): THREE.CanvasTextu
   }
   const tex = tracker.trackTex(new THREE.CanvasTexture(canvas));
   tex.colorSpace = THREE.SRGBColorSpace;
+  tex.generateMipmaps = true;
   tex.needsUpdate = true;
   return tex;
 }
@@ -262,6 +263,103 @@ function createDanceFloorMedallionTexture(
   }
   const tex = tracker.trackTex(new THREE.CanvasTexture(canvas));
   tex.colorSpace = THREE.SRGBColorSpace;
+  tex.generateMipmaps = true;
+  tex.needsUpdate = true;
+  return tex;
+}
+
+export type Floor2FrontageVariant =
+  | 'royal_couture'
+  | 'glam_vanity'
+  | 'dream_runway'
+  | 'rose_balcony';
+
+function createCoutureSketchMuralTexture(
+  tracker: ResourceTracker,
+  title: string,
+  accentHex: string,
+): THREE.CanvasTexture {
+  const canvas = document.createElement('canvas');
+  canvas.width = 512;
+  canvas.height = 512;
+  const ctx = canvas.getContext('2d');
+  if (ctx) {
+    const bg = ctx.createLinearGradient(0, 0, 512, 512);
+    bg.addColorStop(0, '#fffbeb');
+    bg.addColorStop(0.5, '#fdf2f8');
+    bg.addColorStop(1, '#fce7f3');
+    ctx.fillStyle = bg;
+    ctx.fillRect(0, 0, 512, 512);
+
+    ctx.strokeStyle = '#d8b467';
+    ctx.lineWidth = 10;
+    ctx.strokeRect(14, 14, 484, 484);
+    ctx.lineWidth = 2.5;
+    ctx.strokeRect(28, 28, 456, 456);
+
+    // Haute-couture silhouette sketch
+    ctx.save();
+    ctx.translate(256, 265);
+    ctx.beginPath();
+    ctx.moveTo(0, -110);
+    ctx.quadraticCurveTo(28, -75, 18, -32);
+    ctx.quadraticCurveTo(88, 45, 112, 135);
+    ctx.quadraticCurveTo(0, 155, -112, 135);
+    ctx.quadraticCurveTo(-88, 45, -18, -32);
+    ctx.quadraticCurveTo(-28, -75, 0, -110);
+    ctx.closePath();
+    ctx.fillStyle = accentHex;
+    ctx.fill();
+    ctx.strokeStyle = '#d8b467';
+    ctx.lineWidth = 3.5;
+    ctx.stroke();
+    ctx.restore();
+
+    ctx.fillStyle = '#9d174d';
+    ctx.font = 'bold 24px Georgia, serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(title, 256, 76);
+
+    ctx.fillStyle = '#d8b467';
+    ctx.font = 'italic 18px Georgia, serif';
+    ctx.fillText('✦ Harsha Royal Couture Promenade ✦', 256, 454);
+  }
+  const tex = tracker.trackTex(new THREE.CanvasTexture(canvas));
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.generateMipmaps = true;
+  tex.needsUpdate = true;
+  return tex;
+}
+
+function createArchitecturalGoldPlaqueTexture(
+  tracker: ResourceTracker,
+  title: string,
+): THREE.CanvasTexture {
+  const canvas = document.createElement('canvas');
+  canvas.width = 512;
+  canvas.height = 128;
+  const ctx = canvas.getContext('2d');
+  if (ctx) {
+    const bg = ctx.createLinearGradient(0, 0, 512, 128);
+    bg.addColorStop(0, '#4a1525');
+    bg.addColorStop(0.5, '#831843');
+    bg.addColorStop(1, '#4a1525');
+    ctx.fillStyle = bg;
+    ctx.fillRect(0, 0, 512, 128);
+
+    ctx.strokeStyle = '#d8b467';
+    ctx.lineWidth = 6;
+    ctx.strokeRect(8, 8, 496, 112);
+
+    ctx.fillStyle = '#fef08a';
+    ctx.font = 'bold 26px Georgia, serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(title, 256, 64);
+  }
+  const tex = tracker.trackTex(new THREE.CanvasTexture(canvas));
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.generateMipmaps = true;
   tex.needsUpdate = true;
   return tex;
 }
@@ -303,44 +401,320 @@ export function createCastleFloor2Rooms(
   dynamicObjects.add(floor2RoomLight);
 
   // ============================================================================
-  // FLOOR 2 INTERIOR PARTITION WALLS & ROYAL ARCHWAYS (West Wing at lz = ±6.0)
-  // Carefully avoids F1->F2 West Top Landing (lx in [-8.6, -5.2], lz in [6.0, 8.4])
+  // FLOOR 2 CONTROLLED LUXURY HIERARCHY & REUSABLE ROOM FRONTAGE SYSTEM
+  // 1. Pearl/Ivory Base (#fffbeb)
+  // 2. Blush Velvet (#fbcfe8)
+  // 3. Glossy Barbie-Pink Lacquer (#f43f5e, clearcoat: 0.6)
+  // 4. Champagne-Gold Filigree (#d8b467, metalness: 0.85, roughness: 0.2)
+  // 5. Crystal & Soft Lavender Accents (#e9d5ff)
   // ============================================================================
-  const partitionWallGeoSegA = tracker.trackGeo(new THREE.BoxGeometry(2.6, 4.4, 0.42));
-  partitionWallGeoSegA.translate(0, 2.2, 0);
-  const partitionWallGeoSegB = tracker.trackGeo(new THREE.BoxGeometry(1.4, 4.4, 0.42));
-  partitionWallGeoSegB.translate(0, 2.2, 0);
-  const partitionHeaderGeo = tracker.trackGeo(new THREE.BoxGeometry(2.4, 1.15, 0.44));
+  const pearlIvoryBaseMat = tracker.trackMat(
+    new THREE.MeshStandardMaterial({
+      color: '#fffbeb',
+      roughness: 0.34,
+      metalness: 0.05,
+    }),
+  );
+  const blushVelvetMat = tracker.trackMat(
+    new THREE.MeshStandardMaterial({
+      color: '#fbcfe8',
+      roughness: 0.42,
+      metalness: 0.04,
+    }),
+  );
+  const barbiePinkLacquerMat = tracker.trackMat(
+    new THREE.MeshPhysicalMaterial({
+      color: '#f43f5e',
+      emissive: '#be123c',
+      emissiveIntensity: 0.24,
+      roughness: 0.18,
+      metalness: 0.08,
+      clearcoat: 0.6,
+      clearcoatRoughness: 0.16,
+    }),
+  );
+  const champagneGoldFiligreeMat = tracker.trackMat(
+    new THREE.MeshStandardMaterial({
+      color: '#d8b467',
+      roughness: 0.2,
+      metalness: 0.85,
+    }),
+  );
+  const crystalLavenderAccentMat = tracker.trackMat(
+    new THREE.MeshPhysicalMaterial({
+      color: '#e9d5ff',
+      emissive: '#c084fc',
+      emissiveIntensity: 0.45,
+      roughness: 0.14,
+      metalness: 0.1,
+      transmission: 0.45,
+      transparent: true,
+      opacity: 0.88,
+    }),
+  );
+  const emissiveCrystalPendantMat = tracker.trackMat(
+    new THREE.MeshStandardMaterial({
+      color: '#fff1f2',
+      emissive: '#fda4af',
+      emissiveIntensity: 1.35,
+      roughness: 0.15,
+      metalness: 0.2,
+    }),
+  );
+
+  // Shared geometries for pilasters, plaques, and frontage details
+  const pilasterShaftGeo = tracker.trackGeo(new THREE.CylinderGeometry(0.13, 0.15, 4.38, 12));
+  pilasterShaftGeo.translate(0, 2.19, 0);
+  const pilasterCapGeo = tracker.trackGeo(new THREE.BoxGeometry(0.36, 0.18, 0.36));
+  pilasterCapGeo.translate(0, 4.3, 0);
+  const pilasterBaseGeo = tracker.trackGeo(new THREE.BoxGeometry(0.38, 0.18, 0.38));
+  pilasterBaseGeo.translate(0, 0.09, 0);
+
+  const plaqueBoardGeo = tracker.trackGeo(new THREE.BoxGeometry(1.92, 0.42, 0.06));
+  const plaqueFaceGeo = tracker.trackGeo(new THREE.PlaneGeometry(1.82, 0.34));
+
+  const addGoldCornerPilaster = (px: number, pz: number) => {
+    const pGrp = new THREE.Group();
+    pGrp.position.set(px, y0, pz);
+    pGrp.add(
+      new THREE.Mesh(pilasterBaseGeo, champagneGoldFiligreeMat),
+      new THREE.Mesh(pilasterShaftGeo, champagneGoldFiligreeMat),
+      new THREE.Mesh(pilasterCapGeo, champagneGoldFiligreeMat),
+    );
+    group.add(pGrp);
+  };
+
+  const addArchitecturalRoomPlaque = (
+    px: number,
+    py: number,
+    pz: number,
+    rotY: number,
+    title: string,
+  ) => {
+    const pGrp = new THREE.Group();
+    pGrp.position.set(px, py, pz);
+    pGrp.rotation.y = rotY;
+    const board = new THREE.Mesh(plaqueBoardGeo, champagneGoldFiligreeMat);
+    const faceMat = tracker.trackMat(
+      new THREE.MeshBasicMaterial({
+        map: createArchitecturalGoldPlaqueTexture(tracker, title),
+        side: THREE.FrontSide,
+      }),
+    );
+    const face = new THREE.Mesh(plaqueFaceGeo, faceMat);
+    face.position.z = 0.034;
+    pGrp.add(board, face);
+    group.add(pGrp);
+  };
+
+  /**
+   * Section 3.1: Reusable Floor 2 Room Frontage Builder (`buildFloor2RoomFrontage(variant)`)
+   * Constructs enclosed corridor-facing frontages with split doorway segments (`>= 2.8m` clear width),
+   * gold corner pilasters, crown cornices at `y = 9.62m`, Love Ribbon wall moldings, 3D gold plaques,
+   * haute-couture sketch murals, and variant-specific luxury details.
+   */
+  const buildFloor2RoomFrontage = (
+    variant: Floor2FrontageVariant,
+    xPos: number,
+    zMin: number,
+    zMax: number,
+    doorZMin: number,
+    doorZMax: number,
+    plaqueTitle: string,
+  ) => {
+    const fGroup = new THREE.Group();
+    fGroup.name = `Frontage_${variant}`;
+
+    const segALen = Math.max(0.2, doorZMin - zMin);
+    const segBLen = Math.max(0.2, zMax - doorZMax);
+    const doorWidth = doorZMax - doorZMin;
+    const doorCenterZ = (doorZMin + doorZMax) * 0.5;
+    const totalSpan = zMax - zMin;
+    const midZ = (zMin + zMax) * 0.5;
+
+    // Split WallSegmentA + WallSegmentB (zero threshold lip on floor)
+    const segAGeo = tracker.trackGeo(new THREE.BoxGeometry(0.26, 4.38, segALen));
+    segAGeo.translate(xPos, y0 + 2.19, zMin + segALen * 0.5);
+    const segBGeo = tracker.trackGeo(new THREE.BoxGeometry(0.26, 4.38, segBLen));
+    segBGeo.translate(xPos, y0 + 2.19, doorZMax + segBLen * 0.5);
+
+    const headerGeo = tracker.trackGeo(new THREE.BoxGeometry(0.28, 1.12, doorWidth + 0.16));
+    headerGeo.translate(xPos, y0 + 3.82, doorCenterZ);
+
+    const segAMesh = new THREE.Mesh(segAGeo, pearlIvoryBaseMat);
+    const segBMesh = new THREE.Mesh(segBGeo, pearlIvoryBaseMat);
+    const headerMesh = new THREE.Mesh(headerGeo, blushVelvetMat);
+    segAMesh.castShadow = true;
+    segAMesh.receiveShadow = true;
+    segBMesh.castShadow = true;
+    segBMesh.receiveShadow = true;
+    fGroup.add(segAMesh, segBMesh, headerMesh);
+    partitionMeshes.push(segAMesh, segBMesh, headerMesh);
+
+    // Continuous Ceiling Crown Cornice (y = y0 + 4.37 = 9.62m) & Love Ribbon Promenade Molding
+    const corniceGeo = tracker.trackGeo(new THREE.BoxGeometry(0.38, 0.18, totalSpan + 0.2));
+    corniceGeo.translate(xPos, y0 + 4.37, midZ);
+    fGroup.add(new THREE.Mesh(corniceGeo, champagneGoldFiligreeMat));
+
+    const ribbonAGeo = tracker.trackGeo(new THREE.BoxGeometry(0.05, 0.09, segALen - 0.15));
+    ribbonAGeo.translate(xPos + 0.14, y0 + 1.35, zMin + segALen * 0.5);
+    const ribbonBGeo = tracker.trackGeo(new THREE.BoxGeometry(0.05, 0.09, segBLen - 0.15));
+    ribbonBGeo.translate(xPos + 0.14, y0 + 1.35, doorZMax + segBLen * 0.5);
+    fGroup.add(
+      new THREE.Mesh(ribbonAGeo, barbiePinkLacquerMat),
+      new THREE.Mesh(ribbonBGeo, barbiePinkLacquerMat),
+    );
+
+    // Gold Portal Arch Trim & Pilasters flanking the 2.8m doorway
+    const portalArchGeo = tracker.trackGeo(
+      new THREE.TorusGeometry(doorWidth * 0.5, 0.055, 8, 24, Math.PI),
+    );
+    portalArchGeo.rotateY(Math.PI / 2);
+    const portalArch = new THREE.Mesh(portalArchGeo, champagneGoldFiligreeMat);
+    portalArch.position.set(xPos, y0 + 2.8, doorCenterZ);
+    fGroup.add(portalArch);
+
+    addGoldCornerPilaster(xPos, zMin);
+    addGoldCornerPilaster(xPos, doorZMin);
+    addGoldCornerPilaster(xPos, doorZMax);
+    addGoldCornerPilaster(xPos, zMax);
+
+    // 3D Architectural Gold Plaque above Portal facing the West Promenade (+X)
+    addArchitecturalRoomPlaque(xPos + 0.16, y0 + 3.65, doorCenterZ, Math.PI / 2, plaqueTitle);
+
+    // Framed Haute-Couture Sketch Mural on the Promenade Wall
+    const muralZ = segALen >= segBLen ? zMin + segALen * 0.5 : doorZMax + segBLen * 0.5;
+    const sketchTex = createCoutureSketchMuralTexture(
+      tracker,
+      variant === 'royal_couture' ? 'ROYAL COUTURE' : 'GLAM VANITY',
+      variant === 'royal_couture' ? '#f43f5e' : '#c084fc',
+    );
+    const frameOuter = new THREE.Mesh(
+      tracker.trackGeo(new THREE.BoxGeometry(0.05, 1.55, 1.25)),
+      champagneGoldFiligreeMat,
+    );
+    frameOuter.position.set(xPos + 0.15, y0 + 2.25, muralZ);
+    const frameCanvas = new THREE.Mesh(
+      tracker.trackGeo(new THREE.PlaneGeometry(1.12, 1.42)),
+      tracker.trackMat(new THREE.MeshBasicMaterial({ map: sketchTex })),
+    );
+    frameCanvas.rotation.y = Math.PI / 2;
+    frameCanvas.position.set(xPos + 0.18, y0 + 2.25, muralZ);
+    fGroup.add(frameOuter, frameCanvas);
+
+    if (variant === 'royal_couture') {
+      // Illuminated Glass Gown Display Case & Gold Dress Form beside Portal (outside 2.4m promenade clearance)
+      const caseZ = doorZMin - 1.15;
+      const caseBase = new THREE.Mesh(
+        tracker.trackGeo(new THREE.CylinderGeometry(0.34, 0.38, 0.18, 16)).translate(0, 0.09, 0),
+        champagneGoldFiligreeMat,
+      );
+      const glassVitrine = new THREE.Mesh(
+        tracker.trackGeo(new THREE.CylinderGeometry(0.32, 0.32, 1.65, 16)).translate(0, 0.92, 0),
+        mats.crystalGlass,
+      );
+      const gownForm = new THREE.Mesh(
+        tracker.trackGeo(new THREE.ConeGeometry(0.24, 0.88, 14)).translate(0, 0.68, 0),
+        barbiePinkLacquerMat,
+      );
+      const vitrineGrp = new THREE.Group();
+      vitrineGrp.position.set(xPos - 0.52, y0, caseZ);
+      vitrineGrp.add(caseBase, glassVitrine, gownForm);
+      fGroup.add(vitrineGrp);
+    } else if (variant === 'glam_vanity') {
+      // Heart-Shaped Vanity Mirror Emblem with Emissive Bulbs (0 new PointLights) & Crystal Perfume Atomizer
+      const emblemZ = doorZMax + 1.15;
+      const heartMirrorRing = new THREE.Mesh(
+        tracker.trackGeo(new THREE.TorusGeometry(0.42, 0.04, 8, 20)).rotateY(Math.PI / 2),
+        champagneGoldFiligreeMat,
+      );
+      heartMirrorRing.position.set(xPos + 0.16, y0 + 2.25, emblemZ);
+      fGroup.add(heartMirrorRing);
+      const bulbEmissiveGeo = tracker.trackGeo(new THREE.SphereGeometry(0.032, 6, 6));
+      for (let b = 0; b < 8; b++) {
+        const bAng = (b * Math.PI * 2) / 8;
+        const bMesh = new THREE.Mesh(bulbEmissiveGeo, emissiveCrystalPendantMat);
+        bMesh.position.set(
+          xPos + 0.18,
+          y0 + 2.25 + Math.sin(bAng) * 0.42,
+          emblemZ + Math.cos(bAng) * 0.42,
+        );
+        fGroup.add(bMesh);
+      }
+    }
+
+    group.add(fGroup);
+  };
+
+  // Build Enclosed Corridor-Facing Frontages for Royal Couture Atelier (SW) and Glam Room (NW)
+  buildFloor2RoomFrontage(
+    'royal_couture',
+    -9.0,
+    -15.2,
+    -6.0,
+    -11.8,
+    -9.0,
+    '♕ THE ROYAL COUTURE ATELIER ♕',
+  );
+  buildFloor2RoomFrontage(
+    'glam_vanity',
+    -9.0,
+    6.0,
+    15.2,
+    8.8,
+    11.6,
+    '✦ THE GLAM ROOM • BEAUTY VANITY ✦',
+  );
+  addArchitecturalRoomPlaque(-9.0 + 0.16, y0 + 3.85, 0.0, Math.PI / 2, '♪ THE ROYAL DANCE STUDIO ♪');
+
+  // ============================================================================
+  // FLOOR 2 INTERIOR PARTITION WALLS & ROYAL ARCHWAYS (West Wing at lz = ±6.0)
+  // Split into WallSegmentA (lx: -15.4..-12.2) + WallSegmentB (lx: -9.4..-9.0) with 2.8m clear portal!
+  // ============================================================================
+  const partitionWallGeoSegA = tracker.trackGeo(new THREE.BoxGeometry(3.2, 4.38, 0.36));
+  partitionWallGeoSegA.translate(0, 2.19, 0);
+  const partitionWallGeoSegB = tracker.trackGeo(new THREE.BoxGeometry(0.55, 4.38, 0.36));
+  partitionWallGeoSegB.translate(0, 2.19, 0);
+  const partitionHeaderGeo = tracker.trackGeo(new THREE.BoxGeometry(2.8, 1.12, 0.38));
   partitionHeaderGeo.translate(0, 3.82, 0);
   const archGoldTrimGeo = tracker.trackGeo(
-    new THREE.TorusGeometry(1.2, 0.055, 8, 20, Math.PI),
+    new THREE.TorusGeometry(1.4, 0.055, 8, 22, Math.PI),
   );
+  const partitionCorniceGeo = tracker.trackGeo(new THREE.BoxGeometry(6.5, 0.18, 0.44));
+  partitionCorniceGeo.translate(-12.2, 4.37, 0);
 
   const buildWestWingPartitionAtZ = (zPos: number) => {
     const outerMat = tracker.trackMat(mats.blushRoseMarble.clone());
     const innerMat = tracker.trackMat(mats.blushRoseMarble.clone());
     const headerMat = tracker.trackMat(mats.creamStone.clone());
 
-    // Outer segment: lx in [-15.4, -12.8] (center -14.1, width 2.6)
+    // WallSegmentA: lx in [-15.4, -12.2] (center -13.8, width 3.2)
     const segOuter = new THREE.Mesh(partitionWallGeoSegA, outerMat);
-    segOuter.position.set(-14.1, y0, zPos);
+    segOuter.position.set(-13.8, y0, zPos);
     segOuter.castShadow = true;
     segOuter.receiveShadow = true;
 
-    // Inner segment: lx in [-10.6, -9.2] (center -9.9, width 1.4)
+    // WallSegmentB: lx in [-9.4, -8.85] (center -9.125, width 0.55)
     const segInner = new THREE.Mesh(partitionWallGeoSegB, innerMat);
-    segInner.position.set(-9.9, y0, zPos);
+    segInner.position.set(-9.125, y0, zPos);
     segInner.castShadow = true;
     segInner.receiveShadow = true;
 
-    // Archway header above doorway gap lx in [-12.8, -10.6] (center -11.7, width 2.2)
+    // Archway header above 2.8m doorway gap lx in [-12.2, -9.4] (center -10.8)
     const header = new THREE.Mesh(partitionHeaderGeo, headerMat);
-    header.position.set(-11.7, y0, zPos);
+    header.position.set(-10.8, y0, zPos);
 
-    const archTrim = new THREE.Mesh(archGoldTrimGeo, mats.champagneGold);
-    archTrim.position.set(-11.7, y0 + 2.8, zPos);
+    const archTrim = new THREE.Mesh(archGoldTrimGeo, champagneGoldFiligreeMat);
+    archTrim.position.set(-10.8, y0 + 2.8, zPos);
 
-    group.add(segOuter, segInner, header, archTrim);
+    const cornice = new THREE.Mesh(partitionCorniceGeo, champagneGoldFiligreeMat);
+    cornice.position.set(0, y0, zPos);
+
+    addGoldCornerPilaster(-15.35, zPos);
+    addGoldCornerPilaster(-12.2, zPos);
+    addGoldCornerPilaster(-9.4, zPos);
+
+    group.add(segOuter, segInner, header, archTrim, cornice);
     partitionMeshes.push(segOuter, segInner, header);
     dynamicObjects.add(segOuter);
     dynamicObjects.add(segInner);
@@ -351,17 +725,72 @@ export function createCastleFloor2Rooms(
   buildWestWingPartitionAtZ(6.0);
 
   // ============================================================================
-  // 1. ROYAL WALK-IN WARDROBE (SW Mezzanine Wing: lx in [-15.0, -8.8], lz in [-14.8, -6.2])
+  // SHARED PROMENADE INSTANCED CRYSTAL-AND-GOLD CEILING PENDANTS (Every ~4.5m, 0 PointLights)
+  // ============================================================================
+  const pendantPositions = [
+    { x: -7.1, z: -12.5 },
+    { x: -7.1, z: -8.0 },
+    { x: -7.1, z: 8.5 },
+    { x: -7.1, z: 13.0 },
+    { x: 7.1, z: -12.5 },
+    { x: 7.1, z: -8.0 },
+    { x: 7.1, z: 5.2 },
+    { x: -3.5, z: -7.8 },
+    { x: 0.0, z: -7.8 },
+    { x: 3.5, z: -7.8 },
+    { x: -3.5, z: 5.0 },
+    { x: 3.5, z: 5.0 },
+  ];
+  const pendantStemGeo = tracker.trackGeo(new THREE.CylinderGeometry(0.025, 0.04, 0.62, 8));
+  pendantStemGeo.translate(0, -0.31, 0);
+  const pendantCrystalGeo = tracker.trackGeo(new THREE.OctahedronGeometry(0.22, 1));
+  pendantCrystalGeo.scale(1.0, 1.35, 1.0);
+  pendantCrystalGeo.translate(0, -0.72, 0);
+
+  const pendantStemInst = new THREE.InstancedMesh(
+    pendantStemGeo,
+    champagneGoldFiligreeMat,
+    pendantPositions.length,
+  );
+  const pendantCrystalInst = new THREE.InstancedMesh(
+    pendantCrystalGeo,
+    emissiveCrystalPendantMat,
+    pendantPositions.length,
+  );
+  const pDummy = new THREE.Object3D();
+  pendantPositions.forEach((pp, idx) => {
+    pDummy.position.set(pp.x, y0 + 4.38, pp.z);
+    pDummy.rotation.set(0, idx * 0.5, 0);
+    pDummy.scale.setScalar(1);
+    pDummy.updateMatrix();
+    pendantStemInst.setMatrixAt(idx, pDummy.matrix);
+    pendantCrystalInst.setMatrixAt(idx, pDummy.matrix);
+  });
+  pendantStemInst.instanceMatrix.needsUpdate = true;
+  pendantCrystalInst.instanceMatrix.needsUpdate = true;
+  group.add(pendantStemInst, pendantCrystalInst);
+
+  // ============================================================================
+  // 1. ROYAL WALK-IN WARDROBE (SW Mezzanine Wing: lx in [-15.0, -9.0], lz in [-14.8, -6.2])
   // ============================================================================
   const wardrobeGroup = new THREE.Group();
   wardrobeGroup.name = 'RoyalWardrobeRoom';
   group.add(wardrobeGroup);
 
-  // Plush circular carpet beneath the Wardrobe Podium
+  // Plush circular carpet beneath the Wardrobe Podium (elevated to y0 + 0.03m with polygonOffset)
+  const wardrobeRugMat = tracker.trackMat(
+    new THREE.MeshStandardMaterial({
+      color: '#9d174d',
+      roughness: 0.55,
+      metalness: 0.05,
+      polygonOffset: true,
+      polygonOffsetFactor: -1,
+      polygonOffsetUnits: -1,
+    }),
+  );
   const wardrobeRugGeo = tracker.trackGeo(new THREE.CylinderGeometry(2.75, 2.75, 0.025, 32));
-  wardrobeRugGeo.translate(0, 0.012, 0);
-  const wardrobeRug = new THREE.Mesh(wardrobeRugGeo, mats.velvetPlum);
-  wardrobeRug.position.set(-11.9, y0, -10.8);
+  const wardrobeRug = new THREE.Mesh(wardrobeRugGeo, wardrobeRugMat);
+  wardrobeRug.position.set(-11.9, y0 + 0.03, -10.8);
   wardrobeRug.receiveShadow = true;
   wardrobeGroup.add(wardrobeRug);
 
@@ -650,6 +1079,35 @@ export function createCastleFloor2Rooms(
     dynamicObjects.add(nm);
   }
 
+  // Variant D ('rose_balcony'): Romantic Balcony Overlook Archways, Climbing Rose Vines, Hanging Crystal Hearts & Warm Lanterns
+  addArchitecturalRoomPlaque(0.0, y0 + 3.85, -8.2, 0, '♡ THE ROMANTIC BALCONY • STARLIGHT OVERLOOK ♡');
+  const balconyVineBlossomGeo = tracker.trackGeo(new THREE.SphereGeometry(0.065, 8, 6));
+  balconyVineBlossomGeo.scale(1.25, 0.55, 1.25);
+  const balconyHeartCrystalGeo = tracker.trackGeo(new THREE.OctahedronGeometry(0.09, 0));
+  balconyHeartCrystalGeo.scale(0.85, 1.35, 0.65);
+  [-3.8, 3.8].forEach((bx) => {
+    addGoldCornerPilaster(bx, -9.8);
+    // Warm emissive gold lantern (0 new PointLights)
+    const lanternOrb = new THREE.Mesh(
+      tracker.trackGeo(new THREE.SphereGeometry(0.14, 10, 10)),
+      emissiveCrystalPendantMat,
+    );
+    lanternOrb.position.set(bx, y0 + 2.85, -9.55);
+    popStageGroup.add(lanternOrb);
+    // Climbing rose blossoms & hanging crystal hearts
+    for (let v = 0; v < 5; v++) {
+      const blossom = new THREE.Mesh(
+        balconyVineBlossomGeo,
+        v % 2 === 0 ? barbiePinkLacquerMat : blushVelvetMat,
+      );
+      blossom.position.set(bx + (v % 2 === 0 ? 0.16 : -0.16), y0 + 0.8 + v * 0.52, -9.65);
+      popStageGroup.add(blossom);
+    }
+    const heartDrop = new THREE.Mesh(balconyHeartCrystalGeo, crystalLavenderAccentMat);
+    heartDrop.position.set(bx * 0.65, y0 + 3.35, -9.8);
+    popStageGroup.add(heartDrop);
+  });
+
   // ============================================================================
   // 3. ROYAL BALLET & DANCE STUDIO (West Mezzanine Gallery: lx in [-15.2, -9.0], lz in [-5.5, +5.5])
   // ============================================================================
@@ -657,19 +1115,21 @@ export function createCastleFloor2Rooms(
   danceStudioGroup.name = 'RoyalDanceStudio';
   group.add(danceStudioGroup);
 
-  // Circular Dance Medallion Floor at lx = -12.1, lz = 0.0
+  // Circular Dance Medallion Floor at lx = -12.1, lz = 0.0 (elevated to y0 + 0.03m with polygonOffset)
   const danceFloorTex = createDanceFloorMedallionTexture(tracker);
   const danceFloorMat = tracker.trackMat(
     new THREE.MeshStandardMaterial({
       map: danceFloorTex,
       roughness: 0.18,
       metalness: 0.12,
+      polygonOffset: true,
+      polygonOffsetFactor: -1,
+      polygonOffsetUnits: -1,
     }),
   );
-  const danceMedallionGeo = tracker.trackGeo(new THREE.CylinderGeometry(2.55, 2.6, 0.03, 36));
-  danceMedallionGeo.translate(0, 0.015, 0);
+  const danceMedallionGeo = tracker.trackGeo(new THREE.CylinderGeometry(2.55, 2.6, 0.026, 36));
   const danceMedallion = new THREE.Mesh(danceMedallionGeo, danceFloorMat);
-  danceMedallion.position.set(-12.1, y0, 0.0);
+  danceMedallion.position.set(-12.1, y0 + 0.03, 0.0);
   danceMedallion.receiveShadow = true;
   danceStudioGroup.add(danceMedallion);
 
@@ -681,10 +1141,13 @@ export function createCastleFloor2Rooms(
       transparent: true,
       opacity: 0.35,
       side: THREE.DoubleSide,
+      polygonOffset: true,
+      polygonOffsetFactor: -2,
+      polygonOffsetUnits: -2,
     }),
   );
   const dancePulseRing = new THREE.Mesh(dancePulseRingGeo, dancePulseRingMat);
-  dancePulseRing.position.set(-12.1, y0 + 0.036, 0.0);
+  dancePulseRing.position.set(-12.1, y0 + 0.048, 0.0);
   danceStudioGroup.add(dancePulseRing);
   dynamicObjects.add(dancePulseRing);
 
@@ -736,11 +1199,20 @@ export function createCastleFloor2Rooms(
   beautyStudioGroup.name = 'GlamourBeautyStudio';
   group.add(beautyStudioGroup);
 
-  // Plush Lavender-Blush Salon Rug at (-12.2, +11.8)
+  // Plush Lavender-Blush Salon Rug at (-12.2, +11.8) — elevated to y0 + 0.03m with polygonOffset
+  const beautyRugMat = tracker.trackMat(
+    new THREE.MeshStandardMaterial({
+      color: '#e9d5ff',
+      roughness: 0.52,
+      metalness: 0.04,
+      polygonOffset: true,
+      polygonOffsetFactor: -1,
+      polygonOffsetUnits: -1,
+    }),
+  );
   const beautyRugGeo = tracker.trackGeo(new THREE.CylinderGeometry(2.35, 2.35, 0.024, 32));
-  beautyRugGeo.translate(0, 0.012, 0);
-  const beautyRug = new THREE.Mesh(beautyRugGeo, mats.softLavender);
-  beautyRug.position.set(-12.2, y0, 11.8);
+  const beautyRug = new THREE.Mesh(beautyRugGeo, beautyRugMat);
+  beautyRug.position.set(-12.2, y0 + 0.03, 11.8);
   beautyRug.receiveShadow = true;
   beautyStudioGroup.add(beautyRug);
 

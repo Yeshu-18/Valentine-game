@@ -572,30 +572,40 @@ export class CastleNavigationController {
       this.pushOutLocalBox(pos, -5.85, -2.05, 14.95, 15.75, playerRadius);
     }
 
-      // 2B. Floor 2 West Wing Partition Walls (lz = -6.0 and lz = +6.0, open doorway at lx in [-12.8, -10.6])
+      // 2B. Floor 2 Enclosed Room Boundaries & Split Doorway Colliders (2.8m - 3.2m clear portal widths)
     if (isFloor2 && relY <= 8.8) {
-      this.pushOutLocalBox(pos, -15.5, -12.8, -6.22, -5.78, playerRadius);
-      this.pushOutLocalBox(pos, -10.6, -9.2, -6.22, -5.78, playerRadius);
-      this.pushOutLocalBox(pos, -15.5, -12.8, 5.78, 6.22, playerRadius);
-      this.pushOutLocalBox(pos, -10.6, -9.2, 5.78, 6.22, playerRadius);
+      // West Wing Inter-Room Partitions (lz = -6.0 and lz = +6.0, 2.8m open portal at lx in [-12.2, -9.4])
+      this.pushOutLocalBox(pos, -15.5, -12.2, -6.22, -5.78, playerRadius);
+      this.pushOutLocalBox(pos, -9.4, -8.85, -6.22, -5.78, playerRadius);
+      this.pushOutLocalBox(pos, -15.5, -12.2, 5.78, 6.22, playerRadius);
+      this.pushOutLocalBox(pos, -9.4, -8.85, 5.78, 6.22, playerRadius);
 
-      // Floor 2 East Wing Creative Wing Partition Walls
-      // South-East wall at lz = -6.2 (doorway at lx in [10.8, 13.2])
-      this.pushOutLocalBox(pos, 8.8, 10.8, -6.38, -5.98, playerRadius);
-      this.pushOutLocalBox(pos, 13.2, 15.5, -6.38, -5.98, playerRadius);
-      // Photography Studio west wall at lx = 8.8 (doorway at lz in [-11.8, -9.4])
-      this.pushOutLocalBox(pos, 8.58, 9.02, -15.2, -11.8, playerRadius);
-      this.pushOutLocalBox(pos, 8.58, 9.02, -9.4, -6.2, playerRadius);
-      // North-East wall at lz = +6.2 (doorway at lx in [10.8, 13.2])
-      this.pushOutLocalBox(pos, 9.2, 10.8, 5.98, 6.38, playerRadius);
-      this.pushOutLocalBox(pos, 13.2, 15.5, 5.98, 6.38, playerRadius);
-      // Doll Playroom west wall (lx = 9.2, lz in [6.2, 14.8])
+      // West Wing Corridor Frontages at lx = -9.0:
+      // 1) Royal Couture Atelier (lz in [-15.2, -6.0], 2.8m open portal at lz in [-11.8, -9.0])
+      this.pushOutLocalBox(pos, -9.16, -8.84, -15.2, -11.8, playerRadius);
+      this.pushOutLocalBox(pos, -9.16, -8.84, -9.0, -6.0, playerRadius);
+      // 2) The Glam Room / Beauty Vanity (lz in [+6.0, +15.2], 2.8m open portal at lz in [+8.8, +11.6])
+      this.pushOutLocalBox(pos, -9.16, -8.84, 6.0, 8.8, playerRadius);
+      this.pushOutLocalBox(pos, -9.16, -8.84, 11.6, 15.2, playerRadius);
+
+      // East Wing Creative & Couture Wing Split Doorway Colliders:
+      // South-East wall at lz = -6.2 (2.8m open portal at lx in [10.6, 13.4])
+      this.pushOutLocalBox(pos, 8.8, 10.6, -6.38, -5.98, playerRadius);
+      this.pushOutLocalBox(pos, 13.4, 15.5, -6.38, -5.98, playerRadius);
+      // Portrait Atelier west wall at lx = 8.8 (2.8m open portal at lz in [-12.0, -9.2])
+      this.pushOutLocalBox(pos, 8.58, 9.02, -15.2, -12.0, playerRadius);
+      this.pushOutLocalBox(pos, 8.58, 9.02, -9.2, -6.2, playerRadius);
+      // North-East wall at lz = +6.2 (2.8m open portal at lx in [10.6, 13.4])
+      this.pushOutLocalBox(pos, 9.2, 10.6, 5.98, 6.38, playerRadius);
+      this.pushOutLocalBox(pos, 13.4, 15.5, 5.98, 6.38, playerRadius);
+      // Doll Playroom west wall (lx = 9.2, lz in [6.2, 14.8]) — keeps East F2->F3 Stair Hub (lx: 5.8..9.2) cleanly separated
       this.pushOutLocalBox(pos, 8.95, 9.42, 6.2, 14.8, playerRadius);
-      // Boutique west facade at lx = 8.8 (doorway at lz in [-1.2, +1.2])
-      this.pushOutLocalBox(pos, 8.58, 9.02, -5.8, -1.2, playerRadius);
-      this.pushOutLocalBox(pos, 8.58, 9.02, 1.2, 5.8, playerRadius);
+      // Couture & Dream Runway Showroom west facade at lx = 8.8 (3.2m grand open portal at lz in [-1.6, +1.6])
+      this.pushOutLocalBox(pos, 8.58, 9.02, -5.8, -1.6, playerRadius);
+      this.pushOutLocalBox(pos, 8.58, 9.02, 1.6, 5.8, playerRadius);
 
-      // Floor 2 Central Atrium Balustrade Guardrails (prevents falling into Grand Hall atrium after exiting elevator)
+      // Floor 2 Inner Atrium Overlook "Love Ribbon" Safety Balustrade Colliders
+      // (Open gaps ONLY at F1->F2 West/East top landings lz: [6.0, 8.4] and F2->F3 East bottom landing lz: [5.6, 6.5])
       this.pushOutLocalBox(pos, -5.3, 5.3, -6.15, -5.85, playerRadius);
       this.pushOutLocalBox(pos, -5.3, 5.3, 3.65, 3.98, playerRadius);
       this.pushOutLocalBox(pos, -5.35, -5.05, 3.65, 5.65, playerRadius);
@@ -856,6 +866,15 @@ export class CastleNavigationController {
       return null;
     }
     return CASTLE_ENTRANCE_DIALOGUE[this.entranceBeatIndex] ?? null;
+  }
+
+  public isEntranceRoseHandoverMoment(): boolean {
+    return (
+      Boolean(this.activeCameraFocus && this.activeCameraFocus.mode === 'entrance') &&
+      this.entranceSubStage === 'DIALOGUE' &&
+      this.entranceBeatIndex >= 6 &&
+      this.entranceBeatIndex <= 8
+    );
   }
 
   public advanceEntranceCinematicBeat(): boolean {
@@ -1290,13 +1309,13 @@ export class CastleNavigationController {
           // Single Designated Finale Zoom-Out (3.4s pullback + 1.8s hold = 5.2s)
           const zDur = 5.2;
           const pullU = smoothStep01(Math.min(1.0, this.entranceStageTimer / 3.4));
-          camLX = THREE.MathUtils.lerp(1.32, heroCamLX, pullU);
-          camLY = THREE.MathUtils.lerp(1.48, heroCamLY, pullU);
-          camLZ = THREE.MathUtils.lerp(-21.45, heroCamLZ, pullU);
-          lookLX = heroLookLX;
-          lookLY = THREE.MathUtils.lerp(1.26, heroLookLY, pullU);
+          camLX = THREE.MathUtils.lerp(0.88, heroCamLX, pullU);
+          camLY = THREE.MathUtils.lerp(1.54, heroCamLY, pullU);
+          camLZ = THREE.MathUtils.lerp(-21.85, heroCamLZ, pullU);
+          lookLX = THREE.MathUtils.lerp(0.02, heroLookLX, pullU);
+          lookLY = THREE.MathUtils.lerp(1.36, heroLookLY, pullU);
           lookLZ = THREE.MathUtils.lerp(-18.45, heroLookLZ, pullU);
-          fov = THREE.MathUtils.lerp(39, heroFov, pullU);
+          fov = THREE.MathUtils.lerp(41, heroFov, pullU);
 
           const rem = Math.max(0, zDur - this.entranceStageTimer);
           exitAlpha = smoothStep01(rem / 0.75);
@@ -1311,47 +1330,50 @@ export class CastleNavigationController {
             return;
           }
         } else if (this.entranceSubStage === 'FREE_INSPECT_2' || this.entranceBeatIndex >= 9) {
-          // Section 3 — Rose Phase 4 (Pull-Back Reveal, 1.7s):
-          // Smoothly moves backward from the hands/rose close-up into a Left Three-Quarter Two-Shot
-          // showing both characters, the rose held in Harsha's hand, and the castle behind them.
+          // Section 4B — Rose Phase 4 (Pull-Back Two-Shot Reveal, 1.7s):
+          // Smoothly moves backward from the Medium-Close Handover Two-Shot into a wider Left Three-Quarter Two-Shot
+          // showing both characters, the botanical rose held in Harsha's hand, and the Dream Castle behind them.
           const b =
             this.entranceSubStage === 'FREE_INSPECT_2'
               ? 1.0
               : this.entranceBeatIndex === 9
                 ? smoothStep01(this.entranceStageTimer / 1.7)
                 : 1.0;
-          camLX = THREE.MathUtils.lerp(0.96, 1.32, b);
-          camLY = THREE.MathUtils.lerp(1.16, 1.48, b);
-          camLZ = THREE.MathUtils.lerp(-19.18, -21.45, b);
-          lookLX = THREE.MathUtils.lerp(0.12, 0.0, b);
-          lookLY = THREE.MathUtils.lerp(1.04, 1.26, b);
-          lookLZ = THREE.MathUtils.lerp(-18.46, -18.45, b);
-          fov = THREE.MathUtils.lerp(31, 39, b);
+          camLX = THREE.MathUtils.lerp(0.34, 0.88, b);
+          camLY = THREE.MathUtils.lerp(1.40, 1.54, b);
+          camLZ = THREE.MathUtils.lerp(-20.52, -21.85, b);
+          lookLX = THREE.MathUtils.lerp(0.10, 0.02, b);
+          lookLY = THREE.MathUtils.lerp(1.32, 1.36, b);
+          lookLZ = THREE.MathUtils.lerp(-18.48, -18.45, b);
+          fov = THREE.MathUtils.lerp(37, 41, b);
         } else if (this.entranceBeatIndex === 7 || this.entranceBeatIndex === 8) {
-          // Section 3 — Rose Phases 2 & 3 (Focus & Handover, 1.3s):
-          // Holds closely on the realistic 3D rose head, green stem, and meeting hands as Yeshwanth hands the rose to Harsha.
+          // Section 4B — Rose Phases 2 & 3 (Focus & Handover Two-Shot, 1.3s):
+          // Offset camera-right, slightly backward, and slightly upward with a modest zoom-out into a
+          // balanced Left Three-Quarter Medium-Close Two-Shot aimed at chest / upper-torso / hand-meeting height
+          // (never behind Harsha's back and never tilted down at the floor).
           const b =
             this.entranceBeatIndex === 7
               ? smoothStep01(this.entranceStageTimer / 1.3)
               : 1.0;
-          camLX = THREE.MathUtils.lerp(1.02, 0.96, b);
-          camLY = THREE.MathUtils.lerp(1.18, 1.16, b);
-          camLZ = THREE.MathUtils.lerp(-19.28, -19.18, b);
-          lookLX = THREE.MathUtils.lerp(0.06, 0.12, b);
-          lookLY = THREE.MathUtils.lerp(1.02, 1.04, b);
-          lookLZ = -18.46;
-          fov = THREE.MathUtils.lerp(33, 31, b);
+          camLX = THREE.MathUtils.lerp(0.24, 0.34, b);
+          camLY = THREE.MathUtils.lerp(1.38, 1.40, b);
+          camLZ = THREE.MathUtils.lerp(-20.38, -20.52, b);
+          lookLX = THREE.MathUtils.lerp(0.12, 0.10, b);
+          lookLY = THREE.MathUtils.lerp(1.30, 1.32, b);
+          lookLZ = -18.48;
+          fov = THREE.MathUtils.lerp(36, 37, b);
         } else if (this.entranceBeatIndex === 6) {
-          // Section 3 — Rose Phase 1 (Approach, 1.2s):
-          // Moves camera close to the left side of both characters, focusing directly on the rose and BOTH sets of hands (no faces yet).
+          // Section 4B — Rose Phase 1 (Approach into Medium-Close Handover Two-Shot, 1.2s):
+          // Smoothly transitions into the Left Three-Quarter Medium-Close Two-Shot where the 24-petal botanical rose,
+          // both characters' meeting hands, Harsha's face/upper body, Yeshwanth's upper body, and castle backdrop are all visible.
           const b = smoothStep01(this.entranceStageTimer / 1.2);
-          camLX = THREE.MathUtils.lerp(-2.1, 1.02, b);
-          camLY = THREE.MathUtils.lerp(1.75, 1.18, b);
-          camLZ = THREE.MathUtils.lerp(-22.2, -19.28, b);
-          lookLX = THREE.MathUtils.lerp(0.0, 0.06, b);
-          lookLY = THREE.MathUtils.lerp(1.65, 1.02, b);
-          lookLZ = THREE.MathUtils.lerp(-17.6, -18.46, b);
-          fov = THREE.MathUtils.lerp(46, 33, b);
+          camLX = THREE.MathUtils.lerp(-2.1, 0.24, b);
+          camLY = THREE.MathUtils.lerp(1.75, 1.38, b);
+          camLZ = THREE.MathUtils.lerp(-22.2, -20.38, b);
+          lookLX = THREE.MathUtils.lerp(0.0, 0.12, b);
+          lookLY = THREE.MathUtils.lerp(1.65, 1.30, b);
+          lookLZ = THREE.MathUtils.lerp(-17.6, -18.48, b);
+          fov = THREE.MathUtils.lerp(46, 36, b);
         } else if (this.entranceBeatIndex === 5) {
           // Section 2 — Beat 06 ("Come on."): Doors Open Visually
           const b = smoothStep01(this.entranceStageTimer / 1.2);
