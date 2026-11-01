@@ -790,20 +790,20 @@ export function createCastleFloor2Rooms(
   );
   const wardrobeRugGeo = tracker.trackGeo(new THREE.CylinderGeometry(2.75, 2.75, 0.025, 32));
   const wardrobeRug = new THREE.Mesh(wardrobeRugGeo, wardrobeRugMat);
-  wardrobeRug.position.set(-11.9, y0 + 0.03, -10.8);
+  wardrobeRug.position.set(-12.35, y0 + 0.03, -10.8);
   wardrobeRug.receiveShadow = true;
   wardrobeGroup.add(wardrobeRug);
 
-  // Rotating Velvet Styling Podium (center lx = -11.9, lz = -10.8)
+  // Rotating Velvet Styling Podium (center lx = -12.35, lz = -10.8 — leaves >2.0m clear interior foyer inside lx = -9.0 doorway)
   const podiumBaseGeo = tracker.trackGeo(new THREE.CylinderGeometry(1.38, 1.48, 0.14, 28));
   podiumBaseGeo.translate(0, 0.07, 0);
   const podiumBase = new THREE.Mesh(podiumBaseGeo, mats.creamStone);
-  podiumBase.position.set(-11.9, y0, -10.8);
+  podiumBase.position.set(-12.35, y0, -10.8);
   podiumBase.receiveShadow = true;
   wardrobeGroup.add(podiumBase);
 
   const podiumTurntableGroup = new THREE.Group();
-  podiumTurntableGroup.position.set(-11.9, y0 + 0.14, -10.8);
+  podiumTurntableGroup.position.set(-12.35, y0 + 0.14, -10.8);
   wardrobeGroup.add(podiumTurntableGroup);
   dynamicObjects.add(podiumTurntableGroup);
 
@@ -1212,33 +1212,33 @@ export function createCastleFloor2Rooms(
   );
   const beautyRugGeo = tracker.trackGeo(new THREE.CylinderGeometry(2.35, 2.35, 0.024, 32));
   const beautyRug = new THREE.Mesh(beautyRugGeo, beautyRugMat);
-  beautyRug.position.set(-12.2, y0 + 0.03, 11.8);
+  beautyRug.position.set(-12.5, y0 + 0.03, 12.05);
   beautyRug.receiveShadow = true;
   beautyStudioGroup.add(beautyRug);
 
-  // Hollywood Heart Vanity Table at (-12.2, +12.85)
+  // Hollywood Heart Vanity Table at (-12.5, +13.1 — leaves >2.7m clear interior foyer inside both lx = -9.0 and lz = +6.0 doorways)
   const vanityDeskGeo = tracker.trackGeo(new THREE.BoxGeometry(2.2, 0.78, 0.76));
   vanityDeskGeo.translate(0, 0.39, 0);
   const vanityDesk = new THREE.Mesh(vanityDeskGeo, mats.creamStone);
-  vanityDesk.position.set(-12.2, y0, 12.85);
+  vanityDesk.position.set(-12.5, y0, 13.1);
   vanityDesk.castShadow = true;
   vanityDesk.receiveShadow = true;
   beautyStudioGroup.add(vanityDesk);
-  addLocalCollider(-12.2, 12.85, 0.78);
+  addLocalCollider(-12.5, 13.1, 0.72);
 
   const vanityTopGeo = tracker.trackGeo(new THREE.BoxGeometry(2.32, 0.06, 0.84));
   vanityTopGeo.translate(0, 0.81, 0);
   const vanityTop = new THREE.Mesh(vanityTopGeo, mats.blushRoseMarble);
-  vanityTop.position.set(-12.2, y0, 12.85);
+  vanityTop.position.set(-12.5, y0, 13.1);
   beautyStudioGroup.add(vanityTop);
 
   // Arched Hollywood Bulb Mirror above Vanity Table
   const vanityMirrorRingGeo = tracker.trackGeo(new THREE.TorusGeometry(0.78, 0.06, 10, 28));
   const vanityMirrorRing = new THREE.Mesh(vanityMirrorRingGeo, mats.champagneGold);
-  vanityMirrorRing.position.set(-12.2, y0 + 1.62, 13.15);
+  vanityMirrorRing.position.set(-12.5, y0 + 1.62, 13.4);
   const vanityMirrorDiscGeo = tracker.trackGeo(new THREE.CircleGeometry(0.74, 28));
   const vanityMirrorDisc = new THREE.Mesh(vanityMirrorDiscGeo, mats.crystalGlass);
-  vanityMirrorDisc.position.set(-12.2, y0 + 1.62, 13.12);
+  vanityMirrorDisc.position.set(-12.5, y0 + 1.62, 13.37);
   vanityMirrorDisc.rotation.y = Math.PI;
   beautyStudioGroup.add(vanityMirrorRing, vanityMirrorDisc);
 
@@ -1257,9 +1257,9 @@ export function createCastleFloor2Rooms(
     const ang = -Math.PI * 0.8 + (b / 9) * Math.PI * 1.6;
     const bulb = new THREE.Mesh(bulbGeo, vanityBulbMat);
     bulb.position.set(
-      -12.2 + Math.sin(ang) * 0.8,
+      -12.5 + Math.sin(ang) * 0.8,
       y0 + 1.62 + Math.cos(ang) * 0.8,
-      13.08,
+      13.33,
     );
     beautyStudioGroup.add(bulb);
   }
@@ -1268,16 +1268,16 @@ export function createCastleFloor2Rooms(
   const perfumeBottleGeo = tracker.trackGeo(new THREE.OctahedronGeometry(0.11, 1));
   perfumeBottleGeo.translate(0, 0.94, 0);
   const perfumeBottle = new THREE.Mesh(perfumeBottleGeo, mats.crystalGlass);
-  perfumeBottle.position.set(-11.65, y0, 12.68);
+  perfumeBottle.position.set(-11.95, y0, 12.93);
   beautyStudioGroup.add(perfumeBottle);
 
-  // Tufted Velvet Salon Styling Chair at (-12.2, +11.45) facing +Z toward the mirror
+  // Tufted Velvet Salon Styling Chair at (-12.5, +11.75) facing +Z toward the mirror
   const chairSeatGeo = tracker.trackGeo(new THREE.CylinderGeometry(0.38, 0.34, 0.46, 18));
   chairSeatGeo.translate(0, 0.23, 0);
   const chairBackGeo = tracker.trackGeo(new THREE.BoxGeometry(0.68, 0.56, 0.14));
   chairBackGeo.translate(0, 0.68, -0.28);
   const salonChairGroup = new THREE.Group();
-  salonChairGroup.position.set(-12.2, y0, 11.45);
+  salonChairGroup.position.set(-12.5, y0, 11.75);
   const chairSeat = new THREE.Mesh(chairSeatGeo, mats.velvetPlum);
   const chairBack = new THREE.Mesh(chairBackGeo, mats.velvetPlum);
   salonChairGroup.add(chairSeat, chairBack);
@@ -1522,8 +1522,8 @@ export function createCastleFloor2Rooms(
       const lx = playerPos.x - originX;
       const lz = playerPos.z - originZ;
 
-      // 1. Royal Walk-In Wardrobe Podium (-11.9, -10.8)
-      if (Math.hypot(lx - -11.9, lz - -10.8) <= 3.2) {
+      // 1. Royal Walk-In Wardrobe Podium (-12.35, -10.8)
+      if (Math.hypot(lx - -12.35, lz - -10.8) <= 3.35) {
         return '[E] Step onto Royal Wardrobe Styling Podium';
       }
       // 2. Pop Star Concert Stage (0.0, -11.2)
@@ -1534,8 +1534,8 @@ export function createCastleFloor2Rooms(
       if (Math.hypot(lx - -12.1, lz - 0.0) <= 3.2) {
         return '[E] Start Choreography in Royal Dance Studio';
       }
-      // 4. Glamour Makeup & Beauty Vanity (-12.2, +11.6)
-      if (Math.hypot(lx - -12.2, lz - 11.6) <= 2.9) {
+      // 4. Glamour Makeup & Beauty Vanity (-12.5, +11.75)
+      if (Math.hypot(lx - -12.5, lz - 11.75) <= 3.1) {
         return '[E] Sit at Glamour Beauty Vanity';
       }
 
@@ -1582,7 +1582,7 @@ export function createCastleFloor2Rooms(
       cameraLookPitchOffset = 0.0;
 
       // 1. Enter Royal Wardrobe Styling Podium
-      if (Math.hypot(lx - -11.9, lz - -10.8) <= 3.2) {
+      if (Math.hypot(lx - -12.35, lz - -10.8) <= 3.35) {
         activeMode = 'wardrobe_styling';
         cameraBlendAlpha = 0.0;
         wardrobeOrbitYaw = 0.35;
@@ -1615,7 +1615,7 @@ export function createCastleFloor2Rooms(
       }
 
       // 4. Enter Glamour Beauty Vanity
-      if (Math.hypot(lx - -12.2, lz - 11.6) <= 2.9) {
+      if (Math.hypot(lx - -12.5, lz - 11.75) <= 3.1) {
         activeMode = 'beauty_vanity';
         cameraBlendAlpha = 0.0;
         beautyMistTimer = 1.4;
@@ -1843,7 +1843,7 @@ export function createCastleFloor2Rooms(
       let seatYaw = 0;
 
       if (activeMode === 'wardrobe_styling') {
-        const podX = originX - 11.9;
+        const podX = originX - 12.35;
         const podY = baseY + y0 + 0.19;
         const podZ = originZ - 10.8;
         const camDist = 3.15;
@@ -1873,9 +1873,9 @@ export function createCastleFloor2Rooms(
         seatYaw = Math.PI * 0.5;
       } else {
         // beauty_vanity
-        const vanX = originX - 12.2;
+        const vanX = originX - 12.5;
         const vanY = baseY + y0;
-        const vanZ = originZ + 11.45;
+        const vanZ = originZ + 11.75;
         _scratchCamWorldPos.set(vanX + 1.35, vanY + 1.48, vanZ - 1.55);
         _scratchLookWorldPos.set(vanX, vanY + 1.28, vanZ + 1.15);
         _scratchSeatWorldPos.set(vanX, vanY + 0.05, vanZ);

@@ -84,92 +84,11 @@ export const CASTLE_ENTRANCE_DIALOGUE: AuroraDialogueSequence = [
 ];
 
 /**
- * Canonical Little Castle ("Our World" / "Our Little Kingdom") Cinematic Dialogue Sequence (Pass B: Sections 1, 5, 6).
- * One-Way Dialogue Rule: ONLY Yeshwanth speaks. Harsha responds visually through body language,
- * wearing the crown, sitting on the throne, and looking up at the fireworks.
- * Every beat pauses and waits for explicit Enter or Continue confirmation.
+ * Mini World Dialogue Rule (Section 27 & 36):
+ * The Royal Crystal Garden Palace Mini World contains ZERO dialogue or subtitles.
+ * Preserved as an empty sequence for type/export safety.
  */
-export const LITTLE_CASTLE_DIALOGUE: AuroraDialogueSequence = [
-  // Group 1 — Entry (indices 0..3)
-  { id: 'little_castle_01', ...Y, text: 'Ready?' },
-  { id: 'little_castle_02', ...Y, text: 'Come on.' },
-  { id: 'little_castle_03', ...Y, text: 'I made something smaller this time.' },
-  {
-    id: 'little_castle_04',
-    ...Y,
-    text: "But this one's just for us.",
-    isProposal: true,
-  },
-
-  // Group 2 — Two Towers (indices 4..6)
-  { id: 'little_castle_05', ...Y, text: 'One tower for you.' },
-  { id: 'little_castle_06', ...Y, text: 'One for me.' },
-  {
-    id: 'little_castle_07',
-    ...Y,
-    text: 'And I made sure they were connected.',
-  },
-
-  // Group 3 — Little Castle Heart (index 7)
-  {
-    id: 'little_castle_08',
-    ...Y,
-    text: 'Even this little place has a heart.',
-  },
-
-  // Group 4 — Crown Discovery (index 8 -> Crown Pickup/Wear Animation)
-  {
-    id: 'little_castle_09',
-    ...Y,
-    text: 'I think I found something that belongs to you.',
-    isProposal: true,
-  },
-
-  // Group 5 — After Crown Placed on Harsha's Head (indices 9..11)
-  { id: 'little_castle_10', ...Y, text: 'Yeah.' },
-  {
-    id: 'little_castle_11',
-    ...Y,
-    text: 'That looks right.',
-    isProposal: true,
-  },
-  {
-    id: 'little_castle_12',
-    ...Y,
-    text: 'I think we found our queen.',
-    isProposal: true,
-  },
-
-  // Group 6 — Throne Interaction (indices 12..15)
-  { id: 'little_castle_13', ...Y, text: 'There.' },
-  {
-    id: 'little_castle_14',
-    ...Y,
-    text: "That's exactly where I imagined you.",
-    isProposal: true,
-  },
-  { id: 'little_castle_15', ...Y, text: 'Although...' },
-  {
-    id: 'little_castle_16',
-    ...Y,
-    text: 'I probably should have expected you to look this good.',
-  },
-
-  // Group 7 — Fireworks + Sky Text Finale (indices 16..18)
-  { id: 'little_castle_17', ...Y, text: 'Look up.' },
-  {
-    id: 'little_castle_18',
-    ...Y,
-    text: 'I wanted you to have one little world that was just ours.',
-    isProposal: true,
-  },
-  {
-    id: 'little_castle_19',
-    ...Y,
-    text: 'I love you, Harsha.',
-    isProposal: true,
-  },
-];
+export const LITTLE_CASTLE_DIALOGUE: AuroraDialogueSequence = [];
 
 /**
  * Canonical Dialogue Progression Controller (Pass A Contract).

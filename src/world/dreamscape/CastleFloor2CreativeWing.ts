@@ -702,23 +702,23 @@ export class CreativeWing implements CastleFloor2CreativeWingBundle {
     group.add(photoWestSignMesh, photoWestSignInner);
     this.addHeartCrest(group, 8.56, y0 + 4.22, -10.6, Math.PI / 2);
 
-    // B. PARTITION WALL & ARCHED DOORWAY BETWEEN PHOTOGRAPHY STUDIO & BOUTIQUE (lz = -6.2, 2.8m portal lx in [10.6, 13.4])
+    // B. PARTITION WALL & ARCHED DOORWAY BETWEEN PHOTOGRAPHY STUDIO & BOUTIQUE (lz = -6.2, 3.0m portal lx in [10.4, 13.4])
     const partGeo1 = tracker.trackGeo(new THREE.BoxGeometry(2.0, 4.4, 0.38));
     partGeo1.translate(14.4, y0 + 2.2, -6.2);
     const partMesh1 = new THREE.Mesh(partGeo1, wallMat);
 
-    const partGeo2 = tracker.trackGeo(new THREE.BoxGeometry(1.8, 4.4, 0.38));
-    partGeo2.translate(9.7, y0 + 2.2, -6.2);
+    const partGeo2 = tracker.trackGeo(new THREE.BoxGeometry(1.6, 4.4, 0.38));
+    partGeo2.translate(9.6, y0 + 2.2, -6.2);
     const partMesh2 = new THREE.Mesh(partGeo2, wallMat);
 
-    const archHeaderGeo1 = tracker.trackGeo(new THREE.BoxGeometry(2.8, 1.2, 0.42));
-    archHeaderGeo1.translate(12.0, y0 + 3.8, -6.2);
+    const archHeaderGeo1 = tracker.trackGeo(new THREE.BoxGeometry(3.0, 1.2, 0.42));
+    archHeaderGeo1.translate(11.9, y0 + 3.8, -6.2);
     const archHeaderMesh1 = new THREE.Mesh(archHeaderGeo1, marbleTrimMat);
 
     const archTrimMesh1 = new THREE.Mesh(archTorusGeo, goldTrimMat);
-    archTrimMesh1.position.set(12.0, y0 + 2.8, -6.2);
+    archTrimMesh1.position.set(11.9, y0 + 2.8, -6.2);
 
-    addCornerPilaster(10.6, -6.2);
+    addCornerPilaster(10.4, -6.2);
     addCornerPilaster(13.4, -6.2);
     addCornerPilaster(15.35, -6.2);
 
@@ -792,34 +792,58 @@ export class CreativeWing implements CastleFloor2CreativeWingBundle {
     boutiqueSignInner.rotation.y = Math.PI / 2;
     group.add(boutiqueSignMesh, boutiqueSignInner);
 
-    // D. PARTITION WALL & PLAYFUL ARCHWAY BETWEEN BOUTIQUE & DOLL PLAYROOM (lz = +6.2, 2.8m portal lx in [10.6, 13.4])
+    // D. PARTITION WALL & PLAYFUL ARCHWAY BETWEEN BOUTIQUE & DOLL PLAYROOM (lz = +6.2, 3.0m portal lx in [10.4, 13.4])
     const dollWallGeo1 = tracker.trackGeo(new THREE.BoxGeometry(2.0, 4.4, 0.38));
     dollWallGeo1.translate(14.4, y0 + 2.2, 6.2);
     const dollWallMesh1 = new THREE.Mesh(dollWallGeo1, wallMat);
 
-    const dollWallGeo2 = tracker.trackGeo(new THREE.BoxGeometry(1.4, 4.4, 0.38));
-    dollWallGeo2.translate(9.9, y0 + 2.2, 6.2);
+    const dollWallGeo2 = tracker.trackGeo(new THREE.BoxGeometry(1.2, 4.4, 0.38));
+    dollWallGeo2.translate(9.8, y0 + 2.2, 6.2);
     const dollWallMesh2 = new THREE.Mesh(dollWallGeo2, wallMat);
 
-    const dollArchHeaderGeo = tracker.trackGeo(new THREE.BoxGeometry(2.8, 1.2, 0.42));
-    dollArchHeaderGeo.translate(12.0, y0 + 3.8, 6.2);
+    const dollArchHeaderGeo = tracker.trackGeo(new THREE.BoxGeometry(3.0, 1.2, 0.42));
+    dollArchHeaderGeo.translate(11.9, y0 + 3.8, 6.2);
     const dollArchHeaderMesh = new THREE.Mesh(dollArchHeaderGeo, marbleTrimMat);
 
     const dollArchTrimMesh = new THREE.Mesh(archTorusGeo, goldTrimMat);
-    dollArchTrimMesh.position.set(12.0, y0 + 2.8, 6.2);
+    dollArchTrimMesh.position.set(11.9, y0 + 2.8, 6.2);
 
-    const dollWestWallGeo = tracker.trackGeo(new THREE.BoxGeometry(0.38, 4.4, 8.6));
-    dollWestWallGeo.translate(9.2, y0 + 2.2, 10.5);
+    // West Wall of Doll Playroom (lx = 9.2): Open 2.6m arched doorway at lz in [6.2, 8.8] facing the 2.5m East Staircase Landing Hub, solid wall at lz in [8.8, 14.8]
+    const dollWestWallGeo = tracker.trackGeo(new THREE.BoxGeometry(0.38, 4.4, 6.0));
+    dollWestWallGeo.translate(9.2, y0 + 2.2, 11.8);
     const dollWestWallMesh = new THREE.Mesh(dollWestWallGeo, wallMat);
 
+    const dollWestDoorHeaderGeo = tracker.trackGeo(new THREE.BoxGeometry(0.42, 1.2, 2.6));
+    dollWestDoorHeaderGeo.translate(9.2, y0 + 3.8, 7.5);
+    const dollWestDoorHeaderMesh = new THREE.Mesh(dollWestDoorHeaderGeo, marbleTrimMat);
+
+    const dollWestArchTrimMesh = new THREE.Mesh(archTorusGeo, goldTrimMat);
+    dollWestArchTrimMesh.rotation.y = Math.PI / 2;
+    dollWestArchTrimMesh.position.set(9.2, y0 + 2.8, 7.5);
+
     addCornerPilaster(9.2, 6.2);
-    addCornerPilaster(10.6, 6.2);
+    addCornerPilaster(9.2, 8.8);
+    addCornerPilaster(10.4, 6.2);
     addCornerPilaster(13.4, 6.2);
     addCornerPilaster(15.35, 6.2);
     addCornerPilaster(9.2, 14.8);
 
-    group.add(dollWallMesh1, dollWallMesh2, dollArchHeaderMesh, dollArchTrimMesh, dollWestWallMesh);
-    partitionMeshes.push(dollWallMesh1, dollWallMesh2, dollArchHeaderMesh, dollWestWallMesh);
+    group.add(
+      dollWallMesh1,
+      dollWallMesh2,
+      dollArchHeaderMesh,
+      dollArchTrimMesh,
+      dollWestWallMesh,
+      dollWestDoorHeaderMesh,
+      dollWestArchTrimMesh,
+    );
+    partitionMeshes.push(
+      dollWallMesh1,
+      dollWallMesh2,
+      dollArchHeaderMesh,
+      dollWestWallMesh,
+      dollWestDoorHeaderMesh,
+    );
 
     const dollSignTex = createSignboardTexture(
       tracker,
@@ -1293,9 +1317,9 @@ export class CreativeWing implements CastleFloor2CreativeWingBundle {
 
     photoGroup.add(backdropFrameGroup);
 
-    // Believable Studio Camera on Tripod at (lx = 10.85, lz = -10.6) with >1.5m circulation clearance
+    // Believable Studio Camera on Tripod at (lx = 11.45, lz = -10.6) leaving >2.3m clear interior foyer inside West doorway (lx = 8.8)
     const cameraRig = new THREE.Group();
-    cameraRig.position.set(10.85, y0, -10.6);
+    cameraRig.position.set(11.45, y0, -10.6);
     cameraRig.rotation.y = Math.PI / 2;
 
     const legGeo = tracker.trackGeo(new THREE.CylinderGeometry(0.018, 0.024, 1.35, 8));
@@ -1344,7 +1368,7 @@ export class CreativeWing implements CastleFloor2CreativeWingBundle {
       camLedMesh,
     );
     photoGroup.add(cameraRig);
-    this.addLocalCollider(10.85, -10.6, 0.38);
+    this.addLocalCollider(11.45, -10.6, 0.32);
 
     // ========================================================================
     // WALL-MOUNTED MEMORY FILM DISPLAY (Flush against North Studio Wall at lx = 9.75, lz = -6.62)
@@ -1557,7 +1581,7 @@ export class CreativeWing implements CastleFloor2CreativeWingBundle {
     softboxStandGeo.translate(0, 1.1, 0);
 
     const keyLight = new THREE.Group();
-    keyLight.position.set(12.6, y0, -13.35);
+    keyLight.position.set(13.65, y0, -12.85);
     keyLight.rotation.y = Math.PI * 0.22;
     keyLight.add(
       new THREE.Mesh(softboxStandGeo, goldTrimMat),
@@ -1565,10 +1589,10 @@ export class CreativeWing implements CastleFloor2CreativeWingBundle {
       new THREE.Mesh(softboxFaceGeo, this.warmGlowMat),
     );
     photoGroup.add(keyLight);
-    this.addLocalCollider(12.6, -13.35, 0.32);
+    this.addLocalCollider(13.65, -12.85, 0.28);
 
     const fillLight = new THREE.Group();
-    fillLight.position.set(12.6, y0, -7.85);
+    fillLight.position.set(13.65, y0, -8.35);
     fillLight.rotation.y = Math.PI * 0.78;
     fillLight.scale.set(0.85, 0.9, 0.85);
     fillLight.add(
@@ -1577,7 +1601,7 @@ export class CreativeWing implements CastleFloor2CreativeWingBundle {
       new THREE.Mesh(softboxFaceGeo, this.warmGlowMat),
     );
     photoGroup.add(fillLight);
-    this.addLocalCollider(12.6, -7.85, 0.32);
+    this.addLocalCollider(13.65, -8.35, 0.28);
 
     const rimLightGroup = new THREE.Group();
     rimLightGroup.position.set(14.5, y0, -13.2);
@@ -1869,9 +1893,9 @@ export class CreativeWing implements CastleFloor2CreativeWingBundle {
     boutiqueGroup.add(mannequin2Group);
     this.addLocalCollider(9.4, 3.5, 0.65);
 
-    // Boutique Counter & Packaging Shelf
+    // Boutique Counter & Packaging Shelf (tucked along SW Boutique corner so central catwalk and lz = -6.2 archway are 100% open)
     const bCounterGroup = new THREE.Group();
-    bCounterGroup.position.set(11.8, y0, -2.6);
+    bCounterGroup.position.set(9.85, y0, -4.65);
     const bcBaseGeo = tracker.trackGeo(new THREE.BoxGeometry(1.5, 0.86, 0.64));
     bcBaseGeo.translate(0, 0.43, 0);
     const regGeo = tracker.trackGeo(new THREE.BoxGeometry(0.32, 0.24, 0.26));
@@ -1881,7 +1905,7 @@ export class CreativeWing implements CastleFloor2CreativeWingBundle {
       new THREE.Mesh(regGeo, goldTrimMat),
     );
     boutiqueGroup.add(bCounterGroup);
-    this.addLocalCollider(11.8, -2.6, 0.58);
+    this.addLocalCollider(9.85, -4.65, 0.45);
 
     const packShelfGroup = new THREE.Group();
     packShelfGroup.position.set(14.8, y0, -1.9);
@@ -1905,22 +1929,22 @@ export class CreativeWing implements CastleFloor2CreativeWingBundle {
     boutiqueGroup.add(jewCounterGroup);
     this.addLocalCollider(14.8, 0.2, 0.6);
 
-    // Shoe Tiered Display Shelves along North Wall (lx = 12.0, lz = 5.3)
+    // Shoe Tiered Display Shelves along North-East Wall (lx = 14.35, lz = 5.65 — completely out of lz = +6.2 doorway)
     const shoeRackGroup = new THREE.Group();
-    shoeRackGroup.position.set(12.0, y0, 5.3);
-    const sShelfGeo = tracker.trackGeo(new THREE.BoxGeometry(2.4, 0.04, 0.45));
+    shoeRackGroup.position.set(14.35, y0, 5.65);
+    const sShelfGeo = tracker.trackGeo(new THREE.BoxGeometry(1.5, 0.04, 0.42));
     [0.2, 0.5, 0.8].forEach((shY) => {
       const shelf = new THREE.Mesh(sShelfGeo, goldTrimMat);
       shelf.position.y = shY;
       shoeRackGroup.add(shelf);
     });
     boutiqueGroup.add(shoeRackGroup);
-    this.addLocalCollider(12.0, 5.3, 0.45);
+    this.addLocalCollider(14.35, 5.65, 0.35);
 
-    // Handbag Display Shelves along South Wall (lx = 12.0, lz = -5.3) + Couture Plaque
+    // Handbag Display Shelves along South-East Wall (lx = 14.35, lz = -5.65 — completely out of lz = -6.2 doorway) + Couture Plaque
     const handbagRackGroup = new THREE.Group();
-    handbagRackGroup.position.set(12.0, y0, -5.3);
-    const hbShelfGeo = tracker.trackGeo(new THREE.BoxGeometry(2.4, 0.04, 0.38));
+    handbagRackGroup.position.set(14.35, y0, -5.65);
+    const hbShelfGeo = tracker.trackGeo(new THREE.BoxGeometry(1.5, 0.04, 0.38));
     [0.4, 0.85, 1.3].forEach((hY) => {
       const shelf = new THREE.Mesh(hbShelfGeo, goldTrimMat);
       shelf.position.y = hY;
@@ -1934,7 +1958,7 @@ export class CreativeWing implements CastleFloor2CreativeWingBundle {
     couturePlaque.position.set(0, 1.65, 0.18);
     handbagRackGroup.add(couturePlaque);
     boutiqueGroup.add(handbagRackGroup);
-    this.addLocalCollider(12.0, -5.3, 0.45);
+    this.addLocalCollider(14.35, -5.65, 0.35);
 
     // Mini Tailoring Station along East Wall (lx = 14.6, lz = 3.8)
     const tailorGroup = new THREE.Group();
@@ -2100,9 +2124,9 @@ export class CreativeWing implements CastleFloor2CreativeWingBundle {
     dollRoomGroup.add(miniCastleTable);
     this.addLocalCollider(12.85, 11.85, 1.18);
 
-    // Multi-Room Visible Dollhouse along West Wall (lx = 9.65, lz = 10.4) so East side of Tabletop Castle is open
+    // Multi-Room Visible Dollhouse along West Wall (lx = 9.55, lz = 11.8) keeping both Doll Playroom doorways and South Tabletop approach 100% open
     const dollhouseGroup = new THREE.Group();
-    dollhouseGroup.position.set(9.65, y0, 10.4);
+    dollhouseGroup.position.set(9.55, y0, 11.8);
     dollhouseGroup.rotation.y = Math.PI / 2;
 
     const dhFrameGeo = tracker.trackGeo(new THREE.BoxGeometry(2.2, 1.8, 0.55));
@@ -2117,25 +2141,25 @@ export class CreativeWing implements CastleFloor2CreativeWingBundle {
       new THREE.Mesh(dhFloorGeo, goldTrimMat),
     );
     dollRoomGroup.add(dollhouseGroup);
-    this.addLocalCollider(9.65, 10.4, 0.42);
+    this.addLocalCollider(9.55, 11.8, 0.35);
 
-    // LEGO-Style Construction Table (lx = 10.2, lz = 7.4)
+    // LEGO-Style Construction Table (lx = 10.1, lz = 12.6 — tucked near NW corner so doorway foyer lz = 6.2..10.6 is 100% open)
     const legoTableGroup = new THREE.Group();
-    legoTableGroup.position.set(10.2, y0, 7.4);
-    const legoTableBaseGeo = tracker.trackGeo(new THREE.BoxGeometry(1.2, 0.55, 1.0));
+    legoTableGroup.position.set(10.1, y0, 12.6);
+    const legoTableBaseGeo = tracker.trackGeo(new THREE.BoxGeometry(1.1, 0.55, 0.9));
     legoTableBaseGeo.translate(0, 0.275, 0);
     legoTableGroup.add(new THREE.Mesh(legoTableBaseGeo, mats.softLavender));
     dollRoomGroup.add(legoTableGroup);
-    this.addLocalCollider(10.2, 7.4, 0.55);
+    this.addLocalCollider(10.1, 12.6, 0.42);
 
-    // Craft Table (lx = 14.3, lz = 7.4)
+    // Craft Table (lx = 14.55, lz = 8.4 — tucked along East wall so South Tabletop approach has >3.0m clear circle)
     const craftGroup = new THREE.Group();
-    craftGroup.position.set(14.3, y0, 7.4);
-    const craftTableGeo = tracker.trackGeo(new THREE.CylinderGeometry(0.58, 0.58, 0.52, 16));
+    craftGroup.position.set(14.55, y0, 8.4);
+    const craftTableGeo = tracker.trackGeo(new THREE.CylinderGeometry(0.52, 0.52, 0.52, 16));
     craftTableGeo.translate(0, 0.26, 0);
     craftGroup.add(new THREE.Mesh(craftTableGeo, mats.pearlWhite));
     dollRoomGroup.add(craftGroup);
-    this.addLocalCollider(14.3, 7.4, 0.55);
+    this.addLocalCollider(14.55, 8.4, 0.45);
 
     const kidDrawTex = createSampleArtworkTexture(tracker, 'kid_drawing');
     this.addWallFrame(dollRoomGroup, 14.3, y0 + 2.0, 6.42, 0, kidDrawTex);

@@ -643,7 +643,7 @@ export class CastleJewelleryAtelier {
     colliders.push({
       x: this.originX + islandX,
       z: this.originZ + islandZ,
-      radius: 1.15,
+      radius: 0.85,
       y: this.baseY + y0,
       height: 3.5,
     });

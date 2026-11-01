@@ -113,21 +113,21 @@ export const CASTLE_STAIRCASE_CONFIGS: readonly CastleStaircaseConfig[] = [
     fromFloorId: 2,
     toFloorId: 3,
     startX: 7.5,
-    startZ: 7.0,
+    startZ: 8.5,
     startY: 5.25,
     endX: 7.5,
-    endZ: 13.0,
+    endZ: 13.8,
     endY: 10.25,
     stepCount: 14,
     stepWidth: 3.4,
-    stepDepth: 6.0 / 14,
+    stepDepth: 5.3 / 14,
     stepHeight: 5.0 / 14,
     stairWidth: 3.4,
     railInnerX: 6.0,
     railOuterX: 9.0,
-    openingBounds: { minX: 5.8, maxX: 9.2, minZ: 7.0, maxZ: 13.0 },
-    bottomLandingBounds: { minX: 5.2, maxX: 9.2, minZ: 5.4, maxZ: 7.0 },
-    topLandingBounds: { minX: 5.8, maxX: 9.2, minZ: 13.0, maxZ: 15.2 },
+    openingBounds: { minX: 5.8, maxX: 9.2, minZ: 8.5, maxZ: 13.8 },
+    bottomLandingBounds: { minX: 5.2, maxX: 9.2, minZ: 6.0, maxZ: 8.5 },
+    topLandingBounds: { minX: 5.8, maxX: 9.2, minZ: 13.8, maxZ: 15.5 },
     hasLoveRibbon: true,
   },
   {
@@ -578,19 +578,19 @@ export class CastleNavigationController {
       this.pushOutLocalBox(pos, 15.1, 15.65, -15.8, 15.8, playerRadius);
     }
 
-    // 2. Floor 1 Interior Room Partition Walls (0.88m thickness at lz = -7.6 and lz = +7.6, |lx| >= 9.2)
+    // 2. Floor 1 Interior Room Partition Walls (0.88m thickness at lz = -7.6 and lz = +7.6, |lx| >= 9.2, 2.8m clear doorway at |lx| in [10.88, 13.68])
     if (isFloor1 && relY <= 3.6) {
       // West Wing Partitions (lz = -7.6 & +7.6, |lx| >= 9.2)
-      this.pushOutLocalBox(pos, -15.6, -13.4, -8.04, -7.16, playerRadius);
-      this.pushOutLocalBox(pos, -11.0, -9.2, -8.04, -7.16, playerRadius);
-      this.pushOutLocalBox(pos, -15.6, -13.4, 7.16, 8.04, playerRadius);
-      this.pushOutLocalBox(pos, -11.0, -9.2, 7.16, 8.04, playerRadius);
+      this.pushOutLocalBox(pos, -15.6, -13.68, -8.04, -7.16, playerRadius);
+      this.pushOutLocalBox(pos, -10.88, -9.2, -8.04, -7.16, playerRadius);
+      this.pushOutLocalBox(pos, -15.6, -13.68, 7.16, 8.04, playerRadius);
+      this.pushOutLocalBox(pos, -10.88, -9.2, 7.16, 8.04, playerRadius);
 
       // East Wing Partitions (lz = -7.6 & +7.6, |lx| >= 9.2)
-      this.pushOutLocalBox(pos, 9.2, 11.0, -8.04, -7.16, playerRadius);
-      this.pushOutLocalBox(pos, 13.4, 15.6, -8.04, -7.16, playerRadius);
-      this.pushOutLocalBox(pos, 9.2, 11.0, 7.16, 8.04, playerRadius);
-      this.pushOutLocalBox(pos, 13.4, 15.6, 7.16, 8.04, playerRadius);
+      this.pushOutLocalBox(pos, 9.2, 10.88, -8.04, -7.16, playerRadius);
+      this.pushOutLocalBox(pos, 13.68, 15.6, -8.04, -7.16, playerRadius);
+      this.pushOutLocalBox(pos, 9.2, 10.88, 7.16, 8.04, playerRadius);
+      this.pushOutLocalBox(pos, 13.68, 15.6, 7.16, 8.04, playerRadius);
 
       // Basement Service Stairwell Side Guard Walls
       this.pushOutLocalBox(pos, -5.85, -5.05, 11.8, 15.4, playerRadius);
@@ -598,7 +598,7 @@ export class CastleNavigationController {
       this.pushOutLocalBox(pos, -5.85, -2.05, 14.95, 15.75, playerRadius);
     }
 
-      // 2B. Floor 2 Enclosed Room Boundaries & Split Doorway Colliders (2.8m - 3.2m clear portal widths)
+    // 2B. Floor 2 Enclosed Room Boundaries & Split Doorway Colliders (2.8m - 3.2m clear portal widths)
     if (isFloor2 && relY <= 8.8) {
       // West Wing Inter-Room Partitions (lz = -6.0 and lz = +6.0, 2.8m open portal at lx in [-12.2, -9.4])
       this.pushOutLocalBox(pos, -15.5, -12.2, -6.22, -5.78, playerRadius);
@@ -615,24 +615,23 @@ export class CastleNavigationController {
       this.pushOutLocalBox(pos, -9.16, -8.84, 11.6, 15.2, playerRadius);
 
       // East Wing Creative & Couture Wing Split Doorway Colliders:
-      // South-East wall at lz = -6.2 (2.8m open portal at lx in [10.6, 13.4])
-      this.pushOutLocalBox(pos, 8.8, 10.6, -6.38, -5.98, playerRadius);
+      // South-East wall at lz = -6.2 (3.0m open portal at lx in [10.4, 13.4])
+      this.pushOutLocalBox(pos, 8.8, 10.4, -6.38, -5.98, playerRadius);
       this.pushOutLocalBox(pos, 13.4, 15.5, -6.38, -5.98, playerRadius);
       // Portrait Atelier west wall at lx = 8.8 (2.8m open portal at lz in [-12.0, -9.2])
       this.pushOutLocalBox(pos, 8.58, 9.02, -15.2, -12.0, playerRadius);
       this.pushOutLocalBox(pos, 8.58, 9.02, -9.2, -6.2, playerRadius);
-      // North-East wall at lz = +6.2 (2.8m open portal at lx in [10.6, 13.4])
-      this.pushOutLocalBox(pos, 9.2, 10.6, 5.98, 6.38, playerRadius);
+      // North-East wall at lz = +6.2 (3.0m open portal at lx in [10.4, 13.4])
+      this.pushOutLocalBox(pos, 9.2, 10.4, 5.98, 6.38, playerRadius);
       this.pushOutLocalBox(pos, 13.4, 15.5, 5.98, 6.38, playerRadius);
-      // Doll Playroom west wall (lx = 9.2, lz in [6.2, 14.8], with 2.8m open archway at lz in [7.2, 10.0])
-      this.pushOutLocalBox(pos, 8.95, 9.42, 6.2, 7.2, playerRadius);
-      this.pushOutLocalBox(pos, 8.95, 9.42, 10.0, 14.8, playerRadius);
+      // Doll Playroom west wall (lx = 9.2, lz in [6.2, 14.8], with 2.6m open archway at lz in [6.2, 8.8] directly facing the 2.5m East Landing Hub!)
+      this.pushOutLocalBox(pos, 8.95, 9.42, 8.8, 14.8, playerRadius);
       // Couture & Dream Runway Showroom west facade at lx = 8.8 (3.2m grand open portal at lz in [-1.6, +1.6])
       this.pushOutLocalBox(pos, 8.58, 9.02, -5.8, -1.6, playerRadius);
       this.pushOutLocalBox(pos, 8.58, 9.02, 1.6, 5.8, playerRadius);
 
       // Floor 2 Inner Atrium Overlook "Love Ribbon" Safety Balustrade Colliders
-      // (Open gaps ONLY at F1->F2 West/East top landings lz: [6.0, 8.4] and F2->F3 East bottom landing lz: [5.6, 6.5])
+      // (Open gaps at F1->F2 West/East top landings lz: [6.0, 8.5] and F2->F3 East bottom landing hub lz: [6.0, 8.5])
       this.pushOutLocalBox(pos, -5.3, 5.3, -6.15, -5.85, playerRadius);
       this.pushOutLocalBox(pos, -5.3, 5.3, 3.65, 3.98, playerRadius);
       this.pushOutLocalBox(pos, -5.35, -5.05, 3.65, 5.65, playerRadius);
@@ -641,13 +640,26 @@ export class CastleNavigationController {
       this.pushOutLocalBox(pos, 8.45, 8.75, -6.0, 5.72, playerRadius);
     }
 
-    // 2C. Floor 3 Central Atrium Balustrade Guardrails (prevents falling into atrium after exiting elevator on Floor 3)
+    // 2C. Floor 3 Solid Central Grand Lobby & Suite Split Doorway Jamb Colliders (3.2m clear grand portals)
     const isFloor3 = Math.abs(relY - 10.25) <= 2.25;
-    if (isFloor3) {
-      this.pushOutLocalBox(pos, -5.3, 5.3, -5.35, -5.05, playerRadius);
-      this.pushOutLocalBox(pos, -5.3, 5.3, 3.65, 3.98, playerRadius);
-      this.pushOutLocalBox(pos, -5.35, -5.05, -5.3, 3.98, playerRadius);
-      this.pushOutLocalBox(pos, 5.05, 5.35, -5.3, 3.98, playerRadius);
+    if (isFloor3 && relY <= 13.8) {
+      // West Suite Archway Wall at lx = -6.0 (lz in [-6.2, +5.8], 3.2m open portal at lz in [-3.6, -0.4])
+      this.pushOutLocalBox(pos, -6.22, -5.78, -6.2, -3.6, playerRadius);
+      this.pushOutLocalBox(pos, -6.22, -5.78, -0.4, 5.8, playerRadius);
+
+      // East Gallery Archway Wall at lx = +6.0 (lz in [-6.2, +5.8], 3.2m open portal at lz in [-3.6, -0.4])
+      this.pushOutLocalBox(pos, 5.78, 6.22, -6.2, -3.6, playerRadius);
+      this.pushOutLocalBox(pos, 5.78, 6.22, -0.4, 5.8, playerRadius);
+
+      // South Star Lounge & Secret Love Vault Archway Wall at lz = -6.2 (lx in [-6.0, +6.0], 3.2m open portal at lx in [-1.6, +1.6])
+      this.pushOutLocalBox(pos, -6.0, -1.6, -6.42, -5.98, playerRadius);
+      this.pushOutLocalBox(pos, 1.6, 6.0, -6.42, -5.98, playerRadius);
+
+      // West & East Wing South Partition Walls at lz = -6.2 (|lx| in [6.0, 15.4], 2.8m open portals at |lx| in [10.4, 13.2])
+      this.pushOutLocalBox(pos, -15.5, -13.2, -6.42, -5.98, playerRadius);
+      this.pushOutLocalBox(pos, -10.4, -6.0, -6.42, -5.98, playerRadius);
+      this.pushOutLocalBox(pos, 6.0, 10.4, -6.42, -5.98, playerRadius);
+      this.pushOutLocalBox(pos, 13.2, 15.5, -6.42, -5.98, playerRadius);
     }
 
     // 3. Central Elevator Shaft Walls & Doorway Guard (Shaft center: lx = 0.0, lz = 8.5)
@@ -1692,17 +1704,16 @@ export class CastleNavigationController {
       }
     }
 
-    // Level 3: Dream Wing Gallery (|lx| <= 17, |lz| <= 17; clear opening above central atrium & East Stair 2->3,
-    // with solid Elevator Lobby Bridge at |lx| <= 5.2, lz >= 3.8)
+    // Level 3: Dream Wing Gallery & Solid Central Grand Lobby (|lx| <= 17, |lz| <= 17;
+    // 100% continuous solid marble slab across the Central Walkable Foyer Plaza, cutting out ONLY East Stair 2->3)
     if (Math.abs(lx) <= 17.0 && Math.abs(lz) <= 17.0) {
-      const isCentralAtriumOpen = Math.abs(lx) < 5.15 && lz > -5.15 && lz < 3.8;
       const s23 = CASTLE_STAIRCASE_CONFIGS[2].openingBounds;
       const isStair23Open =
         lx > s23.minX + 0.02 &&
         lx < s23.maxX - 0.02 &&
         lz > s23.minZ + 0.05 &&
         lz < s23.maxZ - 0.05;
-      if (!isCentralAtriumOpen && !isStair23Open) {
+      if (!isStair23Open) {
         const h = this.baseY + 10.25;
         if (h <= playerY + 0.85 && (!foundSlab || h > bestSurface)) {
           bestSurface = h;
@@ -1761,20 +1772,22 @@ export class CastleNavigationController {
       return this.baseY - 0.15;
     }
 
-    // Floor 1 (+0.25m) -> Open above central atrium and twin sweeping staircases (|lx| < 8.8, |lz| < 6.2)
+    // Floor 1 (+0.25m) -> Open above central atrium and twin sweeping staircases up to Floor 3 slab (+9.9m)
     if (relY < 4.6) {
       if (Math.abs(lx) < 8.8 && Math.abs(lz) < 6.2) {
-        return this.baseY + 15.0;
+        return this.baseY + 9.9;
       }
       return this.baseY + 4.9;
     }
 
-    // Floor 2 (+5.25m) -> Open above central atrium and East Stair 2->3
+    // Floor 2 (+5.25m) -> Solid Floor 3 slab above (+9.9m), open only at East Stair 2->3 stairwell
     if (relY < 9.6) {
       const s23 = CASTLE_STAIRCASE_CONFIGS[2].openingBounds;
       if (
-        (Math.abs(lx) < 5.2 && Math.abs(lz) < 5.2) ||
-        (lx >= s23.minX - 0.2 && lx <= s23.maxX + 0.2 && lz >= s23.minZ - 0.2 && lz <= s23.maxZ + 0.2)
+        lx >= s23.minX - 0.2 &&
+        lx <= s23.maxX + 0.2 &&
+        lz >= s23.minZ - 0.2 &&
+        lz <= s23.maxZ + 0.2
       ) {
         return this.baseY + 15.0;
       }

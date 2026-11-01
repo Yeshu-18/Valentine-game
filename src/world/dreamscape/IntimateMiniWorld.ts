@@ -15,6 +15,7 @@ export type MiniWorldState =
   | 'GARDEN'
   | 'CROWN_RISING'
   | 'CROWN_SETTLING'
+  | 'PALACE_AWAKENING'
   | 'QUIET_PAUSE'
   | 'FINALE_CAMERA'
   | 'FIREWORKS'
@@ -42,7 +43,7 @@ export interface MiniWorldTransitionCameraState {
   isSitting?: boolean;
 }
 
-// Module-scope zero-allocation scratch vectors
+// Module-scope zero-allocation scratch vectors & matrices
 const _scratchCamWorldPos = new THREE.Vector3();
 const _scratchLookWorldPos = new THREE.Vector3();
 const _scratchSeatWorldPos = new THREE.Vector3();
@@ -122,18 +123,10 @@ function createSkyLoveReliefTexture(
 }
 
 /**
- * Intimate Romantic Garden Sanctuary (`IntimateMiniWorld`)
+ * Harsha's Royal Crystal Garden Palace (`IntimateMiniWorld`)
  *
- * Replaces the obsolete Mini Castle / Little Kingdom visual payload while preserving
- * the exact doorway/integration contract with `CastleTabletopWorld`, `CastleFloor2CreativeWing`,
- * `CastleNavigation`, and `PlayerController`.
- *
- * Visual Elements (5 Total):
- * 1. Harsha (emotional center, seated on her couture throne) + quiet witnessing Yeshwanth
- * 2. Her Crown (delicate princess tiara, 70-80% head width, champagne gold #d8b467, ruby-pink heart gem #f43f5e)
- * 3. Her Throne (intimate human-scale blush velvet & champagne-gold couture throne on a 2-step pearl dais)
- * 4. Secluded Nighttime Romantic Garden & Curved S-Path (soft grass, sparse blossoms, ground crystal lights)
- * 5. Sparse Finale Fireworks (Heart -> Flower -> Star) + 3D World-Space Sky Message ("I LOVE YOU ❤️")
+ * Hierarchy:
+ * HARSHA -> HER CROWN -> HER THRONE -> ROYAL CRYSTAL PALACE -> INTIMATE GARDEN -> FIREWORKS + I LOVE YOU ❤️
  */
 export class IntimateMiniWorld {
   public readonly group: THREE.Group;
@@ -152,14 +145,16 @@ export class IntimateMiniWorld {
   private readonly tableX = 12.85;
   private readonly tableZ = 11.85;
 
-  // Full-Scale Sanctuary Clearing Center in Castle-Local Coordinates
+  // Full-Scale Sanctuary Center in Castle-Local Coordinates
   private readonly dwCenterX = 33.0;
   private readonly dwCenterZ = 12.0;
 
-  // Throne Dais Local Coordinates (relative to dwRoot at (33.0, y0, 12.0))
-  private readonly throneLocalX = 3.35;
+  // Spatial Composition Coordinates (relative to dwRoot at (33.0, y0, 12.0))
+  private readonly throneLocalX = 3.15;
   private readonly throneLocalZ = 0.0;
   private readonly daisTopY = 0.22; // 2 low steps of 0.11m each
+  private readonly palaceLocalX = 6.45;
+  private readonly palaceLocalZ = 0.0;
 
   public isInsideLittleDreamWorld = false;
   public readonly entranceSpec: MiniWorldEntranceSpec;
@@ -179,13 +174,25 @@ export class IntimateMiniWorld {
   private tabletopPortalGlowMat!: THREE.MeshStandardMaterial;
 
   private dwRoot!: THREE.Group;
+  private palaceGroup!: THREE.Group;
   private dreamWorldPortalRing!: THREE.Mesh;
   private crownGroup!: THREE.Group;
   private crownHeartGemMat!: THREE.MeshStandardMaterial;
+
+  // Progressive Palace & Courtyard Awakening Materials (Section 23 & 25)
   private throneUnderglowMat!: THREE.MeshStandardMaterial;
+  private courtyardLanternMat!: THREE.MeshStandardMaterial;
   private pathCrystalGlowMat!: THREE.MeshStandardMaterial;
   private gardenBlossomMat!: THREE.MeshStandardMaterial;
-  private sanctuaryKeyLight!: THREE.PointLight;
+  private groundWindowGlowMat!: THREE.MeshStandardMaterial;
+  private upperWindowGlowMat!: THREE.MeshStandardMaterial;
+  private crystalDomeShellMat!: THREE.MeshPhysicalMaterial;
+  private crystalDomeCoreMat!: THREE.MeshStandardMaterial;
+  private spireHeartMat!: THREE.MeshStandardMaterial;
+
+  // Sanctuary Lighting (Respects dynamic light budget: 1 subtle Harsha rim/key light + 1 palace ambient light)
+  private harshaRimLight!: THREE.PointLight;
+  private palaceAwakeningLight!: THREE.PointLight;
 
   // 3D World-Space Sky Message ("I LOVE YOU ❤️")
   private skyMessageGroup!: THREE.Group;
@@ -214,24 +221,30 @@ export class IntimateMiniWorld {
 
   // Camera Transition State
   private currentCamLocalPos = new THREE.Vector3(-1.2, 1.65, 0.0);
-  private currentLookLocalPos = new THREE.Vector3(3.35, 1.35, 0.0);
+  private currentLookLocalPos = new THREE.Vector3(3.15, 1.35, 0.0);
   private currentFov = 48.0;
-  private finaleStartCamLocalPos = new THREE.Vector3(0.95, 1.56, 0.0);
-  private finaleStartLookLocalPos = new THREE.Vector3(3.35, 1.36, 0.0);
+  private finaleStartCamLocalPos = new THREE.Vector3(0.75, 1.56, 0.0);
+  private finaleStartLookLocalPos = new THREE.Vector3(3.15, 1.38, 0.0);
+
+  // Validated Finale Camera & Sky Coordinates (verified by validatePalaceAndSkyFrustum)
+  private readonly finaleEndCamLocalPos = new THREE.Vector3(-4.55, 2.38, 0.0);
+  private readonly finaleEndLookLocalPos = new THREE.Vector3(5.85, 3.05, 0.0);
+  private readonly finaleEndFov = 54.0;
 
   // User subtle camera look offset during FINAL_HOLD
   private lookYawOffset = 0.0;
   private lookPitchOffset = 0.0;
 
-  // Authoritative Phase Durations
+  // Authoritative Phase Durations (Sections 24, 25, 29, 30, 33)
   private readonly DUR_ENTERING = 1.2;
   private readonly DUR_GARDEN = 2.8;
   private readonly DUR_CROWN_RISING = 1.2;
   private readonly DUR_CROWN_SETTLING = 1.0; // Total Crown Sequence = 2.2s
+  private readonly DUR_PALACE_AWAKENING = 2.0; // Progressive T = 0.0 -> 2.0s palace awakening
   private readonly DUR_QUIET_PAUSE = 2.8; // Complete stillness (2.5-3.0s window)
-  private readonly DUR_FINALE_CAMERA = 3.5; // Fireworks start at 80% = 2.8s
-  private readonly DUR_FIREWORKS_TAIL = 2.8; // Continues after camera pull-back completes
-  private readonly DUR_FINAL_HOLD = 5.0; // 5.0s final hold before restoring control
+  private readonly DUR_FINALE_CAMERA = 3.6; // Smooth pull-back (3.2-4.0s window); fireworks at 80%
+  private readonly DUR_FIREWORKS_TAIL = 2.8; // Sparse 3-burst sequence completion
+  private readonly DUR_FINAL_HOLD = 5.0; // 5.0s final hold (4-6s window) before restoring control
   private readonly DUR_EXITING = 1.6;
 
   constructor(
@@ -266,6 +279,7 @@ export class IntimateMiniWorld {
 
     this.buildTabletopGardenPreview();
     this.buildFullScaleRomanticGardenSanctuary();
+    this.validatePalaceAndSkyFrustum();
 
     // Register dynamic objects so lockStaticHierarchy preserves their per-frame transforms
     this.dynamicObjects.add(this.dreamWorldPortalRing);
@@ -273,14 +287,37 @@ export class IntimateMiniWorld {
     this.dynamicObjects.add(this.skyMessageGroup);
     this.dynamicObjects.add(this.fireworksPoints);
 
-    // Add gentle collider around the couture throne dais inside the sanctuary so player cannot clip through the chair
-    this.colliders.push({
-      x: this.originX + this.dwCenterX + this.throneLocalX,
-      z: this.originZ + this.dwCenterZ + this.throneLocalZ,
-      radius: 0.65,
-      y: this.baseY + this.y0,
-      height: 2.2,
-    });
+    // Colliders for the couture throne dais and the Royal Crystal Palace behind it
+    this.colliders.push(
+      {
+        x: this.originX + this.dwCenterX + this.throneLocalX,
+        z: this.originZ + this.dwCenterZ + this.throneLocalZ,
+        radius: 0.65,
+        y: this.baseY + this.y0,
+        height: 2.2,
+      },
+      {
+        x: this.originX + this.dwCenterX + this.palaceLocalX,
+        z: this.originZ + this.dwCenterZ + this.palaceLocalZ,
+        radius: 1.55,
+        y: this.baseY + this.y0,
+        height: 5.5,
+      },
+      {
+        x: this.originX + this.dwCenterX + 6.05,
+        z: this.originZ + this.dwCenterZ - 3.35,
+        radius: 0.65,
+        y: this.baseY + this.y0,
+        height: 4.6,
+      },
+      {
+        x: this.originX + this.dwCenterX + 6.05,
+        z: this.originZ + this.dwCenterZ + 3.35,
+        radius: 0.65,
+        y: this.baseY + this.y0,
+        height: 4.6,
+      },
+    );
   }
 
   public setAvatarBridge(bridge: JewelleryAvatarBridge): void {
@@ -299,15 +336,17 @@ export class IntimateMiniWorld {
   }
 
   /**
-   * Builds the miniature preview of the Intimate Romantic Garden Sanctuary on the
-   * Doll Playroom display table at `(12.85, y0, 11.85)`.
-   * Contains ZERO castle towers, walls, bridges, or text plaques.
+   * Section 37: Tabletop / Doll Playroom Preview (`(12.85, y0, 11.85)`)
+   * Previews a simplified miniature of Harsha's Royal Crystal Garden Palace:
+   * - Central palace keep + pink crystal dome + tiny heart spire
+   * - Two slender framing turrets
+   * - Tiny circular pearl courtyard + tiny couture throne + curved pearl garden path
    */
   private buildTabletopGardenPreview(): void {
     const { tracker, mats } = this;
 
     const tableGroup = new THREE.Group();
-    tableGroup.name = 'TabletopGardenSanctuaryDisplay';
+    tableGroup.name = 'TabletopRoyalCrystalPalacePreview';
     tableGroup.position.set(this.tableX, this.y0, this.tableZ);
     this.parentGroup.add(tableGroup);
 
@@ -331,7 +370,7 @@ export class IntimateMiniWorld {
       new THREE.Mesh(tableTopRimGeo, mats.champagneGold),
     );
 
-    // 2. Miniature Nighttime Velvet Grass Sanctuary Disc
+    // 2. Miniature Nighttime Velvet Grass & Pearl Courtyard Disc
     const miniGrassMat = tracker.trackMat(
       new THREE.MeshStandardMaterial({
         color: '#173326',
@@ -339,60 +378,17 @@ export class IntimateMiniWorld {
         metalness: 0.04,
       }),
     );
-    const miniGrassGeo = tracker.trackGeo(
-      new THREE.CylinderGeometry(1.1, 1.12, 0.04, 28),
-    );
-    miniGrassGeo.translate(0, 0.57, 0);
-    tableGroup.add(new THREE.Mesh(miniGrassGeo, miniGrassMat));
-
-    // 3. Miniature Curved S-Shaped Pearl Stone Path (from South gate -Z to North throne +Z)
     const miniPearlMat = tracker.trackMat(
       new THREE.MeshStandardMaterial({
         color: '#fffbeb',
         roughness: 0.24,
-        metalness: 0.12,
+        metalness: 0.1,
       }),
     );
-    const miniStoneGeo = tracker.trackGeo(
-      new THREE.CylinderGeometry(0.11, 0.12, 0.015, 14),
-    );
-    const sCurvePoints: [number, number][] = [
-      [0.0, -0.78],
-      [0.08, -0.58],
-      [0.14, -0.38],
-      [0.05, -0.18],
-      [-0.08, 0.02],
-      [-0.04, 0.22],
-      [0.0, 0.42],
-    ];
-    for (let i = 0; i < sCurvePoints.length; i++) {
-      const [sx, sz] = sCurvePoints[i];
-      const stone = new THREE.Mesh(miniStoneGeo, miniPearlMat);
-      stone.position.set(sx, 0.595, sz);
-      stone.scale.set(1.15, 1.0, 0.85);
-      tableGroup.add(stone);
-    }
-
-    // 4. Miniature 2-Step Circular Pearl Dais & Intimate Couture Throne at North side (+Z = 0.56)
-    const miniDaisGroup = new THREE.Group();
-    miniDaisGroup.position.set(0, 0.59, 0.56);
-    const miniStep1Geo = tracker.trackGeo(
-      new THREE.CylinderGeometry(0.28, 0.3, 0.025, 20),
-    );
-    miniStep1Geo.translate(0, 0.0125, 0);
-    const miniStep2Geo = tracker.trackGeo(
-      new THREE.CylinderGeometry(0.21, 0.23, 0.025, 20),
-    );
-    miniStep2Geo.translate(0, 0.0375, 0);
-    miniDaisGroup.add(
-      new THREE.Mesh(miniStep1Geo, miniPearlMat),
-      new THREE.Mesh(miniStep2Geo, miniPearlMat),
-    );
-
-    const miniVelvetMat = tracker.trackMat(
+    const miniBlushMat = tracker.trackMat(
       new THREE.MeshStandardMaterial({
         color: '#fbcfe8',
-        roughness: 0.35,
+        roughness: 0.32,
         metalness: 0.08,
       }),
     );
@@ -403,61 +399,134 @@ export class IntimateMiniWorld {
         metalness: 0.85,
       }),
     );
-    const miniSeatGeo = tracker.trackGeo(new THREE.BoxGeometry(0.14, 0.06, 0.12));
-    miniSeatGeo.translate(0, 0.08, 0);
-    const miniBackGeo = tracker.trackGeo(
-      new THREE.CylinderGeometry(0.08, 0.07, 0.18, 14),
-    );
-    miniBackGeo.scale(1.0, 1.0, 0.35);
-    miniBackGeo.translate(0, 0.16, 0.045);
-    const miniFrameGeo = tracker.trackGeo(
-      new THREE.TorusGeometry(0.085, 0.012, 8, 18),
-    );
-    miniFrameGeo.translate(0, 0.17, 0.045);
-    miniDaisGroup.add(
-      new THREE.Mesh(miniSeatGeo, miniVelvetMat),
-      new THREE.Mesh(miniBackGeo, miniVelvetMat),
-      new THREE.Mesh(miniFrameGeo, miniGoldMat),
-    );
-    tableGroup.add(miniDaisGroup);
-
-    // 5. Miniature Low Foliage & Sparse Blush/Lavender Blossoms around the perimeter
-    const miniFoliageGeo = tracker.trackGeo(
-      new THREE.SphereGeometry(0.075, 8, 8),
-    );
-    const miniBlossomGeo = tracker.trackGeo(
-      new THREE.SphereGeometry(0.028, 6, 6),
-    );
-    const miniFoliageMat = tracker.trackMat(
-      new THREE.MeshStandardMaterial({ color: '#1e3f2e', roughness: 0.78 }),
-    );
-    const miniBlossomMat = tracker.trackMat(
-      new THREE.MeshStandardMaterial({
+    const miniCrystalDomeMat = tracker.trackMat(
+      new THREE.MeshPhysicalMaterial({
         color: '#fbcfe8',
         emissive: '#f472b6',
-        emissiveIntensity: 0.45,
-        roughness: 0.35,
+        emissiveIntensity: 0.32,
+        roughness: 0.12,
+        metalness: 0.08,
+        transmission: 0.52,
+        transparent: true,
+        opacity: 0.86,
       }),
     );
-    for (let i = 0; i < 12; i++) {
-      const angle = (i / 12) * Math.PI * 2;
-      if (Math.abs(Math.atan2(Math.sin(angle), -Math.cos(angle))) < 0.42) {
-        continue; // Keep South entry threshold clear
-      }
-      const r = 0.86 + (i % 2) * 0.08;
-      const bx = Math.sin(angle) * r;
-      const bz = -Math.cos(angle) * r;
-      const bush = new THREE.Mesh(miniFoliageGeo, miniFoliageMat);
-      bush.position.set(bx, 0.61, bz);
-      bush.scale.set(1.2, 0.65, 1.1);
-      tableGroup.add(bush);
 
-      if (i % 2 === 0) {
-        const bloom = new THREE.Mesh(miniBlossomGeo, miniBlossomMat);
-        bloom.position.set(bx * 0.94, 0.64, bz * 0.94);
-        tableGroup.add(bloom);
-      }
+    const miniGrassGeo = tracker.trackGeo(
+      new THREE.CylinderGeometry(1.1, 1.12, 0.04, 28),
+    );
+    miniGrassGeo.translate(0, 0.57, 0);
+    const miniCourtyardGeo = tracker.trackGeo(
+      new THREE.CylinderGeometry(0.36, 0.38, 0.015, 24),
+    );
+    miniCourtyardGeo.translate(0, 0.595, 0.12);
+    tableGroup.add(
+      new THREE.Mesh(miniGrassGeo, miniGrassMat),
+      new THREE.Mesh(miniCourtyardGeo, miniPearlMat),
+    );
+
+    // 3. Miniature Curved Pearl Garden Path (from South gate -Z to Courtyard)
+    const miniStoneGeo = tracker.trackGeo(
+      new THREE.CylinderGeometry(0.095, 0.105, 0.014, 14),
+    );
+    const sCurvePoints: [number, number][] = [
+      [0.0, -0.76],
+      [0.07, -0.58],
+      [0.11, -0.4],
+      [0.03, -0.22],
+      [-0.05, -0.05],
+    ];
+    for (let i = 0; i < sCurvePoints.length; i++) {
+      const [sx, sz] = sCurvePoints[i];
+      const stone = new THREE.Mesh(miniStoneGeo, miniPearlMat);
+      stone.position.set(sx, 0.595, sz);
+      stone.scale.set(1.15, 1.0, 0.85);
+      tableGroup.add(stone);
     }
+
+    // 4. Miniature Couture Throne in the Courtyard (`z = 0.15`)
+    const miniDaisGeo = tracker.trackGeo(
+      new THREE.CylinderGeometry(0.16, 0.18, 0.024, 18),
+    );
+    miniDaisGeo.translate(0, 0.61, 0.15);
+    const miniSeatGeo = tracker.trackGeo(new THREE.BoxGeometry(0.1, 0.05, 0.09));
+    miniSeatGeo.translate(0, 0.645, 0.15);
+    const miniBackGeo = tracker.trackGeo(
+      new THREE.CylinderGeometry(0.06, 0.05, 0.14, 12),
+    );
+    miniBackGeo.scale(1.0, 1.0, 0.35);
+    miniBackGeo.translate(0, 0.7, 0.185);
+    tableGroup.add(
+      new THREE.Mesh(miniDaisGeo, miniPearlMat),
+      new THREE.Mesh(miniSeatGeo, miniBlushMat),
+      new THREE.Mesh(miniBackGeo, miniBlushMat),
+    );
+
+    // 5. Simplified Miniature Royal Crystal Palace (`z = 0.56`)
+    const miniPalaceGroup = new THREE.Group();
+    miniPalaceGroup.position.set(0, 0.59, 0.56);
+    tableGroup.add(miniPalaceGroup);
+
+    // Central Keep + Pink Crystal Dome + Heart Spire
+    const miniKeepGeo = tracker.trackGeo(
+      new THREE.CylinderGeometry(0.18, 0.19, 0.34, 8),
+    );
+    miniKeepGeo.translate(0, 0.17, 0);
+    const miniCorniceGeo = tracker.trackGeo(
+      new THREE.TorusGeometry(0.185, 0.012, 8, 16),
+    );
+    miniCorniceGeo.rotateX(Math.PI / 2);
+    miniCorniceGeo.translate(0, 0.34, 0);
+    const miniDomeGeo = tracker.trackGeo(
+      new THREE.SphereGeometry(0.165, 16, 12, 0, Math.PI * 2, 0, Math.PI * 0.5),
+    );
+    miniDomeGeo.translate(0, 0.34, 0);
+    const miniSpireGeo = tracker.trackGeo(
+      new THREE.ConeGeometry(0.018, 0.12, 8),
+    );
+    miniSpireGeo.translate(0, 0.56, 0);
+    const miniHeartGeo = tracker.trackGeo(
+      new THREE.OctahedronGeometry(0.022, 0),
+    );
+    miniHeartGeo.translate(0, 0.63, 0);
+    const miniRubyMat = tracker.trackMat(
+      new THREE.MeshStandardMaterial({
+        color: '#f43f5e',
+        emissive: '#e11d48',
+        emissiveIntensity: 0.65,
+        roughness: 0.15,
+      }),
+    );
+
+    miniPalaceGroup.add(
+      new THREE.Mesh(miniKeepGeo, miniPearlMat),
+      new THREE.Mesh(miniCorniceGeo, miniGoldMat),
+      new THREE.Mesh(miniDomeGeo, miniCrystalDomeMat),
+      new THREE.Mesh(miniSpireGeo, miniGoldMat),
+      new THREE.Mesh(miniHeartGeo, miniRubyMat),
+    );
+
+    // Symmetrical Wings & Twin Slender Turrets
+    const miniWingGeo = tracker.trackGeo(new THREE.BoxGeometry(0.22, 0.24, 0.1));
+    miniWingGeo.translate(0, 0.12, 0);
+    const miniTurretShaftGeo = tracker.trackGeo(
+      new THREE.CylinderGeometry(0.068, 0.074, 0.3, 12),
+    );
+    miniTurretShaftGeo.translate(0, 0.15, 0);
+    const miniTurretRoofGeo = tracker.trackGeo(
+      new THREE.ConeGeometry(0.082, 0.14, 12),
+    );
+    miniTurretRoofGeo.translate(0, 0.37, 0);
+
+    [-1, 1].forEach((side) => {
+      const wing = new THREE.Mesh(miniWingGeo, miniBlushMat);
+      wing.position.set(side * 0.24, 0, -0.02);
+      const turretShaft = new THREE.Mesh(miniTurretShaftGeo, miniPearlMat);
+      turretShaft.position.set(side * 0.38, 0, -0.04);
+      const turretRoof = new THREE.Mesh(miniTurretRoofGeo, miniBlushMat);
+      turretRoof.position.set(side * 0.38, 0, -0.04);
+      miniPalaceGroup.add(wing, turretShaft, turretRoof);
+    });
 
     // 6. Delicate Golden Garden Entry Threshold at South Rim (`z = -0.88`) — NO text signs
     this.tabletopGateArch = new THREE.Group();
@@ -499,19 +568,35 @@ export class IntimateMiniWorld {
   }
 
   /**
-   * Builds the Full-Scale Secluded Nighttime Romantic Garden Sanctuary at `(33.0, y0, 12.0)`.
-   * Strictly implements the 5 permitted visual elements with zero castle architecture and
-   * only ONE text element in the sky ("I LOVE YOU ❤️").
+   * Builds the Full-Scale Royal Crystal Garden Palace & Intimate Sanctuary at `(33.0, y0, 12.0)`.
+   * Hierarchy:
+   * HARSHA -> HER CROWN -> HER THRONE -> ROYAL CRYSTAL PALACE -> INTIMATE GARDEN -> FIREWORKS + I LOVE YOU ❤️
    */
   private buildFullScaleRomanticGardenSanctuary(): void {
     const { tracker } = this;
 
     this.dwRoot = new THREE.Group();
-    this.dwRoot.name = 'IntimateRomanticGardenSanctuary';
+    this.dwRoot.name = 'HarshaRoyalCrystalGardenPalace';
     this.dwRoot.position.set(this.dwCenterX, this.y0, this.dwCenterZ);
     this.parentGroup.add(this.dwRoot);
 
-    // Shared Couture Sanctuary Materials
+    // =========================================================================
+    // SECTION 21: HIGH-CRAFT COUTURE & CRYSTAL PALACE MATERIALS
+    // =========================================================================
+    const pearlMarbleMat = tracker.trackMat(
+      new THREE.MeshStandardMaterial({
+        color: '#fffbeb',
+        roughness: 0.24,
+        metalness: 0.08,
+      }),
+    );
+    const blushStoneMat = tracker.trackMat(
+      new THREE.MeshStandardMaterial({
+        color: '#fbcfe8',
+        roughness: 0.32,
+        metalness: 0.06,
+      }),
+    );
     const champagneGoldMat = tracker.trackMat(
       new THREE.MeshStandardMaterial({
         color: '#d8b467',
@@ -523,67 +608,107 @@ export class IntimateMiniWorld {
       new THREE.MeshStandardMaterial({
         color: '#fbcfe8',
         emissive: '#be185d',
-        emissiveIntensity: 0.12,
-        roughness: 0.38,
-        metalness: 0.06,
-      }),
-    );
-    const pearlMarbleMat = tracker.trackMat(
-      new THREE.MeshStandardMaterial({
-        color: '#fffbeb',
-        roughness: 0.22,
-        metalness: 0.1,
-      }),
-    );
-    const blushInlayMat = tracker.trackMat(
-      new THREE.MeshStandardMaterial({
-        color: '#fbcfe8',
-        roughness: 0.18,
-        metalness: 0.22,
+        emissiveIntensity: 0.1,
+        roughness: 0.42,
+        metalness: 0.04,
       }),
     );
     const lavenderCrystalMat = tracker.trackMat(
       new THREE.MeshStandardMaterial({
         color: '#e9d5ff',
         emissive: '#c084fc',
-        emissiveIntensity: 0.35,
+        emissiveIntensity: 0.28,
         roughness: 0.14,
-        metalness: 0.28,
+        metalness: 0.24,
+      }),
+    );
+    const turretRoofRoseGoldMat = tracker.trackMat(
+      new THREE.MeshStandardMaterial({
+        color: '#f4a2b8',
+        roughness: 0.24,
+        metalness: 0.52,
+      }),
+    );
+
+    // Progressive Palace Awakening Materials (start in soft moonlit state — Section 23)
+    this.groundWindowGlowMat = tracker.trackMat(
+      new THREE.MeshStandardMaterial({
+        color: '#fce7f3',
+        emissive: '#f472b6',
+        emissiveIntensity: 0.16,
+        roughness: 0.14,
+        metalness: 0.18,
+      }),
+    );
+    this.upperWindowGlowMat = tracker.trackMat(
+      new THREE.MeshStandardMaterial({
+        color: '#f3e8ff',
+        emissive: '#e879f9',
+        emissiveIntensity: 0.14,
+        roughness: 0.14,
+        metalness: 0.18,
+      }),
+    );
+    this.crystalDomeShellMat = tracker.trackMat(
+      new THREE.MeshPhysicalMaterial({
+        color: '#fbcfe8',
+        emissive: '#c084fc',
+        emissiveIntensity: 0.15,
+        roughness: 0.12,
+        metalness: 0.08,
+        transmission: 0.58,
+        ior: 1.46,
+        transparent: true,
+        opacity: 0.84,
+      }),
+    );
+    this.crystalDomeCoreMat = tracker.trackMat(
+      new THREE.MeshStandardMaterial({
+        color: '#fdf2f8',
+        emissive: '#f472b6',
+        emissiveIntensity: 0.18,
+        roughness: 0.2,
+        transparent: true,
+        opacity: 0.72,
+      }),
+    );
+    this.spireHeartMat = tracker.trackMat(
+      new THREE.MeshStandardMaterial({
+        color: '#f43f5e',
+        emissive: '#f43f5e',
+        emissiveIntensity: 0.12,
+        roughness: 0.12,
+        metalness: 0.22,
+      }),
+    );
+    this.courtyardLanternMat = tracker.trackMat(
+      new THREE.MeshStandardMaterial({
+        color: '#fff1f2',
+        emissive: '#f472b6',
+        emissiveIntensity: 0.22,
+        roughness: 0.16,
+        metalness: 0.2,
       }),
     );
 
     // =========================================================================
-    // ELEMENT 4: SECLUDED NIGHTTIME ROMANTIC GARDEN & CURVED S-PATH
+    // SECTIONS 16, 18, 19, 20: INTIMATE GARDEN, CURVED S-PATH & ROYAL COURTYARD
     // =========================================================================
-    // 1. Soft Nighttime Velvet Grass Clearing Plateau (`radius = 8.4m`)
+    // 1. Nighttime Velvet Grass Sanctuary Plateau (`radius = 8.4m`)
     const nightGrassMat = tracker.trackMat(
       new THREE.MeshStandardMaterial({
-        color: '#13281d',
+        color: '#132620',
         roughness: 0.88,
         metalness: 0.04,
-      }),
-    );
-    const innerClearingMat = tracker.trackMat(
-      new THREE.MeshStandardMaterial({
-        color: '#193527',
-        roughness: 0.82,
-        metalness: 0.05,
       }),
     );
     const plateauGeo = tracker.trackGeo(
       new THREE.CylinderGeometry(8.4, 8.65, 0.28, 48),
     );
     plateauGeo.translate(0, -0.14, 0);
-    const clearingDiscGeo = tracker.trackGeo(
-      new THREE.CylinderGeometry(5.6, 5.8, 0.02, 40),
-    );
-    clearingDiscGeo.translate(1.2, 0.008, 0);
-    this.dwRoot.add(
-      new THREE.Mesh(plateauGeo, nightGrassMat),
-      new THREE.Mesh(clearingDiscGeo, innerClearingMat),
-    );
+    this.dwRoot.add(new THREE.Mesh(plateauGeo, nightGrassMat));
 
-    // 2. Subtle West Return Threshold Ring at `(-6.8, 0, 0)` (Zero signs or castle arches)
+    // 2. Subtle West Return Threshold Ring at `(-6.8, 0, 0)` (Zero text signs)
     const portalRingGeo = tracker.trackGeo(
       new THREE.TorusGeometry(1.05, 0.035, 12, 36),
     );
@@ -593,7 +718,7 @@ export class IntimateMiniWorld {
       new THREE.MeshStandardMaterial({
         color: '#fbcfe8',
         emissive: '#f472b6',
-        emissiveIntensity: 0.75,
+        emissiveIntensity: 0.72,
         transparent: true,
         opacity: 0.45,
       }),
@@ -602,26 +727,131 @@ export class IntimateMiniWorld {
     this.dreamWorldPortalRing.position.set(-6.8, 0.0, 0.0);
     this.dwRoot.add(this.dreamWorldPortalRing);
 
-    // 3. Curved S-Shaped Pearl/Ivory Stone Path with Blush Trim & Lavender Crystal Inlays
+    // 3. Royal Courtyard (`center at (3.15, 0, 0)`, pearl marble & blush stone with generous negative space)
+    // + Circular Pearl Forecourt Plaza (`centerX = 1.15, localZ = 0.0, radius = 2.2m`) before the Throne Dais
+    const forecourtPlazaGeo = tracker.trackGeo(
+      new THREE.CylinderGeometry(2.2, 2.24, 0.022, 44),
+    );
+    forecourtPlazaGeo.translate(1.15, 0.011, 0);
+    const forecourtBlushInlayGeo = tracker.trackGeo(
+      new THREE.RingGeometry(1.35, 1.85, 40),
+    );
+    forecourtBlushInlayGeo.rotateX(-Math.PI / 2);
+    forecourtBlushInlayGeo.translate(1.15, 0.025, 0);
+    const forecourtGoldRingGeo = tracker.trackGeo(
+      new THREE.TorusGeometry(2.2, 0.02, 10, 48),
+    );
+    forecourtGoldRingGeo.rotateX(Math.PI / 2);
+    forecourtGoldRingGeo.translate(1.15, 0.025, 0);
+
+    const courtyardOuterGeo = tracker.trackGeo(
+      new THREE.CylinderGeometry(3.25, 3.32, 0.024, 44),
+    );
+    courtyardOuterGeo.translate(this.throneLocalX, 0.012, 0);
+    const courtyardBlushRingGeo = tracker.trackGeo(
+      new THREE.RingGeometry(2.15, 2.95, 40),
+    );
+    courtyardBlushRingGeo.rotateX(-Math.PI / 2);
+    courtyardBlushRingGeo.translate(this.throneLocalX, 0.026, 0);
+    const courtyardGoldTrimGeo = tracker.trackGeo(
+      new THREE.TorusGeometry(3.26, 0.02, 10, 48),
+    );
+    courtyardGoldTrimGeo.rotateX(Math.PI / 2);
+    courtyardGoldTrimGeo.translate(this.throneLocalX, 0.026, 0);
+    this.dwRoot.add(
+      new THREE.Mesh(forecourtPlazaGeo, pearlMarbleMat),
+      new THREE.Mesh(forecourtBlushInlayGeo, blushStoneMat),
+      new THREE.Mesh(forecourtGoldRingGeo, champagneGoldMat),
+      new THREE.Mesh(courtyardOuterGeo, pearlMarbleMat),
+      new THREE.Mesh(courtyardBlushRingGeo, blushStoneMat),
+      new THREE.Mesh(courtyardGoldTrimGeo, champagneGoldMat),
+    );
+
+    // 4. Section 19: Subtle Crescent-Shaped Reflection Pool (`arc around East half of courtyard`)
+    const poolRadius = 2.42;
+    const poolArcSpan = Math.PI * 0.78;
+    const poolWaterGeo = tracker.trackGeo(
+      new THREE.RingGeometry(
+        poolRadius - 0.34,
+        poolRadius + 0.34,
+        32,
+        1,
+        -poolArcSpan * 0.5,
+        poolArcSpan,
+      ),
+    );
+    poolWaterGeo.rotateX(-Math.PI / 2);
+    poolWaterGeo.translate(this.throneLocalX, 0.028, 0);
+    const reflectionWaterMat = tracker.trackMat(
+      new THREE.MeshStandardMaterial({
+        color: '#2e1a36',
+        emissive: '#701a75',
+        emissiveIntensity: 0.14,
+        roughness: 0.12,
+        metalness: 0.35,
+      }),
+    );
+    const poolInnerCopingGeo = tracker.trackGeo(
+      new THREE.TorusGeometry(
+        poolRadius - 0.35,
+        0.022,
+        8,
+        32,
+        poolArcSpan,
+      ),
+    );
+    poolInnerCopingGeo.rotateX(Math.PI / 2);
+    poolInnerCopingGeo.rotateY(-poolArcSpan * 0.5);
+    const poolInnerCoping = new THREE.Mesh(poolInnerCopingGeo, pearlMarbleMat);
+    poolInnerCoping.position.set(this.throneLocalX, 0.032, 0);
+
+    const poolOuterCopingGeo = tracker.trackGeo(
+      new THREE.TorusGeometry(
+        poolRadius + 0.35,
+        0.022,
+        8,
+        32,
+        poolArcSpan,
+      ),
+    );
+    poolOuterCopingGeo.rotateX(Math.PI / 2);
+    poolOuterCopingGeo.rotateY(-poolArcSpan * 0.5);
+    const poolOuterCoping = new THREE.Mesh(poolOuterCopingGeo, pearlMarbleMat);
+    poolOuterCoping.position.set(this.throneLocalX, 0.032, 0);
+
+    this.dwRoot.add(
+      new THREE.Mesh(poolWaterGeo, reflectionWaterMat),
+      poolInnerCoping,
+      poolOuterCoping,
+    );
+
+    // 5. Section 18: Low Curved Garden Arcades / Balustrades (3 slender columns per side, open & low)
+    this.buildLowCurvedGardenArcades(
+      pearlMarbleMat,
+      blushStoneMat,
+      champagneGoldMat,
+    );
+
+    // 6. Section 20: Curved S-Shaped Pearl/Ivory Stone Path with Blush/Lavender Crystal Inlays
     const sPathCurve = new THREE.CatmullRomCurve3([
       new THREE.Vector3(-6.2, 0.015, 0.0),
-      new THREE.Vector3(-4.2, 0.015, 0.58),
-      new THREE.Vector3(-2.0, 0.015, 0.42),
-      new THREE.Vector3(0.0, 0.015, -0.48),
-      new THREE.Vector3(1.55, 0.015, -0.22),
-      new THREE.Vector3(2.35, 0.015, 0.0),
+      new THREE.Vector3(-4.4, 0.015, 0.55),
+      new THREE.Vector3(-2.4, 0.015, 0.38),
+      new THREE.Vector3(-0.6, 0.015, -0.42),
+      new THREE.Vector3(0.85, 0.015, -0.16),
+      new THREE.Vector3(1.65, 0.015, 0.0),
     ]);
 
-    const PATH_STONES = 26;
+    const PATH_STONES = 22;
     const stoneStepGeo = tracker.trackGeo(
-      new THREE.CylinderGeometry(0.46, 0.49, 0.026, 20),
+      new THREE.CylinderGeometry(0.44, 0.47, 0.026, 20),
     );
     const stoneBorderGeo = tracker.trackGeo(
-      new THREE.TorusGeometry(0.47, 0.018, 8, 20),
+      new THREE.TorusGeometry(0.45, 0.016, 8, 20),
     );
     stoneBorderGeo.rotateX(Math.PI / 2);
     const inlayGemGeo = tracker.trackGeo(
-      new THREE.OctahedronGeometry(0.045, 0),
+      new THREE.OctahedronGeometry(0.042, 0),
     );
 
     const stonesInst = new THREE.InstancedMesh(
@@ -631,7 +861,7 @@ export class IntimateMiniWorld {
     );
     const bordersInst = new THREE.InstancedMesh(
       stoneBorderGeo,
-      blushInlayMat,
+      blushStoneMat,
       PATH_STONES,
     );
     const inlaysInst = new THREE.InstancedMesh(
@@ -648,7 +878,7 @@ export class IntimateMiniWorld {
 
       _scratchEuler.set(0, yaw, 0);
       _scratchQuat.setFromEuler(_scratchEuler);
-      _scratchScale.set(1.22, 1.0, 0.82);
+      _scratchScale.set(1.2, 1.0, 0.82);
       _scratchMatrix.compose(_scratchPos, _scratchQuat, _scratchScale);
       stonesInst.setMatrixAt(i, _scratchMatrix);
 
@@ -656,15 +886,14 @@ export class IntimateMiniWorld {
       _scratchMatrix.compose(_scratchPos, _scratchQuat, _scratchScale);
       bordersInst.setMatrixAt(i, _scratchMatrix);
 
-      // Subtle lavender crystal inlays along left & right edges of each stepping stone
       const perpX = -tangent.z;
       const perpZ = tangent.x;
       for (let side = 0; side < 2; side++) {
         const sDir = side === 0 ? -1 : 1;
         _scratchPos.set(
-          _scratchPos.x + perpX * sDir * 0.36,
+          _scratchPos.x + perpX * sDir * 0.34,
           0.032,
-          _scratchPos.z + perpZ * sDir * 0.36,
+          _scratchPos.z + perpZ * sDir * 0.34,
         );
         _scratchScale.set(1.0, 0.45, 1.0);
         _scratchMatrix.compose(_scratchPos, _scratchQuat, _scratchScale);
@@ -676,20 +905,20 @@ export class IntimateMiniWorld {
     inlaysInst.instanceMatrix.needsUpdate = true;
     this.dwRoot.add(stonesInst, bordersInst, inlaysInst);
 
-    // 4. Tiny Ground-Level Crystal Path Lights (brighten subtly as Harsha walks along the S-path)
+    // 7. Tiny Ground-Level Crystal Path Lights
     this.pathCrystalGlowMat = tracker.trackMat(
       new THREE.MeshStandardMaterial({
         color: '#fdf2f8',
         emissive: '#f472b6',
-        emissiveIntensity: 0.45,
+        emissiveIntensity: 0.35,
         roughness: 0.18,
         metalness: 0.2,
       }),
     );
     const pathLightGeo = tracker.trackGeo(
-      new THREE.OctahedronGeometry(0.055, 0),
+      new THREE.OctahedronGeometry(0.052, 0),
     );
-    const PATH_LIGHTS = 18;
+    const PATH_LIGHTS = 14;
     const pathLightsInst = new THREE.InstancedMesh(
       pathLightGeo,
       this.pathCrystalGlowMat,
@@ -700,24 +929,24 @@ export class IntimateMiniWorld {
       sPathCurve.getPoint(u, _scratchPos);
       const tangent = sPathCurve.getTangent(u);
       const side = i % 2 === 0 ? 1 : -1;
-      _scratchPos.x += -tangent.z * side * 0.68;
-      _scratchPos.z += tangent.x * side * 0.68;
-      _scratchPos.y = 0.045;
+      _scratchPos.x += -tangent.z * side * 0.64;
+      _scratchPos.z += tangent.x * side * 0.64;
+      _scratchPos.y = 0.042;
       _scratchEuler.set(0.2, i * 0.7, 0.15);
       _scratchQuat.setFromEuler(_scratchEuler);
-      _scratchScale.set(1.0, 1.25, 1.0);
+      _scratchScale.set(1.0, 1.2, 1.0);
       _scratchMatrix.compose(_scratchPos, _scratchQuat, _scratchScale);
       pathLightsInst.setMatrixAt(i, _scratchMatrix);
     }
     pathLightsInst.instanceMatrix.needsUpdate = true;
     this.dwRoot.add(pathLightsInst);
 
-    // 5. Gentle Low Perimeter Foliage, Sparse Low Flowers & Scattered Rose Petals (Generous Negative Space)
-    const foliageGeo = tracker.trackGeo(new THREE.SphereGeometry(0.42, 10, 8));
+    // 8. Low Perimeter Foliage, Sparse Roses & Scattered Petals (Substantial Negative Space)
+    const foliageGeo = tracker.trackGeo(new THREE.SphereGeometry(0.38, 10, 8));
     const foliageMat = tracker.trackMat(
       new THREE.MeshStandardMaterial({
-        color: '#163022',
-        roughness: 0.82,
+        color: '#152c20',
+        roughness: 0.84,
         metalness: 0.04,
       }),
     );
@@ -725,13 +954,13 @@ export class IntimateMiniWorld {
       new THREE.MeshStandardMaterial({
         color: '#fbcfe8',
         emissive: '#f472b6',
-        emissiveIntensity: 0.35,
-        roughness: 0.32,
+        emissiveIntensity: 0.22,
+        roughness: 0.34,
       }),
     );
-    const blossomGeo = tracker.trackGeo(new THREE.SphereGeometry(0.075, 8, 8));
+    const blossomGeo = tracker.trackGeo(new THREE.SphereGeometry(0.068, 8, 8));
 
-    const BUSH_COUNT = 28;
+    const BUSH_COUNT = 22;
     const bushesInst = new THREE.InstancedMesh(
       foliageGeo,
       foliageMat,
@@ -745,23 +974,26 @@ export class IntimateMiniWorld {
 
     for (let i = 0; i < BUSH_COUNT; i++) {
       const angle = (i / BUSH_COUNT) * Math.PI * 2;
-      // Leave the West return threshold (-X) and the East sky view behind the throne (+X) open and low
-      const isEastVista = Math.cos(angle) > 0.55;
+      const isEastPalaceZone = Math.cos(angle) > 0.42;
       const isWestPortal = Math.cos(angle) < -0.88;
-      const r = isWestPortal ? 7.6 : 6.6 + ((i * 7) % 5) * 0.28;
+      const r = isEastPalaceZone
+        ? 7.85
+        : isWestPortal
+          ? 7.65
+          : 6.75 + ((i * 5) % 4) * 0.22;
       const bx = Math.cos(angle) * r;
       const bz = Math.sin(angle) * r;
-      const scaleY = isEastVista ? 0.32 : 0.48 + (i % 3) * 0.12;
+      const scaleY = isEastPalaceZone ? 0.28 : 0.44 + (i % 3) * 0.1;
 
-      _scratchPos.set(bx, scaleY * 0.26, bz);
+      _scratchPos.set(bx, scaleY * 0.24, bz);
       _scratchEuler.set(0, angle, 0);
       _scratchQuat.setFromEuler(_scratchEuler);
-      _scratchScale.set(1.25, scaleY, 1.15);
+      _scratchScale.set(1.2, scaleY, 1.1);
       _scratchMatrix.compose(_scratchPos, _scratchQuat, _scratchScale);
       bushesInst.setMatrixAt(i, _scratchMatrix);
 
-      _scratchPos.set(bx * 0.96, scaleY * 0.42 + 0.04, bz * 0.96);
-      _scratchScale.set(1.1, 0.75, 1.1);
+      _scratchPos.set(bx * 0.96, scaleY * 0.38 + 0.03, bz * 0.96);
+      _scratchScale.set(1.05, 0.72, 1.05);
       _scratchMatrix.compose(_scratchPos, _scratchQuat, _scratchScale);
       bloomsInst.setMatrixAt(i, _scratchMatrix);
     }
@@ -769,31 +1001,42 @@ export class IntimateMiniWorld {
     bloomsInst.instanceMatrix.needsUpdate = true;
     this.dwRoot.add(bushesInst, bloomsInst);
 
-    // Subtle scattered rose petals on the grass around the clearing and S-path
-    const petalGeo = tracker.trackGeo(new THREE.CircleGeometry(0.042, 7));
+    // Sparse floating petals on the Crescent Reflection Pool & along the path
+    const petalGeo = tracker.trackGeo(new THREE.CircleGeometry(0.038, 7));
     petalGeo.rotateX(-Math.PI / 2);
     const petalMat = tracker.trackMat(
       new THREE.MeshStandardMaterial({
         color: '#f43f5e',
         emissive: '#be123c',
-        emissiveIntensity: 0.22,
+        emissiveIntensity: 0.2,
         roughness: 0.45,
         side: THREE.DoubleSide,
       }),
     );
-    const PETAL_COUNT = 48;
+    const PETAL_COUNT = 32;
     const petalsInst = new THREE.InstancedMesh(petalGeo, petalMat, PETAL_COUNT);
     for (let i = 0; i < PETAL_COUNT; i++) {
-      const u = (i / PETAL_COUNT) * 0.95;
-      sPathCurve.getPoint(u, _scratchPos);
-      const offsetAngle = i * 2.39996;
-      const offsetDist = 0.55 + (i % 5) * 0.34;
-      _scratchPos.x += Math.cos(offsetAngle) * offsetDist;
-      _scratchPos.z += Math.sin(offsetAngle) * offsetDist;
-      _scratchPos.y = 0.018;
-      _scratchEuler.set(0, offsetAngle, 0);
+      if (i < 12) {
+        // Floating on the crescent reflection pool
+        const ang = ((i / 11) - 0.5) * poolArcSpan * 0.85;
+        const rad = poolRadius + ((i % 3) - 1) * 0.14;
+        _scratchPos.set(
+          this.throneLocalX + Math.cos(ang) * rad,
+          0.033,
+          Math.sin(ang) * rad,
+        );
+      } else {
+        const u = ((i - 12) / (PETAL_COUNT - 12)) * 0.95;
+        sPathCurve.getPoint(u, _scratchPos);
+        const offsetAngle = i * 2.39996;
+        const offsetDist = 0.48 + (i % 4) * 0.25;
+        _scratchPos.x += Math.cos(offsetAngle) * offsetDist;
+        _scratchPos.z += Math.sin(offsetAngle) * offsetDist;
+        _scratchPos.y = 0.028;
+      }
+      _scratchEuler.set(0, i * 1.7, 0);
       _scratchQuat.setFromEuler(_scratchEuler);
-      _scratchScale.set(1.2, 1.0, 0.85);
+      _scratchScale.set(1.15, 1.0, 0.85);
       _scratchMatrix.compose(_scratchPos, _scratchQuat, _scratchScale);
       petalsInst.setMatrixAt(i, _scratchMatrix);
     }
@@ -801,22 +1044,21 @@ export class IntimateMiniWorld {
     this.dwRoot.add(petalsInst);
 
     // =========================================================================
-    // ELEMENT 3: HER THRONE (INTIMATE HUMAN-SCALE COUTURE THRONE ON 2-STEP PEARL DAIS)
+    // SECTION 17: HER THRONE (HUMAN-SCALE COUTURE THRONE IN ROYAL COURTYARD)
     // =========================================================================
     const throneSanctuaryGroup = new THREE.Group();
     throneSanctuaryGroup.name = 'HarshaCoutureThroneSanctuary';
     throneSanctuaryGroup.position.set(this.throneLocalX, 0.0, this.throneLocalZ);
-    // Face West (-X) toward the approaching curved S-path and finale camera
     throneSanctuaryGroup.rotation.y = -Math.PI / 2;
     this.dwRoot.add(throneSanctuaryGroup);
 
-    // 1. Circular Pearl-Marble Dais (Maximum 2 low steps: 0.11m + 0.11m = 0.22m total)
+    // 1. Circular Pearl-Marble Dais (2 low steps: 0.11m + 0.11m = 0.22m total)
     const step1Geo = tracker.trackGeo(
-      new THREE.CylinderGeometry(1.62, 1.72, 0.11, 36),
+      new THREE.CylinderGeometry(1.48, 1.56, 0.11, 36),
     );
     step1Geo.translate(0, 0.055, 0);
     const step2Geo = tracker.trackGeo(
-      new THREE.CylinderGeometry(1.22, 1.3, 0.11, 36),
+      new THREE.CylinderGeometry(1.12, 1.18, 0.11, 36),
     );
     step2Geo.translate(0, 0.165, 0);
     throneSanctuaryGroup.add(
@@ -829,18 +1071,18 @@ export class IntimateMiniWorld {
       new THREE.MeshStandardMaterial({
         color: '#fde047',
         emissive: '#f472b6',
-        emissiveIntensity: 0.55,
+        emissiveIntensity: 0.32,
         roughness: 0.2,
         metalness: 0.5,
       }),
     );
     const underglowRing1Geo = tracker.trackGeo(
-      new THREE.TorusGeometry(1.64, 0.018, 10, 36),
+      new THREE.TorusGeometry(1.5, 0.016, 10, 36),
     );
     underglowRing1Geo.rotateX(Math.PI / 2);
     underglowRing1Geo.translate(0, 0.11, 0);
     const underglowRing2Geo = tracker.trackGeo(
-      new THREE.TorusGeometry(1.24, 0.016, 10, 36),
+      new THREE.TorusGeometry(1.14, 0.015, 10, 36),
     );
     underglowRing2Geo.rotateX(Math.PI / 2);
     underglowRing2Geo.translate(0, 0.22, 0);
@@ -854,23 +1096,22 @@ export class IntimateMiniWorld {
     chairGroup.position.set(0, this.daisTopY, 0);
     throneSanctuaryGroup.add(chairGroup);
 
-    // Sculpted Champagne-Gold Base & Legs
     const seatFrameGeo = tracker.trackGeo(
-      new THREE.CylinderGeometry(0.42, 0.46, 0.12, 24),
+      new THREE.CylinderGeometry(0.41, 0.45, 0.12, 24),
     );
-    seatFrameGeo.scale(1.15, 1.0, 0.95);
+    seatFrameGeo.scale(1.14, 1.0, 0.94);
     seatFrameGeo.translate(0, 0.36, 0);
     chairGroup.add(new THREE.Mesh(seatFrameGeo, champagneGoldMat));
 
     const legGeo = tracker.trackGeo(
-      new THREE.CylinderGeometry(0.032, 0.022, 0.36, 10),
+      new THREE.CylinderGeometry(0.03, 0.02, 0.36, 10),
     );
     legGeo.translate(0, 0.18, 0);
     const legOffsets: [number, number][] = [
-      [-0.36, 0.26],
-      [0.36, 0.26],
-      [-0.38, -0.26],
-      [0.38, -0.26],
+      [-0.35, 0.25],
+      [0.35, 0.25],
+      [-0.37, -0.25],
+      [0.37, -0.25],
     ];
     for (let i = 0; i < legOffsets.length; i++) {
       const [lx, lz] = legOffsets[i];
@@ -879,19 +1120,17 @@ export class IntimateMiniWorld {
       chairGroup.add(leg);
     }
 
-    // Plush Blush Velvet Seat Cushion (`y = 0.42m..0.52m` above dais)
     const cushionGeo = tracker.trackGeo(
-      new THREE.CylinderGeometry(0.39, 0.41, 0.11, 24),
+      new THREE.CylinderGeometry(0.38, 0.4, 0.11, 24),
     );
-    cushionGeo.scale(1.12, 1.0, 0.92);
+    cushionGeo.scale(1.1, 1.0, 0.9);
     cushionGeo.translate(0, 0.46, 0.02);
     chairGroup.add(new THREE.Mesh(cushionGeo, blushVelvetMat));
 
-    // Curved Graceful Armrests
     const armRestGeo = tracker.trackGeo(
-      new THREE.TorusGeometry(0.24, 0.024, 10, 20, Math.PI * 0.75),
+      new THREE.TorusGeometry(0.23, 0.022, 10, 20, Math.PI * 0.75),
     );
-    [-0.42, 0.42].forEach((ax) => {
+    [-0.4, 0.4].forEach((ax) => {
       const arm = new THREE.Mesh(armRestGeo, champagneGoldMat);
       arm.position.set(ax, 0.56, 0.04);
       arm.rotation.y = Math.PI / 2;
@@ -899,31 +1138,29 @@ export class IntimateMiniWorld {
       chairGroup.add(arm);
     });
 
-    // Heart-Inspired Couture Backrest Silhouette (Blush Velvet + Champagne-Gold Filigree Rim)
     const heartBackLobeGeo = tracker.trackGeo(
-      new THREE.CylinderGeometry(0.26, 0.22, 0.78, 20),
+      new THREE.CylinderGeometry(0.25, 0.21, 0.76, 20),
     );
     heartBackLobeGeo.scale(1.0, 1.0, 0.28);
     const lobeL = new THREE.Mesh(heartBackLobeGeo, blushVelvetMat);
-    lobeL.position.set(-0.14, 0.92, -0.28);
+    lobeL.position.set(-0.135, 0.91, -0.27);
     lobeL.rotation.z = -0.14;
     const lobeR = new THREE.Mesh(heartBackLobeGeo, blushVelvetMat);
-    lobeR.position.set(0.14, 0.92, -0.28);
+    lobeR.position.set(0.135, 0.91, -0.27);
     lobeR.rotation.z = 0.14;
     chairGroup.add(lobeL, lobeR);
 
     const filigreeRimGeo = tracker.trackGeo(
-      new THREE.TorusGeometry(0.27, 0.022, 10, 24, Math.PI * 1.15),
+      new THREE.TorusGeometry(0.26, 0.02, 10, 24, Math.PI * 1.15),
     );
     const rimL = new THREE.Mesh(filigreeRimGeo, champagneGoldMat);
-    rimL.position.set(-0.15, 1.12, -0.28);
+    rimL.position.set(-0.145, 1.1, -0.27);
     rimL.rotation.z = 0.22;
     const rimR = new THREE.Mesh(filigreeRimGeo, champagneGoldMat);
-    rimR.position.set(0.15, 1.12, -0.28);
+    rimR.position.set(0.145, 1.1, -0.27);
     rimR.rotation.z = -0.22;
     chairGroup.add(rimL, rimR);
 
-    // Delicate Crown/Heart Crest at the Top of the Throne (`y = 1.44m` above dais)
     const throneGemMat = tracker.trackMat(
       new THREE.MeshStandardMaterial({
         color: '#f43f5e',
@@ -934,24 +1171,32 @@ export class IntimateMiniWorld {
       }),
     );
     const crestHeartGeo = tracker.trackGeo(
-      new THREE.OctahedronGeometry(0.055, 1),
+      new THREE.OctahedronGeometry(0.052, 1),
     );
     crestHeartGeo.scale(1.15, 1.25, 0.55);
     const crestHeart = new THREE.Mesh(crestHeartGeo, throneGemMat);
-    crestHeart.position.set(0, 1.44, -0.27);
+    crestHeart.position.set(0, 1.42, -0.26);
     chairGroup.add(crestHeart);
 
     // =========================================================================
-    // ELEMENT 1 (SECONDARY): QUIET WITNESSING YESHWANTH FIGURE
-    // Placed respectfully off to the side at `(2.05, 0, -1.65)` facing Harsha,
-    // subdued lighting, zero competing hero animation.
+    // SECTIONS 7–15: HARSHA'S ROYAL CRYSTAL PALACE (`localX = 6.45, localZ = 0.0`)
+    // =========================================================================
+    this.buildRoyalCrystalPalace(
+      pearlMarbleMat,
+      blushStoneMat,
+      champagneGoldMat,
+      turretRoofRoseGoldMat,
+    );
+
+    // =========================================================================
+    // SECONDARY WITNESSING YESHWANTH FIGURE (Quiet, off to the side at `(1.85, 0, -1.85)`)
     // =========================================================================
     const witnessGroup = new THREE.Group();
     witnessGroup.name = 'WitnessingYeshwanth';
-    witnessGroup.position.set(2.05, 0.0, -1.65);
+    witnessGroup.position.set(1.85, 0.0, -1.85);
     witnessGroup.rotation.y = Math.atan2(
-      this.throneLocalX - 2.05,
-      this.throneLocalZ - -1.65,
+      this.throneLocalX - 1.85,
+      this.throneLocalZ - -1.85,
     );
     const suitMat = tracker.trackMat(
       new THREE.MeshStandardMaterial({
@@ -995,18 +1240,14 @@ export class IntimateMiniWorld {
     this.dwRoot.add(witnessGroup);
 
     // =========================================================================
-    // ELEMENT 2: HER CROWN (DELICATE PRINCESS TIARA, 70-80% HEAD WIDTH)
-    // Champagne gold (#d8b467), filigree peaks, central ruby-pink heart gem (#f43f5e),
-    // and clear/lavender side stones (#e9d5ff).
+    // SECTION 24: HER CROWN (DELICATE PRINCESS TIARA, 70-80% HEAD WIDTH)
     // =========================================================================
     this.crownGroup = new THREE.Group();
     this.crownGroup.name = 'HarshaPrincessTiara';
-    // Initial resting position floating gently above the throne before rising
-    this.crownGroup.position.set(this.throneLocalX - 0.35, 1.88, this.throneLocalZ);
+    this.crownGroup.position.set(this.throneLocalX - 0.38, 1.9, this.throneLocalZ);
     this.crownGroup.rotation.y = -Math.PI / 2;
     this.dwRoot.add(this.crownGroup);
 
-    // Tiara Base Band (`radius = 0.135m`, 75% of avatar head width, open-back semicircular tiara)
     const tiaraBandGeo = tracker.trackGeo(
       new THREE.TorusGeometry(0.135, 0.01, 10, 28, Math.PI * 1.35),
     );
@@ -1014,7 +1255,6 @@ export class IntimateMiniWorld {
     tiaraBandGeo.rotateY(-Math.PI * 0.175);
     this.crownGroup.add(new THREE.Mesh(tiaraBandGeo, champagneGoldMat));
 
-    // Delicate Filigree Peaks & Side Arches
     const peakAngles = [-0.85, -0.42, 0.0, 0.42, 0.85];
     const peakHeights = [0.032, 0.052, 0.078, 0.052, 0.032];
     const sideGemGeo = tracker.trackGeo(new THREE.OctahedronGeometry(0.014, 0));
@@ -1040,7 +1280,6 @@ export class IntimateMiniWorld {
       }
     }
 
-    // Central Heart-Shaped Ruby-Pink Gemstone (`#f43f5e`, emissive 0.3 -> 1.4 upon settling)
     this.crownHeartGemMat = tracker.trackMat(
       new THREE.MeshStandardMaterial({
         color: '#f43f5e',
@@ -1059,14 +1298,12 @@ export class IntimateMiniWorld {
     this.crownGroup.add(centralHeartGem);
 
     // =========================================================================
-    // ELEMENT 5A: WORLD-SPACE 3D SKY MESSAGE ("I LOVE YOU ❤️")
-    // Placed high in the open sky behind the throne (`localX = 11.2, localY = 5.15, localZ = 0`),
-    // facing West (`-X`) toward the finale camera so every character ("I" through "❤️")
-    // sits comfortably inside the final camera frustum.
+    // SECTION 28: WORLD-SPACE 3D SKY MESSAGE ("I LOVE YOU ❤️")
+    // Positioned high in the open sky above the Heart Spire (`(9.85, 8.35, 0.0)`)
     // =========================================================================
     this.skyMessageGroup = new THREE.Group();
     this.skyMessageGroup.name = 'SkyLoveMessage3D';
-    this.skyMessageGroup.position.set(11.2, 5.15, 0.0);
+    this.skyMessageGroup.position.set(9.85, 8.35, 0.0);
     this.skyMessageGroup.rotation.y = -Math.PI / 2;
     this.skyMessageGroup.visible = false;
     this.dwRoot.add(this.skyMessageGroup);
@@ -1091,16 +1328,15 @@ export class IntimateMiniWorld {
       }),
     );
 
-    const skyPlaneGeo = tracker.trackGeo(new THREE.PlaneGeometry(5.8, 1.45));
+    const skyPlaneGeo = tracker.trackGeo(new THREE.PlaneGeometry(5.2, 1.3));
     const frontTextMesh = new THREE.Mesh(skyPlaneGeo, this.skyFrontTextMat);
-    frontTextMesh.position.z = 0.06;
+    frontTextMesh.position.z = 0.05;
     const midReliefMesh = new THREE.Mesh(skyPlaneGeo, this.skyBackReliefMat);
     midReliefMesh.position.z = 0.0;
     const backReliefMesh = new THREE.Mesh(skyPlaneGeo, this.skyBackReliefMat);
-    backReliefMesh.position.z = -0.06;
+    backReliefMesh.position.z = -0.05;
     this.skyMessageGroup.add(backReliefMesh, midReliefMesh, frontTextMesh);
 
-    // Sculpted 3D Heart ("❤️") beside "I LOVE YOU" in world-space 3D geometry
     this.skyHeartGemMat = tracker.trackMat(
       new THREE.MeshStandardMaterial({
         color: '#f43f5e',
@@ -1113,42 +1349,649 @@ export class IntimateMiniWorld {
       }),
     );
     const skyHeartGroup = new THREE.Group();
-    skyHeartGroup.position.set(2.08, 0.04, 0.04);
-    const skyLobeGeo = tracker.trackGeo(new THREE.SphereGeometry(0.16, 14, 12));
+    skyHeartGroup.position.set(1.88, 0.03, 0.04);
+    const skyLobeGeo = tracker.trackGeo(new THREE.SphereGeometry(0.145, 14, 12));
     skyLobeGeo.scale(1.0, 1.05, 0.55);
     const skyLobeL = new THREE.Mesh(skyLobeGeo, this.skyHeartGemMat);
-    skyLobeL.position.set(-0.11, 0.08, 0);
+    skyLobeL.position.set(-0.1, 0.07, 0);
     const skyLobeR = new THREE.Mesh(skyLobeGeo, this.skyHeartGemMat);
-    skyLobeR.position.set(0.11, 0.08, 0);
+    skyLobeR.position.set(0.1, 0.07, 0);
     const skyHeartTipGeo = tracker.trackGeo(
-      new THREE.ConeGeometry(0.24, 0.32, 14),
+      new THREE.ConeGeometry(0.22, 0.29, 14),
     );
     skyHeartTipGeo.rotateX(Math.PI);
     skyHeartTipGeo.scale(1.0, 1.0, 0.48);
-    skyHeartTipGeo.translate(0, -0.1, 0);
+    skyHeartTipGeo.translate(0, -0.09, 0);
     const skyHeartTip = new THREE.Mesh(skyHeartTipGeo, this.skyHeartGemMat);
     skyHeartGroup.add(skyLobeL, skyLobeR, skyHeartTip);
     this.skyMessageGroup.add(skyHeartGroup);
 
     // =========================================================================
-    // ELEMENT 5B: PRESERVED FINALE FIREWORKS SYSTEM (`buildFinaleFireworksSystem`)
+    // SECTION 32: PRESERVED FINALE FIREWORKS SYSTEM (`buildFinaleFireworksSystem`)
     // =========================================================================
     this.buildFinaleFireworksSystem();
 
     // =========================================================================
-    // WARM INTIMATE SANCTUARY LIGHTING (Single warm key light focused on Harsha & Throne)
+    // SECTION 22: LAYERED NIGHTTIME PALACE & HARSHA RIM LIGHTING
     // =========================================================================
-    this.sanctuaryKeyLight = new THREE.PointLight('#fff1f2', 1.45, 14.0, 1.6);
-    this.sanctuaryKeyLight.position.set(this.throneLocalX - 1.2, 2.8, 0.0);
-    this.dwRoot.add(this.sanctuaryKeyLight);
+    // 1. Subtle Harsha Rim & Key Light (keeps Harsha as the visual hero without over-brightening)
+    this.harshaRimLight = new THREE.PointLight('#fce7f3', 1.35, 11.0, 1.6);
+    this.harshaRimLight.position.set(this.throneLocalX - 1.15, 2.45, 0.0);
+    this.dwRoot.add(this.harshaRimLight);
+
+    // 2. Soft Lavender/Pink Palace Awakening Light (starts cool/moonlit, warms as palace awakens)
+    this.palaceAwakeningLight = new THREE.PointLight('#e9d5ff', 0.45, 14.0, 1.5);
+    this.palaceAwakeningLight.position.set(this.palaceLocalX - 1.1, 3.4, 0.0);
+    this.dwRoot.add(this.palaceAwakeningLight);
   }
 
   /**
-   * Preserved `buildFinaleFireworksSystem()` particle buffer engine.
-   * Configured for the 3 sparse, romantic bursts:
-   * 1. Firework 1 (`t = 0.0s`): Gold launch -> forms a Heart (champagne gold + rose pink)
-   * 2. Firework 2 (`+1.2s`): Left sky -> forms a Flower (blush + lavender)
-   * 3. Firework 3 (`+2.4s`): Right sky -> forms a Star (champagne gold)
+   * Section 18: Builds low curved garden arcades / balustrades flanking the North and South
+   * edges of Harsha's Royal Courtyard (3 slender columns per side, delicate fairy-tale arches,
+   * sparse roses, and tiny hanging crystal lanterns). Open, low, and roof-free.
+   */
+  private buildLowCurvedGardenArcades(
+    pearlMarbleMat: THREE.Material,
+    blushStoneMat: THREE.Material,
+    champagneGoldMat: THREE.Material,
+  ): void {
+    const { tracker } = this;
+    const arcadeRadius = 3.42;
+
+    const plinthGeo = tracker.trackGeo(
+      new THREE.CylinderGeometry(0.13, 0.15, 0.24, 14),
+    );
+    plinthGeo.translate(0, 0.12, 0);
+    const colShaftGeo = tracker.trackGeo(
+      new THREE.CylinderGeometry(0.068, 0.078, 1.18, 14),
+    );
+    colShaftGeo.translate(0, 0.83, 0);
+    const capitalGeo = tracker.trackGeo(
+      new THREE.CylinderGeometry(0.11, 0.075, 0.1, 14),
+    );
+    capitalGeo.translate(0, 1.47, 0);
+    const lanternDropGeo = tracker.trackGeo(
+      new THREE.OctahedronGeometry(0.055, 0),
+    );
+    const roseAccentGeo = tracker.trackGeo(
+      new THREE.SphereGeometry(0.055, 8, 8),
+    );
+
+    [-1, 1].forEach((sideSign) => {
+      // 3 slender columns per side at 58°, 86°, and 114° from East (+X)
+      const colAngles = [
+        sideSign * 1.02,
+        sideSign * 1.48,
+        sideSign * 1.94,
+      ];
+      const colPositions: THREE.Vector3[] = [];
+
+      for (let c = 0; c < colAngles.length; c++) {
+        const ang = colAngles[c];
+        const cx = this.throneLocalX + Math.cos(ang) * arcadeRadius;
+        const cz = Math.sin(ang) * arcadeRadius;
+        colPositions.push(new THREE.Vector3(cx, 0, cz));
+
+        const colGroup = new THREE.Group();
+        colGroup.position.set(cx, 0, cz);
+        colGroup.add(
+          new THREE.Mesh(plinthGeo, pearlMarbleMat),
+          new THREE.Mesh(colShaftGeo, pearlMarbleMat),
+          new THREE.Mesh(capitalGeo, champagneGoldMat),
+        );
+
+        // Sparse rose cluster near the column capital
+        const rose = new THREE.Mesh(roseAccentGeo, this.gardenBlossomMat);
+        rose.position.set(0, 1.44, 0);
+        colGroup.add(rose);
+        this.dwRoot.add(colGroup);
+      }
+
+      // Connect adjacent columns with a low pearl balustrade & delicate fairy-tale arch
+      for (let seg = 0; seg < 2; seg++) {
+        const pA = colPositions[seg];
+        const pB = colPositions[seg + 1];
+        const midX = (pA.x + pB.x) * 0.5;
+        const midZ = (pA.z + pB.z) * 0.5;
+        const span = Math.hypot(pB.x - pA.x, pB.z - pA.z);
+        const yaw = Math.atan2(pB.x - pA.x, pB.z - pA.z);
+
+        const segGroup = new THREE.Group();
+        segGroup.position.set(midX, 0, midZ);
+        segGroup.rotation.y = yaw;
+
+        // Low balustrade rail (`height = 0.42m`)
+        const lowRailGeo = tracker.trackGeo(
+          new THREE.BoxGeometry(0.09, 0.06, span),
+        );
+        lowRailGeo.translate(0, 0.42, 0);
+        segGroup.add(new THREE.Mesh(lowRailGeo, blushStoneMat));
+
+        // Delicate fairy-tale top arch spanning between the 2 columns
+        const archRadius = span * 0.5;
+        const archGeo = tracker.trackGeo(
+          new THREE.TorusGeometry(archRadius, 0.024, 10, 24, Math.PI),
+        );
+        archGeo.rotateY(Math.PI / 2);
+        archGeo.translate(0, 1.5, 0);
+        segGroup.add(new THREE.Mesh(archGeo, champagneGoldMat));
+
+        // Tiny hanging crystal lantern beneath the arch crown
+        const lantern = new THREE.Mesh(
+          lanternDropGeo,
+          this.courtyardLanternMat,
+        );
+        lantern.position.set(0, 1.5 + archRadius - 0.14, 0);
+        segGroup.add(lantern);
+
+        this.dwRoot.add(segGroup);
+      }
+    });
+  }
+
+  /**
+   * Sections 7–15: Builds Harsha's Royal Crystal Palace at `(palaceLocalX = 6.45, 0, 0)`,
+   * facing West (`-X`) so it frames Harsha and her throne without consuming the upper sky.
+   *
+   * Architectural Components:
+   * 1. Royal Terrace (`y = 0.0..0.28m`)
+   * 2. Central Palace Keep (`radius = 1.42m, y = 0.28..3.35m`) with Grand Fairy-Tale Arch
+   * 3. Central Translucent Pink Crystal Dome (`y = 3.35..4.55m`) with 8 Champagne-Gold Ribs
+   * 4. Slender Heart Spire (`y = 4.55..5.45m`) with small Ruby-Pink Heart Finial
+   * 5. Two Symmetrical Two-Story Palace Wings (`z = ±2.15m, height = 2.65m`)
+   * 6. Twin Slender Framing Turrets (`z = ±3.35m, total height = 4.52m`)
+   */
+  private buildRoyalCrystalPalace(
+    pearlMarbleMat: THREE.Material,
+    blushStoneMat: THREE.Material,
+    champagneGoldMat: THREE.Material,
+    turretRoofRoseGoldMat: THREE.Material,
+  ): void {
+    const { tracker } = this;
+
+    this.palaceGroup = new THREE.Group();
+    this.palaceGroup.name = 'HarshaRoyalCrystalPalaceArchitecture';
+    this.palaceGroup.position.set(this.palaceLocalX, 0.0, this.palaceLocalZ);
+    this.dwRoot.add(this.palaceGroup);
+
+    // 1. Royal Terrace Platform (`y = 0.0..0.28m`)
+    const terraceBaseGeo = tracker.trackGeo(
+      new THREE.BoxGeometry(2.4, 0.28, 7.6),
+    );
+    terraceBaseGeo.translate(0, 0.14, 0);
+    const terraceFrontApronGeo = tracker.trackGeo(
+      new THREE.CylinderGeometry(1.75, 1.88, 0.28, 28),
+    );
+    terraceFrontApronGeo.translate(-0.45, 0.14, 0);
+    const terraceStepGeo = tracker.trackGeo(
+      new THREE.CylinderGeometry(1.95, 2.06, 0.14, 28),
+    );
+    terraceStepGeo.translate(-0.62, 0.07, 0);
+    const terraceGoldRimGeo = tracker.trackGeo(
+      new THREE.TorusGeometry(1.76, 0.022, 10, 32),
+    );
+    terraceGoldRimGeo.rotateX(Math.PI / 2);
+    terraceGoldRimGeo.translate(-0.45, 0.28, 0);
+
+    this.palaceGroup.add(
+      new THREE.Mesh(terraceBaseGeo, pearlMarbleMat),
+      new THREE.Mesh(terraceFrontApronGeo, pearlMarbleMat),
+      new THREE.Mesh(terraceStepGeo, blushStoneMat),
+      new THREE.Mesh(terraceGoldRimGeo, champagneGoldMat),
+    );
+
+    // 2. Central Palace Keep (`softly octagonal pavilion, y = 0.28..3.35m`)
+    const keepHeight = 3.07;
+    const keepRadius = 1.42;
+    const keepBodyGeo = tracker.trackGeo(
+      new THREE.CylinderGeometry(keepRadius, keepRadius * 1.04, keepHeight, 8),
+    );
+    keepBodyGeo.rotateY(Math.PI / 8);
+    keepBodyGeo.translate(0, 0.28 + keepHeight * 0.5, 0);
+    this.palaceGroup.add(new THREE.Mesh(keepBodyGeo, pearlMarbleMat));
+
+    // Blush rose architectural waist & frieze bands on the central keep
+    const waistBandGeo = tracker.trackGeo(
+      new THREE.CylinderGeometry(keepRadius + 0.03, keepRadius + 0.03, 0.18, 8),
+    );
+    waistBandGeo.rotateY(Math.PI / 8);
+    waistBandGeo.translate(0, 1.92, 0);
+    const topCorniceGeo = tracker.trackGeo(
+      new THREE.CylinderGeometry(keepRadius + 0.08, keepRadius + 0.02, 0.16, 16),
+    );
+    topCorniceGeo.translate(0, 3.32, 0);
+    const goldCorniceRingGeo = tracker.trackGeo(
+      new THREE.TorusGeometry(keepRadius + 0.06, 0.028, 10, 32),
+    );
+    goldCorniceRingGeo.rotateX(Math.PI / 2);
+    this.palaceGroup.add(
+      new THREE.Mesh(waistBandGeo, blushStoneMat),
+      new THREE.Mesh(topCorniceGeo, blushStoneMat),
+    );
+    [0.3, 1.92, 3.35].forEach((ry) => {
+      const ring = new THREE.Mesh(goldCorniceRingGeo, champagneGoldMat);
+      ring.position.y = ry;
+      this.palaceGroup.add(ring);
+    });
+
+    // 8 Slender Champagne-Gold Corner Pilasters around the Octagonal Keep
+    const pilasterGeo = tracker.trackGeo(
+      new THREE.CylinderGeometry(0.048, 0.055, keepHeight, 10),
+    );
+    pilasterGeo.translate(0, 0.28 + keepHeight * 0.5, 0);
+    for (let i = 0; i < 8; i++) {
+      const ang = (i / 8) * Math.PI * 2 + Math.PI / 8;
+      const pilaster = new THREE.Mesh(pilasterGeo, champagneGoldMat);
+      pilaster.position.set(
+        Math.cos(ang) * (keepRadius + 0.02),
+        0,
+        Math.sin(ang) * (keepRadius + 0.02),
+      );
+      this.palaceGroup.add(pilaster);
+    }
+
+    // Central Grand Fairy-Tale Royal Arch on West Facade (`x = -keepRadius`, framing Harsha's throne)
+    this.addFairyTaleRoyalArchWindow(
+      this.palaceGroup,
+      -keepRadius - 0.02,
+      0.28,
+      0.0,
+      -Math.PI / 2,
+      0.56,
+      1.95,
+      this.groundWindowGlowMat,
+      champagneGoldMat,
+    );
+
+    // Flanking Ground-Tier & Upper-Tier Fairy-Tale Arched Crystal Windows on the Keep
+    [-0.78, 0.78].forEach((wz) => {
+      const ang = wz < 0 ? -Math.PI * 0.72 : Math.PI * 0.72;
+      const wx = Math.cos(ang) * (keepRadius - 0.02);
+      const wPosZ = Math.sin(ang) * (keepRadius - 0.02);
+      this.addFairyTaleRoyalArchWindow(
+        this.palaceGroup,
+        wx,
+        0.52,
+        wPosZ,
+        ang - Math.PI / 2,
+        0.28,
+        1.05,
+        this.groundWindowGlowMat,
+        champagneGoldMat,
+      );
+      this.addFairyTaleRoyalArchWindow(
+        this.palaceGroup,
+        wx,
+        2.12,
+        wPosZ,
+        ang - Math.PI / 2,
+        0.24,
+        0.78,
+        this.upperWindowGlowMat,
+        champagneGoldMat,
+      );
+    });
+    // Central Upper Clerestory Crystal Arch above the Grand Arch
+    this.addFairyTaleRoyalArchWindow(
+      this.palaceGroup,
+      -keepRadius - 0.02,
+      2.38,
+      0.0,
+      -Math.PI / 2,
+      0.32,
+      0.64,
+      this.upperWindowGlowMat,
+      champagneGoldMat,
+    );
+
+    // 3. Section 10: Central Translucent Pink Crystal Dome (`y = 3.35..4.55m`)
+    const domeRadius = 1.28;
+    const outerDomeGeo = tracker.trackGeo(
+      new THREE.SphereGeometry(
+        domeRadius,
+        28,
+        18,
+        0,
+        Math.PI * 2,
+        0,
+        Math.PI * 0.5,
+      ),
+    );
+    outerDomeGeo.scale(1.0, 0.94, 1.0);
+    outerDomeGeo.translate(0, 3.35, 0);
+
+    const innerDomeCoreGeo = tracker.trackGeo(
+      new THREE.SphereGeometry(
+        domeRadius * 0.86,
+        20,
+        14,
+        0,
+        Math.PI * 2,
+        0,
+        Math.PI * 0.5,
+      ),
+    );
+    innerDomeCoreGeo.scale(1.0, 0.9, 1.0);
+    innerDomeCoreGeo.translate(0, 3.35, 0);
+
+    this.palaceGroup.add(
+      new THREE.Mesh(innerDomeCoreGeo, this.crystalDomeCoreMat),
+      new THREE.Mesh(outerDomeGeo, this.crystalDomeShellMat),
+    );
+
+    // 8 Champagne-Gold Structural Ribs & Crown Collar on the Crystal Dome
+    const domeRibGeo = tracker.trackGeo(
+      new THREE.TorusGeometry(domeRadius + 0.015, 0.02, 8, 24, Math.PI * 0.48),
+    );
+    for (let r = 0; r < 8; r++) {
+      const rib = new THREE.Mesh(domeRibGeo, champagneGoldMat);
+      rib.position.set(0, 3.35, 0);
+      rib.rotation.y = (r / 8) * Math.PI * 2;
+      this.palaceGroup.add(rib);
+    }
+
+    const domeCollarGeo = tracker.trackGeo(
+      new THREE.CylinderGeometry(0.24, 0.3, 0.14, 16),
+    );
+    domeCollarGeo.translate(0, 4.54, 0);
+    this.palaceGroup.add(new THREE.Mesh(domeCollarGeo, champagneGoldMat));
+
+    // 4. Section 11: Slender Heart Spire (`y = 4.60..5.45m`)
+    const spireShaftGeo = tracker.trackGeo(
+      new THREE.ConeGeometry(0.075, 0.72, 14),
+    );
+    spireShaftGeo.translate(0, 4.96, 0);
+    this.palaceGroup.add(new THREE.Mesh(spireShaftGeo, champagneGoldMat));
+
+    // Small Refined Architectural Heart Finial at top of Spire (`y = 5.42m`)
+    const spireHeartGroup = new THREE.Group();
+    spireHeartGroup.position.set(0, 5.42, 0);
+    spireHeartGroup.rotation.y = -Math.PI / 2;
+    const finialLobeGeo = tracker.trackGeo(
+      new THREE.SphereGeometry(0.055, 10, 10),
+    );
+    finialLobeGeo.scale(1.0, 1.05, 0.55);
+    const fLobeL = new THREE.Mesh(finialLobeGeo, this.spireHeartMat);
+    fLobeL.position.set(-0.038, 0.025, 0);
+    const fLobeR = new THREE.Mesh(finialLobeGeo, this.spireHeartMat);
+    fLobeR.position.set(0.038, 0.025, 0);
+    const finialTipGeo = tracker.trackGeo(
+      new THREE.ConeGeometry(0.082, 0.11, 10),
+    );
+    finialTipGeo.rotateX(Math.PI);
+    finialTipGeo.scale(1.0, 1.0, 0.5);
+    finialTipGeo.translate(0, -0.035, 0);
+    const fTip = new THREE.Mesh(finialTipGeo, this.spireHeartMat);
+    spireHeartGroup.add(fLobeL, fLobeR, fTip);
+    this.palaceGroup.add(spireHeartGroup);
+
+    // 5. Section 12: Two Symmetrical Two-Story Palace Wings (`z = ±2.15m`)
+    const wingWidth = 1.62;
+    const wingHeight = 2.42;
+    const wingDepth = 0.86;
+    const wingBodyGeo = tracker.trackGeo(
+      new THREE.BoxGeometry(wingDepth, wingHeight, wingWidth),
+    );
+    wingBodyGeo.translate(0, 0.28 + wingHeight * 0.5, 0);
+    const wingCorniceGeo = tracker.trackGeo(
+      new THREE.BoxGeometry(wingDepth + 0.08, 0.1, wingWidth + 0.08),
+    );
+
+    [-1, 1].forEach((side) => {
+      const wingGroup = new THREE.Group();
+      wingGroup.position.set(-0.18, 0, side * 2.12);
+      wingGroup.rotation.y = side * -0.12; // Gentle welcoming curve toward Harsha
+
+      const wBody = new THREE.Mesh(wingBodyGeo, pearlMarbleMat);
+      const wMidBand = new THREE.Mesh(wingCorniceGeo, blushStoneMat);
+      wMidBand.position.y = 1.48;
+      const wTopCornice = new THREE.Mesh(wingCorniceGeo, champagneGoldMat);
+      wTopCornice.position.y = 2.7;
+      wingGroup.add(wBody, wMidBand, wTopCornice);
+
+      // Two-story fairy-tale arched crystal windows on each wing
+      [-0.42, 0.42].forEach((wz) => {
+        this.addFairyTaleRoyalArchWindow(
+          wingGroup,
+          -wingDepth * 0.5 - 0.01,
+          0.46,
+          wz,
+          -Math.PI / 2,
+          0.22,
+          0.82,
+          this.groundWindowGlowMat,
+          champagneGoldMat,
+        );
+        this.addFairyTaleRoyalArchWindow(
+          wingGroup,
+          -wingDepth * 0.5 - 0.01,
+          1.64,
+          wz,
+          -Math.PI / 2,
+          0.2,
+          0.74,
+          this.upperWindowGlowMat,
+          champagneGoldMat,
+        );
+      });
+
+      this.palaceGroup.add(wingGroup);
+    });
+
+    // 6. Section 13: Twin Slender Framing Turrets (`x = -0.38, z = ±3.35m`)
+    const turretRadius = 0.54;
+    const turretHeight = 2.92;
+    const turretShaftGeo = tracker.trackGeo(
+      new THREE.CylinderGeometry(
+        turretRadius * 0.94,
+        turretRadius,
+        turretHeight,
+        18,
+      ),
+    );
+    turretShaftGeo.translate(0, 0.28 + turretHeight * 0.5, 0);
+    const turretRingGeo = tracker.trackGeo(
+      new THREE.TorusGeometry(turretRadius, 0.02, 8, 24),
+    );
+    turretRingGeo.rotateX(Math.PI / 2);
+    const turretRoofGeo = tracker.trackGeo(
+      new THREE.ConeGeometry(turretRadius * 1.12, 1.12, 20),
+    );
+    turretRoofGeo.translate(0, 3.2 + 0.56, 0);
+    const turretFinialShaftGeo = tracker.trackGeo(
+      new THREE.ConeGeometry(0.032, 0.22, 8),
+    );
+    turretFinialShaftGeo.translate(0, 4.42, 0);
+    const turretCrownRingGeo = tracker.trackGeo(
+      new THREE.TorusGeometry(0.048, 0.012, 8, 14),
+    );
+    turretCrownRingGeo.rotateX(Math.PI / 2);
+    turretCrownRingGeo.translate(0, 4.38, 0);
+
+    [-1, 1].forEach((side) => {
+      const turretGroup = new THREE.Group();
+      turretGroup.position.set(-0.38, 0, side * 3.35);
+
+      turretGroup.add(
+        new THREE.Mesh(turretShaftGeo, pearlMarbleMat),
+        new THREE.Mesh(turretRoofGeo, turretRoofRoseGoldMat),
+        new THREE.Mesh(turretFinialShaftGeo, champagneGoldMat),
+        new THREE.Mesh(turretCrownRingGeo, champagneGoldMat),
+      );
+
+      [0.32, 1.72, 3.18].forEach((ry) => {
+        const ring = new THREE.Mesh(turretRingGeo, champagneGoldMat);
+        ring.position.y = ry;
+        turretGroup.add(ring);
+      });
+
+      // Small fairy-tale crystal windows on each slender turret
+      this.addFairyTaleRoyalArchWindow(
+        turretGroup,
+        -turretRadius * 0.95,
+        0.65,
+        0,
+        -Math.PI / 2,
+        0.19,
+        0.78,
+        this.groundWindowGlowMat,
+        champagneGoldMat,
+      );
+      this.addFairyTaleRoyalArchWindow(
+        turretGroup,
+        -turretRadius * 0.95,
+        1.92,
+        0,
+        -Math.PI / 2,
+        0.18,
+        0.72,
+        this.upperWindowGlowMat,
+        champagneGoldMat,
+      );
+
+      this.palaceGroup.add(turretGroup);
+    });
+  }
+
+  /**
+   * Section 9: Helper to construct a tall, elegant fairy-tale royal arched crystal window
+   * with a sculpted champagne-gold frame, vertical mullion, and recessed crystal glass pane.
+   */
+  private addFairyTaleRoyalArchWindow(
+    parent: THREE.Object3D,
+    x: number,
+    bottomY: number,
+    z: number,
+    rotY: number,
+    halfWidth: number,
+    totalHeight: number,
+    crystalMat: THREE.Material,
+    goldMat: THREE.Material,
+  ): void {
+    const { tracker } = this;
+    const winGroup = new THREE.Group();
+    winGroup.position.set(x, bottomY, z);
+    winGroup.rotation.y = rotY;
+
+    const archRadius = halfWidth;
+    const rectHeight = Math.max(0.18, totalHeight - archRadius);
+
+    // Recessed crystal pane (rectangular lower body + semicircular arch top)
+    const paneRectGeo = tracker.trackGeo(
+      new THREE.PlaneGeometry(halfWidth * 1.92, rectHeight),
+    );
+    paneRectGeo.translate(0, rectHeight * 0.5, 0.01);
+    const paneArchGeo = tracker.trackGeo(
+      new THREE.CircleGeometry(archRadius * 0.96, 18, 0, Math.PI),
+    );
+    paneArchGeo.translate(0, rectHeight, 0.01);
+    winGroup.add(
+      new THREE.Mesh(paneRectGeo, crystalMat),
+      new THREE.Mesh(paneArchGeo, crystalMat),
+    );
+
+    // Sculpted Champagne-Gold Arch Frame, Side Jambs, Sill, and Delicate Mullion
+    const archFrameGeo = tracker.trackGeo(
+      new THREE.TorusGeometry(archRadius, 0.022, 8, 20, Math.PI),
+    );
+    archFrameGeo.translate(0, rectHeight, 0.02);
+    const jambGeo = tracker.trackGeo(
+      new THREE.CylinderGeometry(0.02, 0.02, rectHeight, 8),
+    );
+    jambGeo.translate(0, rectHeight * 0.5, 0.02);
+    const jambL = new THREE.Mesh(jambGeo, goldMat);
+    jambL.position.x = -halfWidth;
+    const jambR = new THREE.Mesh(jambGeo, goldMat);
+    jambR.position.x = halfWidth;
+
+    const sillGeo = tracker.trackGeo(
+      new THREE.BoxGeometry(halfWidth * 2.2, 0.036, 0.06),
+    );
+    sillGeo.translate(0, 0.018, 0.02);
+
+    const mullionGeo = tracker.trackGeo(
+      new THREE.CylinderGeometry(0.01, 0.01, totalHeight * 0.94, 6),
+    );
+    mullionGeo.translate(0, totalHeight * 0.47, 0.022);
+
+    winGroup.add(
+      new THREE.Mesh(archFrameGeo, goldMat),
+      jambL,
+      jambR,
+      new THREE.Mesh(sillGeo, goldMat),
+      new THREE.Mesh(mullionGeo, goldMat),
+    );
+
+    parent.add(winGroup);
+  }
+
+  /**
+   * Section 14 & 15: Frustum & Bounding-Box Validation
+   * Evaluates the real bounding boxes of the Royal Crystal Palace and the 3D Sky Message
+   * against the actual Finale Camera Frustum (`PerspectiveCamera`), ensuring:
+   * 1. The palace never overlaps or clips the "I LOVE YOU ❤️" sky message.
+   * 2. Harsha, her throne, the palace, and the full sky message fit inside the finale frustum.
+   */
+  private validatePalaceAndSkyFrustum(): void {
+    this.dwRoot.updateMatrixWorld(true);
+
+    const palaceBox = new THREE.Box3().setFromObject(this.palaceGroup);
+    const palaceMaxLocalY = palaceBox.max.y - this.y0;
+
+    // Project palace top Y onto the sky message plane from the finale camera
+    const camX = this.finaleEndCamLocalPos.x;
+    const camY = this.finaleEndCamLocalPos.y;
+    const palaceDistX = this.palaceLocalX - camX;
+    const skyDistX = this.skyMessageGroup.position.x - camX;
+    const projectedPalaceTopAtSky =
+      camY + (palaceMaxLocalY - camY) * (skyDistX / Math.max(1.0, palaceDistX));
+
+    // Guarantee at least 1.35m of open sky clearance between projected palace spire and sky message bottom
+    const minSkyCenterY = projectedPalaceTopAtSky + 1.85;
+    if (this.skyMessageGroup.position.y < minSkyCenterY) {
+      this.skyMessageGroup.position.y = minSkyCenterY;
+    }
+
+    // Verify full frustum containment using a real PerspectiveCamera (16:9 standard aspect)
+    const testCam = new THREE.PerspectiveCamera(
+      this.finaleEndFov,
+      16 / 9,
+      0.1,
+      100.0,
+    );
+    testCam.position.set(
+      this.originX + this.dwCenterX + this.finaleEndCamLocalPos.x,
+      this.baseY + this.y0 + this.finaleEndCamLocalPos.y,
+      this.originZ + this.dwCenterZ + this.finaleEndCamLocalPos.z,
+    );
+    testCam.lookAt(
+      this.originX + this.dwCenterX + this.finaleEndLookLocalPos.x,
+      this.baseY + this.y0 + this.finaleEndLookLocalPos.y,
+      this.originZ + this.dwCenterZ + this.finaleEndLookLocalPos.z,
+    );
+    testCam.updateMatrixWorld(true);
+    testCam.updateProjectionMatrix();
+
+    const projScreenMatrix = new THREE.Matrix4().multiplyMatrices(
+      testCam.projectionMatrix,
+      testCam.matrixWorldInverse,
+    );
+    const frustum = new THREE.Frustum().setFromProjectionMatrix(
+      projScreenMatrix,
+    );
+
+    const skyTopWorldPoint = new THREE.Vector3(
+      this.originX + this.dwCenterX + this.skyMessageGroup.position.x,
+      this.baseY + this.y0 + this.skyMessageGroup.position.y + 0.75,
+      this.originZ + this.dwCenterZ,
+    );
+    if (!frustum.containsPoint(skyTopWorldPoint)) {
+      this.finaleEndLookLocalPos.y += 0.35;
+    }
+  }
+
+  /**
+   * Preserved `buildFinaleFireworksSystem()` particle buffer engine (Section 32).
    */
   private buildFinaleFireworksSystem(): void {
     const { tracker } = this;
@@ -1206,35 +2049,32 @@ export class IntimateMiniWorld {
 
       let vy = 0;
       let vz = 0;
-      let vx = (Math.sin(i * 12.9898) * 0.5) * 0.28;
+      const vx = Math.sin(i * 12.9898) * 0.5 * 0.26;
 
       if (pattern === 'heart') {
-        // Parametric 3D heart in the Y-Z plane (facing the finale camera along +X)
-        const hx = 16 * Math.pow(Math.sin(t), 3) * 0.085;
+        // Parametric 3D heart in the Y-Z plane above the central palace
+        const hx = 16 * Math.pow(Math.sin(t), 3) * 0.082;
         const hy =
           (13 * Math.cos(t) -
             5 * Math.cos(2 * t) -
             2 * Math.cos(3 * t) -
             Math.cos(4 * t)) *
-          0.085;
+          0.082;
         vz = hx;
         vy = hy;
-        // Champagne gold (#fde047) + Rose pink (#f43f5e)
         _scratchColor.set(i % 2 === 0 ? '#fde047' : '#f43f5e');
       } else if (pattern === 'flower') {
-        // 6-petal botanical rose/blossom burst in the Y-Z plane
-        const r = (0.55 + 0.45 * Math.cos(6 * t)) * 1.25;
+        // 6-petal blossom burst above the left slender turret
+        const r = (0.55 + 0.45 * Math.cos(6 * t)) * 1.18;
         vz = Math.cos(t) * r;
         vy = Math.sin(t) * r;
-        // Blush (#fbcfe8) + Lavender (#e9d5ff)
         _scratchColor.set(i % 2 === 0 ? '#fbcfe8' : '#e9d5ff');
       } else {
-        // 5-pointed star burst in the Y-Z plane
-        const starWave = Math.abs(((t / (Math.PI * 2)) * 5) % 1 - 0.5) * 2.0;
-        const r = (0.48 + 0.72 * Math.pow(starWave, 1.4)) * 1.28;
+        // 5-pointed star burst above the right slender turret
+        const starWave = Math.abs((((t / (Math.PI * 2)) * 5) % 1) - 0.5) * 2.0;
+        const r = (0.48 + 0.72 * Math.pow(starWave, 1.4)) * 1.22;
         vz = Math.cos(t) * r;
         vy = Math.sin(t) * r;
-        // Champagne gold (#fde047)
         _scratchColor.set(i % 3 === 0 ? '#fffbeb' : '#fde047');
       }
 
@@ -1249,6 +2089,122 @@ export class IntimateMiniWorld {
       this.fwAges[idx] = 0.0;
       this.fwLifetimes[idx] = 2.6 + (i % 5) * 0.18;
     }
+  }
+
+  /**
+   * Section 23: Resets the Royal Crystal Palace and Courtyard to their soft moonlit state
+   * prior to the crown ceremony.
+   */
+  private resetPalaceToMoonlitState(): void {
+    this.crownHeartGemMat.emissiveIntensity = 0.3;
+    this.throneUnderglowMat.emissiveIntensity = 0.32;
+    this.courtyardLanternMat.emissiveIntensity = 0.22;
+    this.gardenBlossomMat.emissiveIntensity = 0.22;
+    this.groundWindowGlowMat.emissiveIntensity = 0.16;
+    this.upperWindowGlowMat.emissiveIntensity = 0.14;
+    this.crystalDomeShellMat.emissiveIntensity = 0.15;
+    this.crystalDomeCoreMat.emissiveIntensity = 0.18;
+    this.spireHeartMat.emissiveIntensity = 0.12;
+    this.palaceAwakeningLight.intensity = 0.45;
+    this.palaceAwakeningLight.color.set('#e9d5ff');
+  }
+
+  /**
+   * Section 25: Sets the Royal Crystal Palace to its fully awakened luminous state.
+   */
+  private setPalaceFullyAwakened(): void {
+    this.crownHeartGemMat.emissiveIntensity = 1.4;
+    this.throneUnderglowMat.emissiveIntensity = 1.35;
+    this.courtyardLanternMat.emissiveIntensity = 1.25;
+    this.gardenBlossomMat.emissiveIntensity = 0.85;
+    this.groundWindowGlowMat.emissiveIntensity = 1.25;
+    this.upperWindowGlowMat.emissiveIntensity = 1.2;
+    this.crystalDomeShellMat.emissiveIntensity = 0.65;
+    this.crystalDomeCoreMat.emissiveIntensity = 1.35;
+    this.spireHeartMat.emissiveIntensity = 1.45;
+    this.palaceAwakeningLight.intensity = 1.45;
+    this.palaceAwakeningLight.color.set('#fbcfe8');
+  }
+
+  /**
+   * Section 25: Progressive Palace Awakening Timeline (`T = 0.0 -> 2.0s`):
+   * - T = 0.0s: Crown heart gem reaches peak
+   * - T = 0.0–0.4s: Throne/dais brightens
+   * - T = 0.4–0.8s: Garden/courtyard accents awaken
+   * - T = 0.8–1.3s: Ground-floor palace windows illuminate
+   * - T = 1.3–1.7s: Upper windows illuminate
+   * - T = 1.7–2.0s: Crystal dome brightens
+   * - T = 2.0s: Heart spire glows
+   */
+  private applyPalaceAwakeningTimeline(tSec: number): void {
+    this.crownHeartGemMat.emissiveIntensity = 1.4;
+
+    const uThrone = smoothStep01(THREE.MathUtils.clamp(tSec / 0.4, 0, 1));
+    this.throneUnderglowMat.emissiveIntensity = THREE.MathUtils.lerp(
+      0.32,
+      1.35,
+      uThrone,
+    );
+
+    const uCourtyard = smoothStep01(
+      THREE.MathUtils.clamp((tSec - 0.4) / 0.4, 0, 1),
+    );
+    this.courtyardLanternMat.emissiveIntensity = THREE.MathUtils.lerp(
+      0.22,
+      1.25,
+      uCourtyard,
+    );
+    this.gardenBlossomMat.emissiveIntensity = THREE.MathUtils.lerp(
+      0.22,
+      0.85,
+      uCourtyard,
+    );
+
+    const uGroundWin = smoothStep01(
+      THREE.MathUtils.clamp((tSec - 0.8) / 0.5, 0, 1),
+    );
+    this.groundWindowGlowMat.emissiveIntensity = THREE.MathUtils.lerp(
+      0.16,
+      1.25,
+      uGroundWin,
+    );
+
+    const uUpperWin = smoothStep01(
+      THREE.MathUtils.clamp((tSec - 1.3) / 0.4, 0, 1),
+    );
+    this.upperWindowGlowMat.emissiveIntensity = THREE.MathUtils.lerp(
+      0.14,
+      1.2,
+      uUpperWin,
+    );
+
+    const uDome = smoothStep01(
+      THREE.MathUtils.clamp((tSec - 1.7) / 0.3, 0, 1),
+    );
+    this.crystalDomeShellMat.emissiveIntensity = THREE.MathUtils.lerp(
+      0.15,
+      0.65,
+      uDome,
+    );
+    this.crystalDomeCoreMat.emissiveIntensity = THREE.MathUtils.lerp(
+      0.18,
+      1.35,
+      uDome,
+    );
+    this.palaceAwakeningLight.intensity = THREE.MathUtils.lerp(
+      0.45,
+      1.45,
+      uDome,
+    );
+
+    const uSpire = smoothStep01(
+      THREE.MathUtils.clamp((tSec - 1.85) / 0.15, 0, 1),
+    );
+    this.spireHeartMat.emissiveIntensity = THREE.MathUtils.lerp(
+      0.12,
+      1.45,
+      uSpire,
+    );
   }
 
   private resetFireworksAndSkyMessage(): void {
@@ -1301,12 +2257,10 @@ export class IntimateMiniWorld {
     this.lookYawOffset = 0.0;
     this.lookPitchOffset = 0.0;
     this.resetFireworksAndSkyMessage();
+    this.resetPalaceToMoonlitState();
 
-    // Reset crown to initial floating shrine position above the throne
     this.crownGroup.visible = true;
-    this.crownGroup.position.set(this.throneLocalX - 0.38, 1.92, this.throneLocalZ);
-    this.crownHeartGemMat.emissiveIntensity = 0.3;
-    this.throneUnderglowMat.emissiveIntensity = 0.55;
+    this.crownGroup.position.set(this.throneLocalX - 0.38, 1.9, this.throneLocalZ);
     return true;
   }
 
@@ -1319,11 +2273,10 @@ export class IntimateMiniWorld {
     this.lookYawOffset = 0.0;
     this.lookPitchOffset = 0.0;
     this.resetFireworksAndSkyMessage();
+    this.resetPalaceToMoonlitState();
 
     this.crownGroup.visible = true;
-    this.crownGroup.position.set(this.throneLocalX - 0.38, 1.92, this.throneLocalZ);
-    this.crownHeartGemMat.emissiveIntensity = 0.3;
-    this.throneUnderglowMat.emissiveIntensity = 0.55;
+    this.crownGroup.position.set(this.throneLocalX - 0.38, 1.9, this.throneLocalZ);
     return true;
   }
 
@@ -1372,14 +2325,14 @@ export class IntimateMiniWorld {
   }
 
   /**
-   * Section 11 & 12: ZERO dialogue cards or subtitles in the Mini World.
+   * Section 27: ZERO dialogue cards or subtitles in the Mini World.
    */
   public getCurrentDialogue(): null {
     return null;
   }
 
   /**
-   * Section 11 & 12: ZERO story captions or top banners in the Mini World.
+   * Section 27: ZERO story captions or top banners in the Mini World.
    */
   public getStoryCaption(): null {
     return null;
@@ -1400,6 +2353,12 @@ export class IntimateMiniWorld {
     }
     if (this.state === 'CROWN_RISING' || this.state === 'CROWN_SETTLING') {
       this.equipCrownOnHarsha();
+      this.state = 'PALACE_AWAKENING';
+      this.stateElapsed = 0.0;
+      return true;
+    }
+    if (this.state === 'PALACE_AWAKENING') {
+      this.setPalaceFullyAwakened();
       this.state = 'QUIET_PAUSE';
       this.stateElapsed = 0.0;
       return true;
@@ -1441,6 +2400,7 @@ export class IntimateMiniWorld {
       this.completeWorldEntryTeleport();
     }
     this.equipCrownOnHarsha();
+    this.setPalaceFullyAwakened();
     this.completeRestoreControl();
     return true;
   }
@@ -1451,8 +2411,6 @@ export class IntimateMiniWorld {
       this.avatarBridge?.setJewelleryEquipped({ crownEquipped: true });
       this.crownGroup.visible = false;
       this.crownHeartGemMat.emissiveIntensity = 1.4;
-      this.throneUnderglowMat.emissiveIntensity = 1.35;
-      this.gardenBlossomMat.emissiveIntensity = 0.85;
     }
   }
 
@@ -1472,16 +2430,15 @@ export class IntimateMiniWorld {
   }
 
   /**
-   * Restores player exploration control cleanly inside the garden sanctuary
+   * Section 34: Restores player exploration control cleanly inside the Royal Courtyard
    * after `FINAL_HOLD` completes.
    */
   private completeRestoreControl(): void {
     this.state = 'RESTORE_CONTROL';
     this.isInsideLittleDreamWorld = true;
-    // Place Harsha cleanly on the pearl clearing just in front of her throne steps
     this.pendingTeleport = {
       pos: _scratchTeleportPos.set(
-        this.originX + this.dwCenterX + 1.45,
+        this.originX + this.dwCenterX + 1.25,
         this.baseY + this.y0,
         this.originZ + this.dwCenterZ,
       ),
@@ -1494,7 +2451,7 @@ export class IntimateMiniWorld {
   }
 
   /**
-   * Section 19: Exiting the Mini World ALWAYS returns the player to the safe Floor 2
+   * Section 35: Exiting the Mini World ALWAYS returns the player to the safe Floor 2
    * Doll Playroom return position (`y = baseY + 5.25m`), NEVER Floor 3.
    */
   private completeWorldExitTeleport(): void {
@@ -1594,16 +2551,19 @@ export class IntimateMiniWorld {
       };
     }
 
-    // 3. GARDEN (Harsha walks gently along the curved S-path and takes her seat on the couture throne)
+    // 3. GARDEN (Harsha walks gently along the curved S-path into her courtyard and sits on her throne)
     if (this.state === 'GARDEN') {
       const u = smoothStep01(
         THREE.MathUtils.clamp(this.stateElapsed / this.DUR_GARDEN, 0, 1),
       );
 
-      // Harsha's path progression from (-4.6, 0, 0.25) to the throne seat (3.32, 0.22, 0)
       const walkU = smoothStep01(THREE.MathUtils.clamp(u / 0.82, 0, 1));
-      const sCurveZ = Math.sin(walkU * Math.PI * 2.0) * 0.42 * (1.0 - walkU);
-      const harshaLocalX = THREE.MathUtils.lerp(-4.6, this.throneLocalX - 0.03, walkU);
+      const sCurveZ = Math.sin(walkU * Math.PI * 2.0) * 0.38 * (1.0 - walkU);
+      const harshaLocalX = THREE.MathUtils.lerp(
+        -4.6,
+        this.throneLocalX - 0.03,
+        walkU,
+      );
       const harshaLocalY =
         walkU > 0.78
           ? THREE.MathUtils.lerp(0.0, this.daisTopY, (walkU - 0.78) / 0.22)
@@ -1620,15 +2580,15 @@ export class IntimateMiniWorld {
         dwWorldZ + harshaLocalZ,
       );
 
-      // Smooth accompanying camera glide coming to rest at the intimate throne framing
+      // Accompanying camera glide coming to rest at the intimate throne + palace arch framing
       this.currentCamLocalPos.set(
-        THREE.MathUtils.lerp(-2.2, 0.95, u),
+        THREE.MathUtils.lerp(-2.2, 0.75, u),
         THREE.MathUtils.lerp(1.75, 1.56, u),
         THREE.MathUtils.lerp(-1.35, 0.0, u),
       );
       this.currentLookLocalPos.set(
         THREE.MathUtils.lerp(harshaLocalX + 0.6, this.throneLocalX, u),
-        THREE.MathUtils.lerp(1.25, 1.36, u),
+        THREE.MathUtils.lerp(1.25, 1.38, u),
         THREE.MathUtils.lerp(harshaLocalZ, 0.0, u),
       );
       this.currentFov = THREE.MathUtils.lerp(50.0, 45.0, u);
@@ -1665,15 +2625,17 @@ export class IntimateMiniWorld {
     );
     const seatedYaw = -Math.PI / 2;
 
-    // 4. CROWN_RISING & CROWN_SETTLING (2.2s total) + QUIET_PAUSE (2.8s complete stillness)
+    // 4. CROWN_RISING, CROWN_SETTLING (2.2s), PALACE_AWAKENING (2.0s) & QUIET_PAUSE (2.8s)
     if (
       this.state === 'CROWN_RISING' ||
       this.state === 'CROWN_SETTLING' ||
+      this.state === 'PALACE_AWAKENING' ||
       this.state === 'QUIET_PAUSE'
     ) {
-      // Intimate, completely steady framing on Harsha seated on her throne
-      this.currentCamLocalPos.set(0.95, 1.56, 0.0);
-      this.currentLookLocalPos.set(this.throneLocalX, 1.36, 0.0);
+      // Intimate, completely steady framing where Harsha, her crown, her throne,
+      // and the awakening Royal Crystal Palace behind her are all visible
+      this.currentCamLocalPos.set(0.75, 1.56, 0.0);
+      this.currentLookLocalPos.set(this.throneLocalX, 1.38, 0.0);
       this.currentFov = 45.0;
 
       _scratchCamWorldPos.set(
@@ -1700,8 +2662,9 @@ export class IntimateMiniWorld {
       };
     }
 
-    // 5. FINALE_CAMERA, FIREWORKS & FINAL_HOLD
-    // Single smooth backward + upward pull-back with cubic smoothstep easing (`DUR_FINALE_CAMERA = 3.5s`)
+    // 5. FINALE_CAMERA, FIREWORKS & FINAL_HOLD (Sections 30–33)
+    // Single smooth backward + upward pull-back revealing the courtyard, the awakened palace,
+    // the 3 fireworks bursts, and "I LOVE YOU ❤️" in the open sky above the Heart Spire.
     let pullProgress = 1.0;
     if (this.state === 'FINALE_CAMERA') {
       pullProgress = THREE.MathUtils.clamp(
@@ -1720,28 +2683,41 @@ export class IntimateMiniWorld {
     }
     const easedPull = smoothStep01(pullProgress);
 
-    // Wide finale camera position (`localX = -4.35, localY = 2.48, localZ = 0.0`)
-    // frames Harsha on her throne, the circular garden clearing, the open night sky,
-    // all 3 fireworks bursts, and the complete "I LOVE YOU ❤️" 3D sky message inside the frustum.
     this.currentCamLocalPos.set(
-      THREE.MathUtils.lerp(this.finaleStartCamLocalPos.x, -4.35, easedPull),
-      THREE.MathUtils.lerp(this.finaleStartCamLocalPos.y, 2.48, easedPull),
-      THREE.MathUtils.lerp(this.finaleStartCamLocalPos.z, 0.0, easedPull),
+      THREE.MathUtils.lerp(
+        this.finaleStartCamLocalPos.x,
+        this.finaleEndCamLocalPos.x,
+        easedPull,
+      ),
+      THREE.MathUtils.lerp(
+        this.finaleStartCamLocalPos.y,
+        this.finaleEndCamLocalPos.y,
+        easedPull,
+      ),
+      THREE.MathUtils.lerp(
+        this.finaleStartCamLocalPos.z,
+        this.finaleEndCamLocalPos.z,
+        easedPull,
+      ),
     );
     this.currentLookLocalPos.set(
-      THREE.MathUtils.lerp(this.finaleStartLookLocalPos.x, 5.6, easedPull),
+      THREE.MathUtils.lerp(
+        this.finaleStartLookLocalPos.x,
+        this.finaleEndLookLocalPos.x,
+        easedPull,
+      ),
       THREE.MathUtils.lerp(
         this.finaleStartLookLocalPos.y,
-        2.85 + this.lookPitchOffset * 1.4,
+        this.finaleEndLookLocalPos.y + this.lookPitchOffset * 1.3,
         easedPull,
       ),
       THREE.MathUtils.lerp(
         this.finaleStartLookLocalPos.z,
-        this.lookYawOffset * 2.2,
+        this.finaleEndLookLocalPos.z + this.lookYawOffset * 2.0,
         easedPull,
       ),
     );
-    this.currentFov = THREE.MathUtils.lerp(45.0, 54.0, easedPull);
+    this.currentFov = THREE.MathUtils.lerp(45.0, this.finaleEndFov, easedPull);
 
     _scratchCamWorldPos.set(
       dwWorldX + this.currentCamLocalPos.x,
@@ -1793,8 +2769,8 @@ export class IntimateMiniWorld {
           playerPos.z - (this.originZ + this.dwCenterZ),
         ) <= 8.5;
       const targetGlow = inSanctuary
-        ? 0.95 + Math.sin(clockTime * 2.8) * 0.2
-        : 0.4;
+        ? 0.85 + Math.sin(clockTime * 2.6) * 0.18
+        : 0.35;
       this.pathCrystalGlowMat.emissiveIntensity = THREE.MathUtils.lerp(
         this.pathCrystalGlowMat.emissiveIntensity,
         targetGlow,
@@ -1824,15 +2800,18 @@ export class IntimateMiniWorld {
           this.stateElapsed = 0.0;
         }
       } else if (this.state === 'CROWN_RISING') {
-        // First 1.2s of the 2.2s Crown Sequence:
-        // Subtle shimmer -> crown rises gently and glides forward toward Harsha
+        // First 1.2s of the 2.2s Crown Sequence
         const u = smoothStep01(
           THREE.MathUtils.clamp(this.stateElapsed / this.DUR_CROWN_RISING, 0, 1),
         );
         this.crownGroup.visible = true;
         this.crownGroup.position.set(
-          THREE.MathUtils.lerp(this.throneLocalX - 0.38, this.throneLocalX - 0.14, u),
-          THREE.MathUtils.lerp(1.92, 2.04, Math.sin(u * Math.PI * 0.5)),
+          THREE.MathUtils.lerp(
+            this.throneLocalX - 0.38,
+            this.throneLocalX - 0.14,
+            u,
+          ),
+          THREE.MathUtils.lerp(1.9, 2.02, Math.sin(u * Math.PI * 0.5)),
           this.throneLocalZ,
         );
         this.crownHeartGemMat.emissiveIntensity = THREE.MathUtils.lerp(
@@ -1845,8 +2824,7 @@ export class IntimateMiniWorld {
           this.stateElapsed = 0.0;
         }
       } else if (this.state === 'CROWN_SETTLING') {
-        // Final 1.0s of the 2.2s Crown Sequence:
-        // Aligns to Harsha's actual head attachment (`getCrownAttachmentWorldPos`) and settles
+        // Final 1.0s of the 2.2s Crown Sequence: aligns to Harsha's real head attachment
         const u = smoothStep01(
           THREE.MathUtils.clamp(
             this.stateElapsed / this.DUR_CROWN_SETTLING,
@@ -1873,34 +2851,30 @@ export class IntimateMiniWorld {
 
         this.crownGroup.position.set(
           THREE.MathUtils.lerp(this.throneLocalX - 0.14, targetLocalX, u),
-          THREE.MathUtils.lerp(2.04, targetLocalY, u),
+          THREE.MathUtils.lerp(2.02, targetLocalY, u),
           THREE.MathUtils.lerp(this.throneLocalZ, targetLocalZ, u),
         );
-
-        // Heart gemstone brightens (0.3 -> 1.4) & throne underglow warms
         this.crownHeartGemMat.emissiveIntensity = THREE.MathUtils.lerp(
           0.75,
           1.4,
           u,
         );
-        this.throneUnderglowMat.emissiveIntensity = THREE.MathUtils.lerp(
-          0.55,
-          1.35,
-          u,
-        );
-        this.gardenBlossomMat.emissiveIntensity = THREE.MathUtils.lerp(
-          0.35,
-          0.85,
-          u,
-        );
 
         if (this.stateElapsed >= this.DUR_CROWN_SETTLING) {
           this.equipCrownOnHarsha();
+          this.state = 'PALACE_AWAKENING';
+          this.stateElapsed = 0.0;
+        }
+      } else if (this.state === 'PALACE_AWAKENING') {
+        // Section 25: Progressive 2.0s Palace Awakening Timeline
+        this.applyPalaceAwakeningTimeline(this.stateElapsed);
+        if (this.stateElapsed >= this.DUR_PALACE_AWAKENING) {
+          this.setPalaceFullyAwakened();
           this.state = 'QUIET_PAUSE';
           this.stateElapsed = 0.0;
         }
       } else if (this.state === 'QUIET_PAUSE') {
-        // Section 9: 2.8s of complete stillness (NO fireworks, NO dialogue, NO captions, NO camera movement)
+        // Section 29: 2.8s of complete stillness (Harsha + Crown + Throne + Awakened Palace)
         if (this.stateElapsed >= this.DUR_QUIET_PAUSE) {
           this.finaleStartCamLocalPos.copy(this.currentCamLocalPos);
           this.finaleStartLookLocalPos.copy(this.currentLookLocalPos);
@@ -1908,7 +2882,7 @@ export class IntimateMiniWorld {
           this.stateElapsed = 0.0;
         }
       } else if (this.state === 'FINALE_CAMERA') {
-        // Section 10: Fireworks begin at ~80% of the final camera pull-back
+        // Section 30 & 32: Fireworks begin only after palace awakening + quiet pause + camera progress >= 0.80
         const progress = this.stateElapsed / this.DUR_FINALE_CAMERA;
         if (progress >= 0.8) {
           this.state = 'FIREWORKS';
@@ -1924,7 +2898,7 @@ export class IntimateMiniWorld {
           this.stateElapsed = 0.0;
         }
       } else if (this.state === 'FINAL_HOLD') {
-        // Section 18: Hold final composition for 5.0s, then restore control cleanly
+        // Section 33: Hold final composition for 5.0s, then restore control cleanly
         this.updateFinaleFireworksAndSkyMessage(delta, clockTime);
         if (this.stateElapsed >= this.DUR_FINAL_HOLD) {
           this.completeRestoreControl();
@@ -1946,8 +2920,11 @@ export class IntimateMiniWorld {
   }
 
   /**
-   * Drives the 3 sparse, deterministic fireworks bursts and the 3D world-space
+   * Section 32: Drives the 3 sparse, deterministic fireworks bursts and the 3D world-space
    * "I LOVE YOU ❤️" sky message during `FIREWORKS` and `FINAL_HOLD`.
+   * - Firework 1 (`t = 0.0s`): Rose-pink/champagne Heart above the central palace
+   * - Firework 2 (`t = 1.2s`): Blush/lavender Flower above the left turret
+   * - Firework 3 (`t = 2.4s`): Champagne-gold Star above the right turret
    */
   private updateFinaleFireworksAndSkyMessage(
     delta: number,
@@ -1955,29 +2932,27 @@ export class IntimateMiniWorld {
   ): void {
     this.fireworksElapsed += delta;
 
-    // 1. Deterministic 3-Burst Fireworks Schedule:
-    // Burst 1 (t = 0.0s): Gold launch -> Heart in center-top sky (champagne gold + rose pink)
+    // Burst 1 (t = 0.0s): Heart above central palace
     if (!this.fireworksBurst1Launched && this.fireworksElapsed >= 0.0) {
       this.fireworksBurst1Launched = true;
-      this.launchFireworkBurst(0, 80, 10.6, 6.55, 0.0, 'heart');
+      this.launchFireworkBurst(0, 80, 9.6, 6.85, 0.0, 'heart');
     }
-    // Burst 2 (t = 1.2s): Left side of sky -> Flower (blush + lavender)
+    // Burst 2 (t = 1.2s): Flower above left turret
     if (!this.fireworksBurst2Launched && this.fireworksElapsed >= 1.2) {
       this.fireworksBurst2Launched = true;
-      this.launchFireworkBurst(80, 80, 10.8, 6.1, -2.55, 'flower');
+      this.launchFireworkBurst(80, 80, 9.4, 6.15, -3.55, 'flower');
     }
-    // Burst 3 (t = 2.4s): Right side of sky -> Star (champagne gold)
+    // Burst 3 (t = 2.4s): Star above right turret
     if (!this.fireworksBurst3Launched && this.fireworksElapsed >= 2.4) {
       this.fireworksBurst3Launched = true;
-      this.launchFireworkBurst(160, 80, 10.8, 6.1, 2.55, 'star');
+      this.launchFireworkBurst(160, 80, 9.4, 6.15, 3.55, 'star');
     }
 
-    // Gentle secondary shimmer bursts during the final hold so the sky stays alive without clutter
-    if (this.fireworksElapsed >= 4.6 && this.fireworksElapsed - delta < 4.6) {
-      this.launchFireworkBurst(0, 80, 10.6, 6.55, 0.0, 'heart');
+    // Gentle secondary heart shimmer during final hold so sky remains luminous without clutter
+    if (this.fireworksElapsed >= 4.5 && this.fireworksElapsed - delta < 4.5) {
+      this.launchFireworkBurst(0, 80, 9.6, 6.85, 0.0, 'heart');
     }
 
-    // 2. Advance Fireworks Particle Physics
     const posArr = this.fireworksPosAttr.array as Float32Array;
     const colArr = this.fireworksColorAttr.array as Float32Array;
     let anyActive = false;
@@ -2018,7 +2993,7 @@ export class IntimateMiniWorld {
       this.fireworksColorAttr.needsUpdate = true;
     }
 
-    // 3. Smooth Fade-In & Soft Pulse of the 3D World-Space "I LOVE YOU ❤️" Sky Sculpture
+    // Smooth Fade-In & Soft Pulse of the 3D World-Space "I LOVE YOU ❤️" Sky Sculpture
     const msgFade = smoothStep01(
       THREE.MathUtils.clamp((this.fireworksElapsed - 0.35) / 1.4, 0, 1),
     );

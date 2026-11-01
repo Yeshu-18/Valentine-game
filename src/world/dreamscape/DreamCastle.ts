@@ -2395,25 +2395,20 @@ export function createDreamCastle(): DreamCastleBundle {
   buildLoveRibbonRailLine(scEast23.railOuterX, scEast23.startZ, scEast23.startY, scEast23.endZ, scEast23.endY, 1, true);
 
   // ========================================================================
-  // 7. LEVEL 3: DREAM WING (TOP SURFACE Y = +10.25m) — CLEAR STAIRWELL OPENING AT EAST (lx: 5.8..9.2, lz: 7.0..13.0)
+  // 7. LEVEL 3: DREAM WING & SOLID CENTRAL GRAND LOBBY (TOP SURFACE Y = +10.25m)
+  //    (100% SOLID CENTRAL WALKABLE FOYER PLAZA; CUTTING OUT ONLY EAST STAIRWELL lx: 5.8..9.2, lz: 8.5..13.8)
   // ========================================================================
   const dreamSlabThickness = 0.35;
   const dreamSlabCenterY = 10.25 - dreamSlabThickness * 0.5; // topY === 10.25m
   const dreamPlates = [
-    // South Promenade (lz: -15.0 .. -5.2)
-    { x: 0, z: -10.1, w: 30.0, d: 9.8 },
-    // West Gallery Promenade (lx: -15.0 .. -5.2, lz: -5.2 .. +6.5) — connects directly to F3->F4 West Staircase at (-7.5, +6.5)!
-    { x: -10.1, z: 0.65, w: 9.8, d: 11.7 },
-    // East Gallery Promenade South of F2->F3 Stairwell (lx: +5.2 .. +15.0, lz: -5.2 .. +7.0)
-    { x: 10.1, z: 0.9, w: 9.8, d: 12.2 },
-    // Central-North Elevator Lobby Bridge between Chandelier Atrium and Elevator/Stairs (lx: -5.2 .. +5.8, lz: +3.8 .. +7.0)
-    { x: 0.3, z: 5.4, w: 11.0, d: 3.2 },
-    // North-West & Central Gallery around F2->F3 East Stairwell (lx: -15.0 .. +5.8, lz: +7.0 .. +15.2)
-    { x: -4.6, z: 11.1, w: 20.8, d: 8.2 },
-    // Outer North-East Gallery beside F2->F3 East Stairwell (lx: +9.2 .. +15.0, lz: +7.0 .. +15.2)
-    { x: 12.1, z: 11.1, w: 5.8, d: 8.2 },
-    // North-East Stair Landing where Step 14 of F2->F3 arrives (lx: +5.8 .. +9.2, lz: +13.0 .. +15.2)
-    { x: 7.5, z: 14.1, w: 3.5, d: 2.2 },
+    // Continuous South & Central Grand Lobby Plaza (lx: -15.0 .. +15.0, lz: -15.0 .. +8.5)
+    { x: 0, z: -3.25, w: 30.0, d: 23.5 },
+    // North-West & Central Gallery around F2->F3 East Stairwell (lx: -15.0 .. +5.8, lz: +8.5 .. +15.2)
+    { x: -4.6, z: 11.85, w: 20.8, d: 6.7 },
+    // Outer North-East Gallery beside F2->F3 East Stairwell (lx: +9.2 .. +15.0, lz: +8.5 .. +15.2)
+    { x: 12.1, z: 11.85, w: 5.8, d: 6.7 },
+    // North-East Stair Top Landing where Step 14 of F2->F3 arrives (lx: +5.8 .. +9.2, lz: +13.8 .. +15.5)
+    { x: 7.5, z: 14.65, w: 3.5, d: 1.7 },
   ];
 
   dreamPlates.forEach((p) => {
@@ -2425,24 +2420,21 @@ export function createDreamCastle(): DreamCastleBundle {
     cameraOccluders.push(mesh);
   });
 
-  // Floor 3 Atrium Balustrade Rails framing the central atrium opening (lx: -5.2..+5.2, lz: -5.2..+3.8)
-  const f3AtriumHorizRailGeo = tracker.trackGeo(new THREE.BoxGeometry(10.4, 0.12, 0.16));
-  f3AtriumHorizRailGeo.translate(0, 11.15, 0);
-  const f3SouthAtriumRail = new THREE.Mesh(f3AtriumHorizRailGeo, loveRibbonGoldMat);
-  f3SouthAtriumRail.position.set(0, 0, -5.2);
-  const f3NorthAtriumRail = new THREE.Mesh(f3AtriumHorizRailGeo, loveRibbonGoldMat);
-  f3NorthAtriumRail.position.set(0, 0, 3.8);
-  group.add(f3SouthAtriumRail, f3NorthAtriumRail);
+  // Central Royal Starlight Lobby Floor Medallion on Floor 3 (flush on y = 10.25m plaza)
+  const f3LobbyMedallionOuterGeo = tracker.trackGeo(new THREE.CylinderGeometry(3.2, 3.25, 0.024, 36));
+  f3LobbyMedallionOuterGeo.translate(0, 10.262, -1.2);
+  const f3LobbyMedallionRingGeo = tracker.trackGeo(new THREE.TorusGeometry(3.22, 0.032, 8, 36));
+  f3LobbyMedallionRingGeo.rotateX(Math.PI / 2);
+  f3LobbyMedallionRingGeo.translate(0, 10.275, -1.2);
+  const f3LobbyMedallionInnerGeo = tracker.trackGeo(new THREE.CylinderGeometry(1.85, 1.88, 0.028, 32));
+  f3LobbyMedallionInnerGeo.translate(0, 10.265, -1.2);
+  group.add(
+    new THREE.Mesh(f3LobbyMedallionOuterGeo, mats.blushRoseMarble),
+    new THREE.Mesh(f3LobbyMedallionRingGeo, loveRibbonGoldMat),
+    new THREE.Mesh(f3LobbyMedallionInnerGeo, mats.softLavender),
+  );
 
-  const f3AtriumSideRailGeo = tracker.trackGeo(new THREE.BoxGeometry(0.16, 0.12, 9.0));
-  f3AtriumSideRailGeo.translate(0, 11.15, 0);
-  [-5.2, 5.2].forEach((bx) => {
-    const sRail = new THREE.Mesh(f3AtriumSideRailGeo, loveRibbonGoldMat);
-    sRail.position.set(bx, 0, -0.7);
-    group.add(sRail);
-  });
-
-  // Protective Gold Balustrade Rail on Floor 3 at the south drop-off edge of the F2->F3 stairwell (z = 6.92, lx = 5.8..9.2)
+  // Protective Gold Balustrade Rail on Floor 3 at the south drop-off edge of the F2->F3 stairwell (z = 8.42, lx = 5.8..9.2)
   const wellBackRailGeo = tracker.trackGeo(new THREE.BoxGeometry(3.3, 0.92, 0.12));
   const f3WellBackRail = new THREE.Mesh(wellBackRailGeo, loveRibbonGoldMat);
   f3WellBackRail.position.set(scEast23.startX, 10.25 + 0.46, scEast23.startZ - 0.08);

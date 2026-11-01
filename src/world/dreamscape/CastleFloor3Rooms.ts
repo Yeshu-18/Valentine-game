@@ -305,6 +305,80 @@ export function createCastleFloor3Rooms(
   buildPartitionAt(-11.8, -6.2); // Cloud Bedroom Entrance
   buildPartitionAt(11.8, -6.2);  // Heart Gallery Entrance
 
+  // Grand Suite Archways framing the Central Walkable Foyer Plaza (3.2m clear walkthrough gaps):
+  // 1) West Suite Wall (lx = -6.0, lz in [-6.2, +5.8]) with 3.2m Grand Archway at lz in [-3.6, -0.4]
+  // 2) East Suite Wall (lx = +6.0, lz in [-6.2, +5.8]) with 3.2m Grand Archway at lz in [-3.6, -0.4]
+  // 3) South Suite Wall (lz = -6.2, lx in [-6.0, +6.0]) with 3.2m Grand Archway at lx in [-1.6, +1.6]
+  const suiteGrandArchTrimGeo = tracker.trackGeo(
+    new THREE.TorusGeometry(1.6, 0.06, 8, 24, Math.PI),
+  );
+  const suitePilasterGeo = tracker.trackGeo(
+    new THREE.CylinderGeometry(0.13, 0.15, 4.38, 12),
+  );
+  suitePilasterGeo.translate(0, 2.19, 0);
+
+  [-6.0, 6.0].forEach((sx) => {
+    const southJambGeo = tracker.trackGeo(new THREE.BoxGeometry(0.38, 4.4, 2.6));
+    southJambGeo.translate(sx, y0 + 2.2, -4.9);
+    const southJamb = new THREE.Mesh(southJambGeo, mats.creamStone);
+
+    const northJambGeo = tracker.trackGeo(new THREE.BoxGeometry(0.38, 4.4, 6.2));
+    northJambGeo.translate(sx, y0 + 2.2, 2.7);
+    const northJamb = new THREE.Mesh(northJambGeo, mats.creamStone);
+
+    const archHeaderGeo = tracker.trackGeo(new THREE.BoxGeometry(0.42, 1.15, 3.2));
+    archHeaderGeo.translate(sx, y0 + 3.82, -2.0);
+    const archHeader = new THREE.Mesh(archHeaderGeo, mats.blushRoseMarble);
+
+    const archRing = new THREE.Mesh(suiteGrandArchTrimGeo, mats.champagneGold);
+    archRing.rotation.y = Math.PI / 2;
+    archRing.position.set(sx, y0 + 2.75, -2.0);
+
+    const pilSouth = new THREE.Mesh(suitePilasterGeo, mats.champagneGold);
+    pilSouth.position.set(sx, y0, -3.6);
+    const pilNorth = new THREE.Mesh(suitePilasterGeo, mats.champagneGold);
+    pilNorth.position.set(sx, y0, -0.4);
+
+    group.add(southJamb, northJamb, archHeader, archRing, pilSouth, pilNorth);
+    partitionMeshes.push(southJamb, northJamb, archHeader);
+    dynamicObjects.add(southJamb);
+    dynamicObjects.add(northJamb);
+    dynamicObjects.add(archHeader);
+  });
+
+  const southSuiteWestGeo = tracker.trackGeo(new THREE.BoxGeometry(4.4, 4.4, 0.38));
+  southSuiteWestGeo.translate(-3.8, y0 + 2.2, -6.2);
+  const southSuiteWest = new THREE.Mesh(southSuiteWestGeo, mats.creamStone);
+
+  const southSuiteEastGeo = tracker.trackGeo(new THREE.BoxGeometry(4.4, 4.4, 0.38));
+  southSuiteEastGeo.translate(3.8, y0 + 2.2, -6.2);
+  const southSuiteEast = new THREE.Mesh(southSuiteEastGeo, mats.creamStone);
+
+  const southSuiteHeaderGeo = tracker.trackGeo(new THREE.BoxGeometry(3.2, 1.15, 0.42));
+  southSuiteHeaderGeo.translate(0.0, y0 + 3.82, -6.2);
+  const southSuiteHeader = new THREE.Mesh(southSuiteHeaderGeo, mats.blushRoseMarble);
+
+  const southSuiteArchRing = new THREE.Mesh(suiteGrandArchTrimGeo, mats.champagneGold);
+  southSuiteArchRing.position.set(0.0, y0 + 2.75, -6.2);
+
+  const pilSouthWest = new THREE.Mesh(suitePilasterGeo, mats.champagneGold);
+  pilSouthWest.position.set(-1.6, y0, -6.2);
+  const pilSouthEast = new THREE.Mesh(suitePilasterGeo, mats.champagneGold);
+  pilSouthEast.position.set(1.6, y0, -6.2);
+
+  group.add(
+    southSuiteWest,
+    southSuiteEast,
+    southSuiteHeader,
+    southSuiteArchRing,
+    pilSouthWest,
+    pilSouthEast,
+  );
+  partitionMeshes.push(southSuiteWest, southSuiteEast, southSuiteHeader);
+  dynamicObjects.add(southSuiteWest);
+  dynamicObjects.add(southSuiteEast);
+  dynamicObjects.add(southSuiteHeader);
+
   // ============================================================================
   // 1. STAR LOUNGE & SOUTH CELESTIAL BALCONY (lx: [-5.0, +5.0], lz: [-14.8, -7.0])
   // ============================================================================
@@ -463,11 +537,11 @@ export function createCastleFloor3Rooms(
     gemGeo.translate(0, 0.98, 0);
 
     const ped = new THREE.Mesh(pedGeo, mats.creamStone);
-    ped.position.set(10.8, y0, mem.z);
+    ped.position.set(12.6, y0, mem.z);
     const gem = new THREE.Mesh(gemGeo, mats.warmLanternGlow);
-    gem.position.set(10.8, y0, mem.z);
+    gem.position.set(12.6, y0, mem.z);
     heartGalleryGroup.add(ped, gem);
-    addLocalCollider(10.8, mem.z, 0.42);
+    addLocalCollider(12.6, mem.z, 0.42);
   });
 
   // Section 15 & 22: Heart Gallery Romantic Wall Lettering ("♥ I LOVE YOU, HARSHA — OUR HEART GALLERY ♥")
@@ -573,9 +647,9 @@ export function createCastleFloor3Rooms(
   cloudBedroomGroup.name = 'RoyalCloudBedroom';
   group.add(cloudBedroomGroup);
 
-  // Four-Poster Cloud Canopy Bed centered at (-11.8, y0, -1.5)
+  // Four-Poster Cloud Canopy Bed centered at (-12.3, y0, -1.5 — leaves >4.5m clear interior foyer inside lx = -6.0 archway)
   const bedGroup = new THREE.Group();
-  bedGroup.position.set(-11.8, y0, -1.5);
+  bedGroup.position.set(-12.3, y0, -1.5);
   cloudBedroomGroup.add(bedGroup);
 
   // Bed Base & Tufted Velvet Mattress
@@ -676,19 +750,19 @@ export function createCastleFloor3Rooms(
   bedroomWallCrest.rotation.y = Math.PI / 2;
   cloudBedroomGroup.add(bedroomWallCrestBoard, bedroomWallCrest);
 
-  addLocalCollider(-11.8, -1.5, 1.65);
+  addLocalCollider(-12.3, -1.5, 1.55);
 
-  // Twin Crescent Moon Nightstands with Starlight Lamps
+  // Twin Crescent Moon Nightstands with Starlight Lamps (flanking West headboard wall at lx = -13.8, lz = -3.6 and +0.6)
   const nightstandGeo = tracker.trackGeo(new THREE.CylinderGeometry(0.38, 0.42, 0.65, 16));
   nightstandGeo.translate(0, 0.325, 0);
-  [-13.6, -10.0].forEach((nx) => {
+  [-3.6, 0.6].forEach((nz) => {
     const ns = new THREE.Mesh(nightstandGeo, mats.creamStone);
-    ns.position.set(nx, y0, -1.5);
+    ns.position.set(-13.8, y0, nz);
     const lamp = new THREE.Mesh(prismCoreGeo, mats.warmLanternGlow);
     lamp.scale.setScalar(0.45);
-    lamp.position.set(nx, y0 + 0.85, -1.5);
+    lamp.position.set(-13.8, y0 + 0.85, nz);
     cloudBedroomGroup.add(ns, lamp);
-    addLocalCollider(nx, -1.5, 0.45);
+    addLocalCollider(-13.8, nz, 0.42);
   });
 
   // ============================================================================
@@ -900,16 +974,16 @@ export function createCastleFloor3Rooms(
       if (Math.hypot(lx - 0.0, lz - -11.8) <= 3.2) {
         return '[E] Sit on Crescent Moon Loveseat';
       }
-      // 2. Heart Gallery Memory Pedestals (10.8, -3.5)
-      if (Math.hypot(lx - 10.8, lz - -3.5) <= 3.4) {
+      // 2. Heart Gallery Memory Pedestals (12.6, -3.5)
+      if (Math.hypot(lx - 12.6, lz - -3.5) <= 3.6) {
         return '[E] View Romantic Memory Gallery';
       }
       // 3. Infinite Starlight Mirror Room (12.2, 11.0)
       if (Math.hypot(lx - 12.2, lz - 11.0) <= 3.1) {
         return '[E] Awaken Infinite Starlight Mirrors';
       }
-      // 4. Royal Cloud Bedroom Canopy Bed (-11.8, -1.5)
-      if (Math.hypot(lx - -11.8, lz - -1.5) <= 3.2) {
+      // 4. Royal Cloud Bedroom Canopy Bed (-12.3, -1.5)
+      if (Math.hypot(lx - -12.3, lz - -1.5) <= 3.4) {
         return '[E] Rest on Royal Cloud Bed';
       }
       // 5. Pastel Aurora North Sanctuary (0.0, 8.5)
@@ -968,7 +1042,7 @@ export function createCastleFloor3Rooms(
       }
 
       // 2. Romantic Heart Memory Gallery
-      if (Math.hypot(lx - 10.8, lz - -3.5) <= 3.4) {
+      if (Math.hypot(lx - 12.6, lz - -3.5) <= 3.6) {
         activeMode = 'heart_gallery';
         cameraBlendAlpha = 0.0;
         selectedMemoryIndex = 2; // Start with Ballroom Waltz
@@ -987,7 +1061,7 @@ export function createCastleFloor3Rooms(
       }
 
       // 4. Royal Cloud Bedroom Canopy Bed
-      if (Math.hypot(lx - -11.8, lz - -1.5) <= 3.2) {
+      if (Math.hypot(lx - -12.3, lz - -1.5) <= 3.4) {
         activeMode = 'cloud_bedroom';
         cameraBlendAlpha = 0.0;
         playCelestialArpeggio(329.63);
@@ -1123,7 +1197,7 @@ export function createCastleFloor3Rooms(
         _scratchSeatWorldPos.set(imX, baseY + y0, imZ);
         seatYaw = Math.PI * 0.25;
       } else if (activeMode === 'cloud_bedroom') {
-        const bdX = originX - 11.8;
+        const bdX = originX - 12.3;
         const bdY = baseY + y0 + 0.38;
         const bdZ = originZ - 1.5;
         _scratchCamWorldPos.set(bdX + 2.35, bdY + 1.25, bdZ + 0.15);

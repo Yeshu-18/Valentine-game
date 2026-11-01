@@ -697,12 +697,12 @@ export function createCastleFloor1Rooms(
       partitionGroup.add(wOuter, wInner, wHeader, cornice, pil1, pil2, pil3);
       partitionMeshes.push(wOuter, wInner, wHeader);
 
-      // Partition CircleColliders strictly outside |lx| >= 9.4 at z = ±7.6 (leaving doorway at |lx| = 12.28 and staircase corridor |lx| < 9.0 100% open)
-      [14.8, 13.8, 10.5, 9.5].forEach((absX) => {
+      // Partition CircleColliders strictly outside |lx| >= 9.4 at z = ±7.6 (leaving a 2.8m doorway at |lx| in [10.88, 13.68] and staircase corridor |lx| < 9.0 100% open)
+      [14.85, 14.15, 10.25, 9.55].forEach((absX) => {
         colliders.push({
           x: originX + side * absX,
           z: originZ + pz,
-          radius: 0.65,
+          radius: 0.48,
           y: baseY + 0.25,
           height: 4.5,
         });
@@ -881,7 +881,7 @@ export function createCastleFloor1Rooms(
 
   const pedestalConfigs = [
     { lx: -13.0, lz: -12.8, gownType: 0, baseYaw: 0.45 },
-    { lx: -13.0, lz: -9.8, gownType: 1, baseYaw: 0.85 },
+    { lx: -13.4, lz: -10.4, gownType: 1, baseYaw: 0.85 },
     { lx: -10.0, lz: -12.8, gownType: 2, baseYaw: -0.35 },
   ];
 
@@ -960,7 +960,7 @@ export function createCastleFloor1Rooms(
 
     pedestalPivots.push(pivot);
     fashionGroup.add(pivot);
-    colliders.push({ x: originX + cfg.lx, z: originZ + cfg.lz, radius: 1.08 });
+    colliders.push({ x: originX + cfg.lx, z: originZ + cfg.lz, radius: 0.92 });
   });
 
   // Glass-and-Gold Vitrine Cases (Miniature High-Heeled Shoes, Quilted Handbags & Pearl Necklaces)
@@ -1213,47 +1213,47 @@ export function createCastleFloor1Rooms(
   ovenDoorPivot.add(ovenDoorMesh, ovenWindowMesh);
   kitchenGroup.add(ovenDoorPivot);
 
-  // Calacatta Marble Breakfast Island (lx = 10.6, lz = -9.6)
+  // Calacatta Marble Breakfast Island (lx = 11.4, lz = -10.6 — leaves >2.2m clear foyers at both West Atrium & South Dining archways)
   const islandBaseGeo = tracker.trackGeo(new THREE.BoxGeometry(3.4, 0.95, 1.45));
   islandBaseGeo.translate(0, 0.725, 0);
   const islandTopGeo = tracker.trackGeo(new THREE.BoxGeometry(3.65, 0.1, 1.65));
   islandTopGeo.translate(0, 1.24, 0);
   const islandBase = new THREE.Mesh(islandBaseGeo, blushQuiltedVelvet);
-  islandBase.position.set(10.6, 0, -9.6);
+  islandBase.position.set(11.4, 0, -10.6);
   const islandTop = new THREE.Mesh(islandTopGeo, mats.pearlWhite);
-  islandTop.position.set(10.6, 0, -9.6);
+  islandTop.position.set(11.4, 0, -10.6);
   kitchenGroup.add(islandBase, islandTop);
   colliders.push(
-    { x: originX + 9.6, z: originZ - 9.6, radius: 0.95 },
-    { x: originX + 11.6, z: originZ - 9.6, radius: 0.95 },
+    { x: originX + 10.5, z: originZ - 10.6, radius: 0.82 },
+    { x: originX + 12.3, z: originZ - 10.6, radius: 0.82 },
   );
 
   // 3 Pastel Barstools
   const stoolSeatGeo = tracker.trackGeo(new THREE.CylinderGeometry(0.28, 0.26, 0.12, 16));
   const stoolLegGeo = tracker.trackGeo(new THREE.CylinderGeometry(0.04, 0.06, 0.78, 10));
   stoolLegGeo.translate(0, 0.39, 0);
-  [9.4, 10.6, 11.8].forEach((sx) => {
+  [10.2, 11.4, 12.6].forEach((sx) => {
     const leg = new THREE.Mesh(stoolLegGeo, mats.champagneGold);
-    leg.position.set(sx, 0.25, -8.35);
+    leg.position.set(sx, 0.25, -9.45);
     const seat = new THREE.Mesh(stoolSeatGeo, barbieRoseLacquer);
-    seat.position.set(sx, 1.05, -8.35);
+    seat.position.set(sx, 1.05, -9.45);
     kitchenGroup.add(leg, seat);
   });
 
   // ==========================================================================
   // 20. KITCHEN COUNTERS PROPS (Low-Poly Reusable & Instanced Culinary Details)
   // ==========================================================================
-  // 1) Tiered Gold & Blush Pastry Stand + Instanced Cupcakes on the Breakfast Island (lx = 10.55, lz = -9.55)
+  // 1) Tiered Gold & Blush Pastry Stand + Instanced Cupcakes on the Breakfast Island (lx = 11.35, lz = -10.55)
   const pastryStandRod = new THREE.Mesh(
-    tracker.trackGeo(new THREE.CylinderGeometry(0.018, 0.024, 0.36, 8)).translate(10.55, 1.47, -9.55),
+    tracker.trackGeo(new THREE.CylinderGeometry(0.018, 0.024, 0.36, 8)).translate(11.35, 1.47, -10.55),
     mats.champagneGold,
   );
   const pastryTierLower = new THREE.Mesh(
-    tracker.trackGeo(new THREE.CylinderGeometry(0.24, 0.22, 0.02, 16)).translate(10.55, 1.38, -9.55),
+    tracker.trackGeo(new THREE.CylinderGeometry(0.24, 0.22, 0.02, 16)).translate(11.35, 1.38, -10.55),
     mats.pearlWhite,
   );
   const pastryTierUpper = new THREE.Mesh(
-    tracker.trackGeo(new THREE.CylinderGeometry(0.17, 0.15, 0.02, 16)).translate(10.55, 1.54, -9.55),
+    tracker.trackGeo(new THREE.CylinderGeometry(0.17, 0.15, 0.02, 16)).translate(11.35, 1.54, -10.55),
     blushQuiltedVelvet,
   );
   kitchenGroup.add(pastryStandRod, pastryTierLower, pastryTierUpper);
@@ -1265,7 +1265,7 @@ export function createCastleFloor1Rooms(
     const ang = (c * Math.PI * 2) / (isUpper ? 2 : 4);
     const r = isUpper ? 0.075 : 0.14;
     const cy = isUpper ? 1.575 : 1.415;
-    _scratchDummy.position.set(10.55 + Math.cos(ang) * r, cy, -9.55 + Math.sin(ang) * r);
+    _scratchDummy.position.set(11.35 + Math.cos(ang) * r, cy, -10.55 + Math.sin(ang) * r);
     _scratchDummy.rotation.set(0, ang, 0);
     _scratchDummy.scale.setScalar(1.0);
     _scratchDummy.updateMatrix();
@@ -1342,14 +1342,14 @@ export function createCastleFloor1Rooms(
   const teacupGeo = tracker.trackGeo(new THREE.CylinderGeometry(0.058, 0.042, 0.068, 12));
   const saucerInst = new THREE.InstancedMesh(saucerGeo, mats.pearlWhite, 3);
   const teacupInst = new THREE.InstancedMesh(teacupGeo, blushQuiltedVelvet, 3);
-  [9.85, 11.1, 11.95].forEach((tx, idx) => {
-    _scratchDummy.position.set(tx, 1.298, -9.18);
+  [10.65, 11.9, 12.75].forEach((tx, idx) => {
+    _scratchDummy.position.set(tx, 1.298, -10.18);
     _scratchDummy.rotation.set(0, 0, 0);
     _scratchDummy.scale.setScalar(1.0);
     _scratchDummy.updateMatrix();
     saucerInst.setMatrixAt(idx, _scratchDummy.matrix);
 
-    _scratchDummy.position.set(tx, 1.335, -9.18);
+    _scratchDummy.position.set(tx, 1.335, -10.18);
     _scratchDummy.updateMatrix();
     teacupInst.setMatrixAt(idx, _scratchDummy.matrix);
   });
@@ -1357,14 +1357,14 @@ export function createCastleFloor1Rooms(
   teacupInst.instanceMatrix.needsUpdate = true;
   kitchenGroup.add(saucerInst, teacupInst);
 
-  // Smoothie Blender (lx = 9.6, lz = -9.6) & Brass-and-Rose Teakettle (lx = 11.5, lz = -9.6)
+  // Smoothie Blender (lx = 10.4, lz = -10.6) & Brass-and-Rose Teakettle (lx = 12.3, lz = -10.6)
   const blenderBase = new THREE.Mesh(
     tracker.trackGeo(new THREE.CylinderGeometry(0.14, 0.18, 0.22, 14)).translate(0, 1.4, 0),
     barbieRoseLacquer,
   );
-  blenderBase.position.set(9.6, 0, -9.6);
+  blenderBase.position.set(10.4, 0, -10.6);
   const blenderJarPivot = new THREE.Group();
-  blenderJarPivot.position.set(9.6, 1.66, -9.6);
+  blenderJarPivot.position.set(10.4, 1.66, -10.6);
   dynamicObjects.add(blenderJarPivot);
   const blenderJar = new THREE.Mesh(
     tracker.trackGeo(new THREE.CylinderGeometry(0.14, 0.11, 0.34, 14)),
@@ -1378,7 +1378,7 @@ export function createCastleFloor1Rooms(
   kitchenGroup.add(blenderBase, blenderJarPivot);
 
   const kettleGroup = new THREE.Group();
-  kettleGroup.position.set(11.5, 1.29, -9.6);
+  kettleGroup.position.set(12.3, 1.29, -10.6);
   const kettleBody = new THREE.Mesh(
     tracker.trackGeo(new THREE.SphereGeometry(0.18, 14, 12)).translate(0, 0.15, 0),
     barbieRoseLacquer,
@@ -1395,7 +1395,7 @@ export function createCastleFloor1Rooms(
   const steamPuffs: THREE.Mesh[] = [];
   for (let s = 0; s < 6; s++) {
     const puff = new THREE.Mesh(steamGeo, steamParticleMat);
-    puff.position.set(11.5, 1.65 + s * 0.14, -9.6);
+    puff.position.set(12.3, 1.65 + s * 0.14, -10.6);
     puff.visible = false;
     dynamicObjects.add(puff);
     steamPuffs.push(puff);
@@ -3553,7 +3553,7 @@ export function createCastleFloor1Rooms(
         isOvenOpen ? '[E] Close Royal Oven' : '[E] Check Royal Oven',
       );
     }
-    if (Math.hypot(lx - 10.6, lz - -9.6) <= 2.5) {
+    if (Math.hypot(lx - 11.4, lz - -10.6) <= 2.6) {
       return setHitResult('blender', '[E] Blend Berry Smoothie / Boil Kettle');
     }
 
@@ -4136,13 +4136,13 @@ export function createCastleFloor1Rooms(
       if (blenderActiveTimer > 0) {
         blenderActiveTimer = Math.max(0, blenderActiveTimer - delta);
         blenderJarPivot.rotation.y += delta * 24.0;
-        blenderJarPivot.position.x = 9.6 + Math.sin(elapsedTime * 48.0) * 0.012;
+        blenderJarPivot.position.x = 10.4 + Math.sin(elapsedTime * 48.0) * 0.012;
         if (blenderActiveTimer <= 0.45 && !kettleChiming) {
           kettleChiming = true;
           playArpeggioNotes([1046.5, 1318.5, 1567.98], 0.12, 0.055);
         }
       } else {
-        blenderJarPivot.position.x = 9.6;
+        blenderJarPivot.position.x = 10.4;
       }
 
       const showSteam = isOvenOpen || blenderActiveTimer > 0;
