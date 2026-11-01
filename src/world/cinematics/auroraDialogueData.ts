@@ -28,163 +28,147 @@ const Y = {
   typeSpeed: 32,
 };
 
-const H = {
-  speaker: 'Harsha' as const,
-  badge: 'Harsha ♡',
-  typeSpeed: 32,
-};
-
 /**
- * Canonical Big Castle Entrance Cinematic Dialogue Sequence (Sections 5, 6, 8, 10).
- * Natural romantic conversation between Yeshwanth and Harsha — zero narration of visual events.
+ * Canonical Big Castle Entrance Cinematic Dialogue Sequence (Pass B: Sections 1, 2, 3).
+ * One-Way Dialogue Rule: ONLY Yeshwanth speaks. Harsha responds visually through body language,
+ * head turns, looking at Yeshwanth/the castle, and receiving the rose.
  * Every beat pauses and waits for explicit Enter or Continue confirmation.
  */
 export const CASTLE_ENTRANCE_DIALOGUE: AuroraDialogueSequence = [
-  // Group 1 — Three-Quarter Castle Reveal (Section 5: indices 0..7)
+  // First Reveal & Castle Lighting (Beats 01..04, indices 0..3)
   { id: 'entrance_01', ...Y, text: 'Okay... you can look now.' },
-  { id: 'entrance_02', ...H, text: 'Yeshwanth...' },
-  { id: 'entrance_03', ...H, text: 'You actually made this?' },
-  { id: 'entrance_04', ...Y, text: 'I told you I had something for you.' },
-  { id: 'entrance_05', ...H, text: 'I thought you meant something small.' },
-  { id: 'entrance_06', ...Y, text: 'This is small.' },
-  { id: 'entrance_07', ...H, text: 'THIS is small?' },
+  { id: 'entrance_02', ...Y, text: 'I told you I had something for you.' },
   {
-    id: 'entrance_08',
+    id: 'entrance_03',
     ...Y,
-    text: 'Compared to everything I wanted to make for you.',
+    text: "I know it's a little more than you were expecting.",
+  },
+  { id: 'entrance_04', ...Y, text: "I kept thinking about what you'd like." },
+
+  // Harsha Heart Reveal (Beat 05, index 4)
+  {
+    id: 'entrance_05',
+    ...Y,
+    text: "Yeah... that one's yours.",
     isProposal: true,
   },
 
-  // Group 2 — Castle Lighting & HARSHA Heart Reaction (Section 6: indices 8..14)
-  { id: 'entrance_09', ...H, text: "It's so pretty..." },
-  { id: 'entrance_10', ...Y, text: "I kept thinking about what you'd like." },
-  { id: 'entrance_11', ...H, text: 'You even put my name there?' },
-  { id: 'entrance_12', ...Y, text: 'Of course.' },
-  { id: 'entrance_13', ...H, text: "You're ridiculous." },
-  { id: 'entrance_14', ...Y, text: 'You like ridiculous.' },
-  { id: 'entrance_15', ...H, text: 'Maybe.' },
+  // Doors Open Visually (Beat 06, index 5)
+  { id: 'entrance_06', ...Y, text: 'Come on.' },
 
-  // Group 3 — Entering Big Castle / Doors Open Visually (Section 8: indices 15..18)
-  { id: 'entrance_16', ...H, text: "We're going inside too?" },
+  // Realistic 3D Rose & Handover Sequence (Beats 07..12, indices 6..11)
+  { id: 'entrance_07', ...Y, text: "There's one more thing." },
+  { id: 'entrance_08', ...Y, text: 'This is for you.', isProposal: true },
   {
-    id: 'entrance_17',
-    ...Y,
-    text: "You didn't think I'd build the outside and leave you standing at the door, did you?",
-  },
-  { id: 'entrance_18', ...H, text: "Honestly... with you, I wasn't sure." },
-  { id: 'entrance_19', ...Y, text: 'Come on.' },
-
-  // Group 4 — Big Castle Flower Moment / Left-Side Two-Shot (Section 10: indices 19..28)
-  { id: 'entrance_20', ...H, text: "What's that?" },
-  { id: 'entrance_21', ...Y, text: 'For you.', isProposal: true },
-  { id: 'entrance_22', ...H, text: 'You got me a flower too?' },
-  {
-    id: 'entrance_23',
+    id: 'entrance_09',
     ...Y,
     text: "I couldn't make a whole castle and forget the flower.",
   },
-  { id: 'entrance_24', ...H, text: "You're really trying to impress me, huh?" },
-  { id: 'entrance_25', ...Y, text: 'Is it working?' },
-  { id: 'entrance_26', ...H, text: 'Maybe a little.' },
-  { id: 'entrance_27', ...Y, text: "I'll take that." },
   {
-    id: 'entrance_28',
+    id: 'entrance_10',
     ...Y,
-    text: 'I just wanted to make something that makes you feel as special as you are to me.',
+    text: 'I just wanted to give you something you could hold onto.',
     isProposal: true,
   },
-  { id: 'entrance_29', ...H, text: 'You already do.', isProposal: true },
+  {
+    id: 'entrance_11',
+    ...Y,
+    text: 'I hope you know how special you are to me.',
+    isProposal: true,
+  },
+  {
+    id: 'entrance_12',
+    ...Y,
+    text: "Come on. There's still a lot for you to see.",
+  },
 ];
 
 /**
- * Canonical Little Castle ("Our Little Kingdom") Cinematic Dialogue Sequence (Sections 16, 19, 21, 22, 23, 25, 26, 27, 32).
- * Natural romantic conversation between Yeshwanth and Harsha — zero narration of visual events.
+ * Canonical Little Castle ("Our World" / "Our Little Kingdom") Cinematic Dialogue Sequence (Pass B: Sections 1, 5, 6).
+ * One-Way Dialogue Rule: ONLY Yeshwanth speaks. Harsha responds visually through body language,
+ * wearing the crown, sitting on the throne, and looking up at the fireworks.
  * Every beat pauses and waits for explicit Enter or Continue confirmation.
  */
 export const LITTLE_CASTLE_DIALOGUE: AuroraDialogueSequence = [
-  // Group 1 — Little Castle Gate Approach (Section 16: indices 0..5)
+  // Group 1 — Entry (indices 0..3)
   { id: 'little_castle_01', ...Y, text: 'Ready?' },
-  { id: 'little_castle_02', ...H, text: 'For what?' },
-  { id: 'little_castle_03', ...Y, text: 'Come inside.' },
-  { id: 'little_castle_04', ...H, text: "You're being suspicious." },
-  { id: 'little_castle_05', ...Y, text: "I'm always suspicious." },
-  { id: 'little_castle_06', ...H, text: "That's exactly what worries me." },
+  { id: 'little_castle_02', ...Y, text: 'Come on.' },
+  { id: 'little_castle_03', ...Y, text: 'I made something smaller this time.' },
+  {
+    id: 'little_castle_04',
+    ...Y,
+    text: "But this one's just for us.",
+    isProposal: true,
+  },
 
-  // Group 2 — First Conversation Inside (Section 19: indices 6..14)
-  { id: 'little_castle_07', ...H, text: 'Wait...' },
-  { id: 'little_castle_08', ...H, text: 'You actually made a tiny castle?' },
-  { id: 'little_castle_09', ...Y, text: 'Yeah.' },
-  { id: 'little_castle_10', ...H, text: 'For us?' },
-  { id: 'little_castle_11', ...Y, text: 'For us.', isProposal: true },
-  { id: 'little_castle_12', ...H, text: "It's so cute." },
-  { id: 'little_castle_13', ...Y, text: "I knew you'd say that." },
-  { id: 'little_castle_14', ...H, text: 'Because you know me.' },
-  { id: 'little_castle_15', ...Y, text: 'I try.' },
+  // Group 2 — Two Towers (indices 4..6)
+  { id: 'little_castle_05', ...Y, text: 'One tower for you.' },
+  { id: 'little_castle_06', ...Y, text: 'One for me.' },
+  {
+    id: 'little_castle_07',
+    ...Y,
+    text: 'And I made sure they were connected.',
+  },
 
-  // Group 3 — Tower Conversation (Section 21: indices 15..25)
-  { id: 'little_castle_16', ...H, text: 'I love the two towers.' },
-  { id: 'little_castle_17', ...Y, text: 'I knew you would.' },
-  { id: 'little_castle_18', ...H, text: 'Why two?' },
-  { id: 'little_castle_19', ...Y, text: 'One for you.' },
-  { id: 'little_castle_20', ...Y, text: 'One for me.' },
-  { id: 'little_castle_21', ...H, text: "And they're connected." },
-  { id: 'little_castle_22', ...Y, text: 'Yeah.' },
-  { id: 'little_castle_23', ...H, text: 'You planned that too?' },
-  { id: 'little_castle_24', ...Y, text: 'Maybe.' },
-  { id: 'little_castle_25', ...H, text: "You're impossible." },
-  { id: 'little_castle_26', ...Y, text: 'You still came inside.' },
+  // Group 3 — Little Castle Heart (index 7)
+  {
+    id: 'little_castle_08',
+    ...Y,
+    text: 'Even this little place has a heart.',
+  },
 
-  // Group 4 — Personal Moment / Subtle Left-Side Shift (Section 22: indices 26..31)
-  { id: 'little_castle_27', ...H, text: 'You really made all this just for me?' },
-  { id: 'little_castle_28', ...Y, text: 'For you...', isProposal: true },
-  { id: 'little_castle_29', ...Y, text: '...and for us.', isProposal: true },
-  { id: 'little_castle_30', ...H, text: "That's actually really sweet." },
-  { id: 'little_castle_31', ...Y, text: "Don't tell anyone." },
-  { id: 'little_castle_32', ...H, text: 'Too late.' },
+  // Group 4 — Crown Discovery (index 8 -> Crown Pickup/Wear Animation)
+  {
+    id: 'little_castle_09',
+    ...Y,
+    text: 'I think I found something that belongs to you.',
+    isProposal: true,
+  },
 
-  // Group 5 — Crown Reveal Conversation (Section 23: indices 32..39)
-  { id: 'little_castle_33', ...H, text: "Yeshwanth... What's that?" },
-  { id: 'little_castle_34', ...Y, text: 'I think you know.' },
-  { id: 'little_castle_35', ...H, text: "You're really making me wear that?" },
-  { id: 'little_castle_36', ...Y, text: 'Absolutely.' },
-  { id: 'little_castle_37', ...H, text: 'Why?' },
-  { id: 'little_castle_38', ...Y, text: 'Because it suits you.', isProposal: true },
-  { id: 'little_castle_39', ...H, text: "You haven't even seen me wearing it." },
-  { id: 'little_castle_40', ...Y, text: "I don't need to.", isProposal: true },
+  // Group 5 — After Crown Placed on Harsha's Head (indices 9..11)
+  { id: 'little_castle_10', ...Y, text: 'Yeah.' },
+  {
+    id: 'little_castle_11',
+    ...Y,
+    text: 'That looks right.',
+    isProposal: true,
+  },
+  {
+    id: 'little_castle_12',
+    ...Y,
+    text: 'I think we found our queen.',
+    isProposal: true,
+  },
 
-  // Group 6 — After Crown / Left-Side Two-Shot (Section 25: indices 40..49)
-  { id: 'little_castle_41', ...H, text: 'Well?' },
-  { id: 'little_castle_42', ...Y, text: 'Okay.' },
-  { id: 'little_castle_43', ...H, text: 'Okay what?' },
-  { id: 'little_castle_44', ...Y, text: 'Now it looks right.', isProposal: true },
-  { id: 'little_castle_45', ...H, text: 'What does?' },
-  { id: 'little_castle_46', ...Y, text: 'The castle.', isProposal: true },
-  { id: 'little_castle_47', ...H, text: 'You really planned that line.' },
-  { id: 'little_castle_48', ...Y, text: 'Maybe.' },
-  { id: 'little_castle_49', ...H, text: "You're such a fool." },
-  { id: 'little_castle_50', ...Y, text: 'Your fool.', isProposal: true },
+  // Group 6 — Throne Interaction (indices 12..15)
+  { id: 'little_castle_13', ...Y, text: 'There.' },
+  {
+    id: 'little_castle_14',
+    ...Y,
+    text: "That's exactly where I imagined you.",
+    isProposal: true,
+  },
+  { id: 'little_castle_15', ...Y, text: 'Although...' },
+  {
+    id: 'little_castle_16',
+    ...Y,
+    text: 'I probably should have expected you to look this good.',
+  },
 
-  // Group 7 — Throne / Wider Three-Quarter Shot (Section 26: indices 50..54)
-  { id: 'little_castle_51', ...Y, text: 'There.' },
-  { id: 'little_castle_52', ...H, text: 'What?' },
-  { id: 'little_castle_53', ...Y, text: "Now you're officially the boss." },
-  { id: 'little_castle_54', ...H, text: 'I thought I already was.' },
-  { id: 'little_castle_55', ...Y, text: 'Fair point.' },
-
-  // Group 8 — Intimate Little Castle Moment / Side Shot (Section 27: indices 55..59)
-  { id: 'little_castle_56', ...H, text: 'You know... I really like this.' },
-  { id: 'little_castle_57', ...Y, text: 'The castle?' },
-  { id: 'little_castle_58', ...H, text: 'Us.', isProposal: true },
-  { id: 'little_castle_59', ...Y, text: 'Yeah.', isProposal: true },
-  { id: 'little_castle_60', ...Y, text: 'Me too.', isProposal: true },
-
-  // Group 9 — Final Zoom-Out & Fireworks Reaction (Section 32: indices 60..65)
-  { id: 'little_castle_61', ...H, text: 'Yeshwanth...' },
-  { id: 'little_castle_62', ...Y, text: 'Look up.' },
-  { id: 'little_castle_63', ...H, text: 'You really did all this...' },
-  { id: 'little_castle_64', ...Y, text: 'For you.', isProposal: true },
-  { id: 'little_castle_65', ...H, text: 'I love you.', isProposal: true },
-  { id: 'little_castle_66', ...Y, text: 'I love you too, Harsha.', isProposal: true },
+  // Group 7 — Fireworks + Sky Text Finale (indices 16..18)
+  { id: 'little_castle_17', ...Y, text: 'Look up.' },
+  {
+    id: 'little_castle_18',
+    ...Y,
+    text: 'I wanted you to have one little world that was just ours.',
+    isProposal: true,
+  },
+  {
+    id: 'little_castle_19',
+    ...Y,
+    text: 'I love you, Harsha.',
+    isProposal: true,
+  },
 ];
 
 /**

@@ -864,9 +864,9 @@ export class CastleNavigationController {
     }
 
     if (this.entranceSubStage === 'FREE_INSPECT_1') {
-      // Transition from Free Inspection 1 (Section 7) -> Entering Big Castle / Doors Open (Section 8)
+      // Transition from Free Inspection 1 -> Beat 06 ("Come on.", index 5) where doors open visually
       this.entranceSubStage = 'DIALOGUE';
-      this.entranceBeatIndex = 15;
+      this.entranceBeatIndex = 5;
       this.entranceStageTimer = 0.0;
       if (this.doorState === 'CLOSED') {
         this.doorState = 'OPENING';
@@ -877,7 +877,7 @@ export class CastleNavigationController {
     }
 
     if (this.entranceSubStage === 'FREE_INSPECT_2') {
-      // Transition from Post-Flower Free Camera Control (Section 11) -> Final Zoom-Out (Section 13)
+      // Transition from Post-Flower Free Camera Control -> Single Designated Finale Zoom-Out
       this.entranceSubStage = 'FINAL_ZOOM_OUT';
       this.entranceStageTimer = 0.0;
       return true;
@@ -889,15 +889,15 @@ export class CastleNavigationController {
     }
 
     // SubStage === 'DIALOGUE'
-    if (this.entranceBeatIndex === 14) {
-      // End of Castle Lighting conversation ("Maybe.") -> CAMERA 03: PLAYER CAMERA RETURN (3–5s free inspection, Section 7)
+    if (this.entranceBeatIndex === 4) {
+      // End of Beat 05 ("Yeah... that one's yours.") -> Short Free Camera Return before Doors Open
       this.entranceSubStage = 'FREE_INSPECT_1';
       this.entranceStageTimer = 0.0;
       return true;
     }
 
-    if (this.entranceBeatIndex === 28) {
-      // End of Flower Dialogue ("You already do.") -> Post-Flower Player Camera Control pause (Section 11)
+    if (this.entranceBeatIndex === 11) {
+      // End of Beat 12 ("Come on. There's still a lot for you to see.") -> Post-Flower Free Camera Pause -> Single Finale Zoom-Out
       this.entranceSubStage = 'FREE_INSPECT_2';
       this.entranceStageTimer = 0.0;
       return true;
@@ -906,14 +906,22 @@ export class CastleNavigationController {
     if (this.entranceBeatIndex < CASTLE_ENTRANCE_DIALOGUE.length - 1) {
       const prevIdx = this.entranceBeatIndex;
       this.entranceBeatIndex += 1;
+      // Reset stage timer on key camera phase transitions:
+      // - index 4: HARSHA Heart Reveal ("Yeah... that one's yours.")
+      // - index 5: Doors Open ("Come on.")
+      // - index 6: Rose Phase 1 Approach ("There's one more thing.")
+      // - index 7: Rose Phase 2 & 3 Focus/Handover ("This is for you.")
+      // - index 9: Rose Phase 4 Pull-Back Two-Shot ("I just wanted to give you something you could hold onto.")
       if (
-        (prevIdx < 8 && this.entranceBeatIndex === 8) ||
-        (prevIdx < 15 && this.entranceBeatIndex === 15) ||
-        (prevIdx < 19 && this.entranceBeatIndex === 19)
+        (prevIdx < 4 && this.entranceBeatIndex === 4) ||
+        (prevIdx < 5 && this.entranceBeatIndex === 5) ||
+        (prevIdx < 6 && this.entranceBeatIndex === 6) ||
+        (prevIdx < 7 && this.entranceBeatIndex === 7) ||
+        (prevIdx < 9 && this.entranceBeatIndex === 9)
       ) {
         this.entranceStageTimer = 0.0;
       }
-      if (this.entranceBeatIndex >= 15 && this.doorState === 'CLOSED') {
+      if (this.entranceBeatIndex >= 5 && this.doorState === 'CLOSED') {
         this.doorState = 'OPENING';
         this.playDoorCreak();
         this.playedDoorsCreak = true;
@@ -1165,14 +1173,14 @@ export class CastleNavigationController {
 
       if (this.activeCameraFocus.mode === 'entrance') {
         // =====================================================================
-        // MASTER CINEMATIC REWORK — BIG CASTLE ENTRANCE ARC (Sections 3–13, 43)
-        // 1. Short 1.5s Entrance Transition -> CAMERA 02: Three-Quarter Hero Shot (Beats 0..7)
-        // 2. Castle Lighting & HARSHA Heart Notice (Beats 8..14)
-        // 3. CAMERA 03: Player Camera Return (4.0s free inspection, no dialogue)
-        // 4. Entering Big Castle / Doors Open Visually (Beats 15..18)
-        // 5. CAMERA 04: Flower Moment — ZOOM IN to Left-Side Two-Shot (Beats 19..28)
-        // 6. Post-Flower Player Camera Control (3.5s free camera pause)
-        // 7. ONE AND ONLY ONE Final Big Castle Zoom-Out -> Restore Gameplay
+        // PASS B — BIG CASTLE ENTRANCE ARC (Sections 1, 2, 3)
+        // - Beats 0..3: First Reveal + Castle Lighting ("Okay... you can look now." -> "I kept thinking about what you'd like.")
+        // - Beat 4: HARSHA Heart Reveal ("Yeah... that one's yours.") — Smooth 1.8s upward camera + target move framing top HARSHA heart + characters at bottom, hold briefly, return to two-character composition.
+        // - Beat 5: Doors Open Visually ("Come on.")
+        // - Beat 6: Rose Phase 1 Approach (1.2s) — Close-up on realistic 3D rose and both sets of hands (no faces yet).
+        // - Beats 7..8: Rose Phases 2 & 3 Focus & Handover — Yeshwanth extends rose, Harsha's hand receives it.
+        // - Beats 9..11: Rose Phase 4 Pull-Back Reveal (1.7s) — Left Three-Quarter Two-Shot showing both characters, rose in Harsha's hand, and castle behind them.
+        // - Single Designated Finale Zoom-Out -> Restore Gameplay.
         // =====================================================================
         this.activeEntranceCaption = null;
         const entryAlpha = smoothStep01(e / 0.65);
@@ -1180,8 +1188,17 @@ export class CastleNavigationController {
         // Yeshwanth stands with Harsha at the entrance steps
         this.yeshwanthWalkProgress = smoothStep01(e / 1.4);
 
-        // Castle Lighting awakens starting at Beat 8 ("It's so pretty...")
-        if (this.entranceBeatIndex >= 8 || this.entranceSubStage !== 'DIALOGUE') {
+        // Harsha visual body-language reactions (head/body orientation shifts between looking up at the castle and looking at Yeshwanth)
+        if (this.entranceBeatIndex === 0 || this.entranceBeatIndex === 3 || this.entranceBeatIndex === 4) {
+          // Looking toward the castle & top HARSHA heart
+          this.activeCameraFocus.seatYaw = -0.38;
+        } else {
+          // Looking toward Yeshwanth in three-quarter stance
+          this.activeCameraFocus.seatYaw = -1.16;
+        }
+
+        // Castle Lighting awakens starting at Beat 3 ("I kept thinking about what you'd like.")
+        if (this.entranceBeatIndex >= 3 || this.entranceSubStage !== 'DIALOGUE') {
           this.primaryTreeAwake = Math.min(1.0, this.primaryTreeAwake + delta * 0.65);
           this.secondaryTreeAwake = Math.min(1.0, this.secondaryTreeAwake + delta * 0.55);
           this.castleWindowsAwake = Math.min(1.0, this.castleWindowsAwake + delta * 0.48);
@@ -1200,8 +1217,8 @@ export class CastleNavigationController {
           }
         }
 
-        // Doors open visually at Beat 15 ("We're going inside too?")
-        if (this.entranceBeatIndex >= 15 && !this.playedDoorsCreak) {
+        // Doors open visually at Beat 5 ("Come on.")
+        if (this.entranceBeatIndex >= 5 && !this.playedDoorsCreak) {
           this.playedDoorsCreak = true;
           if (this.doorState === 'CLOSED') {
             this.doorState = 'OPENING';
@@ -1209,15 +1226,20 @@ export class CastleNavigationController {
           }
         }
 
-        // Rose presentation gesture during Group 4 Flower Moment (Beats 19..28)
-        if (this.entranceBeatIndex >= 19 || this.entranceSubStage === 'FREE_INSPECT_2' || this.entranceSubStage === 'FINAL_ZOOM_OUT') {
-          const targetExt = this.entranceBeatIndex >= 20 ? 0.85 : 0.45;
+        // Rose presentation & handover gesture during Beats 6..11
+        if (
+          this.entranceBeatIndex >= 6 ||
+          this.entranceSubStage === 'FREE_INSPECT_2' ||
+          this.entranceSubStage === 'FINAL_ZOOM_OUT'
+        ) {
+          const targetExt = this.entranceBeatIndex >= 7 ? 0.92 : 0.68;
           this.yeshwanthRoseExtend = THREE.MathUtils.lerp(
             this.yeshwanthRoseExtend,
             targetExt,
-            1 - Math.exp(-4.5 * delta),
+            1 - Math.exp(-5.0 * delta),
           );
-          if (this.entranceBeatIndex >= 20 && !this.entranceRosePresented) {
+          // Handover completes at Beat 8 ("I couldn't make a whole castle and forget the flower.")
+          if (this.entranceBeatIndex >= 8 && !this.entranceRosePresented) {
             this.entranceRosePresented = true;
             if (!this.playedRoseMelody) {
               this.playedRoseMelody = true;
@@ -1232,9 +1254,9 @@ export class CastleNavigationController {
         }
 
         // Handle timed Free Camera Inspection transitions
-        if (this.entranceSubStage === 'FREE_INSPECT_1' && this.entranceStageTimer >= 4.0) {
+        if (this.entranceSubStage === 'FREE_INSPECT_1' && this.entranceStageTimer >= 3.5) {
           this.entranceSubStage = 'DIALOGUE';
-          this.entranceBeatIndex = 15;
+          this.entranceBeatIndex = 5;
           this.entranceStageTimer = 0.0;
           if (this.doorState === 'CLOSED') {
             this.doorState = 'OPENING';
@@ -1246,7 +1268,7 @@ export class CastleNavigationController {
           this.entranceStageTimer = 0.0;
         }
 
-        // Camera Framing per Stage (Section 42: Hold camera steady during dialogue; move only on stage transitions!)
+        // Camera Framing per Stage
         let camLX = -3.8;
         let camLY = 2.05;
         let camLZ = -23.8;
@@ -1265,12 +1287,12 @@ export class CastleNavigationController {
         const heroFov = 43;
 
         if (this.entranceSubStage === 'FINAL_ZOOM_OUT') {
-          // Stage 7 (Section 13): ONE AND ONLY ONE MAJOR ZOOM-OUT (3.4s pullback + 1.8s hold = 5.2s)
+          // Single Designated Finale Zoom-Out (3.4s pullback + 1.8s hold = 5.2s)
           const zDur = 5.2;
           const pullU = smoothStep01(Math.min(1.0, this.entranceStageTimer / 3.4));
-          camLX = THREE.MathUtils.lerp(1.30, heroCamLX, pullU);
+          camLX = THREE.MathUtils.lerp(1.32, heroCamLX, pullU);
           camLY = THREE.MathUtils.lerp(1.48, heroCamLY, pullU);
-          camLZ = THREE.MathUtils.lerp(-21.35, heroCamLZ, pullU);
+          camLZ = THREE.MathUtils.lerp(-21.45, heroCamLZ, pullU);
           lookLX = heroLookLX;
           lookLY = THREE.MathUtils.lerp(1.26, heroLookLY, pullU);
           lookLZ = THREE.MathUtils.lerp(-18.45, heroLookLZ, pullU);
@@ -1288,58 +1310,92 @@ export class CastleNavigationController {
             this.focusPosVel.set(0, 0, 0);
             return;
           }
-        } else if (this.entranceSubStage === 'FREE_INSPECT_2' || this.entranceBeatIndex >= 19) {
-          // Stage 5 & 6 (Sections 9–11): CAMERA 04 — LEFT-SIDE TWO-CHARACTER FLOWER SHOT (ZOOM IN over 1.5s!)
+        } else if (this.entranceSubStage === 'FREE_INSPECT_2' || this.entranceBeatIndex >= 9) {
+          // Section 3 — Rose Phase 4 (Pull-Back Reveal, 1.7s):
+          // Smoothly moves backward from the hands/rose close-up into a Left Three-Quarter Two-Shot
+          // showing both characters, the rose held in Harsha's hand, and the castle behind them.
           const b =
             this.entranceSubStage === 'FREE_INSPECT_2'
               ? 1.0
-              : this.entranceBeatIndex === 19
-                ? smoothStep01(this.entranceStageTimer / 1.5)
+              : this.entranceBeatIndex === 9
+                ? smoothStep01(this.entranceStageTimer / 1.7)
                 : 1.0;
-          camLX = THREE.MathUtils.lerp(-2.1, 1.30, b);
-          camLY = THREE.MathUtils.lerp(1.75, 1.48, b);
-          camLZ = THREE.MathUtils.lerp(-22.2, -21.35, b);
-          lookLX = 0.0;
-          lookLY = THREE.MathUtils.lerp(1.65, 1.26, b);
-          lookLZ = THREE.MathUtils.lerp(-17.6, -18.45, b);
-          fov = THREE.MathUtils.lerp(46, 39, b);
-        } else if (this.entranceBeatIndex >= 15) {
-          // Stage 4 (Section 8): ENTERING BIG CASTLE — Doors Open Visually
+          camLX = THREE.MathUtils.lerp(0.96, 1.32, b);
+          camLY = THREE.MathUtils.lerp(1.16, 1.48, b);
+          camLZ = THREE.MathUtils.lerp(-19.18, -21.45, b);
+          lookLX = THREE.MathUtils.lerp(0.12, 0.0, b);
+          lookLY = THREE.MathUtils.lerp(1.04, 1.26, b);
+          lookLZ = THREE.MathUtils.lerp(-18.46, -18.45, b);
+          fov = THREE.MathUtils.lerp(31, 39, b);
+        } else if (this.entranceBeatIndex === 7 || this.entranceBeatIndex === 8) {
+          // Section 3 — Rose Phases 2 & 3 (Focus & Handover, 1.3s):
+          // Holds closely on the realistic 3D rose head, green stem, and meeting hands as Yeshwanth hands the rose to Harsha.
           const b =
-            this.entranceBeatIndex === 15
-              ? smoothStep01(this.entranceStageTimer / 1.2)
+            this.entranceBeatIndex === 7
+              ? smoothStep01(this.entranceStageTimer / 1.3)
               : 1.0;
-          camLX = THREE.MathUtils.lerp(-3.8, -2.1, b);
-          camLY = THREE.MathUtils.lerp(2.05, 1.75, b);
-          camLZ = THREE.MathUtils.lerp(-23.8, -22.2, b);
+          camLX = THREE.MathUtils.lerp(1.02, 0.96, b);
+          camLY = THREE.MathUtils.lerp(1.18, 1.16, b);
+          camLZ = THREE.MathUtils.lerp(-19.28, -19.18, b);
+          lookLX = THREE.MathUtils.lerp(0.06, 0.12, b);
+          lookLY = THREE.MathUtils.lerp(1.02, 1.04, b);
+          lookLZ = -18.46;
+          fov = THREE.MathUtils.lerp(33, 31, b);
+        } else if (this.entranceBeatIndex === 6) {
+          // Section 3 — Rose Phase 1 (Approach, 1.2s):
+          // Moves camera close to the left side of both characters, focusing directly on the rose and BOTH sets of hands (no faces yet).
+          const b = smoothStep01(this.entranceStageTimer / 1.2);
+          camLX = THREE.MathUtils.lerp(-2.1, 1.02, b);
+          camLY = THREE.MathUtils.lerp(1.75, 1.18, b);
+          camLZ = THREE.MathUtils.lerp(-22.2, -19.28, b);
+          lookLX = THREE.MathUtils.lerp(0.0, 0.06, b);
+          lookLY = THREE.MathUtils.lerp(1.65, 1.02, b);
+          lookLZ = THREE.MathUtils.lerp(-17.6, -18.46, b);
+          fov = THREE.MathUtils.lerp(46, 33, b);
+        } else if (this.entranceBeatIndex === 5) {
+          // Section 2 — Beat 06 ("Come on."): Doors Open Visually
+          const b = smoothStep01(this.entranceStageTimer / 1.2);
+          camLX = THREE.MathUtils.lerp(-3.5, -2.1, b);
+          camLY = THREE.MathUtils.lerp(1.85, 1.75, b);
+          camLZ = THREE.MathUtils.lerp(-23.4, -22.2, b);
           lookLX = 0.0;
-          lookLY = THREE.MathUtils.lerp(9.8, 1.65, b);
+          lookLY = THREE.MathUtils.lerp(5.2, 1.65, b);
           lookLZ = -17.6;
-          fov = THREE.MathUtils.lerp(54, 46, b);
-        } else if (this.entranceSubStage === 'FREE_INSPECT_1' || this.entranceBeatIndex >= 8) {
-          // Stage 2 & 3 (Sections 6 & 7): Castle Lighting & HARSHA Heart Notice + Free Inspection 1
-          const tiltU =
-            this.entranceSubStage === 'FREE_INSPECT_1' || this.entranceBeatIndex >= 10
-              ? 1.0
-              : smoothStep01(this.entranceStageTimer / 1.2);
-          camLX = -3.8;
-          camLY = 2.05;
-          camLZ = -23.8;
+          fov = THREE.MathUtils.lerp(52, 46, b);
+        } else if (this.entranceSubStage === 'FREE_INSPECT_1' || this.entranceBeatIndex === 4) {
+          // Section 2 — Beat 05 ("Yeah... that one's yours."): HARSHA HEART REVEAL CAMERA MOMENT
+          // - 0.0s .. 1.9s: Smoothly moves both camera.position (upward & slightly back) and camera.target (upward)
+          //   so the 3D top-centre HARSHA heart is clearly readable at the top while Yeshwanth & Harsha remain visible at the bottom.
+          // - 1.9s .. 3.5s: Holds briefly on the HARSHA heart + characters composition.
+          // - 3.5s .. 5.1s: Smoothly returns to the natural two-character composition.
+          let heartU = 0.0;
+          if (this.entranceSubStage === 'FREE_INSPECT_1') {
+            heartU = 0.0;
+          } else if (this.entranceStageTimer <= 1.9) {
+            heartU = smoothStep01(this.entranceStageTimer / 1.9);
+          } else if (this.entranceStageTimer <= 3.5) {
+            heartU = 1.0;
+          } else {
+            heartU = 1.0 - smoothStep01((this.entranceStageTimer - 3.5) / 1.6);
+          }
+          camLX = THREE.MathUtils.lerp(-3.5, -2.6, heartU);
+          camLY = THREE.MathUtils.lerp(1.85, 1.32, heartU);
+          camLZ = THREE.MathUtils.lerp(-23.4, -33.2, heartU);
           lookLX = 0.0;
-          lookLY = THREE.MathUtils.lerp(6.8, 9.8, tiltU);
-          lookLZ = -17.5;
-          fov = 54;
+          lookLY = THREE.MathUtils.lerp(5.2, 14.2, heartU);
+          lookLZ = THREE.MathUtils.lerp(-17.5, -16.8, heartU);
+          fov = THREE.MathUtils.lerp(52, 55, heartU);
         } else {
-          // Stage 1 (Sections 3 & 4): Short 1.5s Entrance Transition -> CAMERA 02: Three-Quarter Hero Shot
-          // Moves slightly closer to the castle (NO large zoom-out!)
+          // Section 2 — Beats 01..04: First Reveal & Castle Lighting
+          // Moves slightly closer into the natural three-quarter castle reveal (no zoom-out)
           const b = this.entranceBeatIndex === 0 ? smoothStep01(e / 1.5) : 1.0;
-          camLX = THREE.MathUtils.lerp(-3.2, -3.8, b);
-          camLY = THREE.MathUtils.lerp(2.15, 2.05, b);
-          camLZ = THREE.MathUtils.lerp(-25.4, -23.8, b);
+          camLX = THREE.MathUtils.lerp(-3.2, -3.5, b);
+          camLY = THREE.MathUtils.lerp(2.15, 1.85, b);
+          camLZ = THREE.MathUtils.lerp(-25.4, -23.4, b);
           lookLX = 0.0;
-          lookLY = THREE.MathUtils.lerp(3.2, 6.8, b);
+          lookLY = THREE.MathUtils.lerp(3.2, 5.2, b);
           lookLZ = -17.5;
-          fov = 54;
+          fov = THREE.MathUtils.lerp(54, 52, b);
         }
 
         this.activeCameraFocus.blendAlpha = Math.min(entryAlpha, exitAlpha);

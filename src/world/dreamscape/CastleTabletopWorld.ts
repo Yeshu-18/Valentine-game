@@ -478,39 +478,50 @@ export class CastleTabletopWorld {
 
     const tablePlaqueTex = createPlaqueCanvasTex(
       tracker,
-      '✦ OUR LITTLE KINGDOM ✦',
-      'Two Lives · One Little Kingdom',
+      '✦ OUR WORLD ✦',
+      'Our Little Kingdom',
+      '#4a1026',
+      '#fde047',
     );
-    const plaqueGeo = tracker.trackGeo(new THREE.PlaneGeometry(0.5, 0.16));
-    const plaqueBoardGeo = tracker.trackGeo(new THREE.BoxGeometry(0.53, 0.18, 0.018));
+    const plaqueGeo = tracker.trackGeo(new THREE.PlaneGeometry(0.54, 0.17));
+    const plaqueBoardGeo = tracker.trackGeo(new THREE.BoxGeometry(0.57, 0.19, 0.02));
+    const plaqueRimMat = tracker.trackMat(
+      new THREE.MeshStandardMaterial({
+        color: '#fde047',
+        emissive: '#f59e0b',
+        emissiveIntensity: 0.65,
+        roughness: 0.22,
+        metalness: 0.78,
+      }),
+    );
     const plaqueMat = tracker.trackMat(
       new THREE.MeshBasicMaterial({ map: tablePlaqueTex, side: THREE.FrontSide }),
     );
-    // Front plaque at South (-Z) edge: rotation.y = Math.PI so +Z front normal points toward -Z viewer
-    const plaqueBoardFront = new THREE.Mesh(plaqueBoardGeo, mats.champagneGold);
-    plaqueBoardFront.position.set(0, 0.575, -1.11);
+    // Front plaque moved forward to z = -1.16 in open foreground in front of all gate pillars
+    const plaqueBoardFront = new THREE.Mesh(plaqueBoardGeo, plaqueRimMat);
+    plaqueBoardFront.position.set(0, 0.585, -1.16);
     plaqueBoardFront.rotation.order = 'YXZ';
     plaqueBoardFront.rotation.y = Math.PI;
-    plaqueBoardFront.rotation.x = -Math.PI / 4;
+    plaqueBoardFront.rotation.x = -Math.PI / 5;
 
     const plaqueMeshFront = new THREE.Mesh(plaqueGeo, plaqueMat);
-    plaqueMeshFront.position.set(0, 0.582, -1.122);
+    plaqueMeshFront.position.set(0, 0.593, -1.174);
     plaqueMeshFront.rotation.order = 'YXZ';
     plaqueMeshFront.rotation.y = Math.PI;
-    plaqueMeshFront.rotation.x = -Math.PI / 4;
+    plaqueMeshFront.rotation.x = -Math.PI / 5;
 
     // Back plaque at North (+Z) edge: rotation.y = 0 so +Z front normal points toward +Z viewer
-    const plaqueBoardBack = new THREE.Mesh(plaqueBoardGeo, mats.champagneGold);
-    plaqueBoardBack.position.set(0, 0.575, 1.11);
+    const plaqueBoardBack = new THREE.Mesh(plaqueBoardGeo, plaqueRimMat);
+    plaqueBoardBack.position.set(0, 0.585, 1.16);
     plaqueBoardBack.rotation.order = 'YXZ';
     plaqueBoardBack.rotation.y = 0;
-    plaqueBoardBack.rotation.x = -Math.PI / 4;
+    plaqueBoardBack.rotation.x = -Math.PI / 5;
 
     const plaqueMeshBack = new THREE.Mesh(plaqueGeo, plaqueMat);
-    plaqueMeshBack.position.set(0, 0.582, 1.122);
+    plaqueMeshBack.position.set(0, 0.593, 1.174);
     plaqueMeshBack.rotation.order = 'YXZ';
     plaqueMeshBack.rotation.y = 0;
-    plaqueMeshBack.rotation.x = -Math.PI / 4;
+    plaqueMeshBack.rotation.x = -Math.PI / 5;
 
     tableGroup.add(
       new THREE.Mesh(goldEdgeGeo, mats.champagneGold),
@@ -727,7 +738,7 @@ export class CastleTabletopWorld {
       tableGroup.add(fg);
     });
 
-    // Section 1: Small Ornate Golden Gate on the Front (South, -Z) side with "OUR LITTLE KINGDOM" above it
+    // Section 4: Small Ornate Golden Gate with widened pillars and unblocked "OUR WORLD" sign in front of the pillar plane
     const gateGroup = new THREE.Group();
     gateGroup.position.set(
       entranceSpec.position.x - entranceSpec.tableCenterLocal.x,
@@ -736,54 +747,64 @@ export class CastleTabletopWorld {
     );
     gateGroup.rotation.y = Math.PI; // Faces South (-Z) directly toward the approaching player
 
-    const gateArchGeo = tracker.trackGeo(new THREE.TorusGeometry(0.19, 0.022, 8, 20, Math.PI));
-    gateArchGeo.translate(0, 0.22, 0);
-    const gatePillarGeo = tracker.trackGeo(new THREE.CylinderGeometry(0.024, 0.028, 0.22, 8));
-    gatePillarGeo.translate(0, 0.11, 0);
+    // Widened pillar spacing (±0.25m) so the sign and gate opening are 100% unoccluded
+    const gateArchGeo = tracker.trackGeo(new THREE.TorusGeometry(0.25, 0.022, 8, 24, Math.PI));
+    gateArchGeo.translate(0, 0.24, 0);
+    const gatePillarGeo = tracker.trackGeo(new THREE.CylinderGeometry(0.022, 0.026, 0.24, 8));
+    gatePillarGeo.translate(0, 0.12, 0);
     const gpL = new THREE.Mesh(gatePillarGeo, mats.champagneGold);
-    gpL.position.x = -0.19;
+    gpL.position.x = -0.25;
     const gpR = new THREE.Mesh(gatePillarGeo, mats.champagneGold);
-    gpR.position.x = 0.19;
+    gpR.position.x = 0.25;
 
     // Small sculpted heart details integrated into the golden gate architecture
     const gateHeartTop = buildSculptedHeartMesh(tracker, 0.22, mats.champagneGold);
-    gateHeartTop.position.set(0, 0.44, 0);
+    gateHeartTop.position.set(0, 0.52, 0.06);
     const gateHeartL = buildSculptedHeartMesh(tracker, 0.14, softBlushCrystalMat);
-    gateHeartL.position.set(-0.19, 0.24, 0.02);
+    gateHeartL.position.set(-0.25, 0.26, 0.03);
     const gateHeartR = buildSculptedHeartMesh(tracker, 0.14, warmChampagneMat);
-    gateHeartR.position.set(0.19, 0.24, 0.02);
+    gateHeartR.position.set(0.25, 0.26, 0.03);
 
-    // "OUR LITTLE KINGDOM" plaque mounted above the small ornate golden gate (FrontSide on both faces)
+    // "OUR WORLD" sign positioned forward (+0.075m in front of the pillar plane) with warm emissive rim
     const gateTitleTex = createPlaqueCanvasTex(
       tracker,
-      'OUR LITTLE KINGDOM',
-      undefined,
+      'OUR WORLD',
+      'Our Little Kingdom',
       '#4a1026',
       '#fde047',
     );
     const gateTitleMat = tracker.trackMat(
       new THREE.MeshBasicMaterial({ map: gateTitleTex, side: THREE.FrontSide }),
     );
-    const gateTitleGeo = tracker.trackGeo(new THREE.PlaneGeometry(0.34, 0.095));
-    const gateTitleBoardGeo = tracker.trackGeo(new THREE.BoxGeometry(0.36, 0.11, 0.014));
-    const gateTitleBoard = new THREE.Mesh(gateTitleBoardGeo, mats.champagneGold);
-    gateTitleBoard.position.set(0, 0.34, 0);
+    const gateSignRimMat = tracker.trackMat(
+      new THREE.MeshStandardMaterial({
+        color: '#fde047',
+        emissive: '#f59e0b',
+        emissiveIntensity: 0.72,
+        roughness: 0.2,
+        metalness: 0.8,
+      }),
+    );
+    const gateTitleGeo = tracker.trackGeo(new THREE.PlaneGeometry(0.36, 0.105));
+    const gateTitleBoardGeo = tracker.trackGeo(new THREE.BoxGeometry(0.38, 0.12, 0.016));
+    const gateTitleBoard = new THREE.Mesh(gateTitleBoardGeo, gateSignRimMat);
+    gateTitleBoard.position.set(0, 0.36, 0.075); // Moved cleanly in front of the pillars!
     const gateTitleFront = new THREE.Mesh(gateTitleGeo, gateTitleMat);
-    gateTitleFront.position.set(0, 0.34, 0.009); // +Z of gateGroup faces South (-Z) toward approaching player!
+    gateTitleFront.position.set(0, 0.36, 0.085); // +Z of gateGroup faces South (-Z) toward approaching player!
     const gateTitleBack = new THREE.Mesh(gateTitleGeo, gateTitleMat);
-    gateTitleBack.position.set(0, 0.34, -0.009);
+    gateTitleBack.position.set(0, 0.36, 0.065);
     gateTitleBack.rotation.y = Math.PI;
 
-    const doorLeafGeo = tracker.trackGeo(new THREE.BoxGeometry(0.17, 0.24, 0.016));
-    doorLeafGeo.translate(0.085, 0.12, 0);
+    const doorLeafGeo = tracker.trackGeo(new THREE.BoxGeometry(0.21, 0.24, 0.016));
+    doorLeafGeo.translate(0.105, 0.12, 0);
     this.leftGatePivot = new THREE.Group();
-    this.leftGatePivot.position.copy(entranceSpec.doorPivotLeft);
+    this.leftGatePivot.position.set(-0.23, 0, 0);
     this.leftGatePivot.add(new THREE.Mesh(doorLeafGeo, mats.champagneGold));
 
-    const doorLeafRightGeo = tracker.trackGeo(new THREE.BoxGeometry(0.17, 0.24, 0.016));
-    doorLeafRightGeo.translate(-0.085, 0.12, 0);
+    const doorLeafRightGeo = tracker.trackGeo(new THREE.BoxGeometry(0.21, 0.24, 0.016));
+    doorLeafRightGeo.translate(-0.105, 0.12, 0);
     this.rightGatePivot = new THREE.Group();
-    this.rightGatePivot.position.copy(entranceSpec.doorPivotRight);
+    this.rightGatePivot.position.set(0.23, 0, 0);
     this.rightGatePivot.add(new THREE.Mesh(doorLeafRightGeo, mats.champagneGold));
 
     this.dynamicObjects.add(this.leftGatePivot);
@@ -858,24 +879,26 @@ export class CastleTabletopWorld {
     );
 
     // =========================================================================
-    // 1. ENTRANCE GATE ("OUR LITTLE KINGDOM") ON WEST EDGE (-6.8, 0, 0)
+    // 1. ENTRANCE GATE & UNBLOCKED "OUR WORLD" FOREGROUND SIGN (Section 4)
+    // Widened pillars (±1.85m) and sign moved +1.45m forward of the pillar plane
+    // so zero pillars ever block or intersect the text from any camera angle!
     // =========================================================================
     const returnGateGroup = new THREE.Group();
     returnGateGroup.position.set(-6.8, 0, 0);
     returnGateGroup.rotation.y = Math.PI / 2;
 
-    const rgPillarGeo = tracker.trackGeo(new THREE.CylinderGeometry(0.22, 0.26, 3.1, 14));
-    rgPillarGeo.translate(0, 1.55, 0);
+    const rgPillarGeo = tracker.trackGeo(new THREE.CylinderGeometry(0.2, 0.24, 3.2, 14));
+    rgPillarGeo.translate(0, 1.6, 0);
     const rgPillarL = new THREE.Mesh(rgPillarGeo, mats.champagneGold);
-    rgPillarL.position.x = -1.35;
+    rgPillarL.position.x = -1.85;
     const rgPillarR = new THREE.Mesh(rgPillarGeo, mats.champagneGold);
-    rgPillarR.position.x = 1.35;
+    rgPillarR.position.x = 1.85;
 
-    const rgArchGeo = tracker.trackGeo(new THREE.TorusGeometry(1.35, 0.13, 10, 28, Math.PI));
-    rgArchGeo.translate(0, 3.1, 0);
+    const rgArchGeo = tracker.trackGeo(new THREE.TorusGeometry(1.85, 0.13, 10, 32, Math.PI));
+    rgArchGeo.translate(0, 3.2, 0);
 
-    const gateCrestHeart = buildSculptedHeartMesh(tracker, 1.6, mats.champagneGold);
-    gateCrestHeart.position.set(0, 4.35, 0);
+    const gateCrestHeart = buildSculptedHeartMesh(tracker, 1.65, mats.champagneGold);
+    gateCrestHeart.position.set(0, 4.55, 1.45);
 
     const portalRingGeo = tracker.trackGeo(new THREE.RingGeometry(0.85, 1.25, 28));
     portalRingGeo.translate(0, 1.75, 0);
@@ -892,23 +915,55 @@ export class CastleTabletopWorld {
 
     const kingdomGateTex = createPlaqueCanvasTex(
       tracker,
-      'OUR LITTLE KINGDOM',
-      'Two Lives · One Little Kingdom',
+      'OUR WORLD',
+      'Our Little Kingdom',
       '#4a1026',
       '#fde047',
     );
-    const returnSignGeo = tracker.trackGeo(new THREE.PlaneGeometry(2.35, 0.62));
-    const returnSignBoardGeo = tracker.trackGeo(new THREE.BoxGeometry(2.45, 0.7, 0.1));
+    const signWarmRimMat = tracker.trackMat(
+      new THREE.MeshStandardMaterial({
+        color: '#fde047',
+        emissive: '#f59e0b',
+        emissiveIntensity: 0.78,
+        roughness: 0.2,
+        metalness: 0.82,
+      }),
+    );
+    const returnSignGeo = tracker.trackGeo(new THREE.PlaneGeometry(2.55, 0.68));
+    const returnSignBoardGeo = tracker.trackGeo(new THREE.BoxGeometry(2.68, 0.78, 0.11));
     const returnSignMat = tracker.trackMat(
       new THREE.MeshBasicMaterial({ map: kingdomGateTex, side: THREE.FrontSide }),
     );
-    const returnSignBoard = new THREE.Mesh(returnSignBoardGeo, mats.champagneGold);
-    returnSignBoard.position.set(0, 3.62, 0);
+    // Moved +1.45m forward of the pillar plane so it sits 100% in the open foreground!
+    const returnSignBoard = new THREE.Mesh(returnSignBoardGeo, signWarmRimMat);
+    returnSignBoard.position.set(0, 3.72, 1.45);
     const returnSignMeshFront = new THREE.Mesh(returnSignGeo, returnSignMat);
-    returnSignMeshFront.position.set(0, 3.62, 0.06);
+    returnSignMeshFront.position.set(0, 3.72, 1.51);
     const returnSignMeshBack = new THREE.Mesh(returnSignGeo, returnSignMat);
-    returnSignMeshBack.position.set(0, 3.62, -0.06);
+    returnSignMeshBack.position.set(0, 3.72, 1.39);
     returnSignMeshBack.rotation.y = Math.PI;
+
+    // Open-Foreground Courtyard "OUR WORLD" Monument in front of the Little Castle towers (zero pillar occlusion)
+    const foregroundSignGroup = new THREE.Group();
+    foregroundSignGroup.name = 'OurWorldForegroundSign';
+    foregroundSignGroup.position.set(4.55, 0.0, -2.05); // Clear open foreground in front of the castle towers!
+    foregroundSignGroup.rotation.y = -Math.PI / 2 - 0.18;
+    const fgPedestalGeo = tracker.trackGeo(new THREE.CylinderGeometry(0.06, 0.09, 0.58, 10));
+    fgPedestalGeo.translate(0, 0.29, 0);
+    const fgPostL = new THREE.Mesh(fgPedestalGeo, mats.champagneGold);
+    fgPostL.position.x = -0.68;
+    const fgPostR = new THREE.Mesh(fgPedestalGeo, mats.champagneGold);
+    fgPostR.position.x = 0.68;
+    const fgBoardGeo = tracker.trackGeo(new THREE.BoxGeometry(1.78, 0.52, 0.08));
+    const fgPlaneGeo = tracker.trackGeo(new THREE.PlaneGeometry(1.68, 0.44));
+    const fgBoard = new THREE.Mesh(fgBoardGeo, signWarmRimMat);
+    fgBoard.position.set(0, 0.74, 0);
+    const fgFront = new THREE.Mesh(fgPlaneGeo, returnSignMat);
+    fgFront.position.set(0, 0.74, 0.045);
+    const fgBack = new THREE.Mesh(fgPlaneGeo, returnSignMat);
+    fgBack.position.set(0, 0.74, -0.045);
+    fgBack.rotation.y = Math.PI;
+    foregroundSignGroup.add(fgPostL, fgPostR, fgBoard, fgFront, fgBack);
 
     returnGateGroup.add(
       rgPillarL,
@@ -920,7 +975,7 @@ export class CastleTabletopWorld {
       returnSignMeshFront,
       returnSignMeshBack,
     );
-    this.dwExpandGroup.add(returnGateGroup);
+    this.dwExpandGroup.add(returnGateGroup, foregroundSignGroup);
 
     // =========================================================================
     // 2 & 4. AWAKENING PATHWAY: BLOOMING FLOWERS, CRYSTALS, TINY HEDGES & LANTERNS
@@ -1710,7 +1765,7 @@ export class CastleTabletopWorld {
 
     this.dwExpandGroup.add(this.gratitudeBannerMesh);
 
-    // 14. 3D SKY PARTICLE CONSTELLATION: "I LOVE HARSHA ❤️"
+    // 14. 3D SKY PARTICLE CONSTELLATION: "I LOVE YOU HARSHA ❤️"
     this.buildSkyLoveHarshaConstellation();
 
     // 15. FINALE FIREWORKS SYSTEM BEHIND CASTLE BACKDROP
@@ -1719,18 +1774,18 @@ export class CastleTabletopWorld {
 
   private buildSkyLoveHarshaConstellation(): void {
     const canvas = document.createElement('canvas');
-    canvas.width = 384;
-    canvas.height = 72;
+    canvas.width = 480;
+    canvas.height = 80;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
     ctx.fillStyle = '#000000';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     ctx.fillStyle = '#ffffff';
-    ctx.font = 'bold 36px Georgia, serif';
+    ctx.font = 'bold 34px Georgia, serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText('I LOVE HARSHA ❤️', canvas.width / 2, canvas.height / 2);
+    ctx.fillText('I LOVE YOU HARSHA ❤️', canvas.width / 2, canvas.height / 2);
 
     const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
     const positions: number[] = [];
@@ -1739,10 +1794,10 @@ export class CastleTabletopWorld {
       for (let px = 0; px < canvas.width; px += step) {
         const idx = (py * canvas.width + px) * 4;
         if (imgData[idx] > 110) {
-          // East sky: local x = 6.4, y = 5.2 .. 6.9, z = -3.6 .. +3.6 (7.2m wide so 100% uncropped in CAMERA 08)
-          const localZ = ((px / canvas.width) - 0.5) * 7.2;
-          const localY = 5.2 + (1.0 - py / canvas.height) * 1.7;
-          const localX = 6.4 + (Math.sin(px * 0.1) * 0.06);
+          // High in the sky directly above the Little Castle apex: local x = 6.2, y = 5.5 .. 7.25, z = -3.65 .. +3.65
+          const localZ = ((px / canvas.width) - 0.5) * 7.3;
+          const localY = 5.5 + (1.0 - py / canvas.height) * 1.75;
+          const localX = 6.2 + (Math.sin(px * 0.1) * 0.06);
           positions.push(localX, localY, localZ);
         }
       }
@@ -1753,7 +1808,7 @@ export class CastleTabletopWorld {
     this.skyTextMat = this.tracker.trackMat(
       new THREE.PointsMaterial({
         color: '#fef08a',
-        size: 0.16,
+        size: 0.18,
         transparent: true,
         opacity: 0.0,
         blending: THREE.AdditiveBlending,
@@ -1762,11 +1817,12 @@ export class CastleTabletopWorld {
     );
     this.skyTextPoints = new THREE.Points(geo, this.skyTextMat);
     this.skyTextPoints.name = 'SkyLoveHarshaConstellation';
+    this.skyTextPoints.frustumCulled = false; // Prevent frustum culling when camera tilts up!
     this.dwExpandGroup.add(this.skyTextPoints);
   }
 
   private buildFinaleFireworksSystem(): void {
-    const count = 240;
+    const count = 360;
     this.fireworkPositions = new Float32Array(count * 3);
     this.fireworkColors = new Float32Array(count * 3);
     this.fireworkParticles = [];
@@ -1798,16 +1854,17 @@ export class CastleTabletopWorld {
 
     const mat = this.tracker.trackMat(
       new THREE.PointsMaterial({
-        size: 0.22,
+        size: 0.25,
         vertexColors: true,
         transparent: true,
-        opacity: 0.95,
+        opacity: 0.98,
         blending: THREE.AdditiveBlending,
         depthWrite: false,
       }),
     );
     this.fireworkPoints = new THREE.Points(geo, mat);
     this.fireworkPoints.name = 'FinaleFireworksPoints';
+    this.fireworkPoints.frustumCulled = false; // Crucial: prevent Three.js from frustum-culling off-screen initial particle pool!
     this.dwExpandGroup.add(this.fireworkPoints);
   }
 
@@ -1818,8 +1875,28 @@ export class CastleTabletopWorld {
     palette: [number, number, number][],
     shape: 'heart' | 'flower' | 'star' | 'romantic' = 'romantic',
   ): void {
+    // 1. Spawn ascending rocket trail particles rising from behind the Little Castle walls (y = 1.6 -> originY)
+    let trailSpawned = 0;
+    for (let i = 0; i < this.fireworkParticles.length && trailSpawned < 8; i++) {
+      const p = this.fireworkParticles[i];
+      if (!p.active) {
+        p.active = true;
+        p.x = originX + THREE.MathUtils.randFloat(-0.08, 0.08);
+        p.y = 1.6 + trailSpawned * 0.35;
+        p.z = originZ + THREE.MathUtils.randFloat(-0.08, 0.08);
+        p.vx = THREE.MathUtils.randFloat(-0.15, 0.15);
+        p.vy = THREE.MathUtils.randFloat(4.2, 5.8);
+        p.vz = THREE.MathUtils.randFloat(-0.15, 0.15);
+        p.color = [1.0, 0.95, 0.65];
+        p.life = 0;
+        p.maxLife = 0.65;
+        trailSpawned++;
+      }
+    }
+
+    // 2. Spawn main shaped aerial burst high above the Little Castle spires
     let spawned = 0;
-    const countPerBurst = 44;
+    const countPerBurst = 56;
     for (let i = 0; i < this.fireworkParticles.length && spawned < countPerBurst; i++) {
       const p = this.fireworkParticles[i];
       if (!p.active) {
@@ -1837,35 +1914,63 @@ export class CastleTabletopWorld {
             2 * Math.cos(3 * t) -
             Math.cos(4 * t);
           p.vx = THREE.MathUtils.randFloat(-0.35, 0.35);
-          p.vy = hy * 0.14 + 0.75;
-          p.vz = hx * 0.14;
+          p.vy = hy * 0.15 + 0.82;
+          p.vz = hx * 0.15;
         } else if (shape === 'flower') {
           // 6-petal rosette burst
-          const r = (0.55 + 0.45 * Math.cos(6 * t)) * 2.25;
+          const r = (0.55 + 0.45 * Math.cos(6 * t)) * 2.35;
           p.vx = THREE.MathUtils.randFloat(-0.4, 0.4);
-          p.vy = Math.sin(t) * r + 0.7;
+          p.vy = Math.sin(t) * r + 0.78;
           p.vz = Math.cos(t) * r;
         } else if (shape === 'star') {
           // 5-pointed star burst
-          const r = (0.42 + 0.58 * Math.pow(Math.abs(Math.cos(2.5 * t)), 1.6)) * 2.45;
+          const r = (0.42 + 0.58 * Math.pow(Math.abs(Math.cos(2.5 * t)), 1.6)) * 2.55;
           p.vx = THREE.MathUtils.randFloat(-0.4, 0.4);
-          p.vy = Math.sin(t) * r + 0.75;
+          p.vy = Math.sin(t) * r + 0.82;
           p.vz = Math.cos(t) * r;
         } else {
-          const speed = THREE.MathUtils.randFloat(1.2, 3.0);
+          const speed = THREE.MathUtils.randFloat(1.3, 3.2);
           const theta = Math.random() * Math.PI * 2;
           const phi = Math.acos(THREE.MathUtils.randFloat(-1, 1));
           p.vx = Math.sin(phi) * Math.cos(theta) * speed;
-          p.vy = Math.sin(phi) * Math.sin(theta) * speed + 0.8;
+          p.vy = Math.sin(phi) * Math.sin(theta) * speed + 0.85;
           p.vz = Math.cos(phi) * speed;
         }
         const c = palette[spawned % palette.length];
         p.color = [c[0], c[1], c[2]];
         p.life = 0;
-        p.maxLife = THREE.MathUtils.randFloat(1.5, 2.3);
+        p.maxLife = THREE.MathUtils.randFloat(1.6, 2.4);
         spawned++;
       }
     }
+  }
+
+  /**
+   * Section 6: Explicitly activates the Little Castle Fireworks + Sky Text Finale ("Look up.", index 16).
+   */
+  private activateLittleCastleFinale(): void {
+    if (this.fireworkPoints) {
+      this.fireworkPoints.visible = true;
+      this.fireworkPoints.frustumCulled = false;
+    }
+    if (this.skyTextPoints) {
+      this.skyTextPoints.visible = true;
+      this.skyTextPoints.frustumCulled = false;
+    }
+    this.fireworkSequenceStep = 1;
+    this.lastFireworkLaunchT = 0;
+    // Immediately launch Burst 1 (Glowing Rose-Pink Heart-shaped burst) above the Little Castle spires
+    this.launchFireworkBurst(
+      6.4,
+      5.0,
+      -2.0,
+      [
+        [1.0, 0.32, 0.65],
+        [1.0, 0.68, 0.86],
+        [1.0, 0.92, 0.48],
+      ],
+      'heart',
+    );
   }
 
   private setGratitudeBannerBeat(beatIndex: number, opacity: number): void {
@@ -2001,7 +2106,7 @@ export class CastleTabletopWorld {
     this.storySubStage = 'DIALOGUE';
     this.stageTimer = 0.0;
     this.transitionElapsed = 0.0;
-    this.currentStoryBeatIndex = 32; // Start at Crown Reveal ("Yeshwanth... What's that?")
+    this.currentStoryBeatIndex = 8; // Start at Crown Discovery ("I think I found something that belongs to you.")
     this.fireworkSequenceStep = 0;
     this.focusYawOffset = 0.0;
     this.focusPitchOffset = 0.0;
@@ -2149,7 +2254,7 @@ export class CastleTabletopWorld {
   }
 
   /**
-   * Advances the active "Our Little Kingdom" cinematic by one player-confirmed step.
+   * Advances the active "Our Little Kingdom" cinematic by one player-confirmed step (Pass B 19-Beat Sequence).
    */
   public advanceOrContinueCinematic(): boolean {
     if (!this.isTransitionActive()) return false;
@@ -2160,13 +2265,13 @@ export class CastleTabletopWorld {
     // Handle non-dialogue sub-stages
     if (this.storySubStage === 'FREE_INSPECT_1') {
       this.storySubStage = 'DIALOGUE';
-      this.currentStoryBeatIndex = 15;
+      this.currentStoryBeatIndex = 4; // "One tower for you."
       this.stageTimer = 0.0;
       return true;
     }
     if (this.storySubStage === 'FREE_INSPECT_2') {
       this.storySubStage = 'DIALOGUE';
-      this.currentStoryBeatIndex = 32;
+      this.currentStoryBeatIndex = 8; // "I think I found something that belongs to you."
       this.stageTimer = 0.0;
       return true;
     }
@@ -2181,7 +2286,7 @@ export class CastleTabletopWorld {
       this.avatarBridge?.setRaisingHand?.(false);
       this.queenCrownGroup.visible = false;
       this.storySubStage = 'DIALOGUE';
-      this.currentStoryBeatIndex = 40;
+      this.currentStoryBeatIndex = 9; // "Yeah."
       this.stageTimer = 0.0;
       return true;
     }
@@ -2192,26 +2297,27 @@ export class CastleTabletopWorld {
     }
     if (this.storySubStage === 'FIREWORK_PREP') {
       this.storySubStage = 'DIALOGUE';
-      this.currentStoryBeatIndex = 60;
+      this.currentStoryBeatIndex = 16; // "Look up." -> Triggers LITTLE_CASTLE_FINALE!
       this.stageTimer = 0.0;
+      this.activateLittleCastleFinale();
       return true;
     }
     if (this.storySubStage === 'FINAL_HOLD') {
       return this.finishCinematicToExploration();
     }
 
-    // Dialogue sub-stage transitions
-    if (this.currentStoryBeatIndex === 5) {
-      // Group 1 finished -> Enter Little Castle & start Group 2 (index 6)
+    // Dialogue sub-stage transitions (Pass B indices 0..18)
+    if (this.currentStoryBeatIndex === 1) {
+      // After "Come on." (index 1) -> Enter Little Castle & start "I made something smaller this time." (index 2)
       if (!this.isInsideLittleDreamWorld) {
         this.completeWorldEntryTeleport();
       }
-      this.currentStoryBeatIndex = 6;
+      this.currentStoryBeatIndex = 2;
       this.stageTimer = 0.0;
       return true;
     }
-    if (this.currentStoryBeatIndex === 14) {
-      // Group 2 finished -> Free Camera Inspection 1 (3-5s)
+    if (this.currentStoryBeatIndex === 3) {
+      // After "But this one's just for us." (index 3) -> Free Camera Inspection 1
       this.avatarBridge?.setRoseHeld?.(false);
       this.entranceRoseDissolved = true;
       this.dissolvingRosePetalsGroup.visible = false;
@@ -2219,44 +2325,38 @@ export class CastleTabletopWorld {
       this.stageTimer = 0.0;
       return true;
     }
-    if (this.currentStoryBeatIndex === 25) {
-      // Group 3 (Tower conversation) finished -> Group 4 (Courtyard approach, Camera 03)
-      this.currentStoryBeatIndex = 26;
+    if (this.currentStoryBeatIndex === 6) {
+      // After "And I made sure they were connected." (index 6) -> Little Castle Heart ("Even this little place has a heart.", index 7)
+      this.currentStoryBeatIndex = 7;
       this.stageTimer = 0.0;
       return true;
     }
-    if (this.currentStoryBeatIndex === 31) {
-      // Group 4 finished -> Free Camera Inspection 2 before crown reveal
+    if (this.currentStoryBeatIndex === 7) {
+      // After "Even this little place has a heart." (index 7) -> Free Camera Inspection 2 before crown reveal
       this.storySubStage = 'FREE_INSPECT_2';
       this.stageTimer = 0.0;
       return true;
     }
-    if (this.currentStoryBeatIndex === 39) {
-      // Group 5 (Crown Reveal) finished -> Wait for [E] Wear Crown
+    if (this.currentStoryBeatIndex === 8) {
+      // After "I think I found something that belongs to you." (index 8) -> Wait for [E] Wear Crown (or Enter)
       this.storySubStage = 'CROWN_INTERACT_WAIT';
       this.stageTimer = 0.0;
       return true;
     }
-    if (this.currentStoryBeatIndex === 49) {
-      // Group 6 (Post-Crown Reaction) finished -> Group 7 (Throne Scene, Camera 06)
-      this.currentStoryBeatIndex = 50;
+    if (this.currentStoryBeatIndex === 11) {
+      // After "I think we found our queen." (index 11) -> Throne Scene ("There.", index 12)
+      this.currentStoryBeatIndex = 12;
       this.stageTimer = 0.0;
       return true;
     }
-    if (this.currentStoryBeatIndex === 54) {
-      // Group 7 (Throne Scene) finished -> Group 8 (Intimate Side Shot, Camera 07)
-      this.currentStoryBeatIndex = 55;
-      this.stageTimer = 0.0;
-      return true;
-    }
-    if (this.currentStoryBeatIndex === 59) {
-      // Group 8 finished -> Free Camera Inspection 3 before fireworks
+    if (this.currentStoryBeatIndex === 15) {
+      // After "I probably should have expected you to look this good." (index 15) -> Free Camera Inspection 3 before fireworks
       this.storySubStage = 'FREE_INSPECT_3';
       this.stageTimer = 0.0;
       return true;
     }
-    if (this.currentStoryBeatIndex === 65) {
-      // Group 9 (Final Wide Reveal dialogue) finished -> Final Hero Hold (4-6s, no more dialogue)
+    if (this.currentStoryBeatIndex === 18) {
+      // After "I love you, Harsha." (index 18) -> Final Hero Hold (5.0s, AuroraDialogueCard automatically hides!)
       this.storySubStage = 'FINAL_HOLD';
       this.stageTimer = 0.0;
       return true;
@@ -2264,6 +2364,10 @@ export class CastleTabletopWorld {
 
     if (this.currentStoryBeatIndex < LITTLE_CASTLE_DIALOGUE.length - 1) {
       this.currentStoryBeatIndex += 1;
+      if (this.currentStoryBeatIndex === 16) {
+        this.stageTimer = 0.0;
+        this.activateLittleCastleFinale();
+      }
       return true;
     }
 
@@ -2491,21 +2595,21 @@ export class CastleTabletopWorld {
     const sub = this.storySubStage;
 
     // =========================================================================
-    // STAGE 1: CAMERA 01 — SHORT ENTRY TRANSITION (Dialogue 0..5, Group 1)
-    // Smooth 1.5s move slightly closer to the tabletop Little Castle entrance, NO zoom-out
+    // STAGE 1: CAMERA 01 — SHORT ENTRY TRANSITION (Dialogue 0..1: "Ready?", "Come on.")
+    // Smooth 1.5s move slightly closer to the tabletop Little Castle entrance & unblocked "OUR WORLD" sign
     // =========================================================================
-    if (sub === 'DIALOGUE' && idx <= 5) {
+    if (sub === 'DIALOGUE' && idx <= 1) {
       this.transitionSeatYaw = undefined;
       const u = easeInOutCubic(THREE.MathUtils.clamp(this.stageTimer / 1.5, 0, 1));
       this.transitionCamPos.set(
         gateWorldX - 0.18,
         tableCenterY + THREE.MathUtils.lerp(0.42, 0.28, u),
-        THREE.MathUtils.lerp(gateWorldZ - 0.95, gateWorldZ - 0.48, u),
+        THREE.MathUtils.lerp(gateWorldZ - 0.95, gateWorldZ - 0.52, u),
       );
       this.transitionLookPos.set(
         tableCenterX,
         tableCenterY + THREE.MathUtils.lerp(0.28, 0.22, u),
-        tableCenterZ - 0.12,
+        tableCenterZ - 0.14,
       );
       this.transitionFov = THREE.MathUtils.lerp(48, 44, u);
       this.applyCameraOffsetsAndSafety(dwCenterX, dwCenterY, dwCenterZ, false);
@@ -2523,17 +2627,17 @@ export class CastleTabletopWorld {
 
     // =========================================================================
     // STAGES 2, 3, 4 & 5: CAMERA 02 — LEFT-SIDE THREE-QUARTER TWO-SHOT
-    // - Dialogue 6..14 (First Awakening)
-    // - FREE_INSPECT_1 (3-5s free camera control)
-    // - Dialogue 15..25 (Two Towers Conversation)
+    // - Dialogue 2..3 ("I made something smaller this time.", "But this one's just for us.")
+    // - FREE_INSPECT_1 (free camera control)
+    // - Dialogue 4..6 ("One tower for you.", "One for me.", "And I made sure they were connected.")
     // =========================================================================
     if (
-      (sub === 'DIALOGUE' && idx >= 6 && idx <= 25) ||
+      (sub === 'DIALOGUE' && idx >= 2 && idx <= 6) ||
       sub === 'FREE_INSPECT_1'
     ) {
       const wakeU =
-        sub === 'DIALOGUE' && idx <= 14
-          ? THREE.MathUtils.clamp(this.stageTimer / 3.2, 0.25, 1.0)
+        sub === 'DIALOGUE' && idx <= 3
+          ? THREE.MathUtils.clamp(this.stageTimer / 2.8, 0.35, 1.0)
           : 1.0;
       this.flowerGroups.forEach((fg) => fg.scale.setScalar(1.0));
       this.applyKingdomIlluminationState(wakeU, 1.0, 0.0);
@@ -2542,7 +2646,8 @@ export class CastleTabletopWorld {
       const harshaLocalX = 0.85;
       const harshaLocalZ = 0.38;
       this.transitionSeatPos.set(dwCenterX + harshaLocalX, dwCenterY, dwCenterZ + harshaLocalZ);
-      this.transitionSeatYaw = Math.PI / 2 - 0.18;
+      // Harsha looks visually at the two towers or turns toward Yeshwanth
+      this.transitionSeatYaw = idx === 3 ? Math.PI * 0.72 : Math.PI / 2 - 0.14;
 
       this.goldenYeshwanthGroup.position.set(0.95, 0.0, -0.42);
       this.goldenYeshwanthGroup.rotation.y = Math.PI / 2 + 0.22;
@@ -2552,8 +2657,7 @@ export class CastleTabletopWorld {
       this.yeshLeftArm.rotation.set(0, 0, 0);
       this.yeshHeadGroup.rotation.set(0.03, 0.25, 0);
 
-      // Dissolve entrance rose gently at the end of Group 2
-      if (sub === 'DIALOGUE' && idx <= 12) {
+      if (sub === 'DIALOGUE' && idx <= 3) {
         this.avatarBridge?.setRoseHeld?.(true);
         this.dissolvingRosePetalsGroup.visible = false;
       } else {
@@ -2561,7 +2665,7 @@ export class CastleTabletopWorld {
         this.dissolvingRosePetalsGroup.visible = false;
       }
 
-      // CAMERA 02: Left-side three-quarter two-shot framing Harsha, Yeshwanth, flowers, fountain, and both towers
+      // CAMERA 02: Left-side three-quarter two-shot framing Harsha, Yeshwanth, unblocked "OUR WORLD" sign, flowers, fountain, and both towers
       this.transitionCamPos.set(
         dwCenterX - 2.25,
         dwCenterY + 1.62,
@@ -2569,7 +2673,7 @@ export class CastleTabletopWorld {
       );
       this.transitionLookPos.set(
         dwCenterX + 1.75,
-        dwCenterY + 1.38,
+        dwCenterY + 1.48,
         dwCenterZ - 0.05,
       );
       this.transitionFov = 46.0;
@@ -2593,15 +2697,13 @@ export class CastleTabletopWorld {
     }
 
     // =========================================================================
-    // STAGES 6 & 7: CAMERA 03 — SUBTLE LEFT-SIDE SHIFT (Courtyard Approach)
-    // - Dialogue 26..31 (Group 4)
-    // - FREE_INSPECT_2 (free camera pause before crown reveal)
+    // STAGES 6 & 7: CAMERA 03 — LITTLE CASTLE HEART ("Even this little place has a heart.", index 7 + FREE_INSPECT_2)
     // =========================================================================
     if (
-      (sub === 'DIALOGUE' && idx >= 26 && idx <= 31) ||
+      (sub === 'DIALOGUE' && idx === 7) ||
       sub === 'FREE_INSPECT_2'
     ) {
-      this.applyKingdomIlluminationState(1.0, 1.0, 0.0);
+      this.applyKingdomIlluminationState(1.0, 1.0, 0.15);
       const u =
         sub === 'FREE_INSPECT_2'
           ? 1.0
@@ -2619,7 +2721,7 @@ export class CastleTabletopWorld {
       );
       this.goldenYeshwanthGroup.rotation.y = Math.PI / 2 + 0.24;
 
-      // CAMERA 03: Subtle 1.2s shift slightly closer and slightly left (NO zoom-out)
+      // CAMERA 03: Subtle 1.2s shift slightly closer and slightly left framing the Little Castle heart & characters
       this.transitionCamPos.set(
         dwCenterX + THREE.MathUtils.lerp(-2.25, -1.15, u),
         dwCenterY + THREE.MathUtils.lerp(1.62, 1.54, u),
@@ -2627,7 +2729,7 @@ export class CastleTabletopWorld {
       );
       this.transitionLookPos.set(
         dwCenterX + THREE.MathUtils.lerp(1.75, 2.25, u),
-        dwCenterY + 1.36,
+        dwCenterY + THREE.MathUtils.lerp(1.48, 1.62, u),
         dwCenterZ,
       );
       this.transitionFov = 44.0;
@@ -2651,15 +2753,13 @@ export class CastleTabletopWorld {
     }
 
     // =========================================================================
-    // STAGE 8 & 9A: CAMERA 04 — CROWN REVEAL CAMERA & [E] WEAR CROWN WAIT
-    // - Dialogue 32..39 (Group 5: Crown Reveal)
-    // - CROWN_INTERACT_WAIT ("[E] Wear Crown")
+    // STAGE 8 & 9A: CAMERA 04 — CROWN DISCOVERY ("I think I found something that belongs to you.", index 8 + CROWN_INTERACT_WAIT)
     // =========================================================================
     if (
-      (sub === 'DIALOGUE' && idx >= 32 && idx <= 39) ||
+      (sub === 'DIALOGUE' && idx === 8) ||
       sub === 'CROWN_INTERACT_WAIT'
     ) {
-      this.applyKingdomIlluminationState(1.0, 0.88, 0.15);
+      this.applyKingdomIlluminationState(1.0, 0.88, 0.18);
       const u =
         sub === 'CROWN_INTERACT_WAIT'
           ? 1.0
@@ -2683,13 +2783,12 @@ export class CastleTabletopWorld {
       this.goldenYeshwanthGroup.position.set(1.42, 0.0, -0.45);
       this.goldenYeshwanthGroup.rotation.y = Math.PI / 2 + 0.25;
 
-      // CAMERA 04: Smooth target shift Characters -> Crown -> Harsha (1.0-1.5s)
+      // CAMERA 04: Smooth target shift framing the glowing crown pedestal and Harsha & Yeshwanth
       this.transitionCamPos.set(
         dwCenterX + THREE.MathUtils.lerp(-1.15, -0.45, u),
         dwCenterY + THREE.MathUtils.lerp(1.54, 1.48, u),
         dwCenterZ + THREE.MathUtils.lerp(1.52, 1.38, u),
       );
-      // Look midpoint between the glowing crown pedestal (2.67, 1.16, 0) and Harsha/Yeshwanth
       this.transitionLookPos.set(
         dwCenterX + THREE.MathUtils.lerp(2.25, 2.05, u),
         dwCenterY + THREE.MathUtils.lerp(1.36, 1.32, u),
@@ -2717,9 +2816,9 @@ export class CastleTabletopWorld {
 
     // =========================================================================
     // STAGE 9B: CROWN_WEAR_ANIM (Silent 2.6s physical crown pickup & placement)
-    // 1. Harsha steps toward the crown pedestal
-    // 2. Harsha lifts the crown
-    // 3. Crown is placed on her head & she adjusts it slightly
+    // 1. Harsha walks up to the crown pedestal
+    // 2. Harsha picks up the crown and places it on her head
+    // 3. She adjusts it slightly and turns to look at Yeshwanth
     // =========================================================================
     if (sub === 'CROWN_WEAR_ANIM') {
       this.applyKingdomIlluminationState(1.0, 0.95, 0.25);
@@ -2733,12 +2832,11 @@ export class CastleTabletopWorld {
       this.transitionSeatYaw =
         animU < 0.78
           ? Math.PI / 2 - 0.08
-          : THREE.MathUtils.lerp(Math.PI / 2 - 0.08, -Math.PI / 4, (animU - 0.78) / 0.22);
+          : THREE.MathUtils.lerp(Math.PI / 2 - 0.08, Math.PI * 0.72, (animU - 0.78) / 0.22);
 
       if (animU < 0.78) {
         this.avatarBridge?.setRaisingHand?.(true);
         this.queenCrownGroup.visible = true;
-        // Crown moves from pedestal (-0.68 in queenCourtyardGroup = 2.67 in dwRoot) to Harsha's head (1.72 in dwRoot = -1.63 in queenCourtyardGroup)
         this.queenCrownGroup.position.set(
           THREE.MathUtils.lerp(-0.68, -1.63, liftU),
           THREE.MathUtils.lerp(1.16, 1.62, liftU),
@@ -2782,14 +2880,14 @@ export class CastleTabletopWorld {
     this.queenArchFrameMat.emissiveIntensity = 1.35;
 
     // =========================================================================
-    // STAGE 10: CAMERA 05 — LEFT-SIDE TWO-SHOT (Dialogue 40..49, Group 6: Post-Crown Reaction)
-    // Shows Harsha wearing the crown and Yeshwanth's reaction beside her
+    // STAGE 10: CAMERA 05 — SIDE THREE-QUARTER TWO-SHOT (Dialogue 9..11: "Yeah.", "That looks right.", "I think we found our queen.")
+    // Shows Harsha wearing the crown and looking at Yeshwanth
     // =========================================================================
-    if (sub === 'DIALOGUE' && idx >= 40 && idx <= 49) {
+    if (sub === 'DIALOGUE' && idx >= 9 && idx <= 11) {
       this.applyKingdomIlluminationState(1.0, 1.0, 0.25);
 
       this.transitionSeatPos.set(dwCenterX + 1.65, dwCenterY, dwCenterZ + 0.22);
-      // Harsha turns slightly toward Yeshwanth so both faces & her new crown are clearly visible
+      // Harsha looks at Yeshwanth in a side three-quarter two-shot
       this.transitionSeatYaw = Math.PI * 0.72;
 
       this.goldenYeshwanthGroup.position.set(1.55, 0.0, -0.45);
@@ -2822,12 +2920,26 @@ export class CastleTabletopWorld {
     }
 
     // =========================================================================
-    // STAGE 11: CAMERA 06 — WIDER THREE-QUARTER THRONE SHOT (Dialogue 50..54, Group 7)
-    // Harsha walks to the throne and sits; Yeshwanth stands beside the throne
+    // STAGE 11: CAMERA 06 — WIDER THREE-QUARTER THRONE SHOT (Dialogue 12..15 + FREE_INSPECT_3 + FIREWORK_PREP)
+    // "There.", "That's exactly where I imagined you.", "Although...", "I probably should have expected you to look this good."
+    // Harsha walks to the throne and sits; camera widens to frame Harsha on the throne and Yeshwanth watching
     // =========================================================================
-    if (sub === 'DIALOGUE' && idx >= 50 && idx <= 54) {
-      this.applyKingdomIlluminationState(1.0, 1.0, 0.35);
-      const walkU = easeInOutCubic(THREE.MathUtils.clamp(this.stageTimer / 1.8, 0, 1));
+    if (
+      (sub === 'DIALOGUE' && idx >= 12 && idx <= 15) ||
+      sub === 'FREE_INSPECT_3' ||
+      sub === 'FIREWORK_PREP'
+    ) {
+      const isPrep = sub === 'FIREWORK_PREP';
+      const prepU = isPrep
+        ? easeInOutSine(THREE.MathUtils.clamp(this.stageTimer / 1.5, 0, 1))
+        : 0.0;
+      const quietDim = isPrep ? THREE.MathUtils.lerp(1.0, 0.72, prepU) : 1.0;
+      this.applyKingdomIlluminationState(1.0, quietDim, 0.35);
+
+      const walkU =
+        sub === 'DIALOGUE' && idx === 12
+          ? easeInOutCubic(THREE.MathUtils.clamp(this.stageTimer / 1.8, 0, 1))
+          : 1.0;
       const isHarshaSitting = walkU >= 0.82;
 
       const harshaLocalX = THREE.MathUtils.lerp(1.65, 3.7, walkU);
@@ -2857,76 +2969,21 @@ export class CastleTabletopWorld {
       this.yeshLeftArm.rotation.set(0, 0, 0);
       this.yeshHeadGroup.rotation.set(0.05, 0.15, 0);
 
-      const camU = easeInOutCubic(THREE.MathUtils.clamp(this.stageTimer / 1.1, 0, 1));
+      const camU =
+        sub === 'DIALOGUE' && idx === 12
+          ? easeInOutCubic(THREE.MathUtils.clamp(this.stageTimer / 1.2, 0, 1))
+          : 1.0;
       this.transitionCamPos.set(
-        dwCenterX + THREE.MathUtils.lerp(-0.65, 1.05, camU),
-        dwCenterY + THREE.MathUtils.lerp(1.54, 1.58, camU),
-        dwCenterZ + THREE.MathUtils.lerp(1.45, 1.92, camU),
+        dwCenterX + THREE.MathUtils.lerp(-0.65, 1.15, camU),
+        dwCenterY + THREE.MathUtils.lerp(1.54, 1.56, camU),
+        dwCenterZ + THREE.MathUtils.lerp(1.45, 1.85, camU),
       );
       this.transitionLookPos.set(
         dwCenterX + THREE.MathUtils.lerp(1.62, 3.55, camU),
-        dwCenterY + THREE.MathUtils.lerp(1.42, 1.32, camU),
+        dwCenterY + THREE.MathUtils.lerp(1.42, isPrep ? 2.65 : 1.32, isPrep ? prepU : camU),
         dwCenterZ - 0.22,
       );
-      this.transitionFov = 44.0;
-      this.applyCameraOffsetsAndSafety(dwCenterX, dwCenterY, dwCenterZ, true);
-
-      return {
-        active: true,
-        camWorldPos: this.transitionCamPos,
-        lookWorldPos: this.transitionLookPos,
-        blendAlpha,
-        fov: this.transitionFov,
-        seatWorldPos: this.transitionSeatPos,
-        seatYaw: this.transitionSeatYaw,
-        isSitting: isHarshaSitting,
-      };
-    }
-
-    // Harsha remains seated on the glowing royal throne for Stages 12, 13 & 14
-    this.transitionSeatPos.set(dwCenterX + 3.7, dwCenterY + 0.28, dwCenterZ);
-    this.transitionSeatYaw = -Math.PI / 2;
-    if (this.throneCushionMat) this.throneCushionMat.emissiveIntensity = 1.35;
-    if (this.throneCrystalMat) this.throneCrystalMat.emissiveIntensity = 1.85;
-    this.goldenYeshwanthGroup.position.set(3.45, 0.28, -0.95);
-    this.goldenYeshwanthGroup.rotation.y = -0.65;
-    this.yeshRightArm.rotation.set(-0.68, 0, -0.52);
-    this.yeshLeftArm.rotation.set(0, 0, 0);
-    this.yeshHeadGroup.rotation.set(0.05, 0.15, 0);
-
-    // =========================================================================
-    // STAGES 12 & 13: CAMERA 07 — INTIMATE SIDE SHOT + FREE CAMERA + FIREWORK PREP
-    // - Dialogue 55..59 (Group 8: Intimate Emotional Beat)
-    // - FREE_INSPECT_3 (3-4s free camera control)
-    // - FIREWORK_PREP (Castle lights dim gently, camera target guides upward, "Look up ✧")
-    // =========================================================================
-    if (
-      (sub === 'DIALOGUE' && idx >= 55 && idx <= 59) ||
-      sub === 'FREE_INSPECT_3' ||
-      sub === 'FIREWORK_PREP'
-    ) {
-      const isPrep = sub === 'FIREWORK_PREP';
-      const prepU = isPrep
-        ? easeInOutSine(THREE.MathUtils.clamp(this.stageTimer / 1.5, 0, 1))
-        : 0.0;
-      const quietDim = isPrep ? THREE.MathUtils.lerp(1.0, 0.68, prepU) : 1.0;
-      this.applyKingdomIlluminationState(1.0, quietDim, 0.35);
-
-      const pushU =
-        sub === 'DIALOGUE'
-          ? easeInOutCubic(THREE.MathUtils.clamp(this.stageTimer / 1.4, 0, 1))
-          : 1.0;
-      this.transitionCamPos.set(
-        dwCenterX + THREE.MathUtils.lerp(1.05, 1.62, pushU),
-        dwCenterY + THREE.MathUtils.lerp(1.58, 1.48, pushU),
-        dwCenterZ + THREE.MathUtils.lerp(1.92, 1.42, pushU),
-      );
-      this.transitionLookPos.set(
-        dwCenterX + THREE.MathUtils.lerp(3.55, 3.65, pushU),
-        dwCenterY + THREE.MathUtils.lerp(1.32, isPrep ? 2.65 : 1.32, isPrep ? prepU : pushU),
-        dwCenterZ - 0.22,
-      );
-      this.transitionFov = THREE.MathUtils.lerp(44, 39, pushU);
+      this.transitionFov = THREE.MathUtils.lerp(41, 44, camU);
       this.applyCameraOffsetsAndSafety(
         dwCenterX,
         dwCenterY,
@@ -2942,44 +2999,59 @@ export class CastleTabletopWorld {
         fov: this.transitionFov,
         seatWorldPos: this.transitionSeatPos,
         seatYaw: this.transitionSeatYaw,
-        isSitting: true,
+        isSitting: isHarshaSitting,
       };
     }
 
+    // Harsha remains seated on the glowing royal throne for the Finale
+    this.transitionSeatPos.set(dwCenterX + 3.7, dwCenterY + 0.28, dwCenterZ);
+    this.transitionSeatYaw = -Math.PI / 2;
+    if (this.throneCushionMat) this.throneCushionMat.emissiveIntensity = 1.35;
+    if (this.throneCrystalMat) this.throneCrystalMat.emissiveIntensity = 1.85;
+    this.goldenYeshwanthGroup.position.set(3.45, 0.28, -0.95);
+    this.goldenYeshwanthGroup.rotation.y = -0.65;
+    this.yeshRightArm.rotation.set(-0.68, 0, -0.52);
+    this.yeshLeftArm.rotation.set(0, 0, 0);
+    // Yeshwanth tilts his head upward to watch the fireworks & sky text with Harsha
+    this.yeshHeadGroup.rotation.set(-0.22, 0.15, 0);
+
     // =========================================================================
-    // STAGE 14: CAMERA 08 — ONE AND ONLY ONE FINAL ZOOM-OUT + SKY CONSTELLATION + HERO HOLD
-    // - Dialogue 60..65 (Group 9: Final Wide Reveal)
-    // - FINAL_HOLD (4-6s silent hold with fireworks & full uncropped "I LOVE HARSHA ❤️" in the sky)
+    // STAGE 12: CAMERA 08 — LITTLE_CASTLE_FINALE (Indices 16..18 + FINAL_HOLD)
+    // - "Look up." (index 16)
+    // - "I wanted you to have one little world that was just ours." (index 17)
+    // - "I love you, Harsha." (index 18)
+    // - FINAL_HOLD (5.0s clean hold with AuroraDialogueCard hidden, fireworks bursting, and 100% of "I LOVE YOU HARSHA ❤️" in the sky)
     // =========================================================================
     const pullU =
-      sub === 'FINAL_HOLD'
+      sub === 'FINAL_HOLD' || idx >= 17
         ? 1.0
-        : easeInOutCubic(THREE.MathUtils.clamp(this.stageTimer / 3.6, 0, 1));
+        : easeInOutCubic(THREE.MathUtils.clamp(this.stageTimer / 3.4, 0, 1));
 
     this.applyKingdomIlluminationState(1.0, 1.0, pullU);
 
     if (this.skyTextMat) {
       const skyFade =
-        sub === 'FINAL_HOLD'
+        sub === 'FINAL_HOLD' || idx >= 17
           ? 1.0
-          : easeInOutSine(THREE.MathUtils.clamp((this.stageTimer - 0.6) / 1.8, 0, 1));
-      this.skyTextMat.opacity = skyFade * 0.96;
+          : easeInOutSine(THREE.MathUtils.clamp((this.stageTimer - 0.3) / 1.6, 0, 1));
+      const shimmer = 0.94 + Math.sin(this.transitionElapsed * 4.2) * 0.06;
+      this.skyTextMat.opacity = skyFade * shimmer;
     }
 
-    // CAMERA 08: 3.6s smooth pullback & rise, ~9.6° off frontal East-West axis (within 8°-12° spec)
-    // Frames Harsha on throne, Yeshwanth, entire Little Castle, both towers, flowers, fountain,
-    // fireworks, and 100% of "I LOVE HARSHA ❤️" with generous sky margin on both sides!
+    // CAMERA 08: Single Major Finale Wide Shot
+    // Frames Harsha in her crown on the throne, Yeshwanth, the Little Castle spires, flowers, fountain,
+    // unblocked "OUR WORLD" sign, bursting fireworks, and 100% of "I LOVE YOU HARSHA ❤️" in the sky!
     this.transitionCamPos.set(
-      THREE.MathUtils.lerp(dwCenterX + 1.62, dwCenterX - 7.8, pullU),
-      dwCenterY + THREE.MathUtils.lerp(1.48, 4.2, pullU),
-      dwCenterZ + THREE.MathUtils.lerp(1.42, 2.45, pullU),
+      THREE.MathUtils.lerp(dwCenterX + 1.15, dwCenterX - 7.8, pullU),
+      dwCenterY + THREE.MathUtils.lerp(1.56, 4.15, pullU),
+      dwCenterZ + THREE.MathUtils.lerp(1.85, 2.35, pullU),
     );
     this.transitionLookPos.set(
-      THREE.MathUtils.lerp(dwCenterX + 3.65, dwCenterX + 4.2, pullU),
-      dwCenterY + THREE.MathUtils.lerp(1.85, 3.5, pullU),
+      THREE.MathUtils.lerp(dwCenterX + 3.55, dwCenterX + 4.2, pullU),
+      dwCenterY + THREE.MathUtils.lerp(1.85, 3.65, pullU),
       dwCenterZ,
     );
-    this.transitionFov = THREE.MathUtils.lerp(39, 54, pullU);
+    this.transitionFov = THREE.MathUtils.lerp(44, 54, pullU);
     this.applyCameraOffsetsAndSafety(dwCenterX, dwCenterY, dwCenterZ, true);
 
     return {
@@ -3013,7 +3085,7 @@ export class CastleTabletopWorld {
 
     // Animate miniature ornate golden gate doors when near or transitioning
     const shouldOpenGate =
-      (this.transitionState === 'ENTERING_STORY' && this.currentStoryBeatIndex >= 4) ||
+      (this.transitionState === 'ENTERING_STORY' && this.currentStoryBeatIndex >= 1) ||
       this.isInsideLittleDreamWorld ||
       this.isNearTabletopGate(lx, lz);
     this.gateOpenRatio = THREE.MathUtils.lerp(
@@ -3062,65 +3134,66 @@ export class CastleTabletopWorld {
       colAttr.needsUpdate = true;
     }
 
-    // Launch shaped world-space fireworks during Stage 14 (Group 9 dialogue + FINAL_HOLD)
+    // Launch shaped world-space fireworks during LITTLE_CASTLE_FINALE (indices 16..18 + FINAL_HOLD)
     if (this.isInsideLittleDreamWorld) {
       const inFinale =
         (this.transitionState === 'ENTERING_STORY' ||
           this.transitionState === 'REPLAY_QUEEN') &&
-        ((this.storySubStage === 'DIALOGUE' && this.currentStoryBeatIndex >= 60) ||
+        ((this.storySubStage === 'DIALOGUE' && this.currentStoryBeatIndex >= 16) ||
           this.storySubStage === 'FINAL_HOLD');
-      if (inFinale && clockTime - this.lastFireworkLaunchT >= 0.72) {
+      if (inFinale && clockTime - this.lastFireworkLaunchT >= 0.65) {
         this.lastFireworkLaunchT = clockTime;
         const step = this.fireworkSequenceStep % 4;
         this.fireworkSequenceStep += 1;
         if (step === 0) {
-          // 1. Heart-shaped firework burst
+          // 1. Glowing Rose-Pink Heart-shaped particle burst
           this.launchFireworkBurst(
-            6.5,
-            4.8,
+            6.4,
+            5.0,
             -2.1,
             [
-              [1.0, 0.38, 0.68],
-              [1.0, 0.75, 0.88],
+              [1.0, 0.32, 0.65],
+              [1.0, 0.72, 0.88],
               [1.0, 0.92, 0.45],
             ],
             'heart',
           );
         } else if (step === 1) {
-          // 2. Flower-shaped firework burst
+          // 2. Golden & Lavender Flower-shaped petal burst
           this.launchFireworkBurst(
-            6.5,
-            4.9,
+            6.4,
+            5.1,
             2.1,
             [
-              [1.0, 0.85, 0.95],
-              [0.92, 0.68, 1.0],
-              [1.0, 0.94, 0.42],
+              [1.0, 0.92, 0.42],
+              [0.88, 0.68, 1.0],
+              [1.0, 0.82, 0.95],
             ],
             'flower',
           );
         } else if (step === 2) {
-          // 3. Star-shaped firework burst
+          // 3. Sparkling Cyan & Champagne-Gold Star burst
           this.launchFireworkBurst(
-            6.6,
-            5.1,
+            6.5,
+            5.3,
             0.0,
             [
-              [1.0, 0.94, 0.42],
-              [1.0, 0.82, 0.55],
-              [1.0, 0.96, 0.82],
+              [0.45, 0.92, 1.0],
+              [1.0, 0.94, 0.48],
+              [1.0, 0.85, 0.58],
             ],
             'star',
           );
         } else {
-          // 4. Multiple colourful romantic bursts
+          // 4. Continuous multi-color celebratory bursts
           this.launchFireworkBurst(
-            6.6,
-            THREE.MathUtils.randFloat(4.5, 5.4),
+            6.5,
+            THREE.MathUtils.randFloat(4.6, 5.5),
             THREE.MathUtils.randFloat(-2.8, 2.8),
             [
               [0.98, 0.35, 0.58],
               [1.0, 0.94, 0.4],
+              [0.48, 0.9, 1.0],
               [0.85, 0.75, 1.0],
             ],
             'romantic',
@@ -3183,26 +3256,27 @@ export class CastleTabletopWorld {
 
       if (this.storySubStage === 'FREE_INSPECT_1' && this.stageTimer >= 4.0) {
         this.storySubStage = 'DIALOGUE';
-        this.currentStoryBeatIndex = 15;
+        this.currentStoryBeatIndex = 4; // "One tower for you."
         this.stageTimer = 0.0;
       } else if (this.storySubStage === 'FREE_INSPECT_2' && this.stageTimer >= 3.2) {
         this.storySubStage = 'DIALOGUE';
-        this.currentStoryBeatIndex = 32;
+        this.currentStoryBeatIndex = 8; // "I think I found something that belongs to you."
         this.stageTimer = 0.0;
       } else if (this.storySubStage === 'CROWN_WEAR_ANIM' && this.stageTimer >= 2.6) {
         this.avatarBridge?.setJewelleryEquipped?.({ crownEquipped: true });
         this.avatarBridge?.setRaisingHand?.(false);
         this.queenCrownGroup.visible = false;
         this.storySubStage = 'DIALOGUE';
-        this.currentStoryBeatIndex = 40;
+        this.currentStoryBeatIndex = 9; // "Yeah."
         this.stageTimer = 0.0;
       } else if (this.storySubStage === 'FREE_INSPECT_3' && this.stageTimer >= 3.5) {
         this.storySubStage = 'FIREWORK_PREP';
         this.stageTimer = 0.0;
       } else if (this.storySubStage === 'FIREWORK_PREP' && this.stageTimer >= 1.5) {
         this.storySubStage = 'DIALOGUE';
-        this.currentStoryBeatIndex = 60;
+        this.currentStoryBeatIndex = 16; // "Look up." -> Triggers LITTLE_CASTLE_FINALE
         this.stageTimer = 0.0;
+        this.activateLittleCastleFinale();
       } else if (this.storySubStage === 'FINAL_HOLD' && this.stageTimer >= 5.0) {
         this.finishCinematicToExploration();
       }
