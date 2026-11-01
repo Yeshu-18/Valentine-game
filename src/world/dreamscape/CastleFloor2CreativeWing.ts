@@ -2973,10 +2973,13 @@ export class CreativeWing implements CastleFloor2CreativeWingBundle {
     }
 
     if (this.tabletopWorld.isTransitionActive()) {
+      if (this.tabletopWorld.isWaitingForCrownInteract()) {
+        return '[E] Wear Crown';
+      }
       if (this.tabletopWorld.getCurrentDialogue() !== null) {
         return null;
       }
-      return '[E] Continue · [Space] Skip';
+      return this.tabletopWorld.getStoryCaption() ?? '[E] Continue · [Space] Skip';
     }
     if (this.jewelleryAtelier.isCinematicActive()) {
       return '[E] Continue · [Space] Skip';
@@ -3074,6 +3077,9 @@ export class CreativeWing implements CastleFloor2CreativeWingBundle {
 
   public interact(playerPos: THREE.Vector3): boolean {
     if (this.tabletopWorld.isTransitionActive()) {
+      if (this.tabletopWorld.isWaitingForCrownInteract()) {
+        return this.tabletopWorld.advanceOrContinueCinematic();
+      }
       if (this.tabletopWorld.getCurrentDialogue() !== null) {
         return true;
       }
@@ -3286,6 +3292,10 @@ export class CreativeWing implements CastleFloor2CreativeWingBundle {
    * and smooth vertical pitch (`[-0.78, +0.78]`) during all Creative Wing inspection modes.
    */
   public applyLookDelta(deltaYaw: number, deltaPitch: number): void {
+    if (this.tabletopWorld.isTransitionActive()) {
+      this.tabletopWorld.applyFocusLookDelta(deltaYaw, deltaPitch);
+      return;
+    }
     let nextYaw = this.camLookYaw + deltaYaw;
     while (nextYaw > Math.PI) nextYaw -= Math.PI * 2;
     while (nextYaw < -Math.PI) nextYaw += Math.PI * 2;
@@ -3312,6 +3322,34 @@ export class CreativeWing implements CastleFloor2CreativeWingBundle {
       this.lastPhotoMemoryMarkerGroup.rotation.y = Math.sin(clockTime * 1.4) * 0.08;
     }
 
+    // Route WASD + R/F to 3D camera position movement and Arrow keys to camera rotation inside Little Castle
+    if (this.tabletopWorld.isTransitionActive() && inputKeys) {
+      let moveFwd = 0;
+      let moveRight = 0;
+      let moveUp = 0;
+      if (inputKeys.has('KeyW')) moveFwd += 1;
+      if (inputKeys.has('KeyS')) moveFwd -= 1;
+      if (inputKeys.has('KeyD')) moveRight += 1;
+      if (inputKeys.has('KeyA')) moveRight -= 1;
+      if (inputKeys.has('KeyR') || inputKeys.has('PageUp')) moveUp += 1;
+      if (inputKeys.has('KeyF') || inputKeys.has('PageDown')) moveUp -= 1;
+      if (moveFwd !== 0 || moveRight !== 0 || moveUp !== 0) {
+        this.tabletopWorld.updateFocusPositionOffset(delta, moveFwd, moveRight, moveUp);
+      }
+      if (inputKeys.has('ArrowLeft')) {
+        this.tabletopWorld.applyFocusLookDelta(-delta * 1.45, 0);
+      }
+      if (inputKeys.has('ArrowRight')) {
+        this.tabletopWorld.applyFocusLookDelta(delta * 1.45, 0);
+      }
+      if (inputKeys.has('ArrowUp')) {
+        this.tabletopWorld.applyFocusLookDelta(0, delta * 1.05);
+      }
+      if (inputKeys.has('ArrowDown')) {
+        this.tabletopWorld.applyFocusLookDelta(0, -delta * 1.05);
+      }
+    }
+
     if (this.activeCameraMode === 'return_to_capture_location') {
       this.returnTransitionElapsed += delta;
       if (this.returnTransitionElapsed >= this.RETURN_TO_CAPTURE_DUR) {
@@ -3326,16 +3364,16 @@ export class CreativeWing implements CastleFloor2CreativeWingBundle {
         this.cameraTransitionElapsed + delta,
       );
       if (inputKeys && this.activeCameraMode !== 'film_strip_developing') {
-        if (inputKeys.has('KeyA') || inputKeys.has('ArrowLeft') || inputKeys.has('KeyQ')) {
+        if (inputKeys.has('ArrowLeft') || inputKeys.has('KeyQ')) {
           this.applyLookDelta(-delta * 1.45, 0);
         }
-        if (inputKeys.has('KeyD') || inputKeys.has('ArrowRight') || inputKeys.has('KeyR')) {
+        if (inputKeys.has('ArrowRight')) {
           this.applyLookDelta(delta * 1.45, 0);
         }
-        if (inputKeys.has('KeyW') || inputKeys.has('ArrowUp')) {
+        if (inputKeys.has('ArrowUp')) {
           this.applyLookDelta(0, delta * 1.05);
         }
-        if (inputKeys.has('KeyS') || inputKeys.has('ArrowDown')) {
+        if (inputKeys.has('ArrowDown')) {
           this.applyLookDelta(0, -delta * 1.05);
         }
       }

@@ -115,6 +115,7 @@ export const AuroraDialogueCard: React.FC<AuroraDialogueCardProps> = ({
   if (!dialogue) return null;
 
   const isProposal = dialogue.isProposal === true;
+  const isHarsha = dialogue.speaker === 'Harsha';
 
   const handleAdvanceAction = () => {
     if (onAdvance) {
@@ -125,12 +126,12 @@ export const AuroraDialogueCard: React.FC<AuroraDialogueCardProps> = ({
   };
 
   return (
-    <div className="pointer-events-none fixed inset-x-0 bottom-4 sm:bottom-6 z-40 flex justify-center px-3 sm:px-6">
-      {/* Wide, horizontal cinematic dialogue box (~54-58% desktop width, 84-90% mobile width, auto height, zero clipping) */}
+    <div className="pointer-events-none fixed inset-x-0 bottom-3 sm:bottom-5 z-40 flex justify-center px-3 sm:px-6">
+      {/* Wide, compact, horizontal cinematic dialogue box (~52-56% desktop width, 84-90% mobile width, auto height, zero clipping) */}
       <div
-        className={`pointer-events-auto relative w-[90vw] sm:w-[84vw] md:w-[58vw] lg:w-[54vw] max-w-3xl h-auto rounded-2xl border px-4 py-3 sm:px-6 sm:py-3.5 backdrop-blur-md transition-all duration-250 ease-out shadow-2xl ${
-          isProposal
-            ? 'border-rose-200/40 bg-slate-950/65 shadow-[0_8px_32px_rgba(244,114,182,0.22),inset_0_1px_0_rgba(255,255,255,0.18)]'
+        className={`pointer-events-auto relative w-[90vw] sm:w-[84vw] md:w-[56vw] lg:w-[52vw] max-w-3xl h-auto rounded-2xl border px-4 py-2.5 sm:px-5 sm:py-3 backdrop-blur-md transition-all duration-200 ease-out shadow-2xl ${
+          isProposal || isHarsha
+            ? 'border-rose-200/40 bg-slate-950/65 shadow-[0_8px_32px_rgba(244,114,182,0.20),inset_0_1px_0_rgba(255,255,255,0.18)]'
             : 'border-amber-200/35 bg-slate-950/65 shadow-[0_8px_30px_rgba(15,23,42,0.5),inset_0_1px_0_rgba(255,255,255,0.16)]'
         } ${isVisible ? 'translate-y-0 opacity-100 scale-100' : 'translate-y-2 opacity-0 scale-98'}`}
       >
@@ -138,23 +139,23 @@ export const AuroraDialogueCard: React.FC<AuroraDialogueCardProps> = ({
         <div className="pointer-events-none absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-amber-200/40 to-transparent" />
 
         {/* Vertical Flex Layout: [Top: Speaker Badge + Skip] -> [Middle: Full Unclipped Dialogue Text] -> [Bottom: Right-Aligned Continue Button] */}
-        <div className="relative flex flex-col gap-1.5 sm:gap-2">
+        <div className="relative flex flex-col gap-1 sm:gap-1.5">
           {/* Top Row: Speaker Name Badge & Optional Skip */}
           <div className="flex items-center justify-between gap-2">
             <div
               className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 ${
-                isProposal
-                  ? 'border-rose-200/40 bg-rose-400/15 text-rose-100'
-                  : 'border-amber-200/35 bg-amber-400/12 text-amber-100'
+                isHarsha
+                  ? 'border-rose-200/45 bg-rose-400/18 text-rose-100'
+                  : 'border-amber-200/40 bg-amber-400/15 text-amber-100'
               }`}
             >
-              {isProposal ? (
+              {isHarsha || isProposal ? (
                 <Heart className="h-3 w-3 fill-rose-300/85 text-rose-200 shrink-0" />
               ) : (
                 <Sparkles className="h-3 w-3 text-amber-200 shrink-0" />
               )}
               <span className="text-[11px] font-semibold tracking-wider uppercase">
-                {dialogue.badge}
+                {dialogue.speaker}
               </span>
             </div>
 
@@ -185,7 +186,7 @@ export const AuroraDialogueCard: React.FC<AuroraDialogueCardProps> = ({
               {isTyping && (
                 <span
                   className={`ml-0.5 inline-block h-3.5 w-px translate-y-[2px] animate-pulse ${
-                    isProposal ? 'bg-rose-200' : 'bg-amber-200'
+                    isHarsha || isProposal ? 'bg-rose-200' : 'bg-amber-200'
                   }`}
                 />
               )}
@@ -197,8 +198,8 @@ export const AuroraDialogueCard: React.FC<AuroraDialogueCardProps> = ({
             <button
               type="button"
               onClick={handleAdvanceAction}
-              className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1 text-[11px] font-semibold tracking-wider uppercase transition-all duration-150 cursor-pointer ${
-                isProposal
+              className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-[11px] font-semibold tracking-wider uppercase transition-all duration-150 cursor-pointer ${
+                isHarsha || isProposal
                   ? 'border-rose-200/45 bg-rose-500/30 hover:bg-rose-500/45 text-rose-50 shadow-[inset_0_1px_0_rgba(255,255,255,0.2)]'
                   : 'border-amber-200/40 bg-amber-400/25 hover:bg-amber-400/40 text-amber-50 shadow-[inset_0_1px_0_rgba(255,255,255,0.2)]'
               }`}

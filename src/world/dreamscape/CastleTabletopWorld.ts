@@ -349,28 +349,25 @@ export class CastleTabletopWorld {
   // Scale-Transition & Queen Reveal Story State Machine
   public isInsideLittleDreamWorld = false;
   private transitionState: 'NONE' | 'ENTERING_STORY' | 'REPLAY_QUEEN' | 'EXITING' = 'NONE';
+  private storySubStage:
+    | 'DIALOGUE'
+    | 'FREE_INSPECT_1'
+    | 'FREE_INSPECT_2'
+    | 'CROWN_INTERACT_WAIT'
+    | 'CROWN_WEAR_ANIM'
+    | 'FREE_INSPECT_3'
+    | 'FIREWORK_PREP'
+    | 'FINAL_HOLD' = 'DIALOGUE';
+  private stageTimer = 0.0;
   private transitionElapsed = 0.0;
   private currentStoryBeatIndex = 0;
-  private static readonly LITTLE_CASTLE_BEATS: ReadonlyArray<{
-    startStoryT: number;
-    stopStoryT: number;
-  }> = [
-    { startStoryT: 0.0, stopStoryT: 2.75 },   // 0: little_castle_01 (Entrance & Two Towers)
-    { startStoryT: 2.8, stopStoryT: 4.55 },   // 1: little_castle_02 (Stepping Through Golden Gate)
-    { startStoryT: 4.6, stopStoryT: 8.8 },    // 2: little_castle_03 (Kingdom Awakens & Fountain)
-    { startStoryT: 8.8, stopStoryT: 13.95 },  // 3: little_castle_04 (Two Towers Illuminate & Rose Dissolves)
-    { startStoryT: 14.0, stopStoryT: 20.45 }, // 4: little_castle_05 (Queen's Courtyard & Rising Crown)
-    { startStoryT: 20.5, stopStoryT: 24.95 }, // 5: little_castle_06 (Yeshwanth Hand Over Heart)
-    { startStoryT: 25.0, stopStoryT: 26.0 },  // 6: little_castle_07 ("MY QUEEN")
-    { startStoryT: 26.5, stopStoryT: 27.5 },  // 7: little_castle_08 ("You are the queen of my life.")
-    { startStoryT: 28.0, stopStoryT: 29.1 },  // 8: little_castle_09 ("And I am so grateful...")
-    { startStoryT: 29.6, stopStoryT: 30.7 },  // 9: little_castle_10 ("Thank you for making my world...")
-    { startStoryT: 31.2, stopStoryT: 32.4 },  // 10: little_castle_11 ("I LOVE YOU, HARSHA ❤️")
-    { startStoryT: 32.8, stopStoryT: 36.8 },  // 11: little_castle_12 (Heart-Shaped Kingdom Illumination)
-  ];
-  private readonly ENTER_STORY_DUR = 38.0; // Complete "Our Little Kingdom" -> Awakening -> Queen Reveal -> Gratitude -> Heart Kingdom Illumination
-  private readonly REPLAY_QUEEN_DUR = 24.0; // Queen's Courtyard -> Crown -> Yeshwanth Hand over Heart -> Gratitude -> Heart Kingdom Illumination
+  private fireworkSequenceStep = 0;
   private readonly EXIT_DUR = 2.4;
+
+  // Player-controlled free-camera position & rotation offsets inside the Little Castle
+  private focusYawOffset = 0.0;
+  private focusPitchOffset = 0.0;
+  private readonly focusPosOffset = new THREE.Vector3();
 
   private pendingPlayerWorldTeleport: THREE.Vector3 | null = null;
   private pendingPlayerYaw: number | null = null;
@@ -1742,10 +1739,10 @@ export class CastleTabletopWorld {
       for (let px = 0; px < canvas.width; px += step) {
         const idx = (py * canvas.width + px) * 4;
         if (imgData[idx] > 110) {
-          // East sky: local x = 7.0, y = 6.4 .. 8.4, z = -4.2 .. +4.2
-          const localZ = ((px / canvas.width) - 0.5) * 8.4;
-          const localY = 6.4 + (1.0 - py / canvas.height) * 2.1;
-          const localX = 7.0 + (Math.sin(px * 0.1) * 0.08);
+          // East sky: local x = 6.4, y = 5.2 .. 6.9, z = -3.6 .. +3.6 (7.2m wide so 100% uncropped in CAMERA 08)
+          const localZ = ((px / canvas.width) - 0.5) * 7.2;
+          const localY = 5.2 + (1.0 - py / canvas.height) * 1.7;
+          const localX = 6.4 + (Math.sin(px * 0.1) * 0.06);
           positions.push(localX, localY, localZ);
         }
       }
@@ -1769,7 +1766,7 @@ export class CastleTabletopWorld {
   }
 
   private buildFinaleFireworksSystem(): void {
-    const count = 128;
+    const count = 240;
     this.fireworkPositions = new Float32Array(count * 3);
     this.fireworkColors = new Float32Array(count * 3);
     this.fireworkParticles = [];
@@ -1819,9 +1816,10 @@ export class CastleTabletopWorld {
     originY: number,
     originZ: number,
     palette: [number, number, number][],
+    shape: 'heart' | 'flower' | 'star' | 'romantic' = 'romantic',
   ): void {
     let spawned = 0;
-    const countPerBurst = 32;
+    const countPerBurst = 44;
     for (let i = 0; i < this.fireworkParticles.length && spawned < countPerBurst; i++) {
       const p = this.fireworkParticles[i];
       if (!p.active) {
@@ -1829,16 +1827,42 @@ export class CastleTabletopWorld {
         p.x = originX;
         p.y = originY;
         p.z = originZ;
-        const speed = THREE.MathUtils.randFloat(1.2, 3.2);
-        const theta = Math.random() * Math.PI * 2;
-        const phi = Math.acos(THREE.MathUtils.randFloat(-1, 1));
-        p.vx = Math.sin(phi) * Math.cos(theta) * speed;
-        p.vy = Math.sin(phi) * Math.sin(theta) * speed + 0.8;
-        p.vz = Math.cos(phi) * speed;
-        const c = palette[Math.floor(Math.random() * palette.length)];
+        const t = (spawned / countPerBurst) * Math.PI * 2;
+        if (shape === 'heart') {
+          // Parametric heart in the (Y, Z) plane facing CAMERA 08
+          const hx = 16 * Math.pow(Math.sin(t), 3);
+          const hy =
+            13 * Math.cos(t) -
+            5 * Math.cos(2 * t) -
+            2 * Math.cos(3 * t) -
+            Math.cos(4 * t);
+          p.vx = THREE.MathUtils.randFloat(-0.35, 0.35);
+          p.vy = hy * 0.14 + 0.75;
+          p.vz = hx * 0.14;
+        } else if (shape === 'flower') {
+          // 6-petal rosette burst
+          const r = (0.55 + 0.45 * Math.cos(6 * t)) * 2.25;
+          p.vx = THREE.MathUtils.randFloat(-0.4, 0.4);
+          p.vy = Math.sin(t) * r + 0.7;
+          p.vz = Math.cos(t) * r;
+        } else if (shape === 'star') {
+          // 5-pointed star burst
+          const r = (0.42 + 0.58 * Math.pow(Math.abs(Math.cos(2.5 * t)), 1.6)) * 2.45;
+          p.vx = THREE.MathUtils.randFloat(-0.4, 0.4);
+          p.vy = Math.sin(t) * r + 0.75;
+          p.vz = Math.cos(t) * r;
+        } else {
+          const speed = THREE.MathUtils.randFloat(1.2, 3.0);
+          const theta = Math.random() * Math.PI * 2;
+          const phi = Math.acos(THREE.MathUtils.randFloat(-1, 1));
+          p.vx = Math.sin(phi) * Math.cos(theta) * speed;
+          p.vy = Math.sin(phi) * Math.sin(theta) * speed + 0.8;
+          p.vz = Math.cos(phi) * speed;
+        }
+        const c = palette[spawned % palette.length];
         p.color = [c[0], c[1], c[2]];
         p.life = 0;
-        p.maxLife = THREE.MathUtils.randFloat(1.2, 2.0);
+        p.maxLife = THREE.MathUtils.randFloat(1.5, 2.3);
         spawned++;
       }
     }
@@ -1935,8 +1959,14 @@ export class CastleTabletopWorld {
   public triggerEnterLittleDreamWorld(): boolean {
     if (this.transitionState !== 'NONE') return false;
     this.transitionState = 'ENTERING_STORY';
+    this.storySubStage = 'DIALOGUE';
+    this.stageTimer = 0.0;
     this.transitionElapsed = 0.0;
     this.currentStoryBeatIndex = 0;
+    this.fireworkSequenceStep = 0;
+    this.focusYawOffset = 0.0;
+    this.focusPitchOffset = 0.0;
+    this.focusPosOffset.set(0, 0, 0);
 
     // Reset kingdom to its sleeping pre-arrival state for the journey
     this.awakeningFlowers.forEach((af) => {
@@ -1953,8 +1983,11 @@ export class CastleTabletopWorld {
     this.queenArchFrameMat.emissiveIntensity = 0.25;
     this.dissolvingRosePetalsGroup.visible = false;
     this.gratitudeBannerMesh.visible = false;
+    if (this.skyTextMat) {
+      this.skyTextMat.opacity = 0.0;
+    }
 
-    // Section 13: The rose from the previous entrance scene is still in Harsha's hand when she enters
+    // The rose from the previous entrance scene is still in Harsha's hand when she enters
     this.avatarBridge?.setRoseHeld?.(true);
     this.avatarBridge?.setRaisingHand?.(false);
 
@@ -1965,12 +1998,22 @@ export class CastleTabletopWorld {
   public triggerReplayGoldenYeshwanthStory(): boolean {
     if (this.transitionState !== 'NONE') return false;
     this.transitionState = 'REPLAY_QUEEN';
+    this.storySubStage = 'DIALOGUE';
+    this.stageTimer = 0.0;
     this.transitionElapsed = 0.0;
-    this.currentStoryBeatIndex = 4;
+    this.currentStoryBeatIndex = 32; // Start at Crown Reveal ("Yeshwanth... What's that?")
+    this.fireworkSequenceStep = 0;
+    this.focusYawOffset = 0.0;
+    this.focusPitchOffset = 0.0;
+    this.focusPosOffset.set(0, 0, 0);
+
     this.queenCrownGroup.visible = false;
     this.queenCrownGroup.position.set(-0.68, 0.62, 0);
     this.queenCrownHaloMat.opacity = 0.0;
     this.gratitudeBannerMesh.visible = false;
+    if (this.skyTextMat) {
+      this.skyTextMat.opacity = 0.0;
+    }
     this.activeStoryCaption = null;
     return true;
   }
@@ -1978,6 +2021,8 @@ export class CastleTabletopWorld {
   public triggerExitLittleDreamWorld(): boolean {
     if (this.transitionState !== 'NONE') return false;
     this.transitionState = 'EXITING';
+    this.storySubStage = 'DIALOGUE';
+    this.stageTimer = 0.0;
     this.transitionElapsed = 0.0;
     this.activeStoryCaption = 'Returning Gently Through the Golden Gate to the Doll Playroom…';
     return true;
@@ -1987,11 +2032,94 @@ export class CastleTabletopWorld {
     return this.transitionState !== 'NONE';
   }
 
+  public isFreeCameraWindowActive(): boolean {
+    if (!this.isTransitionActive()) return false;
+    return (
+      this.storySubStage === 'FREE_INSPECT_1' ||
+      this.storySubStage === 'FREE_INSPECT_2' ||
+      this.storySubStage === 'CROWN_INTERACT_WAIT' ||
+      this.storySubStage === 'FREE_INSPECT_3' ||
+      this.storySubStage === 'FIREWORK_PREP'
+    );
+  }
+
+  public isWaitingForCrownInteract(): boolean {
+    return this.isTransitionActive() && this.storySubStage === 'CROWN_INTERACT_WAIT';
+  }
+
+  public applyFocusLookDelta(deltaYaw: number, deltaPitch: number): void {
+    if (!this.isTransitionActive()) return;
+    this.focusYawOffset = THREE.MathUtils.clamp(
+      this.focusYawOffset + deltaYaw,
+      -Math.PI * 0.85,
+      Math.PI * 0.85,
+    );
+    this.focusPitchOffset = THREE.MathUtils.clamp(
+      this.focusPitchOffset + deltaPitch,
+      -0.65,
+      0.75,
+    );
+  }
+
+  public updateFocusPositionOffset(
+    dt: number,
+    moveFwd: number,
+    moveRight: number,
+    moveUp: number,
+  ): void {
+    if (!this.isTransitionActive()) return;
+    if (
+      Math.abs(moveFwd) < 1e-4 &&
+      Math.abs(moveRight) < 1e-4 &&
+      Math.abs(moveUp) < 1e-4
+    ) {
+      return;
+    }
+
+    // Calculate horizontal view direction from current camera -> look target
+    const forward = new THREE.Vector3()
+      .subVectors(this.transitionLookPos, this.transitionCamPos);
+    forward.y = 0;
+    if (forward.lengthSq() < 1e-5) {
+      forward.set(1, 0, 0);
+    } else {
+      forward.normalize();
+    }
+    const right = new THREE.Vector3(-forward.z, 0, forward.x);
+
+    const speed = 3.2;
+    this.focusPosOffset.addScaledVector(forward, moveFwd * speed * dt);
+    this.focusPosOffset.addScaledVector(right, moveRight * speed * dt);
+    this.focusPosOffset.y = THREE.MathUtils.clamp(
+      this.focusPosOffset.y + moveUp * 2.4 * dt,
+      -1.1,
+      3.8,
+    );
+
+    const maxHoriz = 4.5;
+    const horizLen = Math.hypot(this.focusPosOffset.x, this.focusPosOffset.z);
+    if (horizLen > maxHoriz) {
+      const s = maxHoriz / horizLen;
+      this.focusPosOffset.x *= s;
+      this.focusPosOffset.z *= s;
+    }
+  }
+
+  private decayFocusOffset(dt: number, rate = 3.2): void {
+    const f = Math.exp(-rate * dt);
+    this.focusPosOffset.multiplyScalar(f);
+    this.focusYawOffset *= f;
+    this.focusPitchOffset *= f;
+  }
+
   public getCurrentDialogue(): AuroraDialogueLine | null {
     if (
       this.transitionState !== 'ENTERING_STORY' &&
       this.transitionState !== 'REPLAY_QUEEN'
     ) {
+      return null;
+    }
+    if (this.storySubStage !== 'DIALOGUE') {
       return null;
     }
     return LITTLE_CASTLE_DIALOGUE[this.currentStoryBeatIndex] ?? null;
@@ -2002,88 +2130,167 @@ export class CastleTabletopWorld {
       this.transitionState === 'ENTERING_STORY' ||
       this.transitionState === 'REPLAY_QUEEN'
     ) {
+      if (this.storySubStage === 'CROWN_INTERACT_WAIT') {
+        return '[E] Wear Crown';
+      }
+      if (this.storySubStage === 'FIREWORK_PREP') {
+        return 'Look up ✧';
+      }
+      if (
+        this.storySubStage === 'FREE_INSPECT_1' ||
+        this.storySubStage === 'FREE_INSPECT_2' ||
+        this.storySubStage === 'FREE_INSPECT_3'
+      ) {
+        return 'WASD / R / F Move Camera · Mouse Rotate · Press Enter to Continue';
+      }
       return null;
     }
     return this.isTransitionActive() ? this.activeStoryCaption : null;
   }
 
   /**
-   * Advances the active "Our Little Kingdom" cinematic by exactly one player-confirmed dialogue beat.
+   * Advances the active "Our Little Kingdom" cinematic by one player-confirmed step.
    */
   public advanceOrContinueCinematic(): boolean {
     if (!this.isTransitionActive()) return false;
-    if (
-      this.transitionState === 'ENTERING_STORY' ||
-      this.transitionState === 'REPLAY_QUEEN'
-    ) {
-      if (
-        this.currentStoryBeatIndex <
-        CastleTabletopWorld.LITTLE_CASTLE_BEATS.length - 1
-      ) {
-        this.currentStoryBeatIndex += 1;
-        const nextBeat =
-          CastleTabletopWorld.LITTLE_CASTLE_BEATS[this.currentStoryBeatIndex];
-        const targetStoryT = nextBeat.startStoryT;
-
-        if (targetStoryT >= 4.6 && !this.isInsideLittleDreamWorld) {
-          this.completeWorldEntryTeleport();
-        }
-        if (targetStoryT >= 14.0) {
-          this.avatarBridge?.setRoseHeld?.(false);
-          this.entranceRoseDissolved = true;
-          this.dissolvingRosePetalsGroup.visible = false;
-        }
-        if (targetStoryT >= 20.5) {
-          this.avatarBridge?.setJewelleryEquipped?.({ crownEquipped: true });
-          this.queenCrownGroup.visible = false;
-        }
-
-        if (this.transitionState === 'ENTERING_STORY') {
-          this.transitionElapsed = targetStoryT;
-        } else {
-          this.transitionElapsed = Math.max(0, targetStoryT - 14.0);
-        }
-        return true;
-      }
+    if (this.transitionState === 'EXITING') {
       return this.skipCinematic();
     }
-    return this.skipCinematic();
-  }
 
-  /**
-   * Safe Skip / Completion (`[Space]` or `[Esc]` or end of sequence)
-   */
-  public skipCinematic(): boolean {
-    if (!this.isTransitionActive()) return false;
+    // Handle non-dialogue sub-stages
+    if (this.storySubStage === 'FREE_INSPECT_1') {
+      this.storySubStage = 'DIALOGUE';
+      this.currentStoryBeatIndex = 15;
+      this.stageTimer = 0.0;
+      return true;
+    }
+    if (this.storySubStage === 'FREE_INSPECT_2') {
+      this.storySubStage = 'DIALOGUE';
+      this.currentStoryBeatIndex = 32;
+      this.stageTimer = 0.0;
+      return true;
+    }
+    if (this.storySubStage === 'CROWN_INTERACT_WAIT') {
+      this.storySubStage = 'CROWN_WEAR_ANIM';
+      this.stageTimer = 0.0;
+      this.avatarBridge?.setRaisingHand?.(true);
+      return true;
+    }
+    if (this.storySubStage === 'CROWN_WEAR_ANIM') {
+      this.avatarBridge?.setJewelleryEquipped?.({ crownEquipped: true });
+      this.avatarBridge?.setRaisingHand?.(false);
+      this.queenCrownGroup.visible = false;
+      this.storySubStage = 'DIALOGUE';
+      this.currentStoryBeatIndex = 40;
+      this.stageTimer = 0.0;
+      return true;
+    }
+    if (this.storySubStage === 'FREE_INSPECT_3') {
+      this.storySubStage = 'FIREWORK_PREP';
+      this.stageTimer = 0.0;
+      return true;
+    }
+    if (this.storySubStage === 'FIREWORK_PREP') {
+      this.storySubStage = 'DIALOGUE';
+      this.currentStoryBeatIndex = 60;
+      this.stageTimer = 0.0;
+      return true;
+    }
+    if (this.storySubStage === 'FINAL_HOLD') {
+      return this.finishCinematicToExploration();
+    }
 
-    if (this.transitionState === 'ENTERING_STORY' || this.transitionState === 'REPLAY_QUEEN') {
+    // Dialogue sub-stage transitions
+    if (this.currentStoryBeatIndex === 5) {
+      // Group 1 finished -> Enter Little Castle & start Group 2 (index 6)
       if (!this.isInsideLittleDreamWorld) {
         this.completeWorldEntryTeleport();
       }
+      this.currentStoryBeatIndex = 6;
+      this.stageTimer = 0.0;
+      return true;
+    }
+    if (this.currentStoryBeatIndex === 14) {
+      // Group 2 finished -> Free Camera Inspection 1 (3-5s)
       this.avatarBridge?.setRoseHeld?.(false);
       this.entranceRoseDissolved = true;
-      this.crownRevealedInExplore = true;
-      this.crownRevealProgress = 1.0;
-      this.avatarBridge?.setJewelleryEquipped?.({ crownEquipped: true });
-    } else if (this.transitionState === 'EXITING') {
-      if (this.isInsideLittleDreamWorld) {
-        this.completeWorldExitTeleport();
-      }
+      this.dissolvingRosePetalsGroup.visible = false;
+      this.storySubStage = 'FREE_INSPECT_1';
+      this.stageTimer = 0.0;
+      return true;
+    }
+    if (this.currentStoryBeatIndex === 25) {
+      // Group 3 (Tower conversation) finished -> Group 4 (Courtyard approach, Camera 03)
+      this.currentStoryBeatIndex = 26;
+      this.stageTimer = 0.0;
+      return true;
+    }
+    if (this.currentStoryBeatIndex === 31) {
+      // Group 4 finished -> Free Camera Inspection 2 before crown reveal
+      this.storySubStage = 'FREE_INSPECT_2';
+      this.stageTimer = 0.0;
+      return true;
+    }
+    if (this.currentStoryBeatIndex === 39) {
+      // Group 5 (Crown Reveal) finished -> Wait for [E] Wear Crown
+      this.storySubStage = 'CROWN_INTERACT_WAIT';
+      this.stageTimer = 0.0;
+      return true;
+    }
+    if (this.currentStoryBeatIndex === 49) {
+      // Group 6 (Post-Crown Reaction) finished -> Group 7 (Throne Scene, Camera 06)
+      this.currentStoryBeatIndex = 50;
+      this.stageTimer = 0.0;
+      return true;
+    }
+    if (this.currentStoryBeatIndex === 54) {
+      // Group 7 (Throne Scene) finished -> Group 8 (Intimate Side Shot, Camera 07)
+      this.currentStoryBeatIndex = 55;
+      this.stageTimer = 0.0;
+      return true;
+    }
+    if (this.currentStoryBeatIndex === 59) {
+      // Group 8 finished -> Free Camera Inspection 3 before fireworks
+      this.storySubStage = 'FREE_INSPECT_3';
+      this.stageTimer = 0.0;
+      return true;
+    }
+    if (this.currentStoryBeatIndex === 65) {
+      // Group 9 (Final Wide Reveal dialogue) finished -> Final Hero Hold (4-6s, no more dialogue)
+      this.storySubStage = 'FINAL_HOLD';
+      this.stageTimer = 0.0;
+      return true;
     }
 
-    // Ensure full awakened kingdom state & revealed Queen's Crown
+    if (this.currentStoryBeatIndex < LITTLE_CASTLE_DIALOGUE.length - 1) {
+      this.currentStoryBeatIndex += 1;
+      return true;
+    }
+
+    return this.finishCinematicToExploration();
+  }
+
+  private finishCinematicToExploration(): boolean {
+    if (!this.isInsideLittleDreamWorld) {
+      this.completeWorldEntryTeleport();
+    }
+    this.avatarBridge?.setRoseHeld?.(false);
+    this.avatarBridge?.setRaisingHand?.(false);
+    this.entranceRoseDissolved = true;
+    this.crownRevealedInExplore = true;
+    this.crownRevealProgress = 1.0;
+    this.avatarBridge?.setJewelleryEquipped?.({ crownEquipped: true });
+
     this.dwExpandGroup.scale.setScalar(1.0);
     this.flowerGroups.forEach((fg) => fg.scale.setScalar(1.0));
     this.applyKingdomIlluminationState(1.0, 1.0, 1.0);
 
-    // Crown is equipped on Harsha's head
     this.queenCrownGroup.visible = false;
     this.queenCrownHaloMat.opacity = 0.36;
     this.queenArchFrameMat.emissiveIntensity = 1.35;
     if (this.throneCushionMat) this.throneCushionMat.emissiveIntensity = 1.35;
     if (this.throneCrystalMat) this.throneCrystalMat.emissiveIntensity = 1.85;
 
-    // Yeshwanth stands respectfully beside the throne with hand over heart
     this.goldenYeshwanthGroup.position.set(3.45, 0.28, -0.95);
     this.goldenYeshwanthGroup.rotation.y = -0.65;
     this.yeshLeftLeg.rotation.set(0, 0, 0);
@@ -2093,26 +2300,46 @@ export class CastleTabletopWorld {
     this.yeshHeadGroup.rotation.set(0.05, 0.15, 0);
     this.goldenArrivalGlow.scale.setScalar(0.85);
     this.dissolvingRosePetalsGroup.visible = false;
-
-    // Keep final gratitude message ("I LOVE YOU, HARSHA ❤️") visible above the Queen's Courtyard
-    this.setGratitudeBannerBeat(4, 0.94);
-    this.gratitudeBannerMesh.position.set(2.45, 2.18, 0);
-    this.avatarBridge?.setRaisingHand?.(false);
+    this.gratitudeBannerMesh.visible = false;
     if (this.skyTextMat) {
       this.skyTextMat.opacity = 0.95;
     }
 
     this.transitionState = 'NONE';
+    this.storySubStage = 'DIALOGUE';
+    this.stageTimer = 0.0;
     this.transitionElapsed = 0.0;
     this.transitionSeatYaw = undefined;
-    this.activeStoryCaption =
-      'Our Little Kingdom ✧ Harsha is Crowned Queen as the Little Kingdom Glows with Gratitude ❤️';
+    this.focusYawOffset = 0.0;
+    this.focusPitchOffset = 0.0;
+    this.focusPosOffset.set(0, 0, 0);
+    this.activeStoryCaption = null;
     return true;
+  }
+
+  /**
+   * Safe Skip / Completion (`[Space]` or `[Esc]` or end of sequence)
+   */
+  public skipCinematic(): boolean {
+    if (!this.isTransitionActive()) return false;
+
+    if (this.transitionState === 'EXITING') {
+      if (this.isInsideLittleDreamWorld) {
+        this.completeWorldExitTeleport();
+      }
+      this.transitionState = 'NONE';
+      this.storySubStage = 'DIALOGUE';
+      this.stageTimer = 0.0;
+      this.transitionElapsed = 0.0;
+      this.activeStoryCaption = null;
+      return true;
+    }
+
+    return this.finishCinematicToExploration();
   }
 
   private completeWorldEntryTeleport(): void {
     this.isInsideLittleDreamWorld = true;
-    // Place Harsha at the Queen's Courtyard approach (lx = 33.0 + 1.35 = 34.35, lz = 12.0) facing East toward the Crown & Throne
     this.pendingPlayerWorldTeleport = new THREE.Vector3(
       this.originX + 34.35,
       this.baseY + this.y0,
@@ -2129,6 +2356,76 @@ export class CastleTabletopWorld {
       this.originZ + this.entranceSpec.returnPoint.z,
     );
     this.pendingPlayerYaw = this.entranceSpec.returnYaw;
+  }
+
+  private applyCameraOffsetsAndSafety(
+    dwCenterX: number,
+    dwCenterY: number,
+    dwCenterZ: number,
+    allowDecay: boolean,
+  ): void {
+    if (allowDecay) {
+      this.decayFocusOffset(0.016, 2.8);
+    }
+
+    // Apply 3D position offset
+    this.transitionCamPos.add(this.focusPosOffset);
+
+    // Apply yaw & pitch offset to look target relative to camera position
+    if (Math.abs(this.focusYawOffset) > 1e-4 || Math.abs(this.focusPitchOffset) > 1e-4) {
+      const dir = new THREE.Vector3().subVectors(this.transitionLookPos, this.transitionCamPos);
+      const dist = Math.max(0.5, dir.length());
+      dir.normalize();
+      const baseYaw = Math.atan2(dir.x, dir.z);
+      const basePitch = Math.asin(THREE.MathUtils.clamp(dir.y, -0.98, 0.98));
+      const newYaw = baseYaw + this.focusYawOffset;
+      const newPitch = THREE.MathUtils.clamp(basePitch + this.focusPitchOffset, -1.1, 1.1);
+      const cosP = Math.cos(newPitch);
+      this.transitionLookPos.set(
+        this.transitionCamPos.x + Math.sin(newYaw) * cosP * dist,
+        this.transitionCamPos.y + Math.sin(newPitch) * dist,
+        this.transitionCamPos.z + Math.cos(newYaw) * cosP * dist,
+      );
+    }
+
+    // Enforce collision safety inside the Little Kingdom plateau
+    if (this.isInsideLittleDreamWorld) {
+      this.transitionCamPos.y = THREE.MathUtils.clamp(
+        this.transitionCamPos.y,
+        dwCenterY + 0.52,
+        dwCenterY + 9.2,
+      );
+      const relX = this.transitionCamPos.x - dwCenterX;
+      const relZ = this.transitionCamPos.z - dwCenterZ;
+      const maxR = 8.4;
+      const r = Math.hypot(relX, relZ);
+      if (r > maxR) {
+        const s = maxR / r;
+        this.transitionCamPos.x = dwCenterX + relX * s;
+        this.transitionCamPos.z = dwCenterZ + relZ * s;
+      }
+
+      // Keep camera outside character & throne meshes (min 0.68m clearance)
+      const obstacles: Array<{ x: number; z: number; minR: number }> = [
+        { x: this.transitionSeatPos.x, z: this.transitionSeatPos.z, minR: 0.68 },
+        {
+          x: dwCenterX + this.goldenYeshwanthGroup.position.x,
+          z: dwCenterZ + this.goldenYeshwanthGroup.position.z,
+          minR: 0.68,
+        },
+        { x: dwCenterX + 3.7, z: dwCenterZ, minR: 0.72 },
+      ];
+      for (const obs of obstacles) {
+        const dx = this.transitionCamPos.x - obs.x;
+        const dz = this.transitionCamPos.z - obs.z;
+        const d = Math.hypot(dx, dz);
+        if (d < obs.minR && d > 1e-4) {
+          const push = obs.minR / d;
+          this.transitionCamPos.x = obs.x + dx * push;
+          this.transitionCamPos.z = obs.z + dz * push;
+        }
+      }
+    }
   }
 
   public getTransitionCameraState(): {
@@ -2174,15 +2471,8 @@ export class CastleTabletopWorld {
       };
     }
 
-    // Timeline offset: ENTERING_STORY (0..38.0s) vs REPLAY_QUEEN (maps to 14.0..38.0s)
-    const totalDur =
-      this.transitionState === 'ENTERING_STORY' ? this.ENTER_STORY_DUR : this.REPLAY_QUEEN_DUR;
-    const rawT = this.transitionElapsed;
-    const enterAlpha = easeInOutSine(THREE.MathUtils.clamp(rawT / 1.1, 0, 1));
-    const exitAlpha = easeInOutSine(THREE.MathUtils.clamp((totalDur - rawT) / 1.2, 0, 1));
-    const blendAlpha = Math.min(enterAlpha, exitAlpha);
-
-    const storyT = this.transitionState === 'ENTERING_STORY' ? rawT : rawT + 14.0;
+    const enterAlpha = easeInOutSine(THREE.MathUtils.clamp(this.transitionElapsed / 0.9, 0, 1));
+    const blendAlpha = Math.max(0.85, enterAlpha);
 
     const tableCenterX = this.originX + this.entranceSpec.tableCenterLocal.x;
     const tableCenterY = this.baseY + this.y0 + 0.55;
@@ -2194,41 +2484,31 @@ export class CastleTabletopWorld {
     const dwCenterY = this.baseY + this.y0;
     const dwCenterZ = this.originZ + 12.0;
 
-    // =========================================================================
-    // STAGE 1: THE ENTRANCE — "OUR LITTLE KINGDOM" & THE TWO TINY TOWERS (0.0s -> 4.6s)
-    // =========================================================================
-    if (storyT < 4.6) {
-      this.transitionSeatYaw = undefined;
-      if (storyT < 2.8) {
-        const u = easeInOutCubic(storyT / 2.8);
-        const ang = -Math.PI * 0.5 + Math.sin(u * Math.PI * 2.0) * 0.36;
-        const radius = THREE.MathUtils.lerp(1.58, 1.22, u);
-        this.transitionCamPos.set(
-          tableCenterX + Math.cos(ang) * radius,
-          tableCenterY + THREE.MathUtils.lerp(0.58, 0.34, u),
-          tableCenterZ + Math.sin(ang) * radius,
-        );
-        this.transitionLookPos.set(
-          tableCenterX + Math.sin(u * Math.PI * 2.0) * 0.14,
-          tableCenterY + THREE.MathUtils.lerp(0.38, 0.24, u),
-          tableCenterZ + THREE.MathUtils.lerp(0.08, -0.42, u),
-        );
-        this.transitionFov = 45.0;
-        this.activeStoryCaption =
-          'OUR LITTLE KINGDOM ✧ Two Connected Towers & the Small Ornate Golden Gate';
-      } else {
-        // Focus on "OUR LITTLE KINGDOM" above the small ornate golden gate as the doors swing open
-        const u = easeInOutCubic((storyT - 2.8) / 1.8);
-        this.transitionCamPos.set(
-          gateWorldX,
-          tableCenterY + THREE.MathUtils.lerp(0.34, 0.16, u),
-          THREE.MathUtils.lerp(gateWorldZ - 0.5, gateWorldZ + 0.12, u),
-        );
-        this.transitionLookPos.set(tableCenterX, tableCenterY + 0.18, tableCenterZ);
-        this.transitionFov = THREE.MathUtils.lerp(45, 38, u);
-        this.activeStoryCaption = 'OUR LITTLE KINGDOM ✧ Stepping Through the Golden Gate…';
-      }
+    // Never show the 2D floating banner during the natural conversation sequence
+    this.gratitudeBannerMesh.visible = false;
 
+    const idx = this.currentStoryBeatIndex;
+    const sub = this.storySubStage;
+
+    // =========================================================================
+    // STAGE 1: CAMERA 01 — SHORT ENTRY TRANSITION (Dialogue 0..5, Group 1)
+    // Smooth 1.5s move slightly closer to the tabletop Little Castle entrance, NO zoom-out
+    // =========================================================================
+    if (sub === 'DIALOGUE' && idx <= 5) {
+      this.transitionSeatYaw = undefined;
+      const u = easeInOutCubic(THREE.MathUtils.clamp(this.stageTimer / 1.5, 0, 1));
+      this.transitionCamPos.set(
+        gateWorldX - 0.18,
+        tableCenterY + THREE.MathUtils.lerp(0.42, 0.28, u),
+        THREE.MathUtils.lerp(gateWorldZ - 0.95, gateWorldZ - 0.48, u),
+      );
+      this.transitionLookPos.set(
+        tableCenterX,
+        tableCenterY + THREE.MathUtils.lerp(0.28, 0.22, u),
+        tableCenterZ - 0.12,
+      );
+      this.transitionFov = THREE.MathUtils.lerp(48, 44, u);
+      this.applyCameraOffsetsAndSafety(dwCenterX, dwCenterY, dwCenterZ, false);
       return {
         active: true,
         camWorldPos: this.transitionCamPos,
@@ -2238,196 +2518,67 @@ export class CastleTabletopWorld {
       };
     }
 
-    // =========================================================================
-    // STAGE 2: THE LITTLE KINGDOM WAKES UP BECAUSE SHE ARRIVED (4.6s -> 14.0s)
-    // - Harsha walks along the curved path (-5.2 -> +1.35)
-    // - Flowers bloom near her feet one by one
-    // - Twin-stream heart fountain begins flowing & glowing
-    // - Two towers (Yeshwanth's warm gold & Harsha's blush crystal) & bridge ("Y" & "H") illuminate
-    // - Entrance rose in Harsha's hand gently dissolves into glowing petals (10.8s -> 13.8s)
-    // =========================================================================
-    if (storyT < 14.0) {
-      const u = (storyT - 4.6) / 9.4;
-      const smoothU = easeInOutSine(u);
+    // Ensure full scale once inside the Little Castle
+    this.dwExpandGroup.scale.setScalar(1.0);
 
-      this.dwExpandGroup.scale.setScalar(1.0);
-      this.flowerGroups.forEach((fg) => {
-        fg.scale.setScalar(THREE.MathUtils.lerp(0.35, 1.0, easeInOutCubic(Math.min(1, u * 1.3))));
-      });
+    // =========================================================================
+    // STAGES 2, 3, 4 & 5: CAMERA 02 — LEFT-SIDE THREE-QUARTER TWO-SHOT
+    // - Dialogue 6..14 (First Awakening)
+    // - FREE_INSPECT_1 (3-5s free camera control)
+    // - Dialogue 15..25 (Two Towers Conversation)
+    // =========================================================================
+    if (
+      (sub === 'DIALOGUE' && idx >= 6 && idx <= 25) ||
+      sub === 'FREE_INSPECT_1'
+    ) {
+      const wakeU =
+        sub === 'DIALOGUE' && idx <= 14
+          ? THREE.MathUtils.clamp(this.stageTimer / 3.2, 0.25, 1.0)
+          : 1.0;
+      this.flowerGroups.forEach((fg) => fg.scale.setScalar(1.0));
+      this.applyKingdomIlluminationState(wakeU, 1.0, 0.0);
 
-      // Harsha walks along the curved garden path from (-5.2) past the Central Fountain (0.0) to the Queen's Courtyard (+1.35)
-      const harshaLocalX = THREE.MathUtils.lerp(-5.2, 1.35, smoothU);
-      const harshaLocalZ = Math.sin(u * Math.PI * 2.0) * 0.28 * (1.0 - u * 0.5);
+      // Harsha & Yeshwanth stand side-by-side in the courtyard so both are visible
+      const harshaLocalX = 0.85;
+      const harshaLocalZ = 0.38;
       this.transitionSeatPos.set(dwCenterX + harshaLocalX, dwCenterY, dwCenterZ + harshaLocalZ);
-      this.transitionSeatYaw = Math.PI / 2;
+      this.transitionSeatYaw = Math.PI / 2 - 0.18;
 
-      // Kingdom awakens progressively as she steps forward
-      this.applyKingdomIlluminationState(u, 1.0, 0.0);
+      this.goldenYeshwanthGroup.position.set(0.95, 0.0, -0.42);
+      this.goldenYeshwanthGroup.rotation.y = Math.PI / 2 + 0.22;
+      this.yeshLeftLeg.rotation.set(0, 0, 0);
+      this.yeshRightLeg.rotation.set(0, 0, 0);
+      this.yeshRightArm.rotation.set(0, 0, 0);
+      this.yeshLeftArm.rotation.set(0, 0, 0);
+      this.yeshHeadGroup.rotation.set(0.03, 0.25, 0);
 
-      // Section 13: The rose from the entrance remains in her hand through the early part, then gently dissolves into glowing petals
-      if (storyT < 11.2) {
+      // Dissolve entrance rose gently at the end of Group 2
+      if (sub === 'DIALOGUE' && idx <= 12) {
         this.avatarBridge?.setRoseHeld?.(true);
         this.dissolvingRosePetalsGroup.visible = false;
       } else {
         this.avatarBridge?.setRoseHeld?.(false);
-        this.entranceRoseDissolved = true;
-        const pU = THREE.MathUtils.clamp((storyT - 11.2) / 2.6, 0, 1);
-        this.dissolvingRosePetalsGroup.visible = true;
-        this.dissolvingRosePetalsGroup.position.set(harshaLocalX + 0.35, 1.05, harshaLocalZ + 0.18);
-        this.rosePetalMat.opacity = Math.sin(pU * Math.PI) * 0.92;
-        this.rosePetalMeshes.forEach((pm, idx) => {
-          const ang = idx * 1.15 + pU * 3.2;
-          const r = 0.08 + pU * (0.45 + (idx % 4) * 0.12);
-          pm.position.set(
-            Math.cos(ang) * r,
-            pU * (0.65 + (idx % 3) * 0.25),
-            Math.sin(ang) * r,
-          );
-          pm.rotation.set(pU * 2.4, ang, pU * 1.8);
-        });
+        this.dissolvingRosePetalsGroup.visible = false;
       }
 
-      // Camera glides alongside Harsha, showing the blooming flower path, the twin-stream heart fountain, and the Two Connected Towers
+      // CAMERA 02: Left-side three-quarter two-shot framing Harsha, Yeshwanth, flowers, fountain, and both towers
       this.transitionCamPos.set(
-        dwCenterX + harshaLocalX - THREE.MathUtils.lerp(2.4, 2.8, smoothU),
-        dwCenterY + THREE.MathUtils.lerp(1.45, 2.05, smoothU),
-        dwCenterZ + THREE.MathUtils.lerp(1.35, 1.95, Math.sin(u * Math.PI)),
+        dwCenterX - 2.25,
+        dwCenterY + 1.62,
+        dwCenterZ + 1.72,
       );
       this.transitionLookPos.set(
-        dwCenterX + THREE.MathUtils.lerp(harshaLocalX + 1.6, 3.8, smoothU),
-        dwCenterY + THREE.MathUtils.lerp(0.95, 1.85, smoothU),
-        dwCenterZ,
+        dwCenterX + 1.75,
+        dwCenterY + 1.38,
+        dwCenterZ - 0.05,
       );
-      this.transitionFov = THREE.MathUtils.lerp(46, 50, smoothU);
-
-      if (u < 0.32) {
-        this.activeStoryCaption =
-          'The Little Kingdom Awakens ✧ Flowers Bloom Near Harsha’s Feet Along the Path…';
-      } else if (u < 0.68) {
-        this.activeStoryCaption =
-          'Central Courtyard ✧ Two Streams Meet in a Glowing Crystal Heart & the Two Towers Illuminate…';
-      } else {
-        this.activeStoryCaption =
-          'The Entrance Rose Gently Dissolves into Glowing Petals as Harsha Reaches the Queen’s Courtyard…';
-      }
-
-      return {
-        active: true,
-        camWorldPos: this.transitionCamPos,
-        lookWorldPos: this.transitionLookPos,
-        blendAlpha,
-        fov: this.transitionFov,
-        seatWorldPos: this.transitionSeatPos,
-        seatYaw: this.transitionSeatYaw,
-      };
-    }
-
-    // Harsha stands at the Queen's Courtyard approach (localX = 1.35, facing East toward the Crown Pedestal at 2.67 & Throne at 3.70)
-    const harshaCourtX = dwCenterX + 1.35;
-    const harshaCourtY = dwCenterY;
-    const harshaCourtZ = dwCenterZ;
-    this.transitionSeatPos.set(harshaCourtX, harshaCourtY, harshaCourtZ);
-    this.transitionSeatYaw = Math.PI / 2;
-    this.dissolvingRosePetalsGroup.visible = false;
-    this.avatarBridge?.setRoseHeld?.(false);
-
-    // =========================================================================
-    // STAGE 3: THE QUEEN'S COURTYARD & THE RISING CROWN REVEAL (14.0s -> 20.5s)
-    // - Environment becomes quiet; fountain slows; castle lights dim slightly (14.0s -> 16.0s)
-    // - Circular architectural frame behind the throne begins glowing (15.5s -> 17.5s)
-    // - Small royal crown appears and slowly rises from the crystal pedestal (16.0s -> 18.2s)
-    // - Crown floats from pedestal toward Harsha, gently resting upon her head (18.2s -> 20.5s)
-    // - Harsha visibly wears the crown via avatarBridge.setJewelleryEquipped({ crownEquipped: true })
-    // =========================================================================
-    if (storyT < 20.5) {
-      const qT = storyT - 14.0; // 0.0 -> 6.5s
-      // Quiet dim curve: dims down to 0.45 at qT=1.6s, then returns to 1.0 as the crown illuminates
-      const quietDim =
-        qT < 2.2
-          ? THREE.MathUtils.lerp(1.0, 0.45, easeInOutSine(qT / 2.2))
-          : THREE.MathUtils.lerp(0.45, 1.05, easeInOutSine(THREE.MathUtils.clamp((qT - 2.2) / 3.5, 0, 1)));
-      this.applyKingdomIlluminationState(1.0, quietDim, 0.0);
-
-      // Circular frame behind the throne begins glowing
-      const frameGlowU = easeInOutSine(THREE.MathUtils.clamp((qT - 1.2) / 2.4, 0, 1));
-      this.queenArchFrameMat.emissiveIntensity = THREE.MathUtils.lerp(0.28, 1.45, frameGlowU);
-
-      if (qT < 2.0) {
-        this.queenCrownGroup.visible = false;
-        this.queenCrownHaloMat.opacity = 0.0;
-      } else if (qT < 4.2) {
-        // Crown rises from pedestal
-        const riseU = easeInOutCubic((qT - 2.0) / 2.2);
-        this.queenCrownGroup.visible = true;
-        this.queenCrownGroup.position.set(
-          -0.68,
-          THREE.MathUtils.lerp(0.62, 1.16, riseU),
-          0,
-        );
-        this.queenCrownGroup.rotation.y = (qT - 2.0) * 0.55;
-        this.queenCrownHaloMat.opacity = THREE.MathUtils.lerp(0.05, 0.42, riseU);
-        this.crownRevealedInExplore = true;
-        this.crownRevealProgress = riseU;
-      } else {
-        // Crown floats from crystal pedestal (-0.68 in queenCourtyardGroup = 2.67 in dwRoot)
-        // towards Harsha at (-2.0 in queenCourtyardGroup = 1.35 in dwRoot, head height y = 1.62)
-        const floatU = easeInOutCubic(THREE.MathUtils.clamp((qT - 4.2) / 1.6, 0, 1));
-        if (floatU < 0.95) {
-          this.queenCrownGroup.visible = true;
-          this.queenCrownGroup.position.set(
-            THREE.MathUtils.lerp(-0.68, -2.0, floatU),
-            THREE.MathUtils.lerp(1.16, 1.62, floatU),
-            0,
-          );
-          this.queenCrownGroup.rotation.y = (qT - 2.0) * 0.55;
-          this.queenCrownHaloMat.opacity = 0.42;
-        } else {
-          // Crown is placed on Harsha's head
-          this.avatarBridge?.setJewelleryEquipped?.({ crownEquipped: true });
-          this.queenCrownGroup.visible = false;
-        }
-      }
-
-      // Camera frames flattering front / three-quarter portrait view of Harsha receiving the crown
-      if (qT < 3.8) {
-        const camU = easeInOutCubic(qT / 3.8);
-        this.transitionCamPos.set(
-          dwCenterX + THREE.MathUtils.lerp(0.65, 1.45, camU),
-          dwCenterY + THREE.MathUtils.lerp(1.62, 1.42, camU),
-          dwCenterZ + THREE.MathUtils.lerp(1.85, 1.28, camU),
-        );
-        this.transitionLookPos.set(
-          dwCenterX + THREE.MathUtils.lerp(3.15, 2.85, camU),
-          dwCenterY + THREE.MathUtils.lerp(1.25, 1.32, camU),
-          dwCenterZ,
-        );
-        this.transitionFov = THREE.MathUtils.lerp(46, 39, camU);
-      } else {
-        // Intimate front-three-quarter portrait camera framing Harsha and the floating crown
-        const portU = easeInOutCubic((qT - 3.8) / 2.7);
-        this.transitionCamPos.set(
-          dwCenterX + THREE.MathUtils.lerp(1.45, 0.28, portU),
-          dwCenterY + THREE.MathUtils.lerp(1.42, 1.58, portU),
-          dwCenterZ + THREE.MathUtils.lerp(1.28, 0.98, portU),
-        );
-        this.transitionLookPos.set(
-          dwCenterX + 1.35,
-          dwCenterY + THREE.MathUtils.lerp(1.32, 1.52, portU),
-          dwCenterZ,
-        );
-        this.transitionFov = THREE.MathUtils.lerp(39, 36, portU);
-      }
-
-      if (qT < 2.0) {
-        this.activeStoryCaption =
-          'The Queen’s Courtyard ✧ The Fountain Slows & the Kingdom Grows Quiet…';
-      } else if (qT < 4.2) {
-        this.activeStoryCaption =
-          'The Queen Reveal ✧ The Circular Heart Frame Glows & a Royal Crown Rises from the Crystal Pedestal…';
-      } else {
-        this.activeStoryCaption =
-          'The Royal Crown Floats to Harsha ✧ Gently Crowning the Queen of Heart Island ♡';
-      }
+      this.transitionFov = 46.0;
+      this.applyCameraOffsetsAndSafety(
+        dwCenterX,
+        dwCenterY,
+        dwCenterZ,
+        sub !== 'FREE_INSPECT_1',
+      );
 
       return {
         active: true,
@@ -2441,70 +2592,284 @@ export class CastleTabletopWorld {
       };
     }
 
-    // Ensure Crown is equipped on Harsha's head for Stages 4–6
+    // =========================================================================
+    // STAGES 6 & 7: CAMERA 03 — SUBTLE LEFT-SIDE SHIFT (Courtyard Approach)
+    // - Dialogue 26..31 (Group 4)
+    // - FREE_INSPECT_2 (free camera pause before crown reveal)
+    // =========================================================================
+    if (
+      (sub === 'DIALOGUE' && idx >= 26 && idx <= 31) ||
+      sub === 'FREE_INSPECT_2'
+    ) {
+      this.applyKingdomIlluminationState(1.0, 1.0, 0.0);
+      const u =
+        sub === 'FREE_INSPECT_2'
+          ? 1.0
+          : easeInOutCubic(THREE.MathUtils.clamp(this.stageTimer / 1.2, 0, 1));
+
+      const harshaLocalX = THREE.MathUtils.lerp(0.85, 1.35, u);
+      const harshaLocalZ = THREE.MathUtils.lerp(0.38, 0.32, u);
+      this.transitionSeatPos.set(dwCenterX + harshaLocalX, dwCenterY, dwCenterZ + harshaLocalZ);
+      this.transitionSeatYaw = Math.PI / 2 - 0.12;
+
+      this.goldenYeshwanthGroup.position.set(
+        THREE.MathUtils.lerp(0.95, 1.42, u),
+        0.0,
+        THREE.MathUtils.lerp(-0.42, -0.45, u),
+      );
+      this.goldenYeshwanthGroup.rotation.y = Math.PI / 2 + 0.24;
+
+      // CAMERA 03: Subtle 1.2s shift slightly closer and slightly left (NO zoom-out)
+      this.transitionCamPos.set(
+        dwCenterX + THREE.MathUtils.lerp(-2.25, -1.15, u),
+        dwCenterY + THREE.MathUtils.lerp(1.62, 1.54, u),
+        dwCenterZ + THREE.MathUtils.lerp(1.72, 1.52, u),
+      );
+      this.transitionLookPos.set(
+        dwCenterX + THREE.MathUtils.lerp(1.75, 2.25, u),
+        dwCenterY + 1.36,
+        dwCenterZ,
+      );
+      this.transitionFov = 44.0;
+      this.applyCameraOffsetsAndSafety(
+        dwCenterX,
+        dwCenterY,
+        dwCenterZ,
+        sub !== 'FREE_INSPECT_2',
+      );
+
+      return {
+        active: true,
+        camWorldPos: this.transitionCamPos,
+        lookWorldPos: this.transitionLookPos,
+        blendAlpha,
+        fov: this.transitionFov,
+        seatWorldPos: this.transitionSeatPos,
+        seatYaw: this.transitionSeatYaw,
+        isSitting: false,
+      };
+    }
+
+    // =========================================================================
+    // STAGE 8 & 9A: CAMERA 04 — CROWN REVEAL CAMERA & [E] WEAR CROWN WAIT
+    // - Dialogue 32..39 (Group 5: Crown Reveal)
+    // - CROWN_INTERACT_WAIT ("[E] Wear Crown")
+    // =========================================================================
+    if (
+      (sub === 'DIALOGUE' && idx >= 32 && idx <= 39) ||
+      sub === 'CROWN_INTERACT_WAIT'
+    ) {
+      this.applyKingdomIlluminationState(1.0, 0.88, 0.15);
+      const u =
+        sub === 'CROWN_INTERACT_WAIT'
+          ? 1.0
+          : easeInOutCubic(THREE.MathUtils.clamp(this.stageTimer / 1.4, 0, 1));
+
+      // Circular heart frame behind throne glows & royal crown rises on crystal pedestal
+      this.queenArchFrameMat.emissiveIntensity = THREE.MathUtils.lerp(0.35, 1.45, u);
+      this.queenCrownGroup.visible = true;
+      this.queenCrownGroup.position.set(
+        -0.68,
+        THREE.MathUtils.lerp(0.62, 1.16, u),
+        0,
+      );
+      this.queenCrownGroup.rotation.y = this.transitionElapsed * 0.65;
+      this.queenCrownHaloMat.opacity = THREE.MathUtils.lerp(0.08, 0.42, u);
+      this.crownRevealedInExplore = true;
+      this.crownRevealProgress = u;
+
+      this.transitionSeatPos.set(dwCenterX + 1.35, dwCenterY, dwCenterZ + 0.32);
+      this.transitionSeatYaw = Math.PI / 2 - 0.12;
+      this.goldenYeshwanthGroup.position.set(1.42, 0.0, -0.45);
+      this.goldenYeshwanthGroup.rotation.y = Math.PI / 2 + 0.25;
+
+      // CAMERA 04: Smooth target shift Characters -> Crown -> Harsha (1.0-1.5s)
+      this.transitionCamPos.set(
+        dwCenterX + THREE.MathUtils.lerp(-1.15, -0.45, u),
+        dwCenterY + THREE.MathUtils.lerp(1.54, 1.48, u),
+        dwCenterZ + THREE.MathUtils.lerp(1.52, 1.38, u),
+      );
+      // Look midpoint between the glowing crown pedestal (2.67, 1.16, 0) and Harsha/Yeshwanth
+      this.transitionLookPos.set(
+        dwCenterX + THREE.MathUtils.lerp(2.25, 2.05, u),
+        dwCenterY + THREE.MathUtils.lerp(1.36, 1.32, u),
+        dwCenterZ + 0.05,
+      );
+      this.transitionFov = 41.0;
+      this.applyCameraOffsetsAndSafety(
+        dwCenterX,
+        dwCenterY,
+        dwCenterZ,
+        sub !== 'CROWN_INTERACT_WAIT',
+      );
+
+      return {
+        active: true,
+        camWorldPos: this.transitionCamPos,
+        lookWorldPos: this.transitionLookPos,
+        blendAlpha,
+        fov: this.transitionFov,
+        seatWorldPos: this.transitionSeatPos,
+        seatYaw: this.transitionSeatYaw,
+        isSitting: false,
+      };
+    }
+
+    // =========================================================================
+    // STAGE 9B: CROWN_WEAR_ANIM (Silent 2.6s physical crown pickup & placement)
+    // 1. Harsha steps toward the crown pedestal
+    // 2. Harsha lifts the crown
+    // 3. Crown is placed on her head & she adjusts it slightly
+    // =========================================================================
+    if (sub === 'CROWN_WEAR_ANIM') {
+      this.applyKingdomIlluminationState(1.0, 0.95, 0.25);
+      const animU = THREE.MathUtils.clamp(this.stageTimer / 2.6, 0, 1);
+      const stepU = easeInOutCubic(THREE.MathUtils.clamp(animU / 0.38, 0, 1));
+      const liftU = easeInOutCubic(THREE.MathUtils.clamp((animU - 0.32) / 0.45, 0, 1));
+
+      const harshaX = THREE.MathUtils.lerp(1.35, 1.72, stepU);
+      const harshaZ = THREE.MathUtils.lerp(0.32, 0.14, stepU);
+      this.transitionSeatPos.set(dwCenterX + harshaX, dwCenterY, dwCenterZ + harshaZ);
+      this.transitionSeatYaw =
+        animU < 0.78
+          ? Math.PI / 2 - 0.08
+          : THREE.MathUtils.lerp(Math.PI / 2 - 0.08, -Math.PI / 4, (animU - 0.78) / 0.22);
+
+      if (animU < 0.78) {
+        this.avatarBridge?.setRaisingHand?.(true);
+        this.queenCrownGroup.visible = true;
+        // Crown moves from pedestal (-0.68 in queenCourtyardGroup = 2.67 in dwRoot) to Harsha's head (1.72 in dwRoot = -1.63 in queenCourtyardGroup)
+        this.queenCrownGroup.position.set(
+          THREE.MathUtils.lerp(-0.68, -1.63, liftU),
+          THREE.MathUtils.lerp(1.16, 1.62, liftU),
+          THREE.MathUtils.lerp(0.0, 0.14, liftU),
+        );
+      } else {
+        this.avatarBridge?.setRaisingHand?.(false);
+        this.avatarBridge?.setJewelleryEquipped?.({ crownEquipped: true });
+        this.queenCrownGroup.visible = false;
+      }
+
+      this.transitionCamPos.set(
+        dwCenterX - 0.35,
+        dwCenterY + 1.52,
+        dwCenterZ + 1.32,
+      );
+      this.transitionLookPos.set(
+        dwCenterX + 1.85,
+        dwCenterY + 1.42,
+        dwCenterZ + 0.08,
+      );
+      this.transitionFov = 39.0;
+      this.applyCameraOffsetsAndSafety(dwCenterX, dwCenterY, dwCenterZ, true);
+
+      return {
+        active: true,
+        camWorldPos: this.transitionCamPos,
+        lookWorldPos: this.transitionLookPos,
+        blendAlpha,
+        fov: this.transitionFov,
+        seatWorldPos: this.transitionSeatPos,
+        seatYaw: this.transitionSeatYaw,
+        isSitting: false,
+      };
+    }
+
+    // Ensure Crown is equipped on Harsha's head for Stages 10–14
     this.avatarBridge?.setJewelleryEquipped?.({ crownEquipped: true });
+    this.avatarBridge?.setRaisingHand?.(false);
     this.queenCrownGroup.visible = false;
     this.queenArchFrameMat.emissiveIntensity = 1.35;
 
     // =========================================================================
-    // STAGE 4: QUEEN TAKES HER THRONE & YESHWANTH HAND OVER HEART (20.5s -> 25.0s)
-    // - Harsha approaches and sits on the throne (isSitting = true)
-    // - Throne activates with radiant romantic glow
-    // - Golden Yeshwanth stands beside throne with right hand over heart (gratitude, no duplicate rose)
+    // STAGE 10: CAMERA 05 — LEFT-SIDE TWO-SHOT (Dialogue 40..49, Group 6: Post-Crown Reaction)
+    // Shows Harsha wearing the crown and Yeshwanth's reaction beside her
     // =========================================================================
-    if (storyT < 25.0) {
-      const yT = storyT - 20.5; // 0.0 -> 4.5s
+    if (sub === 'DIALOGUE' && idx >= 40 && idx <= 49) {
       this.applyKingdomIlluminationState(1.0, 1.0, 0.25);
 
-      // Harsha walks from courtyard entrance (1.35) to the elevated royal throne (3.70)
-      const sU = easeInOutCubic(THREE.MathUtils.clamp(yT / 2.4, 0, 1));
-      const isHarshaSitting = sU >= 0.82;
-      const harshaLocalX = THREE.MathUtils.lerp(1.35, 3.70, sU);
-      const harshaLocalY = THREE.MathUtils.lerp(0.0, 0.28, sU);
-      this.transitionSeatPos.set(dwCenterX + harshaLocalX, dwCenterY + harshaLocalY, dwCenterZ);
-      this.transitionSeatYaw = isHarshaSitting ? -Math.PI / 2 : Math.PI / 2;
+      this.transitionSeatPos.set(dwCenterX + 1.65, dwCenterY, dwCenterZ + 0.22);
+      // Harsha turns slightly toward Yeshwanth so both faces & her new crown are clearly visible
+      this.transitionSeatYaw = Math.PI * 0.72;
 
-      // Throne activates with radiant romantic glow
-      if (this.throneCushionMat) {
-        this.throneCushionMat.emissiveIntensity = THREE.MathUtils.lerp(0.35, 1.35, sU);
-      }
-      if (this.throneCrystalMat) {
-        this.throneCrystalMat.emissiveIntensity = THREE.MathUtils.lerp(0.45, 1.85, sU);
-      }
+      this.goldenYeshwanthGroup.position.set(1.55, 0.0, -0.45);
+      this.goldenYeshwanthGroup.rotation.y = 0.35;
+      this.yeshRightArm.rotation.set(-0.35, 0, -0.25);
 
-      // Golden Yeshwanth stands respectfully beside the throne at (3.45, 0.28, -0.95), facing Harsha
-      this.goldenYeshwanthGroup.position.set(3.45, 0.28, -0.95);
-      this.goldenYeshwanthGroup.rotation.y = -0.65;
-
-      // Right hand placed over heart in deep gratitude
-      const heartHandU = easeInOutCubic(THREE.MathUtils.clamp((yT - 0.4) / 1.4, 0, 1));
-      this.yeshRightArm.rotation.set(
-        THREE.MathUtils.lerp(0, -0.68, heartHandU),
-        0,
-        THREE.MathUtils.lerp(0, -0.52, heartHandU),
-      );
-      this.yeshLeftArm.rotation.set(0, 0, 0);
-
-      // Head gaze: looks toward Harsha with gentle smile / reverence
-      this.yeshHeadGroup.rotation.set(0.05, 0.15, 0);
-
-      // Camera frames warm two-shot: Crowned Harsha seated on the glowing throne, and Yeshwanth beside her with hand over heart
-      const panU = easeInOutSine(yT / 4.5);
       this.transitionCamPos.set(
-        dwCenterX + THREE.MathUtils.lerp(1.2, 1.65, panU),
-        dwCenterY + THREE.MathUtils.lerp(1.58, 1.48, panU),
-        dwCenterZ + THREE.MathUtils.lerp(1.4, 1.85, panU),
+        dwCenterX - 0.65,
+        dwCenterY + 1.54,
+        dwCenterZ + 1.45,
       );
       this.transitionLookPos.set(
-        dwCenterX + 3.6,
-        dwCenterY + 1.32,
-        dwCenterZ - 0.25,
+        dwCenterX + 1.62,
+        dwCenterY + 1.42,
+        dwCenterZ - 0.08,
       );
-      this.transitionFov = 42.0;
-      this.activeStoryCaption =
-        yT < 2.2
-          ? 'Harsha Steps to the Royal Throne ✧ The Throne Activates with a Radiant Romantic Glow…'
-          : 'Yeshwanth Stands Beside the Throne with Hand Over Heart — "This is your kingdom."';
+      this.transitionFov = 41.0;
+      this.applyCameraOffsetsAndSafety(dwCenterX, dwCenterY, dwCenterZ, true);
+
+      return {
+        active: true,
+        camWorldPos: this.transitionCamPos,
+        lookWorldPos: this.transitionLookPos,
+        blendAlpha,
+        fov: this.transitionFov,
+        seatWorldPos: this.transitionSeatPos,
+        seatYaw: this.transitionSeatYaw,
+        isSitting: false,
+      };
+    }
+
+    // =========================================================================
+    // STAGE 11: CAMERA 06 — WIDER THREE-QUARTER THRONE SHOT (Dialogue 50..54, Group 7)
+    // Harsha walks to the throne and sits; Yeshwanth stands beside the throne
+    // =========================================================================
+    if (sub === 'DIALOGUE' && idx >= 50 && idx <= 54) {
+      this.applyKingdomIlluminationState(1.0, 1.0, 0.35);
+      const walkU = easeInOutCubic(THREE.MathUtils.clamp(this.stageTimer / 1.8, 0, 1));
+      const isHarshaSitting = walkU >= 0.82;
+
+      const harshaLocalX = THREE.MathUtils.lerp(1.65, 3.7, walkU);
+      const harshaLocalY = THREE.MathUtils.lerp(0.0, 0.28, walkU);
+      const harshaLocalZ = THREE.MathUtils.lerp(0.22, 0.0, walkU);
+      this.transitionSeatPos.set(
+        dwCenterX + harshaLocalX,
+        dwCenterY + harshaLocalY,
+        dwCenterZ + harshaLocalZ,
+      );
+      this.transitionSeatYaw = isHarshaSitting ? -Math.PI / 2 : Math.PI / 2;
+
+      if (this.throneCushionMat) {
+        this.throneCushionMat.emissiveIntensity = THREE.MathUtils.lerp(0.45, 1.35, walkU);
+      }
+      if (this.throneCrystalMat) {
+        this.throneCrystalMat.emissiveIntensity = THREE.MathUtils.lerp(0.55, 1.85, walkU);
+      }
+
+      this.goldenYeshwanthGroup.position.set(
+        THREE.MathUtils.lerp(1.55, 3.45, walkU),
+        THREE.MathUtils.lerp(0.0, 0.28, walkU),
+        THREE.MathUtils.lerp(-0.45, -0.95, walkU),
+      );
+      this.goldenYeshwanthGroup.rotation.y = -0.65;
+      this.yeshRightArm.rotation.set(-0.68, 0, -0.52);
+      this.yeshLeftArm.rotation.set(0, 0, 0);
+      this.yeshHeadGroup.rotation.set(0.05, 0.15, 0);
+
+      const camU = easeInOutCubic(THREE.MathUtils.clamp(this.stageTimer / 1.1, 0, 1));
+      this.transitionCamPos.set(
+        dwCenterX + THREE.MathUtils.lerp(-0.65, 1.05, camU),
+        dwCenterY + THREE.MathUtils.lerp(1.54, 1.58, camU),
+        dwCenterZ + THREE.MathUtils.lerp(1.45, 1.92, camU),
+      );
+      this.transitionLookPos.set(
+        dwCenterX + THREE.MathUtils.lerp(1.62, 3.55, camU),
+        dwCenterY + THREE.MathUtils.lerp(1.42, 1.32, camU),
+        dwCenterZ - 0.22,
+      );
+      this.transitionFov = 44.0;
+      this.applyCameraOffsetsAndSafety(dwCenterX, dwCenterY, dwCenterZ, true);
 
       return {
         active: true,
@@ -2518,13 +2883,11 @@ export class CastleTabletopWorld {
       };
     }
 
-    // Harsha is seated on the throne for Stages 5 & 6
-    this.transitionSeatPos.set(dwCenterX + 3.70, dwCenterY + 0.28, dwCenterZ);
+    // Harsha remains seated on the glowing royal throne for Stages 12, 13 & 14
+    this.transitionSeatPos.set(dwCenterX + 3.7, dwCenterY + 0.28, dwCenterZ);
     this.transitionSeatYaw = -Math.PI / 2;
     if (this.throneCushionMat) this.throneCushionMat.emissiveIntensity = 1.35;
     if (this.throneCrystalMat) this.throneCrystalMat.emissiveIntensity = 1.85;
-
-    // Keep Yeshwanth beside the throne with hand over heart
     this.goldenYeshwanthGroup.position.set(3.45, 0.28, -0.95);
     this.goldenYeshwanthGroup.rotation.y = -0.65;
     this.yeshRightArm.rotation.set(-0.68, 0, -0.52);
@@ -2532,55 +2895,44 @@ export class CastleTabletopWorld {
     this.yeshHeadGroup.rotation.set(0.05, 0.15, 0);
 
     // =========================================================================
-    // STAGE 5: THE GRATITUDE MOMENT — WORLD-SPACE CINEMATIC TEXT (25.0s -> 31.2s)
-    // 1. "MY QUEEN"
-    // 2. "You are the queen of my life."
-    // 3. "And I am so grateful that I get to have you in mine."
-    // 4. "Thank you for making my world more beautiful."
+    // STAGES 12 & 13: CAMERA 07 — INTIMATE SIDE SHOT + FREE CAMERA + FIREWORK PREP
+    // - Dialogue 55..59 (Group 8: Intimate Emotional Beat)
+    // - FREE_INSPECT_3 (3-4s free camera control)
+    // - FIREWORK_PREP (Castle lights dim gently, camera target guides upward, "Look up ✧")
     // =========================================================================
-    if (storyT < 31.2) {
-      const gT = storyT - 25.0; // 0.0 -> 6.2s
-      this.applyKingdomIlluminationState(1.0, 1.0, 0.45);
+    if (
+      (sub === 'DIALOGUE' && idx >= 55 && idx <= 59) ||
+      sub === 'FREE_INSPECT_3' ||
+      sub === 'FIREWORK_PREP'
+    ) {
+      const isPrep = sub === 'FIREWORK_PREP';
+      const prepU = isPrep
+        ? easeInOutSine(THREE.MathUtils.clamp(this.stageTimer / 1.5, 0, 1))
+        : 0.0;
+      const quietDim = isPrep ? THREE.MathUtils.lerp(1.0, 0.68, prepU) : 1.0;
+      this.applyKingdomIlluminationState(1.0, quietDim, 0.35);
 
-      // 4 sequential beats with gentle fade-in / pause / fade-out
-      let beatIdx = 0;
-      let localBeatT = 0;
-      if (gT < 1.45) {
-        beatIdx = 0;
-        localBeatT = gT;
-        this.activeStoryCaption = 'MY QUEEN';
-      } else if (gT < 2.95) {
-        beatIdx = 1;
-        localBeatT = gT - 1.45;
-        this.activeStoryCaption = 'You are the queen of my life.';
-      } else if (gT < 4.55) {
-        beatIdx = 2;
-        localBeatT = gT - 2.95;
-        this.activeStoryCaption = 'And I am so grateful that I get to have you in mine.';
-      } else {
-        beatIdx = 3;
-        localBeatT = gT - 4.55;
-        this.activeStoryCaption = 'Thank you for making my world more beautiful.';
-      }
-
-      const fadeIn = easeInOutSine(THREE.MathUtils.clamp(localBeatT / 0.32, 0, 1));
-      this.setGratitudeBannerBeat(beatIdx, fadeIn);
-      this.gratitudeBannerMesh.position.set(2.45, 1.92, 0);
-
-      const slowDrift = Math.sin(gT * 0.65) * 0.1;
+      const pushU =
+        sub === 'DIALOGUE'
+          ? easeInOutCubic(THREE.MathUtils.clamp(this.stageTimer / 1.4, 0, 1))
+          : 1.0;
       this.transitionCamPos.set(
-        dwCenterX + 1.55 + slowDrift,
-        dwCenterY + 1.52,
-        dwCenterZ + 1.95,
+        dwCenterX + THREE.MathUtils.lerp(1.05, 1.62, pushU),
+        dwCenterY + THREE.MathUtils.lerp(1.58, 1.48, pushU),
+        dwCenterZ + THREE.MathUtils.lerp(1.92, 1.42, pushU),
       );
-      this.transitionLookPos.set(dwCenterX + 3.65, dwCenterY + 1.35, dwCenterZ - 0.2);
-      this.transitionFov = 42.0;
-
-      const bannerYaw = Math.atan2(
-        this.transitionCamPos.x - (dwCenterX + 2.45),
-        this.transitionCamPos.z - dwCenterZ,
+      this.transitionLookPos.set(
+        dwCenterX + THREE.MathUtils.lerp(3.55, 3.65, pushU),
+        dwCenterY + THREE.MathUtils.lerp(1.32, isPrep ? 2.65 : 1.32, isPrep ? prepU : pushU),
+        dwCenterZ - 0.22,
       );
-      this.gratitudeBannerMesh.rotation.set(0, bannerYaw, 0);
+      this.transitionFov = THREE.MathUtils.lerp(44, 39, pushU);
+      this.applyCameraOffsetsAndSafety(
+        dwCenterX,
+        dwCenterY,
+        dwCenterZ,
+        sub === 'DIALOGUE',
+      );
 
       return {
         active: true,
@@ -2595,48 +2947,40 @@ export class CastleTabletopWorld {
     }
 
     // =========================================================================
-    // STAGE 6: FINALE — "I LOVE HARSHA ❤️" 3D SKY CONSTELLATION, FIREWORKS & FULL HEART ILLUMINATION (31.2s -> 38.0s)
-    // - Beat 10: "I LOVE YOU, HARSHA ❤️"
-    // - 3D particle constellation in East sky sparkles: "I LOVE HARSHA ❤️"
-    // - Romantic firework bursts behind the castle backdrop
-    // - Camera pulls backward and rises upward, revealing the entire heart-shaped kingdom
+    // STAGE 14: CAMERA 08 — ONE AND ONLY ONE FINAL ZOOM-OUT + SKY CONSTELLATION + HERO HOLD
+    // - Dialogue 60..65 (Group 9: Final Wide Reveal)
+    // - FINAL_HOLD (4-6s silent hold with fireworks & full uncropped "I LOVE HARSHA ❤️" in the sky)
     // =========================================================================
-    const rT = storyT - 31.2; // 0.0 -> 6.8s
-    const pullU = easeInOutCubic(THREE.MathUtils.clamp(rT / 4.2, 0, 1));
+    const pullU =
+      sub === 'FINAL_HOLD'
+        ? 1.0
+        : easeInOutCubic(THREE.MathUtils.clamp(this.stageTimer / 3.6, 0, 1));
 
-    // Every light in the kingdom turns on!
     this.applyKingdomIlluminationState(1.0, 1.0, pullU);
 
-    // Final gratitude banner: "I LOVE YOU, HARSHA ❤️"
-    this.setGratitudeBannerBeat(4, THREE.MathUtils.lerp(1.0, 0.92, pullU));
-    const bannerY = THREE.MathUtils.lerp(1.92, 2.25, pullU);
-    this.gratitudeBannerMesh.position.set(2.45, bannerY, 0);
-
-    // 3D Sky Constellation sparkles in the East sky
     if (this.skyTextMat) {
-      const skyFade = easeInOutSine(THREE.MathUtils.clamp(rT / 1.8, 0, 1));
-      this.skyTextMat.opacity = skyFade * 0.94;
+      const skyFade =
+        sub === 'FINAL_HOLD'
+          ? 1.0
+          : easeInOutSine(THREE.MathUtils.clamp((this.stageTimer - 0.6) / 1.8, 0, 1));
+      this.skyTextMat.opacity = skyFade * 0.96;
     }
 
+    // CAMERA 08: 3.6s smooth pullback & rise, ~9.6° off frontal East-West axis (within 8°-12° spec)
+    // Frames Harsha on throne, Yeshwanth, entire Little Castle, both towers, flowers, fountain,
+    // fireworks, and 100% of "I LOVE HARSHA ❤️" with generous sky margin on both sides!
     this.transitionCamPos.set(
-      THREE.MathUtils.lerp(dwCenterX + 1.55, dwCenterX - 6.8, pullU),
-      dwCenterY + THREE.MathUtils.lerp(1.52, 7.2, pullU),
-      dwCenterZ + THREE.MathUtils.lerp(1.95, 4.8, pullU),
+      THREE.MathUtils.lerp(dwCenterX + 1.62, dwCenterX - 7.8, pullU),
+      dwCenterY + THREE.MathUtils.lerp(1.48, 4.2, pullU),
+      dwCenterZ + THREE.MathUtils.lerp(1.42, 2.45, pullU),
     );
     this.transitionLookPos.set(
-      THREE.MathUtils.lerp(dwCenterX + 3.65, dwCenterX + 1.2, pullU),
-      dwCenterY + THREE.MathUtils.lerp(1.35, 1.45, pullU),
+      THREE.MathUtils.lerp(dwCenterX + 3.65, dwCenterX + 4.2, pullU),
+      dwCenterY + THREE.MathUtils.lerp(1.85, 3.5, pullU),
       dwCenterZ,
     );
-    this.transitionFov = THREE.MathUtils.lerp(42, 56, pullU);
-
-    const bannerYaw2 = Math.atan2(
-      this.transitionCamPos.x - (dwCenterX + 2.45),
-      this.transitionCamPos.z - dwCenterZ,
-    );
-    this.gratitudeBannerMesh.rotation.set(0, bannerYaw2, 0);
-    this.activeStoryCaption =
-      'Our Little Kingdom Illuminates ✧ "I LOVE HARSHA ❤️" Constellation & Fireworks Glow in the Sky ❤️';
+    this.transitionFov = THREE.MathUtils.lerp(39, 54, pullU);
+    this.applyCameraOffsetsAndSafety(dwCenterX, dwCenterY, dwCenterZ, true);
 
     return {
       active: true,
@@ -2669,7 +3013,7 @@ export class CastleTabletopWorld {
 
     // Animate miniature ornate golden gate doors when near or transitioning
     const shouldOpenGate =
-      (this.transitionState === 'ENTERING_STORY' && this.transitionElapsed >= 2.8) ||
+      (this.transitionState === 'ENTERING_STORY' && this.currentStoryBeatIndex >= 4) ||
       this.isInsideLittleDreamWorld ||
       this.isNearTabletopGate(lx, lz);
     this.gateOpenRatio = THREE.MathUtils.lerp(
@@ -2698,7 +3042,7 @@ export class CastleTabletopWorld {
             p.active = false;
             p.y = -100;
           } else {
-            p.vy -= 1.8 * delta;
+            p.vy -= 1.55 * delta;
             p.x += p.vx * delta;
             p.y += p.vy * delta;
             p.z += p.vz * delta;
@@ -2718,40 +3062,70 @@ export class CastleTabletopWorld {
       colAttr.needsUpdate = true;
     }
 
-    // Launch fireworks periodically during finale celebration beats
+    // Launch shaped world-space fireworks during Stage 14 (Group 9 dialogue + FINAL_HOLD)
     if (this.isInsideLittleDreamWorld) {
-      const storyT =
-        this.transitionState === 'ENTERING_STORY'
-          ? this.transitionElapsed
-          : this.transitionState === 'REPLAY_QUEEN'
-            ? this.transitionElapsed + 14.0
-            : -1;
-      if (storyT >= 31.2 && clockTime - this.lastFireworkLaunchT >= 0.85) {
+      const inFinale =
+        (this.transitionState === 'ENTERING_STORY' ||
+          this.transitionState === 'REPLAY_QUEEN') &&
+        ((this.storySubStage === 'DIALOGUE' && this.currentStoryBeatIndex >= 60) ||
+          this.storySubStage === 'FINAL_HOLD');
+      if (inFinale && clockTime - this.lastFireworkLaunchT >= 0.72) {
         this.lastFireworkLaunchT = clockTime;
-        const palettes: [number, number, number][][] = [
-          [
-            [1.0, 0.45, 0.72],
-            [1.0, 0.85, 0.95],
-            [1.0, 0.94, 0.4],
-          ],
-          [
-            [0.98, 0.25, 0.45],
-            [1.0, 0.94, 0.4],
-            [0.85, 0.75, 1.0],
-          ],
-          [
-            [1.0, 0.94, 0.4],
-            [0.95, 0.85, 1.0],
-            [0.98, 0.45, 0.65],
-          ],
-        ];
-        const pal = palettes[Math.floor(Math.random() * palettes.length)];
-        this.launchFireworkBurst(
-          6.8,
-          THREE.MathUtils.randFloat(6.5, 8.2),
-          THREE.MathUtils.randFloat(-3.2, 3.2),
-          pal,
-        );
+        const step = this.fireworkSequenceStep % 4;
+        this.fireworkSequenceStep += 1;
+        if (step === 0) {
+          // 1. Heart-shaped firework burst
+          this.launchFireworkBurst(
+            6.5,
+            4.8,
+            -2.1,
+            [
+              [1.0, 0.38, 0.68],
+              [1.0, 0.75, 0.88],
+              [1.0, 0.92, 0.45],
+            ],
+            'heart',
+          );
+        } else if (step === 1) {
+          // 2. Flower-shaped firework burst
+          this.launchFireworkBurst(
+            6.5,
+            4.9,
+            2.1,
+            [
+              [1.0, 0.85, 0.95],
+              [0.92, 0.68, 1.0],
+              [1.0, 0.94, 0.42],
+            ],
+            'flower',
+          );
+        } else if (step === 2) {
+          // 3. Star-shaped firework burst
+          this.launchFireworkBurst(
+            6.6,
+            5.1,
+            0.0,
+            [
+              [1.0, 0.94, 0.42],
+              [1.0, 0.82, 0.55],
+              [1.0, 0.96, 0.82],
+            ],
+            'star',
+          );
+        } else {
+          // 4. Multiple colourful romantic bursts
+          this.launchFireworkBurst(
+            6.6,
+            THREE.MathUtils.randFloat(4.5, 5.4),
+            THREE.MathUtils.randFloat(-2.8, 2.8),
+            [
+              [0.98, 0.35, 0.58],
+              [1.0, 0.94, 0.4],
+              [0.85, 0.75, 1.0],
+            ],
+            'romantic',
+          );
+        }
       }
     }
 
@@ -2770,7 +3144,6 @@ export class CastleTabletopWorld {
       const relKingdomX = lx - 33.0;
       const relKingdomZ = lz - 12.0;
 
-      // Any flower or lantern near Harsha's feet blooms/wakes up naturally as she walks!
       this.awakeningFlowers.forEach((af) => {
         const dist = Math.hypot(relKingdomX - af.localX, relKingdomZ - af.localZ);
         if (dist < 2.6) {
@@ -2786,33 +3159,7 @@ export class CastleTabletopWorld {
         }
       });
 
-      // When Harsha walks into the Queen's Courtyard (relKingdomX >= 1.2), smoothly rise & illuminate the Crown if not yet revealed
-      if (relKingdomX >= 1.2 || this.crownRevealedInExplore) {
-        this.crownRevealedInExplore = true;
-        this.crownRevealProgress = Math.min(1.0, this.crownRevealProgress + delta * 0.65);
-        const riseU = easeInOutCubic(this.crownRevealProgress);
-        this.queenCrownGroup.visible = true;
-        this.queenCrownGroup.position.set(
-          -0.68,
-          THREE.MathUtils.lerp(0.62, 1.16, riseU),
-          0,
-        );
-        this.queenCrownGroup.rotation.y = clockTime * 0.55;
-        this.queenCrownHaloMat.opacity = THREE.MathUtils.lerp(0.0, 0.38, riseU);
-      }
-
-      // Keep "I LOVE YOU, HARSHA ❤️" banner floating gently above the Queen's Courtyard and facing Harsha
-      this.setGratitudeBannerBeat(4, 0.92);
-      this.gratitudeBannerMesh.position.set(
-        2.45,
-        2.18 + Math.sin(clockTime * 1.6) * 0.04,
-        0,
-      );
-      const exploreYaw = Math.atan2(
-        lx - (33.0 + this.gratitudeBannerMesh.position.x),
-        lz - 12.0,
-      );
-      this.gratitudeBannerMesh.rotation.set(0, exploreYaw, 0);
+      this.gratitudeBannerMesh.visible = false;
     }
 
     // Physical walk-through return gate check inside Our Little Kingdom
@@ -2826,26 +3173,39 @@ export class CastleTabletopWorld {
       this.triggerExitLittleDreamWorld();
     }
 
-    // Advance active story/transition state machine (explicitly clamped to current player-confirmed beat)
-    if (this.transitionState === 'ENTERING_STORY') {
-      const beatStop =
-        CastleTabletopWorld.LITTLE_CASTLE_BEATS[this.currentStoryBeatIndex]
-          ?.stopStoryT ?? 36.8;
-      this.transitionElapsed = Math.min(
-        beatStop,
-        this.transitionElapsed + delta,
-      );
-      if (this.transitionElapsed >= 4.6 && !this.isInsideLittleDreamWorld) {
-        this.completeWorldEntryTeleport();
+    // Advance active story/transition state machine
+    if (
+      this.transitionState === 'ENTERING_STORY' ||
+      this.transitionState === 'REPLAY_QUEEN'
+    ) {
+      this.transitionElapsed += delta;
+      this.stageTimer += delta;
+
+      if (this.storySubStage === 'FREE_INSPECT_1' && this.stageTimer >= 4.0) {
+        this.storySubStage = 'DIALOGUE';
+        this.currentStoryBeatIndex = 15;
+        this.stageTimer = 0.0;
+      } else if (this.storySubStage === 'FREE_INSPECT_2' && this.stageTimer >= 3.2) {
+        this.storySubStage = 'DIALOGUE';
+        this.currentStoryBeatIndex = 32;
+        this.stageTimer = 0.0;
+      } else if (this.storySubStage === 'CROWN_WEAR_ANIM' && this.stageTimer >= 2.6) {
+        this.avatarBridge?.setJewelleryEquipped?.({ crownEquipped: true });
+        this.avatarBridge?.setRaisingHand?.(false);
+        this.queenCrownGroup.visible = false;
+        this.storySubStage = 'DIALOGUE';
+        this.currentStoryBeatIndex = 40;
+        this.stageTimer = 0.0;
+      } else if (this.storySubStage === 'FREE_INSPECT_3' && this.stageTimer >= 3.5) {
+        this.storySubStage = 'FIREWORK_PREP';
+        this.stageTimer = 0.0;
+      } else if (this.storySubStage === 'FIREWORK_PREP' && this.stageTimer >= 1.5) {
+        this.storySubStage = 'DIALOGUE';
+        this.currentStoryBeatIndex = 60;
+        this.stageTimer = 0.0;
+      } else if (this.storySubStage === 'FINAL_HOLD' && this.stageTimer >= 5.0) {
+        this.finishCinematicToExploration();
       }
-    } else if (this.transitionState === 'REPLAY_QUEEN') {
-      const beatStop =
-        CastleTabletopWorld.LITTLE_CASTLE_BEATS[this.currentStoryBeatIndex]
-          ?.stopStoryT ?? 36.8;
-      this.transitionElapsed = Math.min(
-        Math.max(0, beatStop - 14.0),
-        this.transitionElapsed + delta,
-      );
     } else if (this.transitionState === 'EXITING') {
       this.transitionElapsed += delta;
       if (this.transitionElapsed >= this.EXIT_DUR * 0.55 && this.isInsideLittleDreamWorld) {
@@ -2853,6 +3213,8 @@ export class CastleTabletopWorld {
       }
       if (this.transitionElapsed >= this.EXIT_DUR) {
         this.transitionState = 'NONE';
+        this.storySubStage = 'DIALOGUE';
+        this.stageTimer = 0.0;
         this.transitionElapsed = 0.0;
         this.activeStoryCaption = null;
       }

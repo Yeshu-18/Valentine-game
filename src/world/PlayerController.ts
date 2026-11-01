@@ -979,6 +979,16 @@ export function createPlayerController(
         requestDialogueAdvance('keyboard_enter');
         return;
       }
+      if (dreamCastle?.nav.activeCameraFocus?.mode === 'entrance') {
+        dreamCastle.nav.advanceEntranceCinematicBeat();
+        onTelemetryChange?.(buildTelemetry());
+        return;
+      }
+      if (dreamCastle?.floor2CreativeWing.tabletopWorld.isTransitionActive()) {
+        dreamCastle.floor2CreativeWing.tabletopWorld.advanceOrContinueCinematic();
+        onTelemetryChange?.(buildTelemetry());
+        return;
+      }
       if (dreamCastle?.nav.activeCameraFocus) {
         dreamCastle.nav.skipCameraFocus();
         return;
@@ -2291,27 +2301,39 @@ export function createPlayerController(
           );
         }
 
+        const isLittleCastleActive = Boolean(
+          dreamCastle?.floor2CreativeWing.tabletopWorld.isTransitionActive(),
+        );
         const rotLeft =
           !lakeMemoryActive &&
           (keys.has('Numpad4') ||
-            (!isCameraControlMode && keys.has('KeyQ')) ||
+            (!isCameraControlMode && !isLittleCastleActive && keys.has('KeyQ')) ||
             ((isElevatorFpv || isCastleFocusActive || isCameraControlMode) &&
               keys.has('ArrowLeft')) ||
             (isElevatorFpv && keys.has('KeyA')));
         const rotRight =
           !lakeMemoryActive &&
           (keys.has('Numpad6') ||
-            (!isCameraControlMode && !isCastleFocusActive && keys.has('KeyR')) ||
+            (!isCameraControlMode &&
+              !isCastleFocusActive &&
+              !isLittleCastleActive &&
+              keys.has('KeyR')) ||
             ((isElevatorFpv || isCastleFocusActive || isCameraControlMode) &&
               keys.has('ArrowRight')) ||
             (isElevatorFpv && keys.has('KeyD')));
         if (rotLeft) {
           cameraYaw = wrapAnglePi(cameraYaw + 1.85 * dt);
           if (isCastleFocusActive) dreamCastle?.nav.applyFocusLookDelta(-1.35 * dt, 0);
+          if (isLittleCastleActive) {
+            dreamCastle?.floor2CreativeWing.tabletopWorld.applyFocusLookDelta(-1.35 * dt, 0);
+          }
         }
         if (rotRight) {
           cameraYaw = wrapAnglePi(cameraYaw - 1.85 * dt);
           if (isCastleFocusActive) dreamCastle?.nav.applyFocusLookDelta(1.35 * dt, 0);
+          if (isLittleCastleActive) {
+            dreamCastle?.floor2CreativeWing.tabletopWorld.applyFocusLookDelta(1.35 * dt, 0);
+          }
         }
 
         const pitchUp =
@@ -2327,10 +2349,16 @@ export function createPlayerController(
         if (pitchUp) {
           cameraPitch = THREE.MathUtils.clamp(cameraPitch - 1.15 * dt, -0.68, 1.15);
           if (isCastleFocusActive) dreamCastle?.nav.applyFocusLookDelta(0, -1.05 * dt);
+          if (isLittleCastleActive) {
+            dreamCastle?.floor2CreativeWing.tabletopWorld.applyFocusLookDelta(0, 1.05 * dt);
+          }
         }
         if (pitchDown) {
           cameraPitch = THREE.MathUtils.clamp(cameraPitch + 1.15 * dt, -0.68, 1.15);
           if (isCastleFocusActive) dreamCastle?.nav.applyFocusLookDelta(0, 1.05 * dt);
+          if (isLittleCastleActive) {
+            dreamCastle?.floor2CreativeWing.tabletopWorld.applyFocusLookDelta(0, -1.05 * dt);
+          }
         }
 
         if (dreamCastle) {
