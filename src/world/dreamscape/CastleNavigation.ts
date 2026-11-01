@@ -113,20 +113,20 @@ export const CASTLE_STAIRCASE_CONFIGS: readonly CastleStaircaseConfig[] = [
     fromFloorId: 2,
     toFloorId: 3,
     startX: 7.5,
-    startZ: 6.5,
+    startZ: 7.0,
     startY: 5.25,
     endX: 7.5,
     endZ: 13.0,
     endY: 10.25,
     stepCount: 14,
     stepWidth: 3.4,
-    stepDepth: 6.5 / 14,
+    stepDepth: 6.0 / 14,
     stepHeight: 5.0 / 14,
     stairWidth: 3.4,
     railInnerX: 6.0,
     railOuterX: 9.0,
-    openingBounds: { minX: 5.8, maxX: 9.2, minZ: 6.5, maxZ: 13.0 },
-    bottomLandingBounds: { minX: 5.2, maxX: 9.2, minZ: 5.6, maxZ: 6.5 },
+    openingBounds: { minX: 5.8, maxX: 9.2, minZ: 7.0, maxZ: 13.0 },
+    bottomLandingBounds: { minX: 5.2, maxX: 9.2, minZ: 5.4, maxZ: 7.0 },
     topLandingBounds: { minX: 5.8, maxX: 9.2, minZ: 13.0, maxZ: 15.2 },
     hasLoveRibbon: true,
   },
@@ -389,6 +389,9 @@ export class CastleNavigationController {
     if (Math.hypot(lx - 33.0, lz - 12.0) <= 8.5) {
       return true;
     }
+    if (lx >= 15.0 && lx <= 33.0 && lz >= 9.2 && lz <= 14.8) {
+      return true;
+    }
     return Math.abs(lx) <= 22.0 && lz >= -22.0 && lz <= 44.5;
   }
 
@@ -490,19 +493,36 @@ export class CastleNavigationController {
     _scratchCollisionPos.lz = playerPos.z - this.originZ;
     const pos = _scratchCollisionPos;
 
-    // Connected Little Dream World circular plateau boundary (center lx = 33.0, lz = 12.0, radius = 7.95m)
-    const dwDx = pos.lx - 33.0;
-    const dwDz = pos.lz - 12.0;
-    const dwDist = Math.hypot(dwDx, dwDz);
-    if (dwDist <= 9.5 && Math.abs(playerPos.y - (this.baseY + 5.25)) <= 2.2) {
-      const maxR = 7.85 - playerRadius;
-      if (dwDist > maxR && dwDist > 0.001) {
-        pos.lx = 33.0 + (dwDx / dwDist) * maxR;
-        pos.lz = 12.0 + (dwDz / dwDist) * maxR;
+    // Connected Romantic Love Walkway Bridge (lx = 15.4..26.5, lz = 10.1..13.9) & Little Dream World circular plateau (center lx = 33.0, lz = 12.0, radius = 7.95m)
+    if (pos.lx > 16.5 && Math.abs(playerPos.y - (this.baseY + 5.25)) <= 2.2) {
+      if (pos.lx < 26.2) {
+        // On the Romantic Love Walkway bridge connecting Doll Playroom (lx = 15.4) to Little Dream World (lx = 26.2)
+        const sCurveCenterZ = 12.0 + Math.sin(((pos.lx - 15.4) / 10.8) * Math.PI * 2.0) * 0.42;
+        const halfWalkwayWidth = 1.65 - playerRadius;
+        if (pos.lz < sCurveCenterZ - halfWalkwayWidth) {
+          pos.lz = sCurveCenterZ - halfWalkwayWidth;
+        } else if (pos.lz > sCurveCenterZ + halfWalkwayWidth) {
+          pos.lz = sCurveCenterZ + halfWalkwayWidth;
+        }
         playerPos.x = this.originX + pos.lx;
         playerPos.z = this.originZ + pos.lz;
+        return;
       }
-      return;
+      const dwDx = pos.lx - 33.0;
+      const dwDz = pos.lz - 12.0;
+      const dwDist = Math.hypot(dwDx, dwDz);
+      if (dwDist <= 9.5) {
+        const maxR = 7.85 - playerRadius;
+        // Allow seamless entry/exit on the West walkway connection (dwDx < -5.2 and |dwDz| <= 1.65)
+        const isOnWestBridgeEntry = dwDx < -5.2 && Math.abs(dwDz) <= 1.65;
+        if (!isOnWestBridgeEntry && dwDist > maxR && dwDist > 0.001) {
+          pos.lx = 33.0 + (dwDx / dwDist) * maxR;
+          pos.lz = 12.0 + (dwDz / dwDist) * maxR;
+          playerPos.x = this.originX + pos.lx;
+          playerPos.z = this.originZ + pos.lz;
+        }
+        return;
+      }
     }
 
     if (Math.abs(pos.lx) > 19.5 || Math.abs(pos.lz) > 19.5) {
@@ -531,9 +551,15 @@ export class CastleNavigationController {
         this.pushOutLocalBox(pos, -2.35, 2.35, 15.4, 16.6, playerRadius);
       }
 
-      // West & East Exterior Side Walls (lx = -16.0 and lx = +16.0, 1.2m thickness)
+      // West & East Exterior Side Walls (lx = -16.0 and lx = +16.0, 1.2m thickness;
+      // on Floor 2 East wall has a 3.2m open Heart Portal at lz in [10.4, 13.6] leading to the Little Castle Romantic Walkway)
       this.pushOutLocalBox(pos, -16.6, -15.4, -16.6, 16.6, playerRadius);
-      this.pushOutLocalBox(pos, 15.4, 16.6, -16.6, 16.6, playerRadius);
+      if (isFloor2) {
+        this.pushOutLocalBox(pos, 15.4, 16.6, -16.6, 10.4, playerRadius);
+        this.pushOutLocalBox(pos, 15.4, 16.6, 13.6, 16.6, playerRadius);
+      } else {
+        this.pushOutLocalBox(pos, 15.4, 16.6, -16.6, 16.6, playerRadius);
+      }
     }
 
     // Basement Vault Inner Perimeter Retaining Walls (1.0m thickness at |lx| = 13.5, |lz| = 13.5)
@@ -598,8 +624,9 @@ export class CastleNavigationController {
       // North-East wall at lz = +6.2 (2.8m open portal at lx in [10.6, 13.4])
       this.pushOutLocalBox(pos, 9.2, 10.6, 5.98, 6.38, playerRadius);
       this.pushOutLocalBox(pos, 13.4, 15.5, 5.98, 6.38, playerRadius);
-      // Doll Playroom west wall (lx = 9.2, lz in [6.2, 14.8]) — keeps East F2->F3 Stair Hub (lx: 5.8..9.2) cleanly separated
-      this.pushOutLocalBox(pos, 8.95, 9.42, 6.2, 14.8, playerRadius);
+      // Doll Playroom west wall (lx = 9.2, lz in [6.2, 14.8], with 2.8m open archway at lz in [7.2, 10.0])
+      this.pushOutLocalBox(pos, 8.95, 9.42, 6.2, 7.2, playerRadius);
+      this.pushOutLocalBox(pos, 8.95, 9.42, 10.0, 14.8, playerRadius);
       // Couture & Dream Runway Showroom west facade at lx = 8.8 (3.2m grand open portal at lz in [-1.6, +1.6])
       this.pushOutLocalBox(pos, 8.58, 9.02, -5.8, -1.6, playerRadius);
       this.pushOutLocalBox(pos, 8.58, 9.02, 1.6, 5.8, playerRadius);
@@ -1546,9 +1573,10 @@ export class CastleNavigationController {
     const lx = wx - this.originX;
     const lz = wz - this.originZ;
 
-    // Connected Little Dream World circular plateau (center lx = 33.0, lz = 12.0, radius <= 8.25m at Floor 2 height)
+    // Connected Little Dream World circular plateau & Romantic Love Walkway Bridge (Floor 2 height y = baseY + 5.25)
     if (
-      Math.hypot(lx - 33.0, lz - 12.0) <= 8.25 &&
+      (Math.hypot(lx - 33.0, lz - 12.0) <= 8.45 ||
+        (lx >= 15.0 && lx <= 27.5 && lz >= 9.6 && lz <= 14.4)) &&
       Math.abs(playerY - (this.baseY + 5.25)) <= 2.5
     ) {
       return this.baseY + 5.25;

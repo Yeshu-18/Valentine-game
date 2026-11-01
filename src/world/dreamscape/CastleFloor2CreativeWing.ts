@@ -3098,27 +3098,21 @@ export class CreativeWing implements CastleFloor2CreativeWingBundle {
     }
 
     if (this.tabletopWorld.isTransitionActive()) {
-      if (this.tabletopWorld.isWaitingForCrownInteract()) {
-        return '[E] Wear Crown';
-      }
-      if (this.tabletopWorld.getCurrentDialogue() !== null) {
-        return null;
-      }
-      return this.tabletopWorld.getStoryCaption() ?? '[E] Continue · [Space] Skip';
+      return null;
     }
     if (this.jewelleryAtelier.isCinematicActive()) {
       return '[E] Continue · [Space] Skip';
     }
 
-    // Inside Connected Little Dream World Enclave ("Our Little Kingdom", center lx = 33.0, lz = 12.0)
+    // Inside Connected Intimate Romantic Garden Sanctuary (center lx = 33.0, lz = 12.0)
     if (this.tabletopWorld.isInsideLittleDreamWorld || Math.hypot(lx - 33.0, lz - 12.0) <= 8.5) {
       if (this.tabletopWorld.isNearDreamWorldReturnGate(lx, lz)) {
-        return '[E] Return from Our Little Kingdom';
+        return '[E] Return to Doll Playroom';
       }
       if (this.tabletopWorld.isNearGoldenYeshwanth(lx, lz)) {
-        return '[E] Queen’s Courtyard & Crown Reveal';
+        return '[E] Crown Ceremony';
       }
-      return 'Walk Curved Path through Our Little Kingdom to Queen’s Courtyard or West Gate for [E] Return';
+      return null;
     }
 
     if (this.activeCameraMode !== 'none') {
@@ -3144,7 +3138,7 @@ export class CreativeWing implements CastleFloor2CreativeWingBundle {
       if (this.activeCameraMode === 'couture_boutique') {
         return this.jewelleryAtelier.getProximityPrompt(lx, lz, true);
       }
-      return '[G] Enter Our Little Kingdom · [E] Finish Looking';
+      return '[G] Enter Garden Sanctuary · [E] Finish Looking';
     }
 
     // Room 1: Portrait Atelier (lx in [8.8, 15.3], lz in [-14.8, -6.4])
@@ -3178,15 +3172,15 @@ export class CreativeWing implements CastleFloor2CreativeWingBundle {
       return this.jewelleryAtelier.getProximityPrompt(lx, lz, false);
     }
 
-    // Room 3: Doll Playroom & Tabletop Castle (lx in [9.2, 15.3], lz in [6.4, 14.8])
+    // Room 3: Doll Playroom & Tabletop Garden Sanctuary (lx in [9.2, 15.3], lz in [6.4, 14.8])
     if (lx >= 9.2 && lx <= 15.3 && lz >= 6.4 && lz <= 14.8) {
       if (this.tabletopWorld.isNearTabletopGate(lx, lz)) {
-        return '[E] Enter Our Little Kingdom';
+        return '[E] Enter Garden Sanctuary';
       }
       if (Math.hypot(lx - 12.85, lz - 11.85) <= 2.35) {
-        return '[E] Inspect Our Little Kingdom · Walk to Front Gate for [E] Enter Our Little Kingdom';
+        return '[E] Inspect Garden Sanctuary · Walk to South Threshold for [E] Enter';
       }
-      return 'Walk to Tabletop Castle for [E] Enter Our Little Kingdom';
+      return 'Walk to Sanctuary Table for [E] Enter Garden Sanctuary';
     }
 
     return null;

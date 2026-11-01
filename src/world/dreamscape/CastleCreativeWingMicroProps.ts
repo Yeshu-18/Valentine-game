@@ -1196,12 +1196,10 @@ export class MicroPropLibrary {
   instantiateBoutiqueProps(y0: number): void {
     const c = this.composer;
 
-    // Entrance Archway Crystal Pendant, Sconces & Floral Pedestals
+    // Entrance Archway Crystal Pendant & Wall Sconces (zero floor obstructions in East Promenade)
     c.place('crystal_sconce', { x: 8.8, y: y0 + 3.55, z: 0.0, scale: 1.5 });
-    c.place('crystal_sconce', { x: 8.58, y: y0 + 2.4, z: -1.55, rotY: -Math.PI / 2 });
-    c.place('crystal_sconce', { x: 8.58, y: y0 + 2.4, z: 1.55, rotY: -Math.PI / 2 });
-    c.place('flower_vase', { x: 8.45, y: y0, z: -1.8, scale: 1.3, color: '#f43f5e' });
-    c.place('flower_vase', { x: 8.45, y: y0, z: 1.8, scale: 1.3, color: '#c084fc' });
+    c.place('crystal_sconce', { x: 8.58, y: y0 + 2.4, z: -1.65, rotY: -Math.PI / 2 });
+    c.place('crystal_sconce', { x: 8.58, y: y0 + 2.4, z: 1.65, rotY: -Math.PI / 2 });
 
     // South & North Display Window Vignettes
     c.placeCluster(9.4, y0 + 0.24, -3.5, [
@@ -1355,80 +1353,53 @@ export class MicroPropLibrary {
       c.place('crystal_sconce', { x: cx + 0.1, y: yCeil - 0.8, z: cz, scale: 1.25 });
     });
 
-    // Tabletop Miniature Castle & Village Ring of Miniature Trees & Lamp Posts (Centered at 12.85, 11.85)
+    // Tabletop Miniature Castle & Village Ring of Miniature Trees & Lamp Posts (Centered at 11.35, 13.55)
     c.placeRing('miniature_tree', {
-      centerX: 12.85,
+      centerX: 11.35,
       centerY: y0 + 0.55,
-      centerZ: 11.85,
-      radius: 0.96,
-      count: 10,
-      baseScale: 1.02,
-      scaleVariation: 0.15,
+      centerZ: 13.55,
+      radius: 0.82,
+      count: 8,
+      baseScale: 0.92,
+      scaleVariation: 0.12,
       palette: ['#a7f3d0', '#fbcfe8', '#c084fc', '#86efac', '#fda4af'],
     });
     c.placeRing('miniature_lamp', {
-      centerX: 12.85,
+      centerX: 11.35,
       centerY: y0 + 0.55,
-      centerZ: 11.85,
-      radius: 0.62,
+      centerZ: 13.55,
+      radius: 0.54,
       count: 6,
-      baseScale: 0.9,
+      baseScale: 0.85,
       palette: CREATIVE_WING_PASTEL_PALETTE,
       startAngle: 0.3,
     });
 
-    // 4-Room Open Dollhouse Interior Furniture along West Wall (lx = 9.68, lz = 10.4)
-    c.placeCluster(9.68, y0 + 0.06, 9.85, [
+    // 4-Room Open Dollhouse Interior Furniture along West Wall (lx = 9.68, lz = 11.7)
+    c.placeCluster(9.68, y0 + 0.06, 11.2, [
       { type: 'miniature_table', dx: 0, dz: 0, scale: 1.5, color: '#fff1f2' },
       { type: 'miniature_chair', dx: 0, dz: -0.25, rotY: 0, scale: 1.4, color: '#f472b6' },
       { type: 'miniature_chair', dx: 0, dz: 0.25, rotY: Math.PI, scale: 1.4, color: '#f472b6' },
       { type: 'miniature_lamp', dx: 0.1, dz: -0.42, scale: 1.25 },
       { type: 'flower_vase', dx: 0, dy: 0.16, dz: 0, scale: 0.65, color: '#fb7185' },
     ]);
-    c.placeCluster(9.68, y0 + 0.06, 10.95, [
+    c.placeCluster(9.68, y0 + 0.06, 12.2, [
       { type: 'miniature_table', dx: 0, dz: -0.15, scale: 1.45, color: '#fef08a' },
       { type: 'miniature_chair', dx: 0, dz: 0.15, rotY: Math.PI, scale: 1.35, color: '#38bdf8' },
       { type: 'cosmetic_bottle', dx: 0, dy: 0.15, dz: -0.15, scale: 0.85, color: '#f43f5e' },
       { type: 'gift_box', dx: 0.08, dz: 0.42, scale: 0.9, color: '#a7f3d0' },
     ]);
-    c.placeCluster(9.68, y0 + 0.93, 9.85, [
+    c.placeCluster(9.68, y0 + 0.93, 11.2, [
       { type: 'gift_box', dx: 0, dz: -0.15, scale: 1.35, color: '#c084fc' },
       { type: 'teddy_bear', dx: -0.04, dy: 0.18, dz: -0.15, rotY: Math.PI / 2, scale: 0.75, color: '#fbcfe8' },
       { type: 'miniature_lamp', dx: 0.08, dz: 0.28, scale: 1.15 },
       { type: 'decorative_mirror', dx: 0.05, dz: 0.44, rotY: Math.PI / 2, scale: 0.95 },
     ]);
-    c.placeCluster(9.68, y0 + 0.93, 10.95, [
+    c.placeCluster(9.68, y0 + 0.93, 12.2, [
       { type: 'decorative_mirror', dx: 0.06, dz: -0.22, rotY: Math.PI / 2, scale: 1.15 },
       { type: 'perfume_bottle', dx: 0, dz: 0.08, scale: 0.95, color: '#38bdf8' },
       { type: 'cosmetic_bottle', dx: 0, dz: 0.24, scale: 0.95, color: '#fbcfe8' },
     ]);
-
-    // LEGO-Style Construction Corner (30 studded blocks + 5-block tower stack)
-    for (let row = 0; row < 5; row++) {
-      c.placeRow('toy_block', {
-        startX: 9.78,
-        startY: y0 + 0.55,
-        startZ: 7.05 + row * 0.17,
-        stepX: 0.17,
-        count: 6,
-        yawJitter: 0.35,
-        tiltJitter: 0.02,
-        baseScale: 1.0,
-        palette: CREATIVE_WING_TOY_PALETTE,
-        seed: 300 + row * 29,
-      });
-    }
-    c.placeStack('toy_block', {
-      x: 10.2,
-      y: y0 + 0.61,
-      z: 7.4,
-      itemHeight: 0.058,
-      count: 5,
-      yawStep: 0.12,
-      tiltStep: 0.01,
-      scaleDecay: 0.96,
-      palette: CREATIVE_WING_TOY_PALETTE,
-    });
 
     // Craft Table & Reading Chair Corner
     c.place('miniature_chair', { x: 13.55, y: y0, z: 7.4, rotY: Math.PI / 2, scale: 3.2, color: '#e3d7f4' });

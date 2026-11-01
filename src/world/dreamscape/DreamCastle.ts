@@ -677,8 +677,15 @@ export function createDreamCastle(): DreamCastleBundle {
 
   const wallSideLeftGeo = tracker.trackGeo(new THREE.BoxGeometry(1.2, 16.0, 30.0));
   wallSideLeftGeo.translate(-16.0, 8.0, 0);
-  const wallSideRightGeo = tracker.trackGeo(new THREE.BoxGeometry(1.2, 16.0, 30.0));
-  wallSideRightGeo.translate(16.0, 8.0, 0);
+  // East wall split around the Floor 2 Romantic Love Walkway Portal (z in [10.4, 13.6], y in [5.25, 9.15])
+  const wallSideRightSouthGeo = tracker.trackGeo(new THREE.BoxGeometry(1.2, 16.0, 25.4));
+  wallSideRightSouthGeo.translate(16.0, 8.0, -2.3);
+  const wallSideRightNorthGeo = tracker.trackGeo(new THREE.BoxGeometry(1.2, 16.0, 1.4));
+  wallSideRightNorthGeo.translate(16.0, 8.0, 14.3);
+  const wallSideRightSillGeo = tracker.trackGeo(new THREE.BoxGeometry(1.2, 5.25, 3.2));
+  wallSideRightSillGeo.translate(16.0, 2.625, 12.0);
+  const wallSideRightTransomGeo = tracker.trackGeo(new THREE.BoxGeometry(1.2, 6.85, 3.2));
+  wallSideRightTransomGeo.translate(16.0, 12.575, 12.0);
 
   const wallFL = new THREE.Mesh(wallFrontLeftGeo, mats.pearlWhite);
   const wallFR = new THREE.Mesh(wallFrontRightGeo, mats.pearlWhite);
@@ -693,8 +700,11 @@ export function createDreamCastle(): DreamCastleBundle {
   const wallBR = new THREE.Mesh(wallBackRightGeo, mats.pearlWhite);
   const wallBUT = new THREE.Mesh(wallBackUpperTransomGeo, mats.pearlWhite);
   const wallSL = new THREE.Mesh(wallSideLeftGeo, mats.pearlWhite);
-  const wallSR = new THREE.Mesh(wallSideRightGeo, mats.pearlWhite);
-  [wallFL, wallFR, wallDFL, wallDFR, wallBL, wallBR, wallBUT, wallSL, wallSR].forEach((w) => {
+  const wallSRS = new THREE.Mesh(wallSideRightSouthGeo, mats.pearlWhite);
+  const wallSRN = new THREE.Mesh(wallSideRightNorthGeo, mats.pearlWhite);
+  const wallSRB = new THREE.Mesh(wallSideRightSillGeo, mats.pearlWhite);
+  const wallSRT = new THREE.Mesh(wallSideRightTransomGeo, mats.pearlWhite);
+  [wallFL, wallFR, wallDFL, wallDFR, wallBL, wallBR, wallBUT, wallSL, wallSRS, wallSRN, wallSRB, wallSRT].forEach((w) => {
     w.castShadow = true;
     w.receiveShadow = true;
     w.updateMatrix();
@@ -2104,23 +2114,31 @@ export function createDreamCastle(): DreamCastleBundle {
   const stepH = scWest12.stepHeight;
   const stepD = scWest12.stepDepth;
   const stepGeo = tracker.trackGeo(new THREE.BoxGeometry(stepW, stepH, stepD + 0.06));
-  const crystalRiserGeo = tracker.trackGeo(new THREE.BoxGeometry(stepW - 0.14, stepH * 0.42, 0.04));
+  const crystalRiserGeo = tracker.trackGeo(new THREE.BoxGeometry(stepW - 0.1, stepH * 0.56, 0.045));
+  const stepGoldEdgeGeo = tracker.trackGeo(new THREE.BoxGeometry(stepW + 0.04, 0.032, 0.055));
+  const underStepGlowGeo = tracker.trackGeo(new THREE.BoxGeometry(stepW - 0.36, 0.024, 0.045));
 
   const stairsWestGroup = new THREE.Group();
   const stairsEastGroup = new THREE.Group();
   const stairRiserMats: THREE.MeshStandardMaterial[] = [];
   const stairStepHeights: number[] = [];
 
-  // Explicit Bottom & Top Landing Transition Pads for F1->F2 Twin Staircases (flush with Floor 1 y=0.25 and Floor 2 y=5.25)
-  const landingPad12Geo = tracker.trackGeo(new THREE.BoxGeometry(stepW + 0.16, 0.12, 0.85));
+  // Explicit Wide, Completely Empty Bottom & Top Landing Transition Pads (pearl/ivory with champagne-gold border)
+  const landingPad12Geo = tracker.trackGeo(new THREE.BoxGeometry(stepW + 0.36, 0.12, 1.25));
+  const landingGoldTrimGeo = tracker.trackGeo(new THREE.BoxGeometry(stepW + 0.42, 0.036, 1.31));
   [scWest12, scEast12].forEach((sc) => {
-    const botPad = new THREE.Mesh(landingPad12Geo, mats.blushRoseMarble);
-    botPad.position.set(sc.startX, sc.startY - 0.058, sc.startZ - 0.35);
+    const botPad = new THREE.Mesh(landingPad12Geo, mats.pearlWhite);
+    botPad.position.set(sc.startX, sc.startY - 0.058, sc.startZ - 0.55);
     botPad.receiveShadow = true;
-    const topPad = new THREE.Mesh(landingPad12Geo, mats.blushRoseMarble);
-    topPad.position.set(sc.endX, sc.endY - 0.058, sc.endZ + 0.35);
+    const botTrim = new THREE.Mesh(landingGoldTrimGeo, mats.champagneGold);
+    botTrim.position.set(sc.startX, sc.startY - 0.015, sc.startZ - 0.55);
+
+    const topPad = new THREE.Mesh(landingPad12Geo, mats.pearlWhite);
+    topPad.position.set(sc.endX, sc.endY - 0.058, sc.endZ + 0.55);
     topPad.receiveShadow = true;
-    group.add(botPad, topPad);
+    const topTrim = new THREE.Mesh(landingGoldTrimGeo, mats.champagneGold);
+    topTrim.position.set(sc.endX, sc.endY - 0.015, sc.endZ + 0.55);
+    group.add(botPad, botTrim, topPad, topTrim);
   });
 
   for (let s = 0; s < numSteps12; s++) {
@@ -2132,44 +2150,58 @@ export function createDreamCastle(): DreamCastleBundle {
 
     const riserMat = tracker.trackMat(
       new THREE.MeshStandardMaterial({
-        color: new THREE.Color('#fda4af'),
-        emissive: new THREE.Color('#f43f5e'),
-        emissiveIntensity: 0.55,
-        roughness: 0.2,
-        metalness: 0.15,
+        color: new THREE.Color('#fbcfe8'),
+        emissive: new THREE.Color('#f472b6'),
+        emissiveIntensity: 0.42,
+        roughness: 0.22,
+        metalness: 0.12,
       }),
     );
     stairRiserMats.push(riserMat);
 
-    const westStep = new THREE.Mesh(stepGeo, mats.blushRoseMarble);
+    // Pearl/ivory step face + blush-pink step riser + champagne-gold step edge
+    const westStep = new THREE.Mesh(stepGeo, mats.pearlWhite);
     westStep.position.set(scWest12.startX, sy, sz);
     westStep.receiveShadow = true;
     const westRiser = new THREE.Mesh(crystalRiserGeo, riserMat);
-    westRiser.position.set(scWest12.startX, sy + stepH * 0.12, sz - stepD * 0.5);
-    stairsWestGroup.add(westStep, westRiser);
+    westRiser.position.set(scWest12.startX, sy - stepH * 0.04, sz - stepD * 0.5 - 0.01);
+    const westGoldEdge = new THREE.Mesh(stepGoldEdgeGeo, mats.champagneGold);
+    westGoldEdge.position.set(scWest12.startX, topY - 0.014, sz - stepD * 0.5 - 0.015);
+    stairsWestGroup.add(westStep, westRiser, westGoldEdge);
 
-    const eastStep = new THREE.Mesh(stepGeo, mats.blushRoseMarble);
+    const eastStep = new THREE.Mesh(stepGeo, mats.pearlWhite);
     eastStep.position.set(scEast12.startX, sy, sz);
     eastStep.receiveShadow = true;
     const eastRiser = new THREE.Mesh(crystalRiserGeo, riserMat);
-    eastRiser.position.set(scEast12.startX, sy + stepH * 0.12, sz - stepD * 0.5);
-    stairsEastGroup.add(eastStep, eastRiser);
+    eastRiser.position.set(scEast12.startX, sy - stepH * 0.04, sz - stepD * 0.5 - 0.01);
+    const eastGoldEdge = new THREE.Mesh(stepGoldEdgeGeo, mats.champagneGold);
+    eastGoldEdge.position.set(scEast12.startX, topY - 0.014, sz - stepD * 0.5 - 0.015);
+    stairsEastGroup.add(eastStep, eastRiser, eastGoldEdge);
 
-    // Every 2nd step: place negative-space heart filigree balusters (and every 3rd support gets a 5-petal Barbie flower)
+    // Subtle warm lighting underneath every 2nd/3rd step (emissive warm-gold strip, 0 dynamic lights)
+    if (s % 2 === 1) {
+      const westGlow = new THREE.Mesh(underStepGlowGeo, mats.warmLanternGlow);
+      westGlow.position.set(scWest12.startX, topY - 0.036, sz - stepD * 0.5 - 0.022);
+      const eastGlow = new THREE.Mesh(underStepGlowGeo, mats.warmLanternGlow);
+      eastGlow.position.set(scEast12.startX, topY - 0.036, sz - stepD * 0.5 - 0.022);
+      stairsWestGroup.add(westGlow);
+      stairsEastGroup.add(eastGlow);
+    }
+
+    // Every 2nd step: place negative-space heart filigree balusters (small flowers ONLY on the outer rail!)
     if (s % 2 === 0) {
       const supportIdx = Math.floor(s / 2);
-      const isFlowerSupport = supportIdx % 3 === 1;
       [
-        scWest12.railOuterX,
-        scWest12.railInnerX,
-        scEast12.railInnerX,
-        scEast12.railOuterX,
-      ].forEach((bx) => {
+        { bx: scWest12.railOuterX, isOuter: true },
+        { bx: scWest12.railInnerX, isOuter: false },
+        { bx: scEast12.railInnerX, isOuter: false },
+        { bx: scEast12.railOuterX, isOuter: true },
+      ].forEach(({ bx, isOuter }) => {
         balusterPlacements.push({
           x: bx,
           y: topY,
           z: sz,
-          isFlowerSupport,
+          isFlowerSupport: isOuter && supportIdx % 3 === 1,
         });
       });
     }
@@ -2306,29 +2338,56 @@ export function createDreamCastle(): DreamCastleBundle {
   const step23Geo = tracker.trackGeo(
     new THREE.BoxGeometry(scEast23.stepWidth, stepH23, stepD23 + 0.06),
   );
+  const riser23Geo = tracker.trackGeo(
+    new THREE.BoxGeometry(scEast23.stepWidth - 0.1, stepH23 * 0.56, 0.045),
+  );
 
-  // Explicit Bottom & Top Landing Pads for Floor 2 -> Floor 3 Staircase
-  const botPad23 = new THREE.Mesh(landingPad12Geo, mats.blushRoseMarble);
-  botPad23.position.set(scEast23.startX, scEast23.startY - 0.058, scEast23.startZ - 0.28);
-  const topPad23 = new THREE.Mesh(landingPad12Geo, mats.blushRoseMarble);
-  topPad23.position.set(scEast23.endX, scEast23.endY - 0.058, scEast23.endZ + 0.35);
-  group.add(botPad23, topPad23);
+  // Explicit Wide, Completely Empty Bottom & Top Landing Pads for Floor 2 -> Floor 3 Staircase
+  const botPad23 = new THREE.Mesh(landingPad12Geo, mats.pearlWhite);
+  botPad23.position.set(scEast23.startX, scEast23.startY - 0.058, scEast23.startZ - 0.52);
+  const botTrim23 = new THREE.Mesh(landingGoldTrimGeo, mats.champagneGold);
+  botTrim23.position.set(scEast23.startX, scEast23.startY - 0.015, scEast23.startZ - 0.52);
+  const topPad23 = new THREE.Mesh(landingPad12Geo, mats.pearlWhite);
+  topPad23.position.set(scEast23.endX, scEast23.endY - 0.058, scEast23.endZ + 0.55);
+  const topTrim23 = new THREE.Mesh(landingGoldTrimGeo, mats.champagneGold);
+  topTrim23.position.set(scEast23.endX, scEast23.endY - 0.015, scEast23.endZ + 0.55);
+  group.add(botPad23, botTrim23, topPad23, topTrim23);
+
+  const sharedBlushRiserMat = stairRiserMats[0] || mats.blushRoseMarble;
 
   for (let s = 0; s < numSteps23; s++) {
     const sz = scEast23.startZ + (s + 0.5) * stepD23;
     // Step s top surface is startY + (s + 1) * stepH23 so Step 14 topY === 10.25m (exact match with Floor 3!)
     const topY = scEast23.startY + (s + 1) * stepH23;
     const sy = topY - 0.5 * stepH23;
-    const stp = new THREE.Mesh(step23Geo, mats.blushRoseMarble);
+    const stp = new THREE.Mesh(step23Geo, mats.pearlWhite);
     stp.position.set(scEast23.startX, sy, sz);
     stp.receiveShadow = true;
-    group.add(stp);
+    const rsr = new THREE.Mesh(riser23Geo, stairRiserMats[s % stairRiserMats.length] || sharedBlushRiserMat);
+    rsr.position.set(scEast23.startX, sy - stepH23 * 0.04, sz - stepD23 * 0.5 - 0.01);
+    const goldEdge = new THREE.Mesh(stepGoldEdgeGeo, mats.champagneGold);
+    goldEdge.position.set(scEast23.startX, topY - 0.014, sz - stepD23 * 0.5 - 0.015);
+    group.add(stp, rsr, goldEdge);
+
+    // Subtle warm lighting underneath every 2nd/3rd step
+    if (s % 2 === 1) {
+      const stepGlow = new THREE.Mesh(underStepGlowGeo, mats.warmLanternGlow);
+      stepGlow.position.set(scEast23.startX, topY - 0.036, sz - stepD23 * 0.5 - 0.022);
+      group.add(stepGlow);
+    }
 
     if (s % 2 === 0) {
       const supportIdx = Math.floor(s / 2);
-      const isFlowerSupport = supportIdx % 3 === 1;
-      [scEast23.railInnerX, scEast23.railOuterX].forEach((bx) => {
-        balusterPlacements.push({ x: bx, y: topY, z: sz, isFlowerSupport });
+      [
+        { bx: scEast23.railInnerX, isOuter: false },
+        { bx: scEast23.railOuterX, isOuter: true },
+      ].forEach(({ bx, isOuter }) => {
+        balusterPlacements.push({
+          x: bx,
+          y: topY,
+          z: sz,
+          isFlowerSupport: isOuter && supportIdx % 3 === 1,
+        });
       });
     }
   }
@@ -2336,7 +2395,7 @@ export function createDreamCastle(): DreamCastleBundle {
   buildLoveRibbonRailLine(scEast23.railOuterX, scEast23.startZ, scEast23.startY, scEast23.endZ, scEast23.endY, 1, true);
 
   // ========================================================================
-  // 7. LEVEL 3: DREAM WING (TOP SURFACE Y = +10.25m) — CLEAR STAIRWELL OPENING AT EAST (lx: 5.8..9.2, lz: 6.5..13.0)
+  // 7. LEVEL 3: DREAM WING (TOP SURFACE Y = +10.25m) — CLEAR STAIRWELL OPENING AT EAST (lx: 5.8..9.2, lz: 7.0..13.0)
   // ========================================================================
   const dreamSlabThickness = 0.35;
   const dreamSlabCenterY = 10.25 - dreamSlabThickness * 0.5; // topY === 10.25m
@@ -2345,14 +2404,14 @@ export function createDreamCastle(): DreamCastleBundle {
     { x: 0, z: -10.1, w: 30.0, d: 9.8 },
     // West Gallery Promenade (lx: -15.0 .. -5.2, lz: -5.2 .. +6.5) — connects directly to F3->F4 West Staircase at (-7.5, +6.5)!
     { x: -10.1, z: 0.65, w: 9.8, d: 11.7 },
-    // East Gallery Promenade South of F2->F3 Stairwell (lx: +5.2 .. +15.0, lz: -5.2 .. +6.5)
-    { x: 10.1, z: 0.65, w: 9.8, d: 11.7 },
-    // Central-North Elevator Lobby Bridge between Chandelier Atrium and Elevator/Stairs (lx: -5.2 .. +5.8, lz: +3.8 .. +6.5)
-    { x: 0.3, z: 5.15, w: 11.0, d: 2.7 },
-    // North-West & Central Gallery around F2->F3 East Stairwell (lx: -15.0 .. +5.8, lz: +6.5 .. +15.2)
-    { x: -4.6, z: 10.85, w: 20.8, d: 8.7 },
-    // Outer North-East Gallery beside F2->F3 East Stairwell (lx: +9.2 .. +15.0, lz: +6.5 .. +15.2)
-    { x: 12.1, z: 10.85, w: 5.8, d: 8.7 },
+    // East Gallery Promenade South of F2->F3 Stairwell (lx: +5.2 .. +15.0, lz: -5.2 .. +7.0)
+    { x: 10.1, z: 0.9, w: 9.8, d: 12.2 },
+    // Central-North Elevator Lobby Bridge between Chandelier Atrium and Elevator/Stairs (lx: -5.2 .. +5.8, lz: +3.8 .. +7.0)
+    { x: 0.3, z: 5.4, w: 11.0, d: 3.2 },
+    // North-West & Central Gallery around F2->F3 East Stairwell (lx: -15.0 .. +5.8, lz: +7.0 .. +15.2)
+    { x: -4.6, z: 11.1, w: 20.8, d: 8.2 },
+    // Outer North-East Gallery beside F2->F3 East Stairwell (lx: +9.2 .. +15.0, lz: +7.0 .. +15.2)
+    { x: 12.1, z: 11.1, w: 5.8, d: 8.2 },
     // North-East Stair Landing where Step 14 of F2->F3 arrives (lx: +5.8 .. +9.2, lz: +13.0 .. +15.2)
     { x: 7.5, z: 14.1, w: 3.5, d: 2.2 },
   ];
@@ -2383,7 +2442,7 @@ export function createDreamCastle(): DreamCastleBundle {
     group.add(sRail);
   });
 
-  // Protective Gold Balustrade Rail on Floor 3 at the south drop-off edge of the F2->F3 stairwell (z = 6.45, lx = 5.8..9.2)
+  // Protective Gold Balustrade Rail on Floor 3 at the south drop-off edge of the F2->F3 stairwell (z = 6.92, lx = 5.8..9.2)
   const wellBackRailGeo = tracker.trackGeo(new THREE.BoxGeometry(3.3, 0.92, 0.12));
   const f3WellBackRail = new THREE.Mesh(wellBackRailGeo, loveRibbonGoldMat);
   f3WellBackRail.position.set(scEast23.startX, 10.25 + 0.46, scEast23.startZ - 0.08);
@@ -2391,27 +2450,51 @@ export function createDreamCastle(): DreamCastleBundle {
 
   // --- 7.2 FLOOR 3 -> FLOOR 4 WEST GALLERY STAIRCASE (Driven by CASTLE_STAIRCASE_CONFIGS[3]) ---
   const scWest34 = CASTLE_STAIRCASE_CONFIGS[3];
-  const botPad34 = new THREE.Mesh(landingPad12Geo, mats.blushRoseMarble);
-  botPad34.position.set(scWest34.startX, scWest34.startY - 0.058, scWest34.startZ - 0.28);
-  const topPad34 = new THREE.Mesh(landingPad12Geo, mats.blushRoseMarble);
-  topPad34.position.set(scWest34.endX, scWest34.endY - 0.058, scWest34.endZ + 0.35);
-  group.add(botPad34, topPad34);
+  const step34Geo = tracker.trackGeo(
+    new THREE.BoxGeometry(scWest34.stepWidth, scWest34.stepHeight, scWest34.stepDepth + 0.06),
+  );
+  const botPad34 = new THREE.Mesh(landingPad12Geo, mats.pearlWhite);
+  botPad34.position.set(scWest34.startX, scWest34.startY - 0.058, scWest34.startZ - 0.52);
+  const botTrim34 = new THREE.Mesh(landingGoldTrimGeo, mats.champagneGold);
+  botTrim34.position.set(scWest34.startX, scWest34.startY - 0.015, scWest34.startZ - 0.52);
+  const topPad34 = new THREE.Mesh(landingPad12Geo, mats.pearlWhite);
+  topPad34.position.set(scWest34.endX, scWest34.endY - 0.058, scWest34.endZ + 0.55);
+  const topTrim34 = new THREE.Mesh(landingGoldTrimGeo, mats.champagneGold);
+  topTrim34.position.set(scWest34.endX, scWest34.endY - 0.015, scWest34.endZ + 0.55);
+  group.add(botPad34, botTrim34, topPad34, topTrim34);
 
   for (let s = 0; s < scWest34.stepCount; s++) {
     const sz = scWest34.startZ + (s + 0.5) * scWest34.stepDepth;
     // Step s top surface is startY + (s + 1) * stepHeight so Step 14 topY === 15.25m (exact match with Floor 4 Rooftop!)
     const topY = scWest34.startY + (s + 1) * scWest34.stepHeight;
     const sy = topY - 0.5 * scWest34.stepHeight;
-    const stp = new THREE.Mesh(step23Geo, mats.blushRoseMarble);
+    const stp = new THREE.Mesh(step34Geo, mats.pearlWhite);
     stp.position.set(scWest34.startX, sy, sz);
     stp.receiveShadow = true;
-    group.add(stp);
+    const rsr = new THREE.Mesh(riser23Geo, stairRiserMats[s % stairRiserMats.length] || sharedBlushRiserMat);
+    rsr.position.set(scWest34.startX, sy - scWest34.stepHeight * 0.04, sz - scWest34.stepDepth * 0.5 - 0.01);
+    const goldEdge = new THREE.Mesh(stepGoldEdgeGeo, mats.champagneGold);
+    goldEdge.position.set(scWest34.startX, topY - 0.014, sz - scWest34.stepDepth * 0.5 - 0.015);
+    group.add(stp, rsr, goldEdge);
+
+    if (s % 2 === 1) {
+      const stepGlow = new THREE.Mesh(underStepGlowGeo, mats.warmLanternGlow);
+      stepGlow.position.set(scWest34.startX, topY - 0.036, sz - scWest34.stepDepth * 0.5 - 0.022);
+      group.add(stepGlow);
+    }
 
     if (s % 2 === 0) {
       const supportIdx = Math.floor(s / 2);
-      const isFlowerSupport = supportIdx % 3 === 1;
-      [scWest34.railOuterX, scWest34.railInnerX].forEach((bx) => {
-        balusterPlacements.push({ x: bx, y: topY, z: sz, isFlowerSupport });
+      [
+        { bx: scWest34.railOuterX, isOuter: true },
+        { bx: scWest34.railInnerX, isOuter: false },
+      ].forEach(({ bx, isOuter }) => {
+        balusterPlacements.push({
+          x: bx,
+          y: topY,
+          z: sz,
+          isFlowerSupport: isOuter && supportIdx % 3 === 1,
+        });
       });
     }
   }

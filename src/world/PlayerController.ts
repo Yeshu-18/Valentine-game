@@ -837,6 +837,7 @@ export function createPlayerController(
 
   let lastFreeMouseX: number | null = null;
   let lastFreeMouseY: number | null = null;
+  let suppressNextPointerDeltas = 0;
   let wasAnyCastleActivityCamActive = false;
   const cameraTargetPosition = new THREE.Vector3();
   const cameraTargetLookAt = new THREE.Vector3();
@@ -846,6 +847,7 @@ export function createPlayerController(
     isDragging = false;
     lastFreeMouseX = null;
     lastFreeMouseY = null;
+    suppressNextPointerDeltas = 2;
     playerVelocity.set(0, 0, 0);
     verticalVel = 0;
     isGrounded = true;
@@ -1289,10 +1291,19 @@ export function createPlayerController(
       return;
     }
 
+    if (suppressNextPointerDeltas > 0) {
+      suppressNextPointerDeltas -= 1;
+      lastFreeMouseX = e.clientX;
+      lastFreeMouseY = e.clientY;
+      lastPointerX = e.clientX;
+      lastPointerY = e.clientY;
+      return;
+    }
+
     const rawFreeDx =
-      lastFreeMouseX !== null ? e.clientX - lastFreeMouseX : e.movementX || 0;
+      lastFreeMouseX !== null ? e.clientX - lastFreeMouseX : 0;
     const rawFreeDy =
-      lastFreeMouseY !== null ? e.clientY - lastFreeMouseY : e.movementY || 0;
+      lastFreeMouseY !== null ? e.clientY - lastFreeMouseY : 0;
     const freeDx = THREE.MathUtils.clamp(rawFreeDx, -65, 65);
     const freeDy = THREE.MathUtils.clamp(rawFreeDy, -65, 65);
     lastFreeMouseX = e.clientX;
