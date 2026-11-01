@@ -839,6 +839,7 @@ export function createPlayerController(
   let lastFreeMouseY: number | null = null;
   let suppressNextPointerDeltas = 0;
   let wasAnyCastleActivityCamActive = false;
+  let skatingSpinTimer = 0.0;
   const cameraTargetPosition = new THREE.Vector3();
   const cameraTargetLookAt = new THREE.Vector3();
   const cameraControlVel = new THREE.Vector3();
@@ -1219,8 +1220,13 @@ export function createPlayerController(
       onTelemetryChange?.(buildTelemetry());
     } else if (e.code === 'Space' && locomotionState === 'walk' && isGrounded) {
       e.preventDefault();
-      verticalVel = 7.2;
+      const onIce = Boolean(dreamCastle?.floor3Rooms.isPlayerOnIceRink?.(playerPos));
+      verticalVel = onIce ? 6.4 : 7.2;
       isGrounded = false;
+      if (onIce) {
+        skatingSpinTimer = 0.65;
+        dreamCastle?.floor3Rooms.triggerSkatingJump?.();
+      }
     }
   };
 
@@ -2479,23 +2485,33 @@ export function createPlayerController(
         if (moveRight) _moveDir.add(_right);
         if (moveLeft) _moveDir.sub(_right);
 
+        const isSkatingOnIce = Boolean(
+          dreamCastle?.floor3Rooms.isPlayerOnIceRink?.(playerPos),
+        );
+        if (skatingSpinTimer > 0) {
+          skatingSpinTimer = Math.max(0, skatingSpinTimer - dt);
+        }
+
         const hasInput = !lakeMemoryActive && _moveDir.lengthSq() > 0.001;
         if (hasInput) {
           _moveDir.normalize();
-          const maxSpeed = isSprinting ? SPRINT_SPEED : WALK_SPEED;
+          const baseMaxSpeed = isSprinting ? SPRINT_SPEED : WALK_SPEED;
+          const maxSpeed = isSkatingOnIce ? baseMaxSpeed * 1.26 : baseMaxSpeed;
           _targetVelocity.set(_moveDir.x * maxSpeed, 0, _moveDir.z * maxSpeed);
 
           const targetFacing = Math.atan2(_moveDir.x, _moveDir.z);
           const diff = wrapAnglePi(targetFacing - facingYaw);
+          const turnRate = isSkatingOnIce ? 7.5 : 12.0;
           facingYaw = wrapAnglePi(
-            facingYaw + diff * (1 - Math.exp(-12.0 * smoothDt)),
+            facingYaw + diff * (1 - Math.exp(-turnRate * smoothDt)),
           );
         } else {
           _targetVelocity.set(0, 0, 0);
         }
 
-        // Smooth player velocity transitions using organic exponential dampening
-        playerVelocity.lerp(_targetVelocity, 1 - Math.exp(-14 * smoothDt));
+        // Smooth player velocity transitions (low-friction gliding momentum on Floor 3 Ice Rink)
+        const accelDamp = isSkatingOnIce ? (hasInput ? 4.8 : 2.6) : 14.0;
+        playerVelocity.lerp(_targetVelocity, 1 - Math.exp(-accelDamp * smoothDt));
         if (!hasInput && playerVelocity.lengthSq() < 0.0001) {
           playerVelocity.set(0, 0, 0);
         }
@@ -2600,7 +2616,11 @@ export function createPlayerController(
           avatar.group.rotation.set(0, facingYaw, 0);
         } else {
           avatar.group.position.copy(playerPos);
-          avatar.group.rotation.set(0, facingYaw, 0);
+          const spinYawOffset =
+            skatingSpinTimer > 0
+              ? (1.0 - skatingSpinTimer / 0.65) * Math.PI * 2.0
+              : 0.0;
+          avatar.group.rotation.set(0, facingYaw + spinYawOffset, 0);
         }
         avatar.setFirstPersonVisibility(
           cameraMode === 'first-person' ||

@@ -20,7 +20,7 @@ export const CASTLE_FLOOR_DEFS: ReadonlyArray<CastleFloorDef> = [
   { id: -1, name: 'Basement Vault & Secret Wardrobe', shortName: 'Basement', keyLabel: '0', elevOffset: -4.5 },
   { id: 1, name: 'Grand Entrance Hall & Crystal Fountain', shortName: 'Grand Hall', keyLabel: '1', elevOffset: 0.25 },
   { id: 2, name: 'Mezzanine & Haute Couture Gallery', shortName: 'Fashion Overlook', keyLabel: '2', elevOffset: 5.25 },
-  { id: 3, name: 'Dream Wing & Starlight Salon', shortName: 'Dream Wing', keyLabel: '3', elevOffset: 10.25 },
+  { id: 3, name: 'Heart & Play Wing · Gallery, Ice Palace & Puppy Sanctuary', shortName: 'Heart & Play Wing', keyLabel: '3', elevOffset: 10.25 },
   { id: 4, name: 'Rooftop Panoramic Observatory', shortName: 'Rooftop Terrace', keyLabel: '4', elevOffset: 15.25 },
 ];
 
@@ -640,26 +640,43 @@ export class CastleNavigationController {
       this.pushOutLocalBox(pos, 8.45, 8.75, -6.0, 5.72, playerRadius);
     }
 
-    // 2C. Floor 3 Solid Central Grand Lobby & Suite Split Doorway Jamb Colliders (3.2m clear grand portals)
+    // 2C. Floor 3 Heart & Play Wing — Open Royal Promenade, Heart Gallery Colonnade, Ice Rink Barrier & Pet Salon Partitions
     const isFloor3 = Math.abs(relY - 10.25) <= 2.25;
     if (isFloor3 && relY <= 13.8) {
-      // West Suite Archway Wall at lx = -6.0 (lz in [-6.2, +5.8], 3.2m open portal at lz in [-3.6, -0.4])
-      this.pushOutLocalBox(pos, -6.22, -5.78, -6.2, -3.6, playerRadius);
-      this.pushOutLocalBox(pos, -6.22, -5.78, -0.4, 5.8, playerRadius);
+      // 1) Heart Gallery West Colonnade Wall at lx = +4.8 (lz in [-15.2, +7.8])
+      //    - Grand Crystal Entrance Archway (3.6m wide) at lz in [-0.3, +3.3]
+      //    - South Promenade Colonnade Archway (3.2m wide) at lz in [-11.1, -7.9]
+      this.pushOutLocalBox(pos, 4.58, 5.02, -15.2, -11.1, playerRadius);
+      this.pushOutLocalBox(pos, 4.58, 5.02, -7.9, -0.3, playerRadius);
+      this.pushOutLocalBox(pos, 4.58, 5.02, 3.3, 7.8, playerRadius);
 
-      // East Gallery Archway Wall at lx = +6.0 (lz in [-6.2, +5.8], 3.2m open portal at lz in [-3.6, -0.4])
-      this.pushOutLocalBox(pos, 5.78, 6.22, -6.2, -3.6, playerRadius);
-      this.pushOutLocalBox(pos, 5.78, 6.22, -0.4, 5.8, playerRadius);
+      // Heart Gallery North Colonnade Wall at lz = +7.8 (lx in [+4.8, +15.4], 2.8m open portal at lx in [+10.2, +13.0])
+      this.pushOutLocalBox(pos, 4.8, 10.2, 7.58, 8.02, playerRadius);
+      this.pushOutLocalBox(pos, 13.0, 15.4, 7.58, 8.02, playerRadius);
 
-      // South Star Lounge & Secret Love Vault Archway Wall at lz = -6.2 (lx in [-6.0, +6.0], 3.2m open portal at lx in [-1.6, +1.6])
-      this.pushOutLocalBox(pos, -6.0, -1.6, -6.42, -5.98, playerRadius);
-      this.pushOutLocalBox(pos, 1.6, 6.0, -6.42, -5.98, playerRadius);
+      // 2) Pet Salon Compact Luxury Suite Walls (lx in [-15.2, -9.6], lz in [+4.5, +14.8])
+      //    - South Wall at lz = +4.5 with 2.6m open archway at lx in [-13.6, -11.0]
+      this.pushOutLocalBox(pos, -15.4, -13.6, 4.28, 4.72, playerRadius);
+      this.pushOutLocalBox(pos, -11.0, -9.5, 4.28, 4.72, playerRadius);
+      //    - East Wall at lx = -9.6 separating Pet Salon from F3->F4 West Staircase (lx: -9.2..-5.8)
+      this.pushOutLocalBox(pos, -9.82, -9.38, 4.5, 14.8, playerRadius);
 
-      // West & East Wing South Partition Walls at lz = -6.2 (|lx| in [6.0, 15.4], 2.8m open portals at |lx| in [10.4, 13.2])
-      this.pushOutLocalBox(pos, -15.5, -13.2, -6.42, -5.98, playerRadius);
-      this.pushOutLocalBox(pos, -10.4, -6.0, -6.42, -5.98, playerRadius);
-      this.pushOutLocalBox(pos, 6.0, 10.4, -6.42, -5.98, playerRadius);
-      this.pushOutLocalBox(pos, 13.2, 15.5, -6.42, -5.98, playerRadius);
+      // 3) Ice Skating Palace Rink Perimeter Barrier (Oval rink centered at lx = -9.4, lz = -5.4, rx = 3.4m, rz = 6.2m)
+      //    - Wide 2.8m East Promenade Gate at lx > -7.2, lz in [-6.8, -4.0]
+      //    - Wide 2.4m South Promenade Gate at lz < -10.2, lx in [-10.6, -8.2]
+      const rinkDx = pos.lx - -9.4;
+      const rinkDz = pos.lz - -5.4;
+      const rx = 3.4;
+      const rz = 6.2;
+      const normR = Math.hypot(rinkDx / rx, rinkDz / rz);
+      const isEastRinkGate = rinkDx > 1.8 && pos.lz >= -6.8 && pos.lz <= -4.0;
+      const isSouthRinkGate = rinkDz < -4.5 && pos.lx >= -10.6 && pos.lx <= -8.2;
+      if (!isEastRinkGate && !isSouthRinkGate && normR > 0.86 && normR < 1.14) {
+        const pushTargetNorm = normR < 1.0 ? 0.86 : 1.14;
+        const scale = pushTargetNorm / Math.max(0.001, normR);
+        pos.lx = -9.4 + rinkDx * scale;
+        pos.lz = -5.4 + rinkDz * scale;
+      }
     }
 
     // 3. Central Elevator Shaft Walls & Doorway Guard (Shaft center: lx = 0.0, lz = 8.5)

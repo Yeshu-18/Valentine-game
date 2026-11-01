@@ -1,0 +1,2104 @@
+# MASTER SYSTEM PROMPT
+## Valentine’s Dream World — Complete Floor 3 Rebuild
+### Heart & Play Wing
+
+You are working inside the existing Valentine’s Dream World 3D Three.js/React codebase.
+
+Repository:
+`https://github.com/Yeshu-18/Valentine-game`
+
+Your task is to **completely recreate Floor 3 of the Dream Castle** as a polished, spacious, playable royal activity floor while preserving the existing castle architecture, vertical circulation, player system, and working integrations.
+
+This is NOT a simple decoration pass.
+
+This is a **full Floor 3 architectural and gameplay rebuild**.
+
+The final Floor 3 must feel intentionally designed, spacious, navigable, visually coherent with the existing Dream Castle, and significantly more polished than the current implementation.
+
+---
+
+# 1. CORE FLOOR 3 VISION
+
+Floor 3 is the:
+
+# 💗 HEART & PLAY WING
+
+It contains exactly four major experiences:
+
+1. **Heart Gallery**
+2. **Ice Skating Palace**
+3. **Puppy Play Area**
+4. **Pet Salon**
+
+The spatial hierarchy is STRICT:
+
+```text
+HEART GALLERY
+      ↓
+ICE SKATING PALACE
+      ↓
+PUPPY PLAY AREA
+      ↓
+PET SALON
+```
+
+Meaning:
+
+- Heart Gallery gets the most space.
+- Ice Skating Palace gets the second-most space.
+- Puppy Play Area gets the third-most space.
+- Pet Salon gets the smallest footprint.
+
+DO NOT divide the floor into four equal rooms.
+
+DO NOT shrink the Heart Gallery to make the other areas larger.
+
+DO NOT make the Pet Salon unnecessarily large.
+
+The floor should visually communicate this hierarchy immediately.
+
+---
+
+# 2. IMPORTANT ARCHITECTURAL CONTEXT
+
+The existing Dream Castle is NOT a simple rectangular building with four conventional rooms.
+
+The existing architecture uses:
+
+- large open floor areas
+- terraces
+- exposed stairs
+- vertical openings
+- atrium-like spaces
+- large platforms
+- visual connections between levels
+- palace architecture surrounding open circulation
+- wide walkable areas
+
+The supplied reference screenshot demonstrates this existing architectural language.
+
+Therefore:
+
+## DO NOT redesign Floor 3 as four isolated rectangular boxes.
+
+Instead, create:
+
+```text
+existing palace architecture
+        +
+open royal promenade
+        +
+large activity wings
+        +
+architectural transitions
+```
+
+The new Floor 3 must feel like it belongs inside the same Dream Castle.
+
+The architecture itself should create the navigation.
+
+### Core principle:
+
+> Architecture creates the path.  
+> Decoration fills the path.  
+> Nothing important blocks the path.
+
+---
+
+# 3. FIRST STEP: INSPECT THE EXISTING REPOSITORY
+
+Before modifying code:
+
+Inspect the actual repository.
+
+Relevant files include:
+
+```text
+src/world/dreamscape/CastleFloor3Rooms.ts
+src/world/dreamscape/DreamCastle.ts
+src/world/dreamscape/CastleTabletopWorld.ts
+src/world/PlayerController.ts
+src/world/PlayerCharacter.ts
+src/world/dreamscape/CastleFloor2Rooms.ts
+src/world/dreamscape/CastleFloor2CreativeWing.ts
+```
+
+Also search for:
+
+- Floor 3 construction
+- Floor 3 colliders
+- stairs
+- elevators
+- stair lighting
+- gallery memories
+- camera modes
+- gallery interactions
+- player proximity prompts
+- floor transitions
+- resource tracking
+- `ResourceTracker`
+- `CircleCollider`
+- existing lighting animation systems
+
+Do not assume that the repository matches a generic castle architecture.
+
+Use the actual code as the source of truth.
+
+---
+
+# 4. EXISTING FLOOR 3 COORDINATE CONTEXT
+
+The current Floor 3 surface is approximately:
+
+```text
+y0 = 10.25
+```
+
+Existing relevant layout:
+
+### Heart Gallery
+
+Current east/right wing:
+
+```text
+lx ≈ +9.2 → +14.8
+lz ≈ -14.5 → +5.8
+```
+
+This is important because the Heart Gallery is already located on the east/right side.
+
+Preserve this general architectural relationship unless the actual geometry inspection shows that a better integration is necessary.
+
+---
+
+### Floor 2 → Floor 3 stair landing
+
+Protected region approximately:
+
+```text
+lx +5.8 → +9.2
+lz +6.5 → +13.0
+```
+
+Do NOT block or occupy this area with room furniture.
+
+The player must have a comfortable arrival area after climbing the stairs.
+
+---
+
+### Floor 3 → Floor 4 stairs
+
+Existing protected region approximately:
+
+```text
+lx -9.0 → -6.0
+lz +6.2 → +13.2
+```
+
+Preserve this vertical circulation.
+
+Do not place:
+
+- furniture
+- walls
+- decorations
+- interactive objects
+- large sculptures
+
+in a way that blocks the staircase or its approach.
+
+---
+
+# 5. EXISTING FLOOR 3 FUNCTIONAL CONTRACT
+
+Current `CastleFloor3RoomsBundle` must be preserved unless there is a very strong architectural reason to evolve it.
+
+Existing interface:
+
+```ts
+export interface CastleFloor3RoomsBundle {
+  group: THREE.Group;
+  colliders: CircleCollider[];
+  partitionMeshes: THREE.Mesh[];
+  setAvatarCallbacks: (callbacks: Floor3AvatarCallbacks) => void;
+  setGalleryFrameImage: (frameIndex: number, imageSrc: string) => void;
+  getGalleryFrames: () => readonly {...}[];
+  getProximityPrompt: (playerPos: THREE.Vector3) => string | null;
+  getActiveRoomCaption: () => string | null;
+  interact: (playerPos: THREE.Vector3) => boolean;
+  handleKeyAction: (code: string) => boolean;
+  applyLookDelta: (deltaYaw: number, deltaPitch: number) => void;
+  exitActiveCameraMode: (playerPos?: THREE.Vector3) => void;
+  getCameraState: () => Floor3CameraState;
+  update: (...) => void;
+  dispose: () => void;
+}
+```
+
+Preserve the integration contract.
+
+Do not casually break `DreamCastle.ts`.
+
+Do not create a second incompatible Floor 3 controller.
+
+Do not create a second player movement system.
+
+Do not create a second camera system.
+
+---
+
+# 6. REMOVE THE OLD FLOOR 3 ROOM CONCEPTS
+
+The following old concepts are NO LONGER part of Floor 3:
+
+- Cloud Bedroom
+- Star Lounge
+- Infinite Mirror Room
+- Aurora Observatory
+- Aurora Sanctuary
+- Celestial Dream Wing concept
+
+These should not remain as visible major rooms.
+
+Do not simply cover them with new objects.
+
+Remove their visual construction from the active Floor 3 render/construction path.
+
+Remove obsolete:
+
+- walls
+- furniture
+- room-specific decorations
+- signs
+- room-specific captions
+- room-specific camera choreography
+- old interaction systems
+- old unused camera modes
+
+where they are no longer needed.
+
+The final Floor 3 should communicate only the new four-experience concept.
+
+---
+
+# 7. HEART GALLERY
+
+## Priority: #1
+## Largest space on Floor 3
+
+The Heart Gallery is the emotional centerpiece of Floor 3.
+
+It should feel like:
+
+> A grand royal memory gallery created specifically for Harsha.
+
+It is NOT just a corridor with five pictures.
+
+It is NOT a small gallery room.
+
+It should be the most architecturally significant wing on Floor 3.
+
+---
+
+## 7.1 Spatial design
+
+Use the existing east/right wing as the primary Heart Gallery zone.
+
+Make the gallery long, spacious, and elegant.
+
+Create:
+
+- grand entrance
+- wide gallery promenade
+- five memory installations
+- central memory court
+- comfortable viewing areas
+- crystal architecture
+- elegant lighting
+- architectural niches
+- open visual sightlines
+
+Do not fill every square metre.
+
+Empty space is intentional.
+
+The gallery should breathe.
+
+---
+
+# 8. HEART GALLERY ENTRANCE
+
+Create a grand but elegant entrance.
+
+Use:
+
+- tall crystal arch
+- pearl marble columns
+- champagne-gold trim
+- blush pink illumination
+- subtle heart motif
+- crystal accents
+
+Do NOT create a giant text sign saying "HEART GALLERY".
+
+The architecture should communicate the identity.
+
+---
+
+# 9. HEART GALLERY FIVE MEMORIES
+
+The existing five-memory functionality MUST remain.
+
+Preserve:
+
+- five gallery memories
+- gallery frame interactions
+- `setGalleryFrameImage()`
+- `getGalleryFrames()`
+- custom image loading
+- `localStorage` image support
+- existing gallery frame infrastructure
+- custom gallery canvas rendering
+- crystal pedestals
+- gallery frame lettering
+- memory interaction behavior
+
+Do not replace the existing memory system with fake placeholder images.
+
+Do not remove the ability to load custom memories.
+
+---
+
+# 10. MEMORY PRESENTATION
+
+Do NOT arrange the memories like this:
+
+```text
+[1] [2] [3] [4] [5]
+```
+
+Instead, make each memory feel like a dedicated exhibit.
+
+Each should have:
+
+- architectural niche
+- crystal frame
+- soft spotlight
+- subtle pedestal or backing structure
+- sufficient viewing space
+- clear separation from adjacent memories
+
+Use different architectural framing while keeping the same design language.
+
+---
+
+# 11. HEART GALLERY CENTRAL MEMORY COURT
+
+Create a large open central area.
+
+Do not fill it with furniture.
+
+Place one elegant centerpiece:
+
+## Floating Crystal Heart
+
+A small translucent heart suspended above a circular pedestal.
+
+Features:
+
+- slow rotation
+- subtle glow
+- soft pink/pearl material
+- restrained particles
+- no particle explosion
+- no excessive bloom
+
+This is the visual anchor of the gallery.
+
+---
+
+# 12. HEART GALLERY WALKING PATH
+
+The player must be able to comfortably walk:
+
+```text
+Entrance
+   ↓
+Memory 1
+   ↓
+Memory 2
+   ↓
+Memory 3
+   ↓
+Memory 4
+   ↓
+Memory 5
+   ↓
+Central Memory Court
+   ↓
+Exit
+```
+
+Maintain approximately:
+
+```text
+2m–2.5m+ clear walking space
+```
+
+where the actual footprint allows.
+
+Validate against the actual player collider and camera.
+
+Do not blindly hard-code the width if the existing geometry requires adjustment.
+
+The important requirement is:
+
+> The player must never need to squeeze between a gallery frame and a wall.
+
+---
+
+# 13. HEART GALLERY LIGHTING
+
+Use three lighting layers.
+
+### Ambient
+
+Warm pearl palace lighting.
+
+### Memory lighting
+
+Each memory gets a soft focused light.
+
+### Architectural lighting
+
+Pink/lavender crystal illumination from:
+
+- arches
+- columns
+- ceiling features
+- floor accents
+
+Keep the gallery bright enough for navigation.
+
+Avoid an overly dark museum.
+
+---
+
+# 14. HEART GALLERY CEILING
+
+If the existing castle geometry allows vertical openness, preserve it.
+
+Do NOT force a low flat ceiling.
+
+Use:
+
+- tall arches
+- suspended crystal lighting
+- subtle heart structural motifs
+- vertical illumination
+- open atrium views where appropriate
+
+The gallery should feel tall and grand.
+
+---
+
+# 15. ICE SKATING PALACE
+
+## Priority: #2
+## Second-largest space
+
+This must be a genuinely spacious activity area.
+
+It should feel like a royal ice palace, not a decorative puddle of blue material.
+
+---
+
+# 16. ICE RINK SIZE
+
+Use the largest practical continuous area after the Heart Gallery.
+
+The rink should be large enough for:
+
+- skating
+- turning
+- camera movement
+- future gameplay
+- decorative skating paths
+- multiple characters
+
+Prefer an:
+
+```text
+elongated oval
+```
+
+or:
+
+```text
+large rounded rectangular rink
+```
+
+rather than a tiny square.
+
+---
+
+# 17. ICE MATERIAL
+
+Use:
+
+- pearl white
+- very subtle icy blue
+- lavender reflections
+- translucent crystal
+- restrained reflections
+
+Do NOT turn the entire room blue.
+
+The overall castle palette remains:
+
+- blush
+- pearl
+- pink
+- lavender
+- champagne gold
+- crystal
+
+---
+
+# 18. ICE RINK DETAILS
+
+Add:
+
+- elegant crystal rink barrier
+- champagne-gold handrail
+- crystal posts
+- subtle snowflake patterns
+- very subtle heart patterns
+- soft embedded lighting
+
+No bulky arena fencing.
+
+---
+
+# 19. ICE PALACE PROMENADE
+
+Around the rink create a comfortable walking promenade.
+
+Target approximately:
+
+```text
+2.5m+ clear walking area
+```
+
+where possible.
+
+This is for players who are not skating.
+
+The player should be able to walk around the rink and observe the activity.
+
+---
+
+# 20. ICE PALACE CENTERPIECE
+
+At one end of the rink create:
+
+## Crystal Heart Fountain
+
+A frozen-looking crystal heart sculpture.
+
+Use:
+
+- transparent crystal
+- subtle internal illumination
+- small flowing light effect
+- pearl pedestal
+- champagne-gold accents
+
+Keep it elegant.
+
+Do not overwhelm the rink.
+
+---
+
+# 21. ICE SKATING GAMEPLAY
+
+Build the room architecture first.
+
+Then support a future skating mode.
+
+Preferred conceptual interaction:
+
+```text
+E → Enter Ice
+```
+
+Inside:
+
+```text
+WASD → skate
+Shift → faster skating
+Space → small jump
+Mouse → camera
+E → exit
+```
+
+Do not create a second player controller.
+
+Integrate with the existing `PlayerController`.
+
+If skating gameplay already exists elsewhere in the repository, reuse its movement architecture instead of duplicating it.
+
+---
+
+# 22. PUPPY PLAY AREA
+
+## Priority: #3
+
+This should be a large open pet playground.
+
+It should feel:
+
+- joyful
+- soft
+- colorful
+- alive
+- spacious
+
+It should NOT feel like another enclosed palace room.
+
+Use a garden/playground character.
+
+---
+
+# 23. PUPPY PLAY AREA CENTRAL SPACE
+
+Create a large open:
+
+## Puppy Play Lawn
+
+Use:
+
+- soft pastel grass
+- tiny flowers
+- crystal plants
+- soft cushions
+- paw-print details
+- small decorative trees
+
+This central lawn must remain open.
+
+Do not clutter it.
+
+---
+
+# 24. PUPPY ACTIVITIES
+
+Include several simple activity zones.
+
+### Tunnel
+
+Curved pastel tunnel.
+
+### Mini Ramp
+
+Small climbable ramp.
+
+### Ball Area
+
+A small area with interactive balls.
+
+### Toy Garden
+
+Decorative and interactive toys.
+
+### Rest Zone
+
+Small puppy beds/cushions.
+
+These activities should be arranged around the perimeter so the central play space remains open.
+
+---
+
+# 25. PUPPY NAVIGATION
+
+The Puppy Play Area needs an internal circulation loop.
+
+Concept:
+
+```text
+Entrance
+   ↓
+Play Lawn
+ ↙   ↓   ↘
+Tunnel Ramp Toy Area
+ ↘   ↓   ↙
+ Rest Area
+   ↓
+Exit / Pet Salon
+```
+
+Target approximately:
+
+```text
+1.8m–2m+
+```
+
+clear internal paths where practical.
+
+Do not place toys or decorative objects directly in the primary path.
+
+---
+
+# 26. PUPPY BEHAVIOR
+
+If puppy NPCs are implemented, use simple lightweight states:
+
+```text
+REST
+ ↓
+WANDER
+ ↓
+PLAY
+ ↓
+FOLLOW_PLAYER
+ ↓
+REST
+```
+
+Use different personalities where possible.
+
+For example:
+
+- energetic
+- curious
+- sleepy
+- playful
+
+Do not build unnecessarily complex AI.
+
+Prioritize performance and believable movement.
+
+---
+
+# 27. PET SALON
+
+## Priority: #4
+## Smallest room
+
+The Pet Salon is intentionally compact.
+
+It should be detailed rather than large.
+
+It should be directly connected to the Puppy Play Area.
+
+The logical flow is:
+
+```text
+Puppy Play
+     ↓
+Pet Salon
+```
+
+---
+
+# 28. PET SALON DESIGN
+
+Use a luxury miniature salon aesthetic.
+
+Palette:
+
+- pearl
+- blush
+- cream
+- champagne gold
+- crystal
+
+Include:
+
+### Grooming Station
+
+One main grooming table.
+
+### Bath Station
+
+Small luxury pet bath.
+
+### Styling Station
+
+Mirror, brushes, combs, ribbons and accessories.
+
+### Waiting Area
+
+Small pet beds.
+
+### Care Counter
+
+Small shelf/counter for pet-care objects.
+
+Do not create multiple unnecessary stations.
+
+---
+
+# 29. PET SALON DETAIL
+
+The salon should have more small details per square metre than the Puppy area.
+
+Possible details:
+
+- tiny brushes
+- ribbons
+- bows
+- grooming bottles
+- towels
+- pet accessories
+- small bowls
+- crystal containers
+
+These should be visually readable but not physically obstruct the player.
+
+---
+
+# 30. FLOOR 3 ROYAL PROMENADE
+
+The floor must have a coherent central circulation system.
+
+Do NOT make players navigate through disconnected rooms.
+
+The conceptual circulation should be:
+
+```text
+                    F3 → F4
+                       │
+                       │
+             ┌─────────┴─────────┐
+             │   ROYAL PROMENADE │
+             │                   │
+     ┌───────┴───────┐   ┌──────┴────────┐
+     │               │   │               │
+     │ ICE SKATING   │   │ HEART GALLERY │
+     │    PALACE     │   │   LARGEST     │
+     │               │   │               │
+     └───────┬───────┘   └───────────────┘
+             │
+       ┌─────┴─────────┐
+       │               │
+       │ PUPPY PLAY    │
+       │    AREA       │
+       │               │
+       └──────┬────────┘
+              │
+          PET SALON
+              │
+           F2 → F3
+```
+
+This is conceptual only.
+
+The actual coordinates must be derived from the existing Floor 3 geometry.
+
+---
+
+# 31. CIRCULATION-FIRST IMPLEMENTATION
+
+The implementation order is mandatory.
+
+Do NOT build furniture first.
+
+Do NOT decorate first.
+
+Do NOT create rooms first and then try to squeeze a path between them.
+
+Implement in this order:
+
+### Phase 1
+
+Inspect existing floor boundary.
+
+### Phase 2
+
+Preserve:
+
+- F2 → F3 stairs
+- F3 → F4 stairs
+- elevator/vertical circulation
+- existing floor openings
+- important architectural voids
+
+### Phase 3
+
+Establish the primary Royal Promenade.
+
+### Phase 4
+
+Establish room entrances.
+
+### Phase 5
+
+Establish minimum walking widths.
+
+### Phase 6
+
+Create room boundaries.
+
+### Phase 7
+
+Implement colliders/navigation.
+
+### Phase 8
+
+Test walking.
+
+### Phase 9
+
+Only then add furniture.
+
+### Phase 10
+
+Only then add decorative detail.
+
+---
+
+# 32. WALKABILITY REQUIREMENTS
+
+Target values:
+
+```text
+Main promenade:
+2.5m–3m
+
+Room entrances:
+≥2m
+
+Heart Gallery viewing path:
+≥2m
+
+Puppy internal path:
+≥1.8m–2m
+
+Ice rink promenade:
+≥2.5m
+```
+
+These are design targets, not blind hard-coded values.
+
+Validate them against:
+
+- actual player collider
+- camera distance
+- existing geometry
+- floor openings
+- staircase geometry
+
+---
+
+# 33. NO DEAD ENDS
+
+Every major room must be reachable from the Royal Promenade.
+
+The player must be able to return.
+
+No room should become a dead-end maze unless the dead-end is an intentional decorative alcove.
+
+Required routes:
+
+```text
+Floor 2
+ ↓
+Floor 3
+ ↓
+Royal Promenade
+ ├── Heart Gallery
+ ├── Ice Skating Palace
+ └── Puppy Play Area
+          ↓
+      Pet Salon
+ ↓
+F3 → F4
+```
+
+---
+
+# 34. FLOOR 2 → FLOOR 3 STAIR LIGHTING BUG
+
+This is a specific required fix.
+
+Current behavior:
+
+### Floor 1 → Floor 2
+
+When the player walks on the staircase:
+
+```text
+steps progressively illuminate
+```
+
+This works.
+
+### Floor 2 → Floor 3
+
+Currently:
+
+```text
+player walks upstairs
+↓
+stair lighting does NOT activate
+```
+
+This must be fixed.
+
+---
+
+# 35. STAIR LIGHTING IMPLEMENTATION RULE
+
+DO NOT create an entirely separate stair-light system.
+
+First inspect the implementation responsible for the working:
+
+```text
+Floor 1 → Floor 2
+```
+
+stair lighting.
+
+Determine:
+
+- how the trigger is detected
+- how player position is evaluated
+- how each step is identified
+- how the animation progresses
+- how lights are registered
+- how the floor/elevation bounds are calculated
+
+Then generalize or reuse that mechanism for:
+
+```text
+Floor 2 → Floor 3
+```
+
+and preserve the existing working behavior.
+
+---
+
+# 36. STAIR LIGHTING VISUAL BEHAVIOR
+
+When the player climbs:
+
+```text
+player approaches
+      ↓
+first step glows
+      ↓
+next step glows
+      ↓
+next step glows
+      ↓
+illumination travels upward
+      ↓
+player reaches upper landing
+```
+
+Use:
+
+- crystal pink
+- soft pearl
+- champagne-gold accents
+
+Keep the effect elegant.
+
+Do not create a giant light explosion.
+
+---
+
+# 37. STAIR LIGHTING PERFORMANCE
+
+The stair system must:
+
+- avoid allocations every frame
+- reuse materials
+- reuse lights where possible
+- avoid creating duplicate meshes
+- avoid creating duplicate animation systems
+- clean up correctly in `dispose()`
+
+If the existing stair-light implementation is reusable, reuse it.
+
+---
+
+# 38. CAMERA REQUIREMENTS
+
+Use the existing `PlayerController`.
+
+Do NOT create another camera controller.
+
+The player should be able to see:
+
+- Royal Promenade
+- major Heart Gallery architecture
+- Ice Palace
+- Puppy Play Area
+- vertical castle elements
+
+from appropriate locations.
+
+Avoid placing giant objects directly in the third-person camera's line of sight.
+
+---
+
+# 39. PLAYER CONTROLLER INTEGRATION
+
+Do not duplicate:
+
+- WASD movement
+- camera rotation
+- pointer handling
+- zoom
+- camera collision
+- third-person logic
+
+Use the existing `PlayerController`.
+
+All Floor 3 interactions must integrate with the existing input architecture.
+
+---
+
+# 40. CAMERA MODES
+
+Remove obsolete Floor 3 camera modes associated with deleted rooms.
+
+The old active modes include:
+
+```text
+none
+star_lounge
+heart_gallery
+infinite_mirrors
+cloud_bedroom
+aurora_chamber
+```
+
+The final Floor 3 should not depend on obsolete rooms.
+
+Retain or adapt the Heart Gallery camera interaction only if it is still useful and compatible with the new gallery.
+
+Do not create cinematic camera behavior merely for decoration.
+
+---
+
+# 41. HEART GALLERY CAMERA
+
+If a gallery camera mode exists, preserve the useful functionality but ensure:
+
+- no teleporting
+- no sudden camera snap
+- player can exit cleanly
+- camera returns to the player's actual position
+- movement remains stable
+- pointer state is restored
+
+---
+
+# 42. FLOOR 3 CAPTIONS AND PROMPTS
+
+Prompts should be minimal and useful.
+
+Examples:
+
+```text
+Heart Gallery · [E] View Memory
+Ice Palace · [E] Enter Ice
+Puppy Play Area · [E] Play
+Pet Salon · [E] Groom
+```
+
+Do not fill the screen with instructions.
+
+Avoid giant permanent labels.
+
+Architecture should do most of the communication.
+
+---
+
+# 43. FLOOR 3 VISUAL LANGUAGE
+
+The entire floor should use the existing Dream Castle aesthetic.
+
+Primary palette:
+
+```text
+Pearl
+Blush Pink
+Rose Pink
+Lavender
+Champagne Gold
+Crystal
+Soft White
+```
+
+Materials should feel:
+
+- polished
+- elegant
+- dreamy
+- premium
+- soft
+- slightly magical
+
+Avoid:
+
+- grey medieval stone
+- gothic architecture
+- fortress architecture
+- industrial architecture
+- generic hotel interiors
+- excessive neon
+- excessive blue
+- excessive particle effects
+
+---
+
+# 44. HEART GALLERY VISUAL LANGUAGE
+
+More:
+
+```text
+Pearl + Pink + Champagne + Crystal
+```
+
+Less:
+
+```text
+bright saturated colors
+```
+
+It should feel emotional and elegant.
+
+---
+
+# 45. ICE PALACE VISUAL LANGUAGE
+
+More:
+
+```text
+Pearl + Crystal + Lavender + subtle Ice Blue
+```
+
+Less:
+
+```text
+dark blue arena
+```
+
+---
+
+# 46. PUPPY PLAY VISUAL LANGUAGE
+
+More:
+
+```text
+Pastel garden
+Soft greens
+Pink
+Cream
+Lavender
+Tiny flowers
+Crystal plants
+```
+
+It should feel playful but still belong to the palace.
+
+---
+
+# 47. PET SALON VISUAL LANGUAGE
+
+More:
+
+```text
+Cream
+Blush
+Pearl
+Champagne Gold
+Crystal
+```
+
+It should feel like a miniature luxury salon.
+
+---
+
+# 48. ARCHITECTURAL COHERENCE
+
+All four experiences must share:
+
+- column language
+- arch language
+- floor material family
+- lighting language
+- gold trim
+- crystal details
+- palace proportions
+
+Do not make each room look like it came from a different game.
+
+---
+
+# 49. DO NOT OVERBUILD
+
+This is extremely important.
+
+Do NOT add hundreds of decorative objects just because there is empty space.
+
+The floor should feel expensive because of:
+
+- proportion
+- architecture
+- lighting
+- spacing
+- material quality
+- composition
+
+not because of object count.
+
+Use the principle:
+
+> More architectural sophistication, not more objects.
+
+---
+
+# 50. PERFORMANCE REQUIREMENTS
+
+Target:
+
+## 60 FPS
+
+Use:
+
+- shared geometries
+- shared materials
+- instancing where appropriate
+- lightweight lighting
+- no per-frame allocations
+- no repeated geometry creation
+- no unnecessary high-poly meshes
+- existing `ResourceTracker`
+- proper `dispose()`
+
+Avoid:
+
+```ts
+new THREE.Geometry(...)
+```
+
+or equivalent repeated creation inside `update()`.
+
+Do not create objects every frame.
+
+Do not create new lights every frame.
+
+---
+
+# 51. RESOURCE MANAGEMENT
+
+Every newly created:
+
+- geometry
+- material
+- texture
+- render target
+- mesh
+- light
+- group
+
+must be properly owned and cleaned up.
+
+Follow the existing `ResourceTracker` architecture where applicable.
+
+Do not leak resources when Floor 3 is recreated or disposed.
+
+---
+
+# 52. COLLISION DESIGN
+
+Collision geometry must follow the architectural layout.
+
+Do NOT create giant invisible walls simply to prevent the player from entering areas.
+
+Use collision only where necessary:
+
+- outer boundaries
+- architectural walls
+- stairs
+- structural columns
+- rink barriers
+- room partitions
+- important furniture
+
+The player should be able to explore.
+
+---
+
+# 53. IMPORTANT: DO NOT BLOCK THE CASTLE
+
+Never place decorative objects:
+
+- directly in front of stairs
+- in staircase landings
+- in primary promenades
+- in doorways
+- in gallery viewing paths
+- in front of the rink entrance
+- between Puppy Area and Pet Salon
+- in front of the F3 → F4 route
+
+---
+
+# 54. FLOOR 3 ARRIVAL EXPERIENCE
+
+When the player comes from Floor 2:
+
+They should enter a clear palace circulation area.
+
+Do NOT immediately spawn them inside:
+
+- Heart Gallery
+- Ice rink
+- Puppy Play Area
+- Pet Salon
+
+The player should first see the Royal Promenade.
+
+This gives the floor a sense of scale.
+
+---
+
+# 55. FLOOR 3 VISUAL LANDMARKS
+
+The player should be able to visually identify:
+
+### Heart Gallery
+
+Large crystal/rose-pink architectural wing.
+
+### Ice Palace
+
+Large luminous crystal rink.
+
+### Puppy Area
+
+Pastel garden/playground.
+
+### Pet Salon
+
+Small elegant salon directly connected to Puppy Area.
+
+Do not depend entirely on UI labels.
+
+---
+
+# 56. HEART GALLERY MUST FEEL LARGER THAN EVERYTHING ELSE
+
+If there is a conflict between available space:
+
+Priority must be:
+
+```text
+Heart Gallery
+    ↓
+Ice Palace
+    ↓
+Puppy Play
+    ↓
+Pet Salon
+```
+
+Do not compromise this hierarchy.
+
+---
+
+# 57. ICE PALACE MUST FEEL PLAYABLE
+
+If the rink becomes too small:
+
+reduce decorative architecture before reducing the rink.
+
+The player must have actual skating space.
+
+---
+
+# 58. PUPPY AREA MUST FEEL OPEN
+
+If the Puppy area becomes too cluttered:
+
+remove decorations before reducing the play lawn.
+
+---
+
+# 59. PET SALON MUST REMAIN COMPACT
+
+If more space becomes available:
+
+do NOT automatically enlarge the Pet Salon.
+
+Use additional space for:
+
+- Heart Gallery
+- Ice Palace
+- circulation
+
+in that order.
+
+---
+
+# 60. PRESERVE EXISTING HEART GALLERY DATA FLOW
+
+Do not break the current memory pipeline.
+
+The gallery must continue to support:
+
+```text
+memory data
+↓
+gallery frame
+↓
+custom image
+↓
+localStorage
+↓
+physical gallery display
+```
+
+Preserve the existing APIs.
+
+---
+
+# 61. PRESERVE FLOOR 3 AVATAR INTEGRATION
+
+Continue supporting:
+
+```ts
+setAvatarCallbacks(...)
+```
+
+The player's avatar and other existing character systems must continue functioning.
+
+Do not replace the avatar system.
+
+---
+
+# 62. PRESERVE DREAMCASTLE INTEGRATION
+
+`DreamCastle.ts` must continue to be the integration point for Floor 3.
+
+Do not create a separate standalone castle.
+
+Do not bypass the existing DreamCastle architecture.
+
+---
+
+# 63. RECOMMENDED CODE ARCHITECTURE
+
+If `CastleFloor3Rooms.ts` has become too large, separate the new experiences into dedicated modules.
+
+Recommended architecture:
+
+```text
+CastleFloor3Rooms.ts
+        │
+        ├── Floor3Architecture
+        │
+        ├── Floor3Circulation
+        │
+        ├── HeartGallery
+        │
+        ├── IceSkatingPalace
+        │
+        ├── PuppyPlayArea
+        │
+        ├── PetSalon
+        │
+        └── Floor3StairLighting
+```
+
+Possible files:
+
+```text
+src/world/dreamscape/floor3/
+  Floor3Architecture.ts
+  Floor3Circulation.ts
+  HeartGallery.ts
+  IceSkatingPalace.ts
+  PuppyPlayArea.ts
+  PetSalon.ts
+  Floor3StairLighting.ts
+```
+
+Only create these if they genuinely improve maintainability.
+
+Do not split code into meaningless tiny files.
+
+---
+
+# 64. ACTUAL COORDINATES MUST BE VALIDATED
+
+The coordinate ranges provided earlier are architectural references.
+
+Do not blindly assume every number is still correct after rebuilding.
+
+Before finalizing:
+
+1. inspect current geometry
+2. identify actual usable floor regions
+3. identify actual stairs
+4. identify actual openings
+5. establish room bounds
+6. establish promenade
+7. calculate player clearance
+8. then place the rooms
+
+Do not invent a new coordinate system disconnected from the existing castle.
+
+---
+
+# 65. FLOOR 3 REBUILD ORDER
+
+Implement in this exact conceptual order:
+
+## STEP 1
+Inspect current Floor 3.
+
+## STEP 2
+Remove obsolete room construction.
+
+## STEP 3
+Preserve vertical circulation.
+
+## STEP 4
+Fix F2 → F3 stair lighting.
+
+## STEP 5
+Build floor-wide architectural foundation.
+
+## STEP 6
+Build Royal Promenade.
+
+## STEP 7
+Build Heart Gallery footprint.
+
+## STEP 8
+Build Ice Palace footprint.
+
+## STEP 9
+Build Puppy Play footprint.
+
+## STEP 10
+Build Pet Salon.
+
+## STEP 11
+Build collision/navigation.
+
+## STEP 12
+Test walking.
+
+## STEP 13
+Add interactions.
+
+## STEP 14
+Add lighting.
+
+## STEP 15
+Add decorative detail.
+
+## STEP 16
+Optimize.
+
+---
+
+# 66. WALK TEST CHECKLIST
+
+After implementation, mentally and programmatically validate:
+
+### From Floor 2
+
+Can the player:
+
+- climb the stairs?
+- see the lights activate?
+- reach Floor 3?
+- enter the Royal Promenade?
+
+### Heart Gallery
+
+Can the player:
+
+- enter?
+- reach all five memories?
+- stand in front of each memory?
+- turn around comfortably?
+- reach the central heart?
+- exit?
+
+### Ice Palace
+
+Can the player:
+
+- reach the rink?
+- walk around it?
+- enter the rink?
+- turn?
+- exit?
+
+### Puppy Area
+
+Can the player:
+
+- enter?
+- walk around the play lawn?
+- reach the activities?
+- reach the rest area?
+- reach Pet Salon?
+
+### Pet Salon
+
+Can the player:
+
+- enter?
+- use the grooming station?
+- walk around?
+- exit back toward Puppy Area?
+
+### Floor 4
+
+Can the player:
+
+- continue toward F3 → F4?
+- reach the staircase without obstruction?
+
+---
+
+# 67. CAMERA TEST CHECKLIST
+
+Test third-person camera from:
+
+- Floor 2 arrival
+- Royal Promenade
+- Heart Gallery entrance
+- Gallery center
+- Ice rink edge
+- Puppy Play Area
+- Pet Salon
+- F3 → F4 staircase
+
+Ensure:
+
+- player is visible
+- important architecture isn't clipped
+- no major objects occupy the camera
+- no extreme clipping through walls
+- no sudden camera snapping
+
+---
+
+# 68. INPUT TEST CHECKLIST
+
+Verify:
+
+```text
+W
+A
+S
+D
+Arrow keys
+Mouse camera
+Zoom
+E interaction
+```
+
+Continue working.
+
+Do not break existing global controls.
+
+---
+
+# 69. NO SECOND PLAYER CONTROLLER
+
+This is mandatory.
+
+Do not create:
+
+```text
+Floor3PlayerController
+```
+
+Do not create:
+
+```text
+Floor3CameraController
+```
+
+Use the existing:
+
+```text
+PlayerController
+```
+
+---
+
+# 70. NO SECOND COLLISION SYSTEM
+
+Use the existing collision architecture.
+
+Do not introduce an unrelated physics engine for Floor 3.
+
+---
+
+# 71. NO FAKE PLACEHOLDERS
+
+Do not finish the rebuild with:
+
+- colored boxes
+- flat placeholder walls
+- empty rooms
+- generic planes
+- fake gallery frames
+- giant text labels
+
+The final geometry should be actual palace architecture.
+
+---
+
+# 72. NO GIANT LABELS
+
+Do not add:
+
+```text
+HEART GALLERY
+ICE SKATING
+PUPPY AREA
+PET SALON
+```
+
+as giant floating text.
+
+Use subtle environmental cues.
+
+---
+
+# 73. NO GENERIC ROOM BOXES
+
+Avoid:
+
+```text
+┌───────────┐
+│   ROOM    │
+│           │
+└───────────┘
+```
+
+The rooms must have:
+
+- architectural entrances
+- transitions
+- arches
+- columns
+- lighting
+- material hierarchy
+- spatial depth
+
+---
+
+# 74. FINAL VISUAL TARGET
+
+When standing on Floor 3, the player should feel:
+
+> "This is a real wing of the Dream Castle."
+
+Not:
+
+> "Someone placed four mini-games on a floor."
+
+The Heart Gallery should feel like the soul of the floor.
+
+The Ice Palace should feel spectacular.
+
+The Puppy Area should feel alive.
+
+The Pet Salon should feel intimate and detailed.
+
+The Royal Promenade should connect everything naturally.
+
+---
+
+# 75. FINAL FLOOR 3 HIERARCHY
+
+Lock this:
+
+```text
+                         FLOOR 4
+                            ↑
+                     Grand Stair
+                            │
+                ┌───────────┴───────────┐
+                │                       │
+                │    ROYAL PROMENADE    │
+                │                       │
+                │  💗 HEART GALLERY     │
+                │     LARGEST           │
+                │                       │
+                ├───────────────────────┤
+                │                       │
+                │ ❄ ICE SKATING PALACE  │
+                │     2ND LARGEST       │
+                │                       │
+                ├──────────────┬────────┤
+                │              │        │
+                │ 🐶 PUPPY     │ 🛁     │
+                │ PLAY AREA    │ PET    │
+                │              │ SALON  │
+                │              │ SMALLEST
+                └───────┬──────┴────────┘
+                        │
+                       F2
+```
+
+Again, this diagram is conceptual.
+
+Actual placement must follow the existing castle geometry.
+
+---
+
+# 76. HARD CONSTRAINTS
+
+The following are NON-NEGOTIABLE:
+
+### MUST
+
+- Heart Gallery is largest.
+- Ice Skating Palace is second-largest.
+- Puppy Play Area is third.
+- Pet Salon is smallest.
+- Proper walkable path exists before all rooms.
+- Existing castle atrium/open architecture is preserved.
+- F2 → F3 stairs remain accessible.
+- F3 → F4 stairs remain accessible.
+- F2 → F3 stair lights activate when walked on.
+- Existing F1 → F2 stair-light behavior must be reused/generalized.
+- Existing Heart Gallery memory functionality remains.
+- Five gallery memories remain.
+- Custom gallery images remain supported.
+- Existing player controller remains.
+- Existing camera architecture remains.
+- Existing DreamCastle integration remains.
+- Existing avatar integration remains.
+- Performance remains suitable for 60 FPS.
+- Proper disposal/resource management remains.
+
+### MUST NOT
+
+- Do not keep Cloud Bedroom.
+- Do not keep Star Lounge.
+- Do not keep Infinite Mirror Room.
+- Do not keep Aurora Sanctuary/Observatory.
+- Do not recreate the old Floor 3 layout.
+- Do not build four equal-sized rooms.
+- Do not create narrow corridors.
+- Do not block stairs.
+- Do not block the gallery viewing path.
+- Do not shrink the Heart Gallery for decorative objects.
+- Do not create a tiny decorative ice rink.
+- Do not overcrowd the Puppy Area.
+- Do not make the Pet Salon unnecessarily large.
+- Do not create a second player controller.
+- Do not create a second camera system.
+- Do not create a second collision system.
+- Do not create duplicate stair-light systems.
+- Do not create duplicate gallery-memory systems.
+- Do not use giant floating labels.
+- Do not use generic placeholder geometry.
+- Do not sacrifice navigation for decoration.
+- Do not add unnecessary particle effects.
+- Do not sacrifice performance for visual complexity.
+
+---
+
+# 77. FINAL QUALITY BAR
+
+Before considering the rebuild complete, verify:
+
+```text
+ARCHITECTURE
+✓ coherent palace architecture
+✓ spacious
+✓ visually connected
+✓ no room-box feeling
+
+CIRCULATION
+✓ clear Floor 2 arrival
+✓ Royal Promenade
+✓ Heart Gallery accessible
+✓ Ice Palace accessible
+✓ Puppy Area accessible
+✓ Pet Salon accessible
+✓ Floor 4 route accessible
+
+SPACE PRIORITY
+✓ Heart Gallery largest
+✓ Ice Palace second
+✓ Puppy Area third
+✓ Pet Salon smallest
+
+GAMEPLAY
+✓ gallery interactions work
+✓ skating area is genuinely usable
+✓ puppy area is explorable
+✓ pet salon is interactive-ready
+
+VERTICAL
+✓ F1 → F2 stair lighting still works
+✓ F2 → F3 stair lighting now works
+✓ stairs remain unobstructed
+
+TECHNICAL
+✓ existing PlayerController
+✓ existing camera
+✓ existing collision architecture
+✓ existing DreamCastle integration
+✓ existing gallery APIs
+✓ ResourceTracker
+✓ proper disposal
+✓ no per-frame allocation
+✓ 60 FPS target
+
+VISUAL
+✓ pearl/blush/lavender/champagne/crystal
+✓ elegant
+✓ premium
+✓ romantic
+✓ cohesive
+✓ no generic medieval/gothic appearance
+```
+
+---
+
+# 78. MOST IMPORTANT INSTRUCTION
+
+Do not treat this as:
+
+> "Build four rooms."
+
+Treat it as:
+
+> **"Re-architect Floor 3 into a grand, walkable palace wing whose primary emotional attraction is the Heart Gallery, whose primary physical attraction is the Ice Skating Palace, and whose supporting experiences are the Puppy Play Area and Pet Salon."**
+
+The player should experience the floor as one continuous royal environment.
+
+**Heart Gallery is the soul.**
+
+**Ice Palace is the spectacle.**
+
+**Puppy Play Area is the joy.**
+
+**Pet Salon is the intimate detail.**
+
+And the **Royal Promenade is the thread that ties all four together.**
+
+Before making large changes, inspect the existing implementation and preserve all working integrations. Do not invent repository APIs that do not exist. Do not claim something is fixed unless the actual code has been changed accordingly.
+
+Implement the rebuild cleanly, incrementally, and with the existing Dream Castle architecture as the foundation.

@@ -2353,17 +2353,31 @@ export function createDreamCastle(): DreamCastleBundle {
   topTrim23.position.set(scEast23.endX, scEast23.endY - 0.015, scEast23.endZ + 0.55);
   group.add(botPad23, botTrim23, topPad23, topTrim23);
 
-  const sharedBlushRiserMat = stairRiserMats[0] || mats.blushRoseMarble;
+  const stairRiserMats23: THREE.MeshStandardMaterial[] = [];
+  const stairStepHeights23: number[] = [];
 
   for (let s = 0; s < numSteps23; s++) {
     const sz = scEast23.startZ + (s + 0.5) * stepD23;
     // Step s top surface is startY + (s + 1) * stepH23 so Step 14 topY === 10.25m (exact match with Floor 3!)
     const topY = scEast23.startY + (s + 1) * stepH23;
     const sy = topY - 0.5 * stepH23;
+    stairStepHeights23.push(sy);
+
+    const riserMat23 = tracker.trackMat(
+      new THREE.MeshStandardMaterial({
+        color: new THREE.Color('#fbcfe8'),
+        emissive: new THREE.Color('#f472b6'),
+        emissiveIntensity: 0.42,
+        roughness: 0.22,
+        metalness: 0.12,
+      }),
+    );
+    stairRiserMats23.push(riserMat23);
+
     const stp = new THREE.Mesh(step23Geo, mats.pearlWhite);
     stp.position.set(scEast23.startX, sy, sz);
     stp.receiveShadow = true;
-    const rsr = new THREE.Mesh(riser23Geo, stairRiserMats[s % stairRiserMats.length] || sharedBlushRiserMat);
+    const rsr = new THREE.Mesh(riser23Geo, riserMat23);
     rsr.position.set(scEast23.startX, sy - stepH23 * 0.04, sz - stepD23 * 0.5 - 0.01);
     const goldEdge = new THREE.Mesh(stepGoldEdgeGeo, mats.champagneGold);
     goldEdge.position.set(scEast23.startX, topY - 0.014, sz - stepD23 * 0.5 - 0.015);
@@ -2455,15 +2469,31 @@ export function createDreamCastle(): DreamCastleBundle {
   topTrim34.position.set(scWest34.endX, scWest34.endY - 0.015, scWest34.endZ + 0.55);
   group.add(botPad34, botTrim34, topPad34, topTrim34);
 
+  const stairRiserMats34: THREE.MeshStandardMaterial[] = [];
+  const stairStepHeights34: number[] = [];
+
   for (let s = 0; s < scWest34.stepCount; s++) {
     const sz = scWest34.startZ + (s + 0.5) * scWest34.stepDepth;
     // Step s top surface is startY + (s + 1) * stepHeight so Step 14 topY === 15.25m (exact match with Floor 4 Rooftop!)
     const topY = scWest34.startY + (s + 1) * scWest34.stepHeight;
     const sy = topY - 0.5 * scWest34.stepHeight;
+    stairStepHeights34.push(sy);
+
+    const riserMat34 = tracker.trackMat(
+      new THREE.MeshStandardMaterial({
+        color: new THREE.Color('#fbcfe8'),
+        emissive: new THREE.Color('#f472b6'),
+        emissiveIntensity: 0.42,
+        roughness: 0.22,
+        metalness: 0.12,
+      }),
+    );
+    stairRiserMats34.push(riserMat34);
+
     const stp = new THREE.Mesh(step34Geo, mats.pearlWhite);
     stp.position.set(scWest34.startX, sy, sz);
     stp.receiveShadow = true;
-    const rsr = new THREE.Mesh(riser23Geo, stairRiserMats[s % stairRiserMats.length] || sharedBlushRiserMat);
+    const rsr = new THREE.Mesh(riser23Geo, riserMat34);
     rsr.position.set(scWest34.startX, sy - scWest34.stepHeight * 0.04, sz - scWest34.stepDepth * 0.5 - 0.01);
     const goldEdge = new THREE.Mesh(stepGoldEdgeGeo, mats.champagneGold);
     goldEdge.position.set(scWest34.startX, topY - 0.014, sz - scWest34.stepDepth * 0.5 - 0.015);
@@ -5455,13 +5485,24 @@ export function createDreamCastle(): DreamCastleBundle {
         }
       }
 
-      // Section 1F & 5: Pulse Love Ribbon Staircase Newel Heart Crystals & Risers ONLY when climbing stairs
+      // Section 1F, 5 & 34–37: Progressive Step Riser Illumination for Floor 1->2, Floor 2->3, and Floor 3->4 Staircases
       const isOnStairs12 =
-        Math.abs(Math.abs(playerLocalX) - 6.9) < 2.2 && Math.abs(playerLocalZ) < 6.8;
+        Math.abs(Math.abs(playerLocalX) - 6.9) < 2.25 &&
+        Math.abs(playerLocalZ) < 7.2 &&
+        playerLocalY >= -0.2 &&
+        playerLocalY <= 5.85;
       const isOnStairs23 =
-        Math.abs(playerLocalX - 7.5) < 2.1 && playerLocalZ >= 6.0 && playerLocalZ <= 13.5 && playerLocalY >= 4.8;
+        Math.abs(playerLocalX - scEast23.startX) < 2.25 &&
+        playerLocalZ >= scEast23.startZ - 1.4 &&
+        playerLocalZ <= scEast23.endZ + 1.4 &&
+        playerLocalY >= 4.75 &&
+        playerLocalY <= 10.85;
       const isOnStairs34 =
-        Math.abs(playerLocalX - (-7.5)) < 2.1 && playerLocalZ >= 6.0 && playerLocalZ <= 13.5 && playerLocalY >= 9.8;
+        Math.abs(playerLocalX - scWest34.startX) < 2.25 &&
+        playerLocalZ >= scWest34.startZ - 1.4 &&
+        playerLocalZ <= scWest34.endZ + 1.4 &&
+        playerLocalY >= 9.75 &&
+        playerLocalY <= 15.85;
       const isClimbingAnyStair = isOnStairs12 || isOnStairs23 || isOnStairs34;
 
       if (isClimbingAnyStair) {
@@ -5473,17 +5514,25 @@ export function createDreamCastle(): DreamCastleBundle {
       }
 
       if (isMedLod) {
-        for (let s = 0; s < stairRiserMats.length; s++) {
-          const stepY = stairStepHeights[s];
-          const stepProximity =
-            isOnStairs12 && Math.abs(playerLocalY - stepY) < 1.25
-              ? 1.0 - Math.abs(playerLocalY - stepY) / 1.25
-              : 0.0;
-          const gentleWave = isCloseLod
-            ? 0.52 + 0.24 * Math.sin(clockVal * 3.2 - s * 0.35)
-            : 0.52;
-          stairRiserMats[s].emissiveIntensity = gentleWave + stepProximity * 1.65;
-        }
+        const updateFlightRisers = (
+          matsList: THREE.MeshStandardMaterial[],
+          heightsList: number[],
+          isOnFlight: boolean,
+        ) => {
+          for (let s = 0; s < matsList.length; s++) {
+            const stepY = heightsList[s];
+            const dy = Math.abs(playerLocalY - stepY);
+            const stepProximity = isOnFlight && dy < 1.35 ? 1.0 - dy / 1.35 : 0.0;
+            const gentleWave = isCloseLod
+              ? 0.52 + 0.24 * Math.sin(clockVal * 3.2 - s * 0.35)
+              : 0.52;
+            matsList[s].emissiveIntensity = gentleWave + stepProximity * 1.75;
+          }
+        };
+
+        updateFlightRisers(stairRiserMats, stairStepHeights, isOnStairs12);
+        updateFlightRisers(stairRiserMats23, stairStepHeights23, isOnStairs23);
+        updateFlightRisers(stairRiserMats34, stairStepHeights34, isOnStairs34);
       }
 
       // Section 15: "Two Hearts Became One Light" Chandelier Proximity Shimmer & Floor Heart Illumination
