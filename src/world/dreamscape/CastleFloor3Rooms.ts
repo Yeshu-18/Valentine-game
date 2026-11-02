@@ -1176,6 +1176,9 @@ export function createCastleFloor3Rooms(
   // Interior East Gallery Wall Trim along lx = +14.85 (lz: -14.8 .. +7.6) so East Apse matches the West Wall's luxury trim
   buildReferenceGalleryWall(14.85, -3.6, 22.4, true);
 
+  // Interior South Gallery Wall Trim along lz = -14.85 (lx: +4.8 .. +14.85) so the right-hand interior wall has matching luxury trim
+  buildReferenceGalleryWall((4.8 + 14.85) * 0.5, -14.85, 14.85 - 4.8, false);
+
   // --- 1.4 REUSABLE CLASSICAL FLUTED COLUMN BUILDER (Multi-Tiered Gold Base, 16-Flute Pearl Shaft, Corinthian Gold Capital) ---
   const flColPlinthGeo = tracker.trackGeo(new THREE.BoxGeometry(0.74, 0.14, 0.74));
   const flColBaseTorus1Geo = tracker.trackGeo(new THREE.TorusGeometry(0.31, 0.055, 10, 24));
@@ -2157,7 +2160,10 @@ export function createCastleFloor3Rooms(
     }),
   );
 
-  // Reusable builder for all 7 physical portrait exhibits (5 interactive memories + 2 decorative architectural portraits)
+  const frameHeroPlaqueBackGeo = tracker.trackGeo(new THREE.BoxGeometry(0.68, 0.18, 0.05));
+  const frameHeroPlaqueHeartGeo = buildExtrudedHeartGeometry(tracker, 0.11, 0.04, 0.015);
+
+  // Reusable builder for all physical portrait exhibits (5 interactive memories + decorative architectural portraits)
   // Guarantees identical 3D Rococo frame geometry, top glowing pink heart crest, bottom gold plaque,
   // and physical overhead gold picture-light fixture + warm bulb + downward beam cone + wall wash.
   const buildGalleryPortraitExhibit = (
@@ -2167,13 +2173,15 @@ export function createCastleFloor3Rooms(
     scaleMult: number,
     tex: THREE.CanvasTexture,
     outerFrameMat: THREE.Material,
+    isWallHero = false,
   ) => {
     const exhibitGroup = new THREE.Group();
     exhibitGroup.position.set(lx, y0, lz);
     exhibitGroup.rotation.y = rotY;
     exhibitGroup.scale.setScalar(scaleMult);
 
-    const centerY = 2.22;
+    // Keep world-space vertical center consistently aligned at y0 + 2.22m across all frame scales
+    const centerY = 2.22 / scaleMult;
 
     // 1. Warm Downward Wall-Wash Spill Plane behind & above the Portrait Frame
     const wallWash = new THREE.Mesh(picWallWashPlaneGeo, portraitWallWashMat);
@@ -2234,10 +2242,18 @@ export function createCastleFloor3Rooms(
       exhibitGroup.add(wing);
     });
 
-    // 6. Bottom-Center Curved Gold Cartouche Nameplate Plaque
+    // 6. Bottom-Center Curved Gold Cartouche Nameplate Plaque (with extra detailed backing & heart cameo on Wall-Hero frames)
     const plaque = new THREE.Mesh(frameBottomPlaqueGeo, galleryRoyalGoldMat);
     plaque.position.set(0, centerY - frameH * 0.5 - 0.02, 0.12);
     exhibitGroup.add(plaque);
+
+    if (isWallHero) {
+      const heroPlaqueBack = new THREE.Mesh(frameHeroPlaqueBackGeo, outerFrameMat);
+      heroPlaqueBack.position.set(0, centerY - frameH * 0.5 - 0.02, 0.105);
+      const heroPlaqueHeart = new THREE.Mesh(frameHeroPlaqueHeartGeo, floatingHeartCrystalMat);
+      heroPlaqueHeart.position.set(0, centerY - frameH * 0.5 - 0.02, 0.155);
+      exhibitGroup.add(heroPlaqueBack, heroPlaqueHeart);
+    }
 
     // 7. Portrait Canvas Surface (Lit from above by the Picture Light — non-self-luminous UI look)
     const artMat = tracker.trackMat(
@@ -2245,8 +2261,8 @@ export function createCastleFloor3Rooms(
         map: tex,
         emissive: new THREE.Color('#fff1f2'),
         emissiveMap: tex,
-        emissiveIntensity: 0.42,
-        roughness: 0.28,
+        emissiveIntensity: isWallHero ? 0.48 : 0.42,
+        roughness: 0.26,
         metalness: 0.02,
         side: THREE.FrontSide,
       }),
@@ -2304,14 +2320,12 @@ export function createCastleFloor3Rooms(
     );
     galleryFrameHalos.push(haloMat);
 
-    buildGalleryPortraitExhibit(p.lx, p.lz, p.rotY, scaleMult, tex, haloMat);
+    buildGalleryPortraitExhibit(p.lx, p.lz, p.rotY, scaleMult, tex, haloMat, Boolean(p.isHeroExhibit));
   }
 
-  // --- 1.12 TWO DECORATIVE ARCHITECTURAL PORTRAIT EXHIBITS (Total Visible Portraits = 7) ---
-  // Symmetrically flank Memory 5 Hero (lx = 14.66, lz = -3.8) along the uninterrupted East / Apse Wall
-  // at lz = -0.65 and lz = -6.95 (outside the East sconces & floral pedestals), without modifying the
-  // 5-memory interactive system, localStorage model, or getGalleryFrames().
-  const createDecorativePortraitTexture = (variant: 0 | 1): THREE.CanvasTexture => {
+  // --- 1.12 DECORATIVE ARCHITECTURAL PORTRAIT EXHIBITS (East Apse Pair + Right-Wall 3-Portrait Composition) ---
+  // Preserves the 5-memory interactive system, localStorage model, and getGalleryFrames() unchanged.
+  const createDecorativePortraitTexture = (variant: 0 | 1 | 2 | 3 | 4): THREE.CanvasTexture => {
     const canvas = document.createElement('canvas');
     canvas.width = 512;
     canvas.height = 680;
@@ -2357,7 +2371,7 @@ export function createCastleFloor3Rooms(
           ctx.arc(rx, ry, 14 + (r % 3) * 4, 0, Math.PI * 2);
           ctx.fill();
         }
-      } else {
+      } else if (variant === 1) {
         // Decorative Portrait 2 (South-East Apse): Dreamy Rose-Gold Palace Bridge & Starlit Lagoon
         const sky = ctx.createLinearGradient(0, 0, 0, 400);
         sky.addColorStop(0, '#311042');
@@ -2394,11 +2408,190 @@ export function createCastleFloor3Rooms(
           ctx.fill();
           ctx.fillRect(lxPos - 8, 445 + l * 14, 16, 3);
         }
+      } else if (variant === 2) {
+        // Right-Wall Left Portrait (Portrait A): Romantic Rose & Palace Balcony Memory at Golden Hour
+        const sky = ctx.createLinearGradient(0, 0, 0, 440);
+        sky.addColorStop(0, '#831843');
+        sky.addColorStop(0.38, '#db2777');
+        sky.addColorStop(0.75, '#fb7185');
+        sky.addColorStop(1, '#fef08a');
+        ctx.fillStyle = sky;
+        ctx.fillRect(0, 0, W, 440);
+
+        const terrace = ctx.createLinearGradient(0, 430, 0, H);
+        terrace.addColorStop(0, '#fda4af');
+        terrace.addColorStop(0.45, '#9d174d');
+        terrace.addColorStop(1, '#4c0519');
+        ctx.fillStyle = terrace;
+        ctx.fillRect(0, 430, W, H - 430);
+
+        // Golden sunset glow orb over the horizon
+        const sunGlow = ctx.createRadialGradient(256, 340, 14, 256, 340, 175);
+        sunGlow.addColorStop(0, 'rgba(255, 255, 255, 0.96)');
+        sunGlow.addColorStop(0.35, 'rgba(254, 240, 138, 0.72)');
+        sunGlow.addColorStop(1, 'rgba(244, 114, 182, 0.0)');
+        ctx.fillStyle = sunGlow;
+        ctx.fillRect(0, 140, W, 300);
+
+        // Classical palace balcony balustrade & twin marble columns
+        ctx.fillStyle = '#fde68a';
+        ctx.fillRect(48, 425, W - 96, 18);
+        ctx.fillRect(48, 535, W - 96, 22);
+        for (let b = 0; b < 9; b++) {
+          ctx.fillRect(72 + b * 44, 443, 14, 92);
+        }
+
+        // Lush cascading pink & blush roses framing the upper balcony arch
+        for (let r = 0; r < 24; r++) {
+          const ang = (r / 23) * Math.PI;
+          const rx = 256 + Math.cos(ang) * 185;
+          const ry = 215 - Math.sin(ang) * 145 + (r % 3) * 12;
+          ctx.fillStyle = r % 3 === 0 ? '#fff1f2' : r % 2 === 0 ? '#fbcfe8' : '#f472b6';
+          ctx.beginPath();
+          ctx.arc(rx, ry, 20 + (r % 3) * 5, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      } else if (variant === 3) {
+        // Right-Wall Center Hero Portrait (Portrait B): Yeshwanth & Harsha Romantic Memory
+        // Richer internal contrast, warm golden twilight gazebo arch, glowing crystal heart, and romantic couple silhouette
+        const bg = ctx.createRadialGradient(256, 285, 24, 256, 340, 410);
+        bg.addColorStop(0, '#fffbeb');
+        bg.addColorStop(0.28, '#fde047');
+        bg.addColorStop(0.58, '#db2777');
+        bg.addColorStop(0.85, '#701a75');
+        bg.addColorStop(1, '#2e1065');
+        ctx.fillStyle = bg;
+        ctx.fillRect(0, 0, W, H);
+
+        // Ornate golden royal arch & twin fluted columns framing Yeshwanth and Harsha
+        ctx.strokeStyle = '#fef08a';
+        ctx.lineWidth = 14;
+        ctx.beginPath();
+        ctx.arc(256, 250, 176, Math.PI, 0);
+        ctx.stroke();
+        ctx.lineWidth = 7;
+        ctx.beginPath();
+        ctx.arc(256, 250, 152, Math.PI, 0);
+        ctx.stroke();
+
+        [80, 432].forEach((colX) => {
+          ctx.fillStyle = '#78350f';
+          ctx.fillRect(colX - 18, 250, 36, 360);
+          ctx.fillStyle = '#fde68a';
+          ctx.fillRect(colX - 24, 242, 48, 16);
+        });
+
+        // Glowing pink heart emblem at the top of the painted gazebo arch
+        ctx.save();
+        ctx.translate(256, 92);
+        ctx.fillStyle = '#fbcfe8';
+        ctx.shadowColor = '#f472b6';
+        ctx.shadowBlur = 24;
+        ctx.font = 'bold 54px Georgia, serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('♥', 0, 0);
+        ctx.restore();
+
+        // Cascading fairy-light sparkles around the arch
+        ctx.fillStyle = '#ffffff';
+        for (let s = 0; s < 30; s++) {
+          const sx = 95 + ((s * 43) % 322);
+          const sy = 115 + ((s * 29) % 210);
+          ctx.beginPath();
+          ctx.arc(sx, sy, 2.8 + (s % 2) * 1.4, 0, Math.PI * 2);
+          ctx.fill();
+        }
+
+        // Yeshwanth & Harsha standing close together holding hands in golden starlight
+        // Harsha (graceful flowing rose-crimson gown on left)
+        ctx.fillStyle = '#4c0519';
+        ctx.beginPath();
+        ctx.arc(224, 356, 26, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#9d174d';
+        ctx.beginPath();
+        ctx.moveTo(168, 600);
+        ctx.quadraticCurveTo(192, 425, 226, 386);
+        ctx.quadraticCurveTo(254, 425, 266, 600);
+        ctx.closePath();
+        ctx.fill();
+
+        // Yeshwanth (royal evening silhouette beside her on right)
+        ctx.fillStyle = '#3b0764';
+        ctx.beginPath();
+        ctx.arc(286, 342, 28, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#581c87';
+        ctx.beginPath();
+        ctx.moveTo(248, 600);
+        ctx.quadraticCurveTo(256, 412, 288, 374);
+        ctx.quadraticCurveTo(324, 412, 342, 600);
+        ctx.closePath();
+        ctx.fill();
+
+        // Subtle golden tribute script at the bottom of the hero canvas
+        ctx.save();
+        ctx.fillStyle = '#fef08a';
+        ctx.shadowColor = 'rgba(120, 53, 15, 0.85)';
+        ctx.shadowBlur = 10;
+        ctx.font = 'italic bold 24px Georgia, serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('Yeshwanth & Harsha', 256, 638);
+        ctx.restore();
+      } else {
+        // Right-Wall Right Portrait (Portrait C): Dreamy Palace Courtyard & Crystal Fountain Garden Memory
+        const sky = ctx.createLinearGradient(0, 0, 0, 410);
+        sky.addColorStop(0, '#4c1d95');
+        sky.addColorStop(0.45, '#be185d');
+        sky.addColorStop(0.82, '#f472b6');
+        sky.addColorStop(1, '#fef08a');
+        ctx.fillStyle = sky;
+        ctx.fillRect(0, 0, W, 410);
+
+        const garden = ctx.createLinearGradient(0, 410, 0, H);
+        garden.addColorStop(0, '#fbcfe8');
+        garden.addColorStop(0.45, '#831843');
+        garden.addColorStop(1, '#311042');
+        ctx.fillStyle = garden;
+        ctx.fillRect(0, 410, W, H - 410);
+
+        // Distant pastel palace domes & spires
+        ctx.fillStyle = '#581c87';
+        [150, 256, 362].forEach((tx, idx) => {
+          const w = idx === 1 ? 74 : 48;
+          const h = idx === 1 ? 210 : 155;
+          ctx.fillRect(tx - w * 0.5, 410 - h, w, h);
+          ctx.beginPath();
+          ctx.arc(tx, 410 - h, w * 0.5, Math.PI, 0);
+          ctx.fill();
+        });
+
+        // Glowing crystal heart fountain in the garden foreground
+        ctx.fillStyle = '#fde68a';
+        ctx.beginPath();
+        ctx.ellipse(256, 520, 128, 34, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#f472b6';
+        ctx.beginPath();
+        ctx.ellipse(256, 520, 112, 26, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.save();
+        ctx.translate(256, 448);
+        ctx.fillStyle = '#fff1f2';
+        ctx.shadowColor = '#f472b6';
+        ctx.shadowBlur = 20;
+        ctx.font = 'bold 46px Georgia, serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('♥', 0, 0);
+        ctx.restore();
       }
 
       // Matching subtle inner golden picture mat border
-      ctx.strokeStyle = 'rgba(253, 224, 71, 0.65)';
-      ctx.lineWidth = 6;
+      ctx.strokeStyle = variant === 3 ? '#fef08a' : 'rgba(253, 224, 71, 0.68)';
+      ctx.lineWidth = variant === 3 ? 8 : 6;
       ctx.strokeRect(8, 8, W - 16, H - 16);
     }
 
@@ -2419,6 +2612,16 @@ export function createCastleFloor3Rooms(
     }),
   );
 
+  const wallHeroFrameMat = tracker.trackMat(
+    new THREE.MeshStandardMaterial({
+      color: new THREE.Color('#fde047'),
+      emissive: new THREE.Color('#fbbf24'),
+      emissiveIntensity: 0.36,
+      roughness: 0.16,
+      metalness: 0.88,
+    }),
+  );
+
   // Place the 2 decorative portraits on the East / Apse wall flanking [Memory 5 Hero]
   buildGalleryPortraitExhibit(
     14.66,
@@ -2436,6 +2639,27 @@ export function createCastleFloor3Rooms(
     createDecorativePortraitTexture(1),
     decorativeFrameMat,
   );
+
+  // --- 1.13 RIGHT-WALL 3-PORTRAIT HORIZONTAL COMPOSITION ---
+  // Shared textures for the 3-portrait composition:
+  //   - Left (Portrait A): Romantic Rose & Palace Balcony Memory
+  //   - Center (Portrait B, Wall Hero): Yeshwanth & Harsha Romantic Memory
+  //   - Right (Portrait C): Dreamy Palace Courtyard & Crystal Fountain Garden Memory
+  const rightWallLeftTex = createDecorativePortraitTexture(2);
+  const rightWallCenterHeroTex = createDecorativePortraitTexture(3);
+  const rightWallRightTex = createDecorativePortraitTexture(4);
+
+  // 1) Mounted on the uninterrupted right-hand Heart Gallery wall between the Main Curtain Archway
+  //    (lz = +3.32) and the Glass Elevator (lz = +8.10) at lx = +4.62 (facing West -X, rotY = -Math.PI * 0.5)
+  buildGalleryPortraitExhibit(4.62, 4.48, -Math.PI * 0.5, 0.68, rightWallLeftTex, decorativeFrameMat, false);
+  buildGalleryPortraitExhibit(4.62, 5.80, -Math.PI * 0.5, 0.72, rightWallCenterHeroTex, wallHeroFrameMat, true);
+  buildGalleryPortraitExhibit(4.62, 7.12, -Math.PI * 0.5, 0.68, rightWallRightTex, decorativeFrameMat, false);
+
+  // 2) Mounted on the uninterrupted interior South-Right Heart Gallery wall (lz = -14.66, lx in [4.8, 14.85],
+  //    facing North +Z, rotY = 0) so both the exterior-facing and interior-facing right walls are complete
+  buildGalleryPortraitExhibit(7.05, -14.66, 0, 1.0, rightWallLeftTex, decorativeFrameMat, false);
+  buildGalleryPortraitExhibit(9.82, -14.66, 0, 1.04, rightWallCenterHeroTex, wallHeroFrameMat, true);
+  buildGalleryPortraitExhibit(12.60, -14.66, 0, 1.0, rightWallRightTex, decorativeFrameMat, false);
 
   const applySavedGalleryImage = (frameIndex: number, imageSrc: string, persist = true) => {
     if (frameIndex < 0 || frameIndex >= galleryMemories.length) return;
