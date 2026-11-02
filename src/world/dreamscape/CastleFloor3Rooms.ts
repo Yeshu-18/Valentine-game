@@ -3346,6 +3346,479 @@ export function createCastleFloor3Rooms(
     }
   }
 
+  // --- 1.12 ROSE PETAL DOME CEILING (REFERENCE-LOCKED ROYAL ARCHITECTURAL DOME) ---
+  // Constructed from layered curved translucent blush-rose petals with champagne-gold structural ribs,
+  // warm glowing seams, perimeter crystal drops, ornate corner rose-vine spandrels, and a central
+  // royal gold crown chandelier suspending a faceted glowing pink crystal heart above the gallery court.
+  const rosePetalDomeGroup = new THREE.Group();
+  rosePetalDomeGroup.name = 'HeartGalleryRosePetalDomeCeiling';
+  const domeCenterX = 9.82;
+  const domeCenterZ = -3.55;
+  const domeBaseY = y0 + 4.32; // Aligns cleanly with top of 4.35m gallery walls & cornice cove light
+  rosePetalDomeGroup.position.set(domeCenterX, domeBaseY, domeCenterZ);
+  heartGalleryGroup.add(rosePetalDomeGroup);
+
+  // Subtle upward-facing radial silk gradient texture for the sculpted petal vaults
+  const createRosePetalSilkTexture = (): THREE.CanvasTexture => {
+    const canvas = document.createElement('canvas');
+    canvas.width = 512;
+    canvas.height = 512;
+    const ctx = canvas.getContext('2d');
+    if (ctx) {
+      const grad = ctx.createLinearGradient(0, 0, 0, 512);
+      grad.addColorStop(0.0, '#fff1f2'); // Luminous warm pearl-blush near central crown
+      grad.addColorStop(0.28, '#fbcfe8'); // Soft pastel rose-pink mid-vault
+      grad.addColorStop(0.68, '#f472b6'); // Rich romantic rose-petal blush
+      grad.addColorStop(0.92, '#fbcfe8'); // Warm edge glow transition
+      grad.addColorStop(1.0, '#fef08a'); // Golden-blush rim highlight
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, 512, 512);
+
+      // Delicate longitudinal silk petal veins
+      for (let v = 0; v < 28; v++) {
+        const vx = (v / 27) * 512;
+        ctx.strokeStyle =
+          v % 2 === 0 ? 'rgba(255, 241, 242, 0.24)' : 'rgba(219, 39, 119, 0.12)';
+        ctx.lineWidth = 2.5;
+        ctx.beginPath();
+        ctx.moveTo(256 + (vx - 256) * 0.25, 0);
+        ctx.quadraticCurveTo(vx, 256, 256 + (vx - 256) * 0.85, 512);
+        ctx.stroke();
+      }
+    }
+    const tex = tracker.trackTex(new THREE.CanvasTexture(canvas));
+    tex.colorSpace = THREE.SRGBColorSpace;
+    tex.needsUpdate = true;
+    return tex;
+  };
+
+  const rosePetalSilkTex = createRosePetalSilkTexture();
+  const rosePetalVaultMat = tracker.trackMat(
+    new THREE.MeshPhysicalMaterial({
+      map: rosePetalSilkTex,
+      color: new THREE.Color('#fbcfe8'),
+      emissive: new THREE.Color('#f472b6'),
+      emissiveMap: rosePetalSilkTex,
+      emissiveIntensity: 0.28,
+      roughness: 0.24,
+      metalness: 0.04,
+      transmission: 0.32,
+      transparent: true,
+      opacity: 0.94,
+      sheen: 0.9,
+      sheenColor: new THREE.Color('#fff1f2'),
+      clearcoat: 0.35,
+      side: THREE.DoubleSide,
+    }),
+  );
+
+  const rosePetalInnerTierMat = tracker.trackMat(
+    new THREE.MeshPhysicalMaterial({
+      map: rosePetalSilkTex,
+      color: new THREE.Color('#fce7f3'),
+      emissive: new THREE.Color('#f9a8d4'),
+      emissiveMap: rosePetalSilkTex,
+      emissiveIntensity: 0.34,
+      roughness: 0.2,
+      metalness: 0.05,
+      transmission: 0.36,
+      transparent: true,
+      opacity: 0.96,
+      sheen: 1.0,
+      sheenColor: new THREE.Color('#fef08a'),
+      clearcoat: 0.45,
+      side: THREE.DoubleSide,
+    }),
+  );
+
+  // 1.12A Architectural Ceiling Backing Coffer & Spandrel Frame (spans the Heart Gallery ceiling footprint)
+  // Leaves the North-East elevator/stair corner untouched while covering the main gallery bay cleanly.
+  const ceilingSpandrelGeo = tracker.trackGeo(new THREE.BoxGeometry(10.05, 0.08, 22.65));
+  const ceilingSpandrelMesh = new THREE.Mesh(ceilingSpandrelGeo, galleryBlushWallMat);
+  ceilingSpandrelMesh.position.set(0, 0.02, 0);
+  rosePetalDomeGroup.add(ceilingSpandrelMesh);
+
+  // Outer Rectangular Perimeter Gold Ceiling Molding & Recessed Warm Cove Strip
+  const ceilPerimLongGeo = tracker.trackGeo(new THREE.BoxGeometry(0.16, 0.12, 22.5));
+  const ceilPerimShortGeo = tracker.trackGeo(new THREE.BoxGeometry(9.9, 0.12, 0.16));
+  const ceilWestMold = new THREE.Mesh(ceilPerimLongGeo, galleryRoyalGoldMat);
+  ceilWestMold.position.set(-4.88, -0.02, 0);
+  const ceilEastMold = new THREE.Mesh(ceilPerimLongGeo, galleryRoyalGoldMat);
+  ceilEastMold.position.set(4.88, -0.02, 0);
+  const ceilSouthMold = new THREE.Mesh(ceilPerimShortGeo, galleryRoyalGoldMat);
+  ceilSouthMold.position.set(0, -0.02, -11.15);
+  const ceilNorthMold = new THREE.Mesh(ceilPerimShortGeo, galleryRoyalGoldMat);
+  ceilNorthMold.position.set(0, -0.02, 11.15);
+  rosePetalDomeGroup.add(ceilWestMold, ceilEastMold, ceilSouthMold, ceilNorthMold);
+
+  // 1.12B Elliptical / Radial Grand Dome Cornice Ring & Warm Cove Halo
+  // Scaled along Z (scaleZ = 1.85) so the circular petal dome harmonizes with the elongated gallery hall
+  const domeOuterRadiusX = 4.55;
+  const domeStretchZ = 1.88; // Spans ~9.1m E-W by ~17.1m N-S inside the 10m x 22.6m gallery
+
+  const domeEllipticalContainer = new THREE.Group();
+  domeEllipticalContainer.scale.set(1.0, 1.0, domeStretchZ);
+  rosePetalDomeGroup.add(domeEllipticalContainer);
+
+  // Outer Molded Champagne-Gold Cornice Ring + Warm Glowing Cove Ring
+  const outerDrumRingGeo = tracker.trackGeo(
+    new THREE.TorusGeometry(domeOuterRadiusX, 0.11, 14, 72),
+  );
+  outerDrumRingGeo.rotateX(Math.PI / 2);
+  const outerDrumRing = new THREE.Mesh(outerDrumRingGeo, galleryRoyalGoldMat);
+  outerDrumRing.position.y = -0.02;
+
+  const outerCoveGlowRingGeo = tracker.trackGeo(
+    new THREE.TorusGeometry(domeOuterRadiusX - 0.12, 0.042, 10, 72),
+  );
+  outerCoveGlowRingGeo.rotateX(Math.PI / 2);
+  const outerCoveGlowRing = new THREE.Mesh(outerCoveGlowRingGeo, galleryWarmLinearGlowMat);
+  outerCoveGlowRing.position.y = 0.01;
+
+  const secondTierGoldRingGeo = tracker.trackGeo(
+    new THREE.TorusGeometry(domeOuterRadiusX * 0.76, 0.055, 12, 64),
+  );
+  secondTierGoldRingGeo.rotateX(Math.PI / 2);
+  const secondTierGoldRing = new THREE.Mesh(secondTierGoldRingGeo, galleryRoyalGoldMat);
+  secondTierGoldRing.position.y = 0.24;
+
+  domeEllipticalContainer.add(outerDrumRing, outerCoveGlowRing, secondTierGoldRing);
+
+  // 1.12C Custom 3D Sculpted Rose Petal Vault Geometry Builder
+  // Builds a true 3D double-curved vault surface (radial arch + transverse billow + scalloped rose-petal tip)
+  // along with its matching 3D champagne-gold structural edge rib and warm glowing seam tube.
+  const buildCurvedRosePetalSegment = (
+    innerR: number,
+    outerR: number,
+    innerY: number,
+    outerY: number,
+    peakVaultY: number,
+    halfAngleSpan: number,
+    mat: THREE.Material,
+  ): THREE.Group => {
+    const petalGrp = new THREE.Group();
+    const radialSteps = 18;
+    const angularSteps = 16;
+    const positions: number[] = [];
+    const uvs: number[] = [];
+    const indices: number[] = [];
+
+    const leftEdgePts: THREE.Vector3[] = [];
+    const rightEdgePts: THREE.Vector3[] = [];
+    const leftSeamPts: THREE.Vector3[] = [];
+    const rightSeamPts: THREE.Vector3[] = [];
+
+    for (let ir = 0; ir <= radialSteps; ir++) {
+      const u = ir / radialSteps; // 0 at inner crown ring -> 1 at outer petal tip
+      // Rounded rose-petal width profile: blossoms wide at u ~ 0.68 and tapers to a delicate pointed tip at u = 1.0
+      const widthEnvelope = Math.sin(Math.pow(u, 0.72) * Math.PI * 0.94);
+      const currentHalfAng = halfAngleSpan * (0.22 + 0.86 * widthEnvelope);
+      const r = THREE.MathUtils.lerp(innerR, outerR, Math.pow(u, 0.92));
+
+      // Radial dome elevation curve arching upward from outer cornice into the dome vault
+      const baseArchY =
+        THREE.MathUtils.lerp(innerY, outerY, u) + Math.sin(u * Math.PI) * peakVaultY;
+
+      for (let ia = 0; ia <= angularSteps; ia++) {
+        const v = (ia / angularSteps) * 2 - 1; // -1 (left rib) .. 0 (petal spine) .. +1 (right rib)
+        const theta = v * currentHalfAng;
+
+        // Transverse concave/convex petal billow (pillow-soft vaulting between the gold ribs)
+        const pillowLift = (1 - v * v) * (0.11 * Math.sin(u * Math.PI) + 0.035);
+        const px = Math.cos(theta) * r;
+        const pz = Math.sin(theta) * r;
+        const py = baseArchY + pillowLift;
+
+        positions.push(px, py, pz);
+        uvs.push((v + 1) * 0.5, u);
+
+        if (ia === 0) {
+          leftEdgePts.push(new THREE.Vector3(px, py - 0.012, pz));
+          leftSeamPts.push(new THREE.Vector3(px * 0.995, py + 0.015, pz * 0.995));
+        } else if (ia === angularSteps) {
+          rightEdgePts.push(new THREE.Vector3(px, py - 0.012, pz));
+          rightSeamPts.push(new THREE.Vector3(px * 0.995, py + 0.015, pz * 0.995));
+        }
+      }
+    }
+
+    const stride = angularSteps + 1;
+    for (let ir = 0; ir < radialSteps; ir++) {
+      for (let ia = 0; ia < angularSteps; ia++) {
+        const a = ir * stride + ia;
+        const b = (ir + 1) * stride + ia;
+        const c = (ir + 1) * stride + (ia + 1);
+        const d = ir * stride + (ia + 1);
+        indices.push(a, b, d);
+        indices.push(b, c, d);
+      }
+    }
+
+    const petalGeo = new THREE.BufferGeometry();
+    petalGeo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+    petalGeo.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+    petalGeo.setIndex(indices);
+    petalGeo.computeVertexNormals();
+    tracker.trackGeo(petalGeo);
+
+    const petalMesh = new THREE.Mesh(petalGeo, mat);
+    petalGrp.add(petalMesh);
+
+    // Molded Champagne-Gold Rib Piping along both curved edges of the petal
+    const leftCurve = new THREE.CatmullRomCurve3(leftEdgePts);
+    const rightCurve = new THREE.CatmullRomCurve3(rightEdgePts);
+    const leftRibGeo = tracker.trackGeo(new THREE.TubeGeometry(leftCurve, 20, 0.028, 8, false));
+    const rightRibGeo = tracker.trackGeo(new THREE.TubeGeometry(rightCurve, 20, 0.028, 8, false));
+    petalGrp.add(
+      new THREE.Mesh(leftRibGeo, galleryRoyalGoldMat),
+      new THREE.Mesh(rightRibGeo, galleryRoyalGoldMat),
+    );
+
+    // Luminous Warm Glowing Seam Curves nestled immediately beside the gold ribs
+    const leftSeamCurve = new THREE.CatmullRomCurve3(leftSeamPts);
+    const rightSeamCurve = new THREE.CatmullRomCurve3(rightSeamPts);
+    const leftSeamGeo = tracker.trackGeo(new THREE.TubeGeometry(leftSeamCurve, 18, 0.016, 6, false));
+    const rightSeamGeo = tracker.trackGeo(
+      new THREE.TubeGeometry(rightSeamCurve, 18, 0.016, 6, false),
+    );
+    petalGrp.add(
+      new THREE.Mesh(leftSeamGeo, galleryWarmLinearGlowMat),
+      new THREE.Mesh(rightSeamGeo, galleryWarmLinearGlowMat),
+    );
+
+    return petalGrp;
+  };
+
+  // Shared Crystal Teardrop Finial Builder (placed at petal tip junctions around the dome)
+  const finialCapGeo = tracker.trackGeo(new THREE.CylinderGeometry(0.045, 0.065, 0.06, 12));
+  const finialCrystalTopGeo = tracker.trackGeo(new THREE.ConeGeometry(0.085, 0.14, 8));
+  const finialCrystalBotGeo = tracker.trackGeo(new THREE.ConeGeometry(0.085, 0.18, 8));
+  finialCrystalBotGeo.rotateX(Math.PI);
+  const finialSparkCoreGeo = tracker.trackGeo(new THREE.SphereGeometry(0.048, 8, 8));
+
+  const buildPetalCrystalFinial = (scale = 1.0): THREE.Group => {
+    const finGrp = new THREE.Group();
+    finGrp.scale.setScalar(scale);
+    const cap = new THREE.Mesh(finialCapGeo, galleryRoyalGoldMat);
+    cap.position.y = 0.05;
+    const topCone = new THREE.Mesh(finialCrystalTopGeo, crystalArchMat);
+    topCone.position.y = -0.04;
+    const botCone = new THREE.Mesh(finialCrystalBotGeo, crystalArchMat);
+    botCone.position.y = -0.2;
+    const core = new THREE.Mesh(finialSparkCoreGeo, galleryWarmLinearGlowMat);
+    core.position.y = -0.11;
+    finGrp.add(cap, topCone, botCone, core);
+    return finGrp;
+  };
+
+  // Instantiate Outer Ring of 8 Overlapping Sculpted Rose Petals + 8 Outer Crystal Finial Drops
+  const PETAL_COUNT = 8;
+  const outerPetalTemplate = buildCurvedRosePetalSegment(
+    1.15,
+    domeOuterRadiusX - 0.1,
+    0.42,
+    0.04,
+    0.26,
+    (Math.PI / PETAL_COUNT) * 1.06,
+    rosePetalVaultMat,
+  );
+
+  // Instantiate Inner Concentric Layer of 8 Overlapping Rose Petals (rotated by half-step for authentic rose-bloom layering)
+  const innerPetalTemplate = buildCurvedRosePetalSegment(
+    0.68,
+    domeOuterRadiusX * 0.75,
+    0.52,
+    0.24,
+    0.22,
+    (Math.PI / PETAL_COUNT) * 1.08,
+    rosePetalInnerTierMat,
+  );
+
+  for (let p = 0; p < PETAL_COUNT; p++) {
+    const angOuter = (p / PETAL_COUNT) * Math.PI * 2;
+    const outerInstance = p === 0 ? outerPetalTemplate : outerPetalTemplate.clone();
+    outerInstance.rotation.y = angOuter;
+    domeEllipticalContainer.add(outerInstance);
+
+    const angInner = angOuter + Math.PI / PETAL_COUNT;
+    const innerInstance = p === 0 ? innerPetalTemplate : innerPetalTemplate.clone();
+    innerInstance.rotation.y = angInner;
+    domeEllipticalContainer.add(innerInstance);
+
+    // Outer perimeter crystal drop finial at each outer petal tip
+    const tipR = domeOuterRadiusX - 0.14;
+    const outerFinial = buildPetalCrystalFinial(1.05);
+    // Un-stretch Z on the finial so crystal drops remain circular in world space
+    outerFinial.scale.set(1.05, 1.05, 1.05 / domeStretchZ);
+    outerFinial.position.set(Math.cos(angOuter) * tipR, -0.02, Math.sin(angOuter) * tipR);
+    domeEllipticalContainer.add(outerFinial);
+
+    // Mid-tier crystal drop finial at each inner petal tip
+    const innerTipR = domeOuterRadiusX * 0.74;
+    const innerFinial = buildPetalCrystalFinial(0.88);
+    innerFinial.scale.set(0.88, 0.88, 0.88 / domeStretchZ);
+    innerFinial.position.set(Math.cos(angInner) * innerTipR, 0.19, Math.sin(angInner) * innerTipR);
+    domeEllipticalContainer.add(innerFinial);
+  }
+
+  // 1.12D Four Ornate Corner Spandrel Rose-Vine Filigree Reliefs (matching the reference ceiling corners)
+  const cornerScrollArcGeo = tracker.trackGeo(
+    new THREE.TorusGeometry(0.42, 0.024, 8, 24, Math.PI * 1.35),
+  );
+  cornerScrollArcGeo.rotateX(Math.PI / 2);
+  const cornerMinorArcGeo = tracker.trackGeo(
+    new THREE.TorusGeometry(0.24, 0.018, 8, 18, Math.PI * 1.45),
+  );
+  cornerMinorArcGeo.rotateX(Math.PI / 2);
+
+  [
+    { sx: -1, sz: -1 },
+    { sx: 1, sz: -1 },
+    { sx: -1, sz: 1 },
+    { sx: 1, sz: 1 },
+  ].forEach(({ sx, sz }) => {
+    const spandrelGrp = new THREE.Group();
+    spandrelGrp.position.set(sx * 3.75, -0.02, sz * 8.65);
+    spandrelGrp.rotation.y = Math.atan2(-sx, -sz);
+
+    // Central Sculpted Pink Rose Blossom in the Corner Spandrel
+    for (let l = 0; l < 7; l++) {
+      const lAng = (l / 7) * Math.PI * 2;
+      const petal = new THREE.Mesh(
+        roseBloomGeo,
+        l % 2 === 0 ? galleryRoseSoftPinkMat : galleryRoseDeepPinkMat,
+      );
+      petal.position.set(Math.cos(lAng) * 0.12, -0.02, Math.sin(lAng) * 0.12);
+      petal.scale.set(1.6, 0.65, 1.2);
+      petal.rotation.y = -lAng;
+      spandrelGrp.add(petal);
+    }
+    const centerBud = new THREE.Mesh(roseBloomGeo, galleryRoseCreamMat);
+    centerBud.position.set(0, -0.035, 0);
+    centerBud.scale.setScalar(1.35);
+    spandrelGrp.add(centerBud);
+
+    // Flanking Gold Filigree Vine Scrolls & Leaves
+    [-1, 1].forEach((branchSide) => {
+      const majorVine = new THREE.Mesh(cornerScrollArcGeo, galleryRoyalGoldMat);
+      majorVine.position.set(branchSide * 0.45, -0.01, 0.12);
+      majorVine.rotation.y = branchSide * 0.65;
+      const minorVine = new THREE.Mesh(cornerMinorArcGeo, galleryRoyalGoldMat);
+      minorVine.position.set(branchSide * 0.82, -0.01, 0.28);
+      minorVine.rotation.y = -branchSide * 0.85;
+      spandrelGrp.add(majorVine, minorVine);
+
+      const subRose = new THREE.Mesh(roseBloomGeo, galleryRoseSoftPinkMat);
+      subRose.position.set(branchSide * 0.62, -0.02, 0.22);
+      subRose.scale.set(1.2, 0.55, 1.2);
+      spandrelGrp.add(subRose);
+    });
+
+    rosePetalDomeGroup.add(spandrelGrp);
+  });
+
+  // 1.12E Central Royal Crown Mount, Concentric Crystal Chandelier Ring & Suspended Faceted Pink Heart Crystal
+  // Placed in un-stretched world coordinates at the center of the dome (comfortably > 3.1m above floor y0)
+  const centralCrownAssembly = new THREE.Group();
+  centralCrownAssembly.position.set(0, 0.46, 0); // Apex inside the petal convergence
+  rosePetalDomeGroup.add(centralCrownAssembly);
+
+  // Upper Gold Medallion Plate & Warm Halo Ring
+  const crownMedallionGeo = tracker.trackGeo(new THREE.CylinderGeometry(0.76, 0.84, 0.08, 36));
+  const crownMedallion = new THREE.Mesh(crownMedallionGeo, galleryRoyalGoldMat);
+  crownMedallion.position.y = 0.02;
+
+  const crownInnerGlowRingGeo = tracker.trackGeo(new THREE.TorusGeometry(0.58, 0.038, 10, 40));
+  crownInnerGlowRingGeo.rotateX(Math.PI / 2);
+  const crownInnerGlowRing = new THREE.Mesh(crownInnerGlowRingGeo, galleryWarmLinearGlowMat);
+  crownInnerGlowRing.position.y = -0.03;
+
+  // Sculpted Royal Coronet Crown (8 Gold Crown Spikes with Pink Crystal Heart/Gem Insets)
+  const crownBandGeo = tracker.trackGeo(new THREE.CylinderGeometry(0.52, 0.46, 0.18, 28, 1, true));
+  const crownBand = new THREE.Mesh(crownBandGeo, galleryRoyalGoldMat);
+  crownBand.position.y = -0.1;
+  centralCrownAssembly.add(crownMedallion, crownInnerGlowRing, crownBand);
+
+  const crownSpikeGeo = tracker.trackGeo(new THREE.ConeGeometry(0.085, 0.22, 4));
+  const crownGemGeo = tracker.trackGeo(new THREE.OctahedronGeometry(0.048, 0));
+  for (let cs = 0; cs < 8; cs++) {
+    const cAng = (cs / 8) * Math.PI * 2;
+    const spike = new THREE.Mesh(crownSpikeGeo, galleryRoyalGoldMat);
+    spike.position.set(Math.cos(cAng) * 0.49, -0.22, Math.sin(cAng) * 0.49);
+    spike.rotation.x = Math.PI;
+    spike.rotation.y = -cAng;
+
+    const gem = new THREE.Mesh(crownGemGeo, floatingHeartCrystalMat);
+    gem.position.set(Math.cos(cAng) * 0.51, -0.12, Math.sin(cAng) * 0.51);
+    centralCrownAssembly.add(spike, gem);
+  }
+
+  // Suspended Outer Circular Gold Chandelier Ring with 12 Hanging Faceted Crystal Prism Drops
+  const chandelierRingY = -0.44;
+  const chandelierOuterRingGeo = tracker.trackGeo(new THREE.TorusGeometry(0.96, 0.036, 12, 48));
+  chandelierOuterRingGeo.rotateX(Math.PI / 2);
+  const chandelierOuterRing = new THREE.Mesh(chandelierOuterRingGeo, galleryRoyalGoldMat);
+  chandelierOuterRing.position.y = chandelierRingY;
+
+  const chandelierInnerRingGeo = tracker.trackGeo(new THREE.TorusGeometry(0.66, 0.026, 10, 40));
+  chandelierInnerRingGeo.rotateX(Math.PI / 2);
+  const chandelierInnerRing = new THREE.Mesh(chandelierInnerRingGeo, galleryRoyalGoldMat);
+  chandelierInnerRing.position.y = chandelierRingY + 0.08;
+  centralCrownAssembly.add(chandelierOuterRing, chandelierInnerRing);
+
+  // 4 Curved Gold Struts connecting the Coronet Crown to the Chandelier Ring
+  const strutGeo = tracker.trackGeo(new THREE.CylinderGeometry(0.018, 0.018, 0.56, 8));
+  for (let st = 0; st < 4; st++) {
+    const sAng = (st / 4) * Math.PI * 2 + Math.PI / 4;
+    const strut = new THREE.Mesh(strutGeo, galleryRoyalGoldMat);
+    strut.position.set(Math.cos(sAng) * 0.68, -0.26, Math.sin(sAng) * 0.68);
+    strut.rotation.z = Math.cos(sAng) * 0.72;
+    strut.rotation.x = -Math.sin(sAng) * 0.72;
+    centralCrownAssembly.add(strut);
+  }
+
+  // 16 Hanging Crystal Teardrop Pendants around the Chandelier Rings
+  const pendantBeadGeo = tracker.trackGeo(new THREE.OctahedronGeometry(0.032, 0));
+  const pendantDropGeo = tracker.trackGeo(new THREE.OctahedronGeometry(0.068, 0));
+  pendantDropGeo.scale(0.75, 1.65, 0.75);
+
+  for (let pd = 0; pd < 16; pd++) {
+    const pAng = (pd / 16) * Math.PI * 2;
+    const rad = pd % 2 === 0 ? 0.96 : 0.66;
+    const baseRingY = pd % 2 === 0 ? chandelierRingY : chandelierRingY + 0.08;
+    const dropLen = pd % 2 === 0 ? 0.28 : 0.36;
+
+    const bead1 = new THREE.Mesh(pendantBeadGeo, galleryWarmLinearGlowMat);
+    bead1.position.set(Math.cos(pAng) * rad, baseRingY - 0.08, Math.sin(pAng) * rad);
+    const bead2 = new THREE.Mesh(pendantBeadGeo, crystalArchMat);
+    bead2.position.set(Math.cos(pAng) * rad, baseRingY - 0.16, Math.sin(pAng) * rad);
+    const prism = new THREE.Mesh(pendantDropGeo, crystalArchMat);
+    prism.position.set(Math.cos(pAng) * rad, baseRingY - dropLen, Math.sin(pAng) * rad);
+    centralCrownAssembly.add(bead1, bead2, prism);
+  }
+
+  // Central Suspended Faceted Glowing Pink Crystal Heart inside Gold Heart Bezel (at y0 + 3.82m, > 2.0m above player head)
+  const domeCenterHeartPivot = new THREE.Group();
+  domeCenterHeartPivot.position.set(0, -0.68, 0);
+  const domeHeartOuterBezelGeo = buildExtrudedHeartGeometry(tracker, 0.94, 0.14, 0.038);
+  const domeHeartOuterBezel = new THREE.Mesh(domeHeartOuterBezelGeo, galleryRoyalGoldMat);
+  const domeHeartCrystalGeo = buildExtrudedHeartGeometry(tracker, 0.82, 0.22, 0.052);
+  const domeHeartCrystal = new THREE.Mesh(domeHeartCrystalGeo, floatingHeartCrystalMat);
+  const domeHeartInnerCoreGeo = buildExtrudedHeartGeometry(tracker, 0.48, 0.26, 0.025);
+  const domeHeartInnerCore = new THREE.Mesh(domeHeartInnerCoreGeo, galleryWarmLinearGlowMat);
+
+  // Bottom central crystal finial drop below the heart point
+  const bottomHeartFinial = buildPetalCrystalFinial(0.95);
+  bottomHeartFinial.position.set(0, -0.46, 0);
+
+  domeCenterHeartPivot.add(
+    domeHeartOuterBezel,
+    domeHeartCrystal,
+    domeHeartInnerCore,
+    bottomHeartFinial,
+  );
+  centralCrownAssembly.add(domeCenterHeartPivot);
+
   // ==========================================================================
   // 2. ICE SKATING PALACE (PRIORITY #2 — SECOND-LARGEST SPACE ON FLOOR 3)
   //    West Grand Wing: lx in [-15.0, -3.8], lz in [-15.0, +4.2] (~215 m²)
@@ -4495,12 +4968,15 @@ export function createCastleFloor3Rooms(
       }
       plazaFountainDropletInst.instanceMatrix.needsUpdate = true;
 
-      // 1. Animate Heart Gallery Floating Crystal Heart & Orbiting Light Motes
+      // 1. Animate Heart Gallery Floating Crystal Heart, Rose Petal Dome Central Heart & Orbiting Light Motes
       floatingCrystalHeartPivot.position.y =
         y0 + 2.05 + Math.sin(elapsedTime * 1.8) * 0.12;
       floatingCrystalHeartPivot.rotation.y = elapsedTime * 0.65;
       floatingHeartHalo.rotation.x = Math.sin(elapsedTime * 1.2) * 0.35;
       floatingHeartHalo.rotation.z = elapsedTime * 0.45;
+
+      domeCenterHeartPivot.rotation.y = Math.sin(elapsedTime * 0.75) * 0.28;
+      domeCenterHeartPivot.position.y = -0.68 + Math.sin(elapsedTime * 1.6) * 0.025;
 
       for (let m = 0; m < HEART_MOTE_COUNT; m++) {
         const ang = elapsedTime * 0.75 + (m / HEART_MOTE_COUNT) * Math.PI * 2;
