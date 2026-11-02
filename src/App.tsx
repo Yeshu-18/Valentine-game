@@ -1276,28 +1276,31 @@ export default function App() {
             telemetry.castlePrompt.includes('Memory Frames') ||
             telemetry.castlePrompt.includes('Gallery') ? (
             <div className="ml-2 flex items-center gap-1.5 flex-wrap">
-              <span className="text-[11px] font-semibold text-pink-300 mr-1">Frame:</span>
-              {[0, 1, 2, 3, 4].map((idx) => (
+              <span className="text-[11px] font-semibold text-pink-300 mr-1 whitespace-nowrap">
+                Select 0-10 to view:
+              </span>
+              {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((idx) => (
                 <button
                   key={idx}
                   type="button"
+                  title={`View Memory ${idx}`}
                   onClick={() => {
                     setSelectedGalleryFrame(idx);
-                    window.dispatchEvent(new KeyboardEvent('keydown', { key: String(idx + 1) }));
+                    controllerRef.current?.selectGalleryFrame(idx);
                   }}
-                  className={`px-2 py-0.5 rounded text-[11px] font-medium border transition-colors cursor-pointer ${
+                  className={`w-6 h-6 flex items-center justify-center rounded text-[11px] font-bold border transition-colors cursor-pointer ${
                     selectedGalleryFrame === idx
-                      ? 'bg-pink-500 text-white border-amber-300 shadow-sm'
+                      ? 'bg-pink-500 text-white border-amber-300 shadow-sm ring-1 ring-amber-300/60'
                       : 'bg-slate-800 hover:bg-slate-700 text-pink-200 border-pink-300/30'
                   }`}
                 >
-                  Frame {idx + 1}
+                  {idx}
                 </button>
               ))}
               <button
                 type="button"
                 onClick={() => controllerRef.current?.triggerCastleAction()}
-                className="ml-1 px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-pink-200 text-xs font-semibold border border-pink-300/30 transition-colors cursor-pointer"
+                className="ml-1 px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-pink-200 text-xs font-semibold border border-pink-300/30 transition-colors cursor-pointer whitespace-nowrap"
               >
                 [E] View / Return
               </button>

@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { TransformControls } from 'three/addons/controls/TransformControls.js';
 
 export interface InteractivePortraitExhibit {
-  id: string; // 'portrait-0' through 'portrait-4'
+  id: string; // 'portrait-0' through 'portrait-9'
   name: string;
   group: THREE.Group;
   defaultTransform: {
@@ -20,7 +20,7 @@ export interface PortraitTransformData {
 
 export type GalleryPlacementStorage = Record<string, PortraitTransformData>;
 
-export const GALLERY_PLACEMENT_STORAGE_KEY = 'heart_island_gallery_placement_v1';
+export const GALLERY_PLACEMENT_STORAGE_KEY = 'heart_island_gallery_placement_v2';
 
 export interface HeartGalleryPlacementToolOptions {
   scene: THREE.Scene;
@@ -220,7 +220,7 @@ export function createHeartGalleryPlacementTool(
       };
     });
     saveStoredPlacements(storage);
-    showToast(`✓ Saved ALL 5 portraits to localStorage!`);
+    showToast(`✓ Saved ALL ${portraitExhibits.length} portraits to localStorage!`);
   }
 
   function resetSelected() {
@@ -259,7 +259,7 @@ export function createHeartGalleryPlacementTool(
       boxHelper.setFromObject(current.group);
     }
     helper.updateMatrixWorld();
-    showToast(`↺ Reset ALL 5 portraits to default layout`);
+    showToast(`↺ Reset ALL ${portraitExhibits.length} portraits to default layout`);
   }
 
   function exportTypeScript() {
@@ -428,7 +428,7 @@ export function createHeartGalleryPlacementTool(
 
       <!-- Portrait Selector -->
       <div style="margin-bottom:12px;">
-        <div style="font-size:11px; color:#94a3b8; margin-bottom:6px; font-weight:600; text-transform:uppercase; letter-spacing:0.5px;">Select Portrait (1–5 / ↑↓)</div>
+        <div style="font-size:11px; color:#94a3b8; margin-bottom:6px; font-weight:600; text-transform:uppercase; letter-spacing:0.5px;">Select Portrait (1–9, 0 = 10 / ↑↓)</div>
         <div style="display:grid; grid-template-columns:repeat(5, 1fr); gap:4px;">
           ${portraitExhibits.map((p, idx) => {
             const isSel = idx === selectedIndex;
@@ -660,7 +660,7 @@ export function createHeartGalleryPlacementTool(
 
     raycaster.setFromCamera(mouse, camera);
 
-    // Test ray against all child objects of the 5 exhibits
+    // Test ray against all child objects of all the exhibits
     for (let i = 0; i < portraitExhibits.length; i++) {
       const hits = raycaster.intersectObject(portraitExhibits[i].group, true);
       if (hits.length > 0) {
@@ -693,10 +693,7 @@ export function createHeartGalleryPlacementTool(
     // While placement mode is active, prevent gameplay actions from triggering
     let handled = false;
 
-    if (e.code === 'Escape') {
-      setModeActive(false);
-      handled = true;
-    } else if (e.code === 'Digit1') {
+    if (e.code === 'Digit1') {
       selectExhibit(0);
       handled = true;
     } else if (e.code === 'Digit2') {
@@ -710,6 +707,21 @@ export function createHeartGalleryPlacementTool(
       handled = true;
     } else if (e.code === 'Digit5') {
       selectExhibit(4);
+      handled = true;
+    } else if (e.code === 'Digit6') {
+      selectExhibit(5);
+      handled = true;
+    } else if (e.code === 'Digit7') {
+      selectExhibit(6);
+      handled = true;
+    } else if (e.code === 'Digit8') {
+      selectExhibit(7);
+      handled = true;
+    } else if (e.code === 'Digit9') {
+      selectExhibit(8);
+      handled = true;
+    } else if (e.code === 'Digit0') {
+      selectExhibit(9);
       handled = true;
     } else if (e.code === 'ArrowUp' || e.code === 'BracketRight') {
       selectExhibit(selectedIndex + 1);

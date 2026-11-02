@@ -60,6 +60,7 @@ export interface DreamCastleBundle {
   handleElevatorFloorSelect: (floorNum: number) => boolean;
   performPredefinedDance: (stepIndex: number) => void;
   setGalleryFrameImage: (frameIndex: number, imageSrc: string) => void;
+  selectGalleryFrame: (frameIndex: number) => void;
   getGalleryFrames: () => readonly { index: number; title: string; sub: string; hasCustomImage: boolean; customImageSrc?: string }[];
   getCameraFocus: () => { target: THREE.Vector3; position: THREE.Vector3; fov?: number; blendAlpha: number; isSitting?: boolean; isFirstPersonSeated?: boolean; seatWorldPos?: THREE.Vector3; seatYaw?: number } | null;
   update: (delta: number, playerPos: THREE.Vector3, elapsedTime?: number, inputKeys?: Set<string>) => void;
@@ -5135,6 +5136,10 @@ export function createDreamCastle(): DreamCastleBundle {
 
     setGalleryFrameImage: (frameIndex: number, imageSrc: string) => {
       floor3Rooms.setGalleryFrameImage(frameIndex, imageSrc);
+    },
+
+    selectGalleryFrame: (frameIndex: number) => {
+      floor3Rooms.selectGalleryFrame(frameIndex);
     },
 
     getGalleryFrames: () => {

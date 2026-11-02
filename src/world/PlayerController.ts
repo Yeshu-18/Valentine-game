@@ -108,6 +108,7 @@ export interface PlayerControllerBundle {
   selectDanceSong: (songIndex: number) => void;
   performManualDance: (key: string) => void;
   performPredefinedDance: (stepIndex: number) => void;
+  selectGalleryFrame: (frameIndex: number) => void;
   setGalleryFrameImage: (frameIndex: number, imageSource: string) => void;
   setCustomPortraitBackdrop: (imageSource: string) => void;
   triggerTakePortrait: () => boolean;
@@ -1786,6 +1787,10 @@ export function createPlayerController(
     },
     performPredefinedDance: (stepIndex: number) => {
       dreamCastle?.performPredefinedDance(stepIndex);
+      onTelemetryChange?.(buildTelemetry());
+    },
+    selectGalleryFrame: (frameIndex: number) => {
+      dreamCastle?.selectGalleryFrame(frameIndex);
       onTelemetryChange?.(buildTelemetry());
     },
     setGalleryFrameImage: (frameIndex: number, imageSource: string) => {
