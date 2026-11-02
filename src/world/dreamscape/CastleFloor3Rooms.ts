@@ -329,7 +329,8 @@ export function createCastleFloor3Rooms(
 
   // ==========================================================================
   // 0. FLOOR 3 CENTRAL PLAZA: SMALL ROMANTIC CRYSTAL FOUNTAIN & INLAID FLOOR INSCRIPTION
-  //    ("YESHWANTH LOVES HARSHA" physically inlaid in curved champagne-gold serif lettering)
+  //    ("YESHWANTH LOVES HARSHA" in real 3D extruded champagne-gold lettering on a dedicated marble band,
+  //     paired with clear, reflective, gravity-flowing water and subtle impact ripples)
   //    Centered at (lx = -0.35, lz = +1.25) with generous walkable circulation to all 4 wings & stairs!
   // ==========================================================================
   const plazaFountainX = -0.35;
@@ -343,41 +344,36 @@ export function createCastleFloor3Rooms(
     new THREE.MeshPhysicalMaterial({
       color: new THREE.Color('#f7d782'),
       emissive: new THREE.Color('#d97706'),
-      emissiveIntensity: 0.22,
-      roughness: 0.16,
+      emissiveIntensity: 0.14,
+      roughness: 0.18,
       metalness: 0.88,
       clearcoat: 0.75,
-      clearcoatRoughness: 0.1,
+      clearcoatRoughness: 0.12,
     }),
   );
-  const fountainWaterMat = tracker.trackMat(
+
+  // Dedicated Champagne-Gold Material for the Physical 3D Floor Lettering (Controlled Specular, Low Emissive)
+  const inlaidLetterGoldMat = tracker.trackMat(
     new THREE.MeshPhysicalMaterial({
-      color: new THREE.Color('#f5d0fe'),
-      emissive: new THREE.Color('#ec4899'),
-      emissiveIntensity: 0.22,
-      roughness: 0.04,
-      metalness: 0.08,
-      transmission: 0.72,
-      transparent: true,
-      opacity: 0.88,
-      clearcoat: 1.0,
-      clearcoatRoughness: 0.03,
-      ior: 1.333,
+      color: new THREE.Color('#fae29c'),
+      emissive: new THREE.Color('#b45309'),
+      emissiveIntensity: 0.08,
+      roughness: 0.2,
+      metalness: 0.86,
+      clearcoat: 0.65,
+      clearcoatRoughness: 0.14,
     }),
   );
-  const fountainStreamMat = tracker.trackMat(
-    new THREE.MeshPhysicalMaterial({
-      color: new THREE.Color('#fdf4ff'),
-      emissive: new THREE.Color('#f472b6'),
-      emissiveIntensity: 0.28,
-      roughness: 0.06,
-      metalness: 0.05,
-      transmission: 0.78,
-      transparent: true,
-      opacity: 0.72,
-      clearcoat: 1.0,
+
+  // Subtle Dark Plum-Bronze Contact-Shadow Plinth Material beneath each 3D Gold Letter
+  const inlaidLetterShadowMat = tracker.trackMat(
+    new THREE.MeshStandardMaterial({
+      color: new THREE.Color('#2d0819'),
+      roughness: 0.65,
+      metalness: 0.15,
     }),
   );
+
   const fountainSoftGlowMat = tracker.trackMat(
     new THREE.MeshBasicMaterial({
       color: new THREE.Color('#fef08a'),
@@ -389,8 +385,207 @@ export function createCastleFloor3Rooms(
     }),
   );
 
-  // --- 0.1 CIRCULAR MARBLE FLOOR COMPOSITION & CURVED INLAID GOLD INSCRIPTION ("YESHWANTH LOVES HARSHA") ---
-  // High-resolution 2048x2048 circular floor inlay texture + 3D raised champagne-gold letter plaques
+  // Shared Time Uniform for Zero-Allocation Fountain Water Shaders
+  const plazaFountainWaterUniforms = {
+    uTime: { value: 0.0 },
+  };
+
+  // Clear, Lightly Cool Reflective Water Surface Shader (Picks up Champagne-Gold & Pink Crystal Reflections via Fresnel)
+  const fountainClearWaterSurfaceMat = tracker.trackMat(
+    new THREE.ShaderMaterial({
+      uniforms: plazaFountainWaterUniforms,
+      transparent: true,
+      depthWrite: false,
+      vertexShader: `
+        varying vec3 vLocalPos;
+        varying vec3 vWorldPos;
+        void main() {
+          vLocalPos = position;
+          vec4 worldPosition = modelMatrix * vec4(position, 1.0);
+          vWorldPos = worldPosition.xyz;
+          gl_Position = projectionMatrix * viewMatrix * worldPosition;
+        }
+      `,
+      fragmentShader: `
+        uniform float uTime;
+        varying vec3 vLocalPos;
+        varying vec3 vWorldPos;
+
+        void main() {
+          vec2 p = vLocalPos.xz;
+          float r = length(p);
+          float angle = atan(p.y, p.x);
+
+          // Superposition of gentle radial waves from the center pedestal + 8 falling stream impact points (r = 1.04m)
+          float centerWave = sin(r * 18.0 - uTime * 2.6) * 0.5 + 0.5;
+          float crossWave = sin(r * 26.0 + cos(angle * 8.0) * 1.8 - uTime * 3.4) * 0.5 + 0.5;
+
+          float impactWaves = 0.0;
+          vec2 grad = vec2(0.0);
+          for (int i = 0; i < 8; i++) {
+            float iAng = float(i) * 0.78539816;
+            vec2 impPos = vec2(cos(iAng), sin(iAng)) * 1.04;
+            vec2 dVec = p - impPos;
+            float dist = length(dVec) + 0.001;
+            float w = sin(dist * 34.0 - uTime * 4.8 + float(i) * 0.9);
+            float atten = exp(-dist * 3.6);
+            impactWaves += (w * 0.5 + 0.5) * atten;
+            grad += (dVec / dist) * cos(dist * 34.0 - uTime * 4.8 + float(i) * 0.9) * atten * 0.14;
+          }
+
+          // Perturbed water surface normal
+          vec2 radialDir = p / (r + 0.001);
+          grad += radialDir * cos(r * 18.0 - uTime * 2.6) * 0.06;
+          vec3 N = normalize(vec3(-grad.x, 1.0, -grad.y));
+          vec3 V = normalize(cameraPosition - vWorldPos);
+
+          // View-dependent Fresnel reflection
+          float ndotv = max(dot(N, V), 0.0);
+          float fresnel = pow(1.0 - ndotv, 2.6);
+
+          // Clear, lightly cool base water color (NOT neon pink)
+          vec3 clearCoolWater = vec3(0.84, 0.94, 0.99);
+          vec3 deepBasinTint = vec3(0.76, 0.88, 0.95);
+          vec3 waterBase = mix(clearCoolWater, deepBasinTint, smoothstep(0.1, 1.15, r));
+
+          // Subtle environment reflections from the champagne-gold rim/sculpture & central pink heart crystal
+          vec3 goldReflection = vec3(0.99, 0.90, 0.65);
+          vec3 pinkCrystalReflection = vec3(0.97, 0.86, 0.93);
+          float centerCrystalInfluence = smoothstep(0.85, 0.12, r);
+          float rimGoldInfluence = smoothstep(0.75, 1.24, r) * 0.75 + 0.25 * crossWave;
+          vec3 envReflection = mix(
+            mix(vec3(0.92, 0.96, 1.0), goldReflection, rimGoldInfluence),
+            pinkCrystalReflection,
+            centerCrystalInfluence * 0.62
+          );
+
+          // Specular highlights from overhead warm palace lighting
+          vec3 L1 = normalize(vec3(0.35, 0.88, 0.32));
+          vec3 L2 = normalize(vec3(-0.42, 0.85, -0.30));
+          vec3 H1 = normalize(L1 + V);
+          vec3 H2 = normalize(L2 + V);
+          float spec = pow(max(dot(N, H1), 0.0), 52.0) + pow(max(dot(N, H2), 0.0), 40.0) * 0.7;
+
+          // Subtle caustic & ripple crest highlights
+          float crestHighlight = pow(centerWave * crossWave, 2.2) * 0.18 + impactWaves * 0.12;
+
+          vec3 finalCol = mix(waterBase, envReflection, 0.28 + fresnel * 0.56);
+          finalCol += goldReflection * crestHighlight;
+          finalCol += vec3(1.0, 0.98, 0.92) * spec * 0.65;
+
+          // Mostly clear/transparent in the basin center, slightly more reflective at grazing angles & rim
+          float alpha = clamp(0.54 + fresnel * 0.30 + spec * 0.25 + impactWaves * 0.08, 0.52, 0.86);
+          gl_FragColor = vec4(finalCol, alpha);
+        }
+      `,
+    }),
+  );
+
+  // Transparent, Gravity-Accelerated Flowing Water Stream Shader (No Neon Pink Tubes)
+  const fountainFlowingStreamMat = tracker.trackMat(
+    new THREE.ShaderMaterial({
+      uniforms: plazaFountainWaterUniforms,
+      transparent: true,
+      depthWrite: false,
+      side: THREE.DoubleSide,
+      vertexShader: `
+        varying vec2 vUv;
+        varying vec3 vWorldNormal;
+        varying vec3 vWorldPos;
+        void main() {
+          vUv = uv;
+          vWorldNormal = normalize(mat3(modelMatrix) * normal);
+          vec4 worldPosition = modelMatrix * vec4(position, 1.0);
+          vWorldPos = worldPosition.xyz;
+          gl_Position = projectionMatrix * viewMatrix * worldPosition;
+        }
+      `,
+      fragmentShader: `
+        uniform float uTime;
+        varying vec2 vUv;
+        varying vec3 vWorldNormal;
+        varying vec3 vWorldPos;
+
+        void main() {
+          // vUv.x = 0 (top source) -> 1 (bottom basin impact); vUv.y = 0..1 around irregular stream profile
+          float flowCoord = vUv.x * 7.5 - uTime * 4.4;
+          float streak1 = sin(flowCoord + sin(vUv.y * 12.566) * 0.8) * 0.5 + 0.5;
+          float streak2 = sin(flowCoord * 1.85 - uTime * 2.2 + vUv.y * 18.85) * 0.5 + 0.5;
+          float rivulet = pow(streak1 * 0.65 + streak2 * 0.35, 1.4);
+
+          // Slight breakup into fine water rivulets/droplets near the bottom impact (vUv.x > 0.72)
+          float breakup = mix(1.0, 0.65 + 0.35 * streak2, smoothstep(0.68, 1.0, vUv.x));
+
+          vec3 N = normalize(vWorldNormal);
+          vec3 V = normalize(cameraPosition - vWorldPos);
+          float fresnel = pow(1.0 - abs(dot(N, V)), 2.2);
+
+          // Clear, lightly cool water catching warm champagne-gold & subtle crystal highlights
+          vec3 clearWater = vec3(0.90, 0.96, 1.0);
+          vec3 goldGlint = vec3(0.99, 0.93, 0.76);
+          vec3 crystalHint = vec3(0.98, 0.90, 0.95);
+
+          vec3 L = normalize(vec3(0.3, 0.9, 0.35));
+          vec3 H = normalize(L + V);
+          float spec = pow(max(dot(N, H), 0.0), 36.0);
+
+          vec3 col = mix(clearWater, crystalHint, fresnel * 0.35);
+          col = mix(col, goldGlint, rivulet * 0.32 + spec * 0.55);
+          col += vec3(1.0, 0.99, 0.96) * spec * 0.45;
+
+          // Soft silhouette feathering so the stream never looks like a solid cylindrical rod
+          float profileFade = sin(vUv.y * 3.14159265);
+          float endFade = smoothstep(0.0, 0.08, vUv.x) * (1.0 - 0.25 * smoothstep(0.88, 1.0, vUv.x));
+          float alpha = (0.20 + rivulet * 0.26 + fresnel * 0.24 + spec * 0.28) * (0.45 + 0.55 * profileFade) * breakup * endFade;
+
+          gl_FragColor = vec4(col, clamp(alpha, 0.08, 0.72));
+        }
+      `,
+    }),
+  );
+
+  // Pooled Animated Concentric Water Impact Ripple Shader
+  const fountainImpactRippleMat = tracker.trackMat(
+    new THREE.ShaderMaterial({
+      uniforms: plazaFountainWaterUniforms,
+      transparent: true,
+      depthWrite: false,
+      side: THREE.DoubleSide,
+      vertexShader: `
+        varying vec2 vUv;
+        void main() {
+          vUv = uv;
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        }
+      `,
+      fragmentShader: `
+        uniform float uTime;
+        varying vec2 vUv;
+        void main() {
+          vec2 centered = (vUv - 0.5) * 2.0;
+          float dist = length(centered);
+          if (dist > 1.0) discard;
+
+          // Two staggered expanding concentric rings + tiny central impact highlight
+          float p1 = fract(uTime * 0.85);
+          float p2 = fract(uTime * 0.85 + 0.5);
+
+          float ring1 = exp(-pow((dist - p1 * 0.92) * 16.0, 2.0)) * (1.0 - p1) * smoothstep(0.0, 0.15, p1);
+          float ring2 = exp(-pow((dist - p2 * 0.92) * 16.0, 2.0)) * (1.0 - p2) * smoothstep(0.0, 0.15, p2);
+          float centerFoam = exp(-dist * 9.5) * (0.35 + 0.15 * sin(uTime * 9.0));
+
+          float intensity = ring1 + ring2 + centerFoam;
+          vec3 col = mix(vec3(0.90, 0.97, 1.0), vec3(1.0, 0.96, 0.86), 0.45);
+          float alpha = clamp(intensity * 0.58 * (1.0 - dist * 0.35), 0.0, 0.65);
+          gl_FragColor = vec4(col, alpha);
+        }
+      `,
+    }),
+  );
+
+  // --- 0.1 DEDICATED CIRCULAR MARBLE INSCRIPTION BAND & REAL 3D EXTRUDED GOLD LETTERING ("YESHWANTH LOVES HARSHA") ---
+  // High-resolution 2048x2048 circular floor composition with a dedicated, uncluttered deep rose-plum royal marble band
+  // (r = 1.62m .. 2.34m) that gives high contrast to the large 3D extruded champagne-gold letters.
   const createPlazaFloorInscriptionTexture = (): THREE.CanvasTexture => {
     const canvas = document.createElement('canvas');
     canvas.width = 2048;
@@ -400,97 +595,57 @@ export function createCastleFloor3Rooms(
       const C = 1024;
       ctx.clearRect(0, 0, 2048, 2048);
 
-      // Concentric polished blush-pink & pearl marble floor rings (outer radius 980px => 2.68m)
-      const bgGrad = ctx.createRadialGradient(C, C, 460, C, C, 990);
-      bgGrad.addColorStop(0, '#fce7f3');
-      bgGrad.addColorStop(0.45, '#fdf2f8');
-      bgGrad.addColorStop(0.76, '#fbcfe8');
-      bgGrad.addColorStop(0.95, '#f9a8d4');
-      bgGrad.addColorStop(1, 'rgba(249, 168, 212, 0.0)');
+      // Outer blush-pearl palace floor transition (990px => 2.68m radius)
+      const bgGrad = ctx.createRadialGradient(C, C, 480, C, C, 995);
+      bgGrad.addColorStop(0, '#fdf2f8');
+      bgGrad.addColorStop(0.55, '#fce7f3');
+      bgGrad.addColorStop(0.94, '#fbcfe8');
+      bgGrad.addColorStop(1, 'rgba(251, 207, 232, 0.0)');
       ctx.fillStyle = bgGrad;
       ctx.beginPath();
-      ctx.arc(C, C, 990, 0, Math.PI * 2);
+      ctx.arc(C, C, 995, 0, Math.PI * 2);
       ctx.fill();
 
-      // Subtle radial champagne-gold geometric lines across the outer motif band
-      ctx.strokeStyle = 'rgba(217, 119, 6, 0.25)';
-      ctx.lineWidth = 3;
-      for (let i = 0; i < 24; i++) {
-        const ang = (i / 24) * Math.PI * 2;
+      // Dedicated Clean Royal Rose-Plum Marble Band for "YESHWANTH LOVES HARSHA"
+      // World radius r = 1.62m .. 2.34m => pixel radius 598px .. 864px (centered at 731px = 1.98m)
+      // Zero overlapping radial lines, flowers, or motifs inside this band!
+      const bandGrad = ctx.createRadialGradient(C, C, 598, C, C, 864);
+      bandGrad.addColorStop(0, '#4a1027');
+      bandGrad.addColorStop(0.15, '#5b1633');
+      bandGrad.addColorStop(0.5, '#681b3c');
+      bandGrad.addColorStop(0.85, '#5b1633');
+      bandGrad.addColorStop(1, '#4a1027');
+      ctx.beginPath();
+      ctx.arc(C, C, 864, 0, Math.PI * 2);
+      ctx.arc(C, C, 598, 0, Math.PI * 2, true);
+      ctx.fillStyle = bandGrad;
+      ctx.fill();
+
+      // Subtle polished marble veining inside the dark rose-plum band (kept very soft so lettering stays 100% clean)
+      ctx.strokeStyle = 'rgba(251, 207, 232, 0.07)';
+      ctx.lineWidth = 2.5;
+      for (let v = 0; v < 16; v++) {
+        const a1 = (v / 16) * Math.PI * 2;
+        const a2 = a1 + 0.22;
         ctx.beginPath();
-        ctx.moveTo(C + Math.cos(ang) * 610, C + Math.sin(ang) * 610);
-        ctx.lineTo(C + Math.cos(ang) * 960, C + Math.sin(ang) * 960);
+        ctx.moveTo(C + Math.cos(a1) * 615, C + Math.sin(a1) * 615);
+        ctx.quadraticCurveTo(
+          C + Math.cos((a1 + a2) * 0.5) * 731,
+          C + Math.sin((a1 + a2) * 0.5) * 731,
+          C + Math.cos(a2) * 848,
+          C + Math.sin(a2) * 848,
+        );
         ctx.stroke();
       }
 
-      // Concentric champagne-gold inlay rings framing the inscription band (r = 635px..830px)
-      [625, 642, 822, 838, 968].forEach((rPx, idx) => {
+      // Clean Champagne-Gold Border Lines framing the Dedicated Inscription Band
+      [592, 604, 858, 870, 976].forEach((rPx, idx) => {
         ctx.beginPath();
         ctx.arc(C, C, rPx, 0, Math.PI * 2);
-        ctx.strokeStyle = idx % 2 === 0 ? '#f59e0b' : '#fef08a';
-        ctx.lineWidth = idx === 4 ? 10 : 5;
+        ctx.strokeStyle = idx % 2 === 0 ? '#d97706' : '#fef08a';
+        ctx.lineWidth = idx === 4 ? 8 : 4;
         ctx.stroke();
       });
-
-      // Darker blush-rose marble inscription channel (r = 642px..822px) so gold serif letters pop with high contrast
-      ctx.beginPath();
-      ctx.arc(C, C, 822, 0, Math.PI * 2);
-      ctx.arc(C, C, 642, 0, Math.PI * 2, true);
-      ctx.fillStyle = 'rgba(190, 24, 93, 0.16)';
-      ctx.fill();
-
-      // Helper to render curved inlaid champagne-gold serif lettering along a circular arc
-      // Viewer standing outside at centerPhi looking inward reads left-to-right (decreasing phi) with letter tops pointing inward
-      const drawCurvedGoldInscription = (text: string, centerPhi: number, radiusPx: number) => {
-        const charCount = text.length;
-        const totalArc = 1.62; // radians (~93 degrees)
-        const stepPhi = totalArc / Math.max(1, charCount - 1);
-        const startPhi = centerPhi + totalArc * 0.5;
-
-        ctx.save();
-        ctx.font = 'bold 68px Georgia, "Times New Roman", serif';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-
-        for (let i = 0; i < charCount; i++) {
-          const ch = text[i];
-          const phi = startPhi - i * stepPhi;
-          const x = C + Math.cos(phi) * radiusPx;
-          const y = C + Math.sin(phi) * radiusPx;
-
-          ctx.save();
-          ctx.translate(x, y);
-          // Rotate so letter top (0, -1) points inward (-cos phi, -sin phi) and letter right (+1, 0) points along decreasing phi
-          ctx.rotate(phi - Math.PI * 0.5);
-
-          // Engraved marble shadow bevel
-          ctx.fillStyle = 'rgba(131, 24, 67, 0.72)';
-          ctx.fillText(ch, 3, 4);
-
-          // Warm golden glow halo
-          ctx.shadowColor = 'rgba(254, 240, 138, 0.95)';
-          ctx.shadowBlur = 12;
-          ctx.fillStyle = '#f59e0b';
-          ctx.fillText(ch, 0, 0);
-
-          // Bright champagne-gold metallic face + specular highlight stroke
-          ctx.shadowBlur = 0;
-          ctx.fillStyle = '#fef08a';
-          ctx.fillText(ch, -1, -1);
-          ctx.strokeStyle = '#b45309';
-          ctx.lineWidth = 1.8;
-          ctx.strokeText(ch, 0, 0);
-
-          ctx.restore();
-        }
-        ctx.restore();
-      };
-
-      const inscriptionText = 'YESHWANTH LOVES HARSHA';
-      // Primary Front Arc (facing the player in the West/North-West Plaza & Stair view, e.g. X 82m / Z 21m)
-      // plus Opposite Arc (facing the Heart Gallery & South-East Promenade) so it is readable from every approach
-      drawCurvedGoldInscription(inscriptionText, Math.PI * 0.78, 732);
-      drawCurvedGoldInscription(inscriptionText, -Math.PI * 0.22, 732);
     }
 
     const tex = tracker.trackTex(new THREE.CanvasTexture(canvas));
@@ -504,84 +659,363 @@ export function createCastleFloor3Rooms(
   const plazaFloorInlayMat = tracker.trackMat(
     new THREE.MeshStandardMaterial({
       map: plazaFloorInlayTex,
-      emissive: new THREE.Color('#fde68a'),
-      emissiveMap: plazaFloorInlayTex,
-      emissiveIntensity: 0.22,
-      roughness: 0.14,
-      metalness: 0.28,
+      roughness: 0.16,
+      metalness: 0.18,
       transparent: true,
     }),
   );
 
-  const plazaFloorDiscGeo = tracker.trackGeo(new THREE.PlaneGeometry(5.5, 5.5));
+  const plazaFloorDiscGeo = tracker.trackGeo(new THREE.PlaneGeometry(5.55, 5.55));
   plazaFloorDiscGeo.rotateX(-Math.PI / 2);
   const plazaFloorDisc = new THREE.Mesh(plazaFloorDiscGeo, plazaFloorInlayMat);
-  plazaFloorDisc.position.y = 0.012;
+  plazaFloorDisc.position.y = 0.011;
   plazaFloorDisc.receiveShadow = true;
   plazaFountainGroup.add(plazaFloorDisc);
 
-  // Physical 3D Concentric Champagne-Gold & Glow Rings inlaid into the circular marble floor
+  // Physical 3D Concentric Champagne-Gold Border Rings framing the Dedicated Inscription Band (r = 1.62m .. 2.34m)
+  // Kept strictly at the inner/outer edges of the band so no ring ever cuts through the letters
   [
-    { r: 1.72, tube: 0.022, mat: fountainGoldMat },
-    { r: 2.25, tube: 0.024, mat: fountainGoldMat },
-    { r: 2.64, tube: 0.03, mat: fountainGoldMat },
-    { r: 2.67, tube: 0.016, mat: fountainSoftGlowMat },
+    { r: 1.62, tube: 0.02, mat: fountainGoldMat },
+    { r: 2.34, tube: 0.022, mat: fountainGoldMat },
+    { r: 2.66, tube: 0.026, mat: fountainGoldMat },
   ].forEach(({ r, tube, mat }) => {
-    const ringGeo = tracker.trackGeo(new THREE.TorusGeometry(r, tube, 10, 64));
+    const ringGeo = tracker.trackGeo(new THREE.TorusGeometry(r, tube, 10, 72));
     ringGeo.rotateX(Math.PI / 2);
     const ringMesh = new THREE.Mesh(ringGeo, mat);
-    ringMesh.position.y = 0.016;
+    ringMesh.position.y = 0.015;
     plazaFountainGroup.add(ringMesh);
   });
 
-  // Physical Raised/Inlaid 3D Champagne-Gold Letter Relief Bars along the Circular Inscription Path (r = 1.98m)
-  // Gives real 3D specular highlights to every character of "YESHWANTH LOVES HARSHA" on the floor
-  const letterReliefBarGeo = tracker.trackGeo(new THREE.BoxGeometry(0.068, 0.008, 0.11));
-  const inscriptionPhrase = 'YESHWANTH LOVES HARSHA';
-  [Math.PI * 0.78, -Math.PI * 0.22].forEach((centerPhi) => {
-    const totalArc = 1.62;
-    const stepPhi = totalArc / (inscriptionPhrase.length - 1);
-    const startPhi = centerPhi + totalArc * 0.5;
-    for (let i = 0; i < inscriptionPhrase.length; i++) {
-      if (inscriptionPhrase[i] === ' ') continue;
-      const phi = startPhi - i * stepPhi;
-      const rLet = 1.98;
-      const bar = new THREE.Mesh(letterReliefBarGeo, fountainGoldMat);
-      bar.position.set(Math.cos(phi) * rLet, 0.014, Math.sin(phi) * rLet);
-      bar.rotation.y = -phi + Math.PI * 0.5;
-      plazaFountainGroup.add(bar);
+  // Builder for Real 3D Extruded Monumental Roman Capital Letters for "YESHWANTH LOVES HARSHA"
+  // Every unique character (A, E, H, L, N, O, R, S, T, V, W, Y) is constructed as an exact 2D THREE.Shape
+  // and extruded into beveled 3D geometry so the phrase is clearly readable from 6m, 8m, and 10m in 3rd-person view.
+  const letterGeoCache = new Map<string, { goldGeo: THREE.BufferGeometry; shadowGeo: THREE.BufferGeometry }>();
+
+  const createLetterShape2D = (ch: string): THREE.Shape => {
+    const s = new THREE.Shape();
+    switch (ch) {
+      case 'Y': {
+        s.moveTo(-0.14, -0.5);
+        s.lineTo(0.14, -0.5);
+        s.lineTo(0.14, -0.04);
+        s.lineTo(0.48, 0.5);
+        s.lineTo(0.2, 0.5);
+        s.lineTo(0.0, 0.15);
+        s.lineTo(-0.2, 0.5);
+        s.lineTo(-0.48, 0.5);
+        s.lineTo(-0.14, -0.04);
+        s.closePath();
+        break;
+      }
+      case 'E': {
+        s.moveTo(-0.42, -0.5);
+        s.lineTo(0.42, -0.5);
+        s.lineTo(0.42, -0.28);
+        s.lineTo(-0.16, -0.28);
+        s.lineTo(-0.16, -0.1);
+        s.lineTo(0.34, -0.1);
+        s.lineTo(0.34, 0.1);
+        s.lineTo(-0.16, 0.1);
+        s.lineTo(-0.16, 0.28);
+        s.lineTo(0.42, 0.28);
+        s.lineTo(0.42, 0.5);
+        s.lineTo(-0.42, 0.5);
+        s.closePath();
+        break;
+      }
+      case 'S': {
+        // Smooth thickened S-curve polygon (24 spine samples from bottom-left terminal to top-right terminal)
+        const spinePts: Array<[number, number]> = [
+          [-0.38, -0.32],
+          [-0.26, -0.44],
+          [-0.04, -0.46],
+          [0.2, -0.43],
+          [0.34, -0.32],
+          [0.36, -0.18],
+          [0.24, -0.06],
+          [0.0, 0.02],
+          [-0.24, 0.1],
+          [-0.35, 0.22],
+          [-0.33, 0.35],
+          [-0.18, 0.44],
+          [0.06, 0.45],
+          [0.28, 0.41],
+          [0.38, 0.32],
+        ];
+        const halfThick = 0.115;
+        const leftSide: Array<[number, number]> = [];
+        const rightSide: Array<[number, number]> = [];
+        for (let i = 0; i < spinePts.length; i++) {
+          const prev = spinePts[Math.max(0, i - 1)];
+          const next = spinePts[Math.min(spinePts.length - 1, i + 1)];
+          const tx = next[0] - prev[0];
+          const ty = next[1] - prev[1];
+          const len = Math.hypot(tx, ty) || 1;
+          const nx = -ty / len;
+          const ny = tx / len;
+          leftSide.push([spinePts[i][0] + nx * halfThick, spinePts[i][1] + ny * halfThick]);
+          rightSide.push([spinePts[i][0] - nx * halfThick, spinePts[i][1] - ny * halfThick]);
+        }
+        s.moveTo(rightSide[0][0], rightSide[0][1]);
+        for (let i = 1; i < rightSide.length; i++) {
+          s.lineTo(rightSide[i][0], rightSide[i][1]);
+        }
+        for (let i = leftSide.length - 1; i >= 0; i--) {
+          s.lineTo(leftSide[i][0], leftSide[i][1]);
+        }
+        s.closePath();
+        break;
+      }
+      case 'H': {
+        s.moveTo(-0.44, -0.5);
+        s.lineTo(-0.18, -0.5);
+        s.lineTo(-0.18, -0.11);
+        s.lineTo(0.18, -0.11);
+        s.lineTo(0.18, -0.5);
+        s.lineTo(0.44, -0.5);
+        s.lineTo(0.44, 0.5);
+        s.lineTo(0.18, 0.5);
+        s.lineTo(0.18, 0.11);
+        s.lineTo(-0.18, 0.11);
+        s.lineTo(-0.18, 0.5);
+        s.lineTo(-0.44, 0.5);
+        s.closePath();
+        break;
+      }
+      case 'W': {
+        s.moveTo(-0.56, 0.5);
+        s.lineTo(-0.34, -0.5);
+        s.lineTo(-0.13, -0.5);
+        s.lineTo(0.0, 0.06);
+        s.lineTo(0.13, -0.5);
+        s.lineTo(0.34, -0.5);
+        s.lineTo(0.56, 0.5);
+        s.lineTo(0.34, 0.5);
+        s.lineTo(0.23, -0.12);
+        s.lineTo(0.09, 0.5);
+        s.lineTo(-0.09, 0.5);
+        s.lineTo(-0.23, -0.12);
+        s.lineTo(-0.34, 0.5);
+        s.closePath();
+        break;
+      }
+      case 'A': {
+        s.moveTo(-0.48, -0.5);
+        s.lineTo(-0.21, -0.5);
+        s.lineTo(-0.13, -0.22);
+        s.lineTo(0.13, -0.22);
+        s.lineTo(0.21, -0.5);
+        s.lineTo(0.48, -0.5);
+        s.lineTo(0.14, 0.5);
+        s.lineTo(-0.14, 0.5);
+        s.closePath();
+
+        const hole = new THREE.Path();
+        hole.moveTo(-0.08, -0.02);
+        hole.lineTo(0.0, 0.24);
+        hole.lineTo(0.08, -0.02);
+        hole.closePath();
+        s.holes.push(hole);
+        break;
+      }
+      case 'N': {
+        s.moveTo(-0.44, -0.5);
+        s.lineTo(-0.2, -0.5);
+        s.lineTo(-0.2, 0.1);
+        s.lineTo(0.2, -0.5);
+        s.lineTo(0.44, -0.5);
+        s.lineTo(0.44, 0.5);
+        s.lineTo(0.2, 0.5);
+        s.lineTo(0.2, -0.1);
+        s.lineTo(-0.2, 0.5);
+        s.lineTo(-0.44, 0.5);
+        s.closePath();
+        break;
+      }
+      case 'T': {
+        s.moveTo(-0.14, -0.5);
+        s.lineTo(0.14, -0.5);
+        s.lineTo(0.14, 0.28);
+        s.lineTo(0.46, 0.28);
+        s.lineTo(0.46, 0.5);
+        s.lineTo(-0.46, 0.5);
+        s.lineTo(-0.46, 0.28);
+        s.lineTo(-0.14, 0.28);
+        s.closePath();
+        break;
+      }
+      case 'L': {
+        s.moveTo(-0.4, -0.5);
+        s.lineTo(0.42, -0.5);
+        s.lineTo(0.42, -0.27);
+        s.lineTo(-0.14, -0.27);
+        s.lineTo(-0.14, 0.5);
+        s.lineTo(-0.4, 0.5);
+        s.closePath();
+        break;
+      }
+      case 'O': {
+        s.absellipse(0, 0, 0.45, 0.5, 0, Math.PI * 2, false, 0);
+        const hole = new THREE.Path();
+        hole.absellipse(0, 0, 0.21, 0.28, 0, Math.PI * 2, true, 0);
+        s.holes.push(hole);
+        break;
+      }
+      case 'V': {
+        s.moveTo(-0.14, -0.5);
+        s.lineTo(0.14, -0.5);
+        s.lineTo(0.48, 0.5);
+        s.lineTo(0.21, 0.5);
+        s.lineTo(0.0, -0.18);
+        s.lineTo(-0.21, 0.5);
+        s.lineTo(-0.48, 0.5);
+        s.closePath();
+        break;
+      }
+      case 'R':
+      default: {
+        s.moveTo(-0.44, -0.5);
+        s.lineTo(-0.18, -0.5);
+        s.lineTo(-0.18, -0.06);
+        s.lineTo(-0.02, -0.06);
+        s.lineTo(0.2, -0.5);
+        s.lineTo(0.46, -0.5);
+        s.lineTo(0.2, -0.02);
+        s.lineTo(0.36, 0.06);
+        s.lineTo(0.42, 0.21);
+        s.lineTo(0.36, 0.38);
+        s.lineTo(0.16, 0.5);
+        s.lineTo(-0.44, 0.5);
+        s.closePath();
+
+        const hole = new THREE.Path();
+        hole.moveTo(-0.18, 0.11);
+        hole.lineTo(-0.18, 0.31);
+        hole.lineTo(0.08, 0.31);
+        hole.lineTo(0.17, 0.21);
+        hole.lineTo(0.08, 0.11);
+        hole.closePath();
+        s.holes.push(hole);
+        break;
+      }
     }
-  });
+    return s;
+  };
 
-  // 8 Inlaid Heart-Shaped Geometric Motifs & Crystal Inlays around the Outer Floor Ring (r = 2.45m)
-  const floorHeartBezelGeo = buildExtrudedHeartGeometry(tracker, 0.26, 0.022, 0.008);
-  floorHeartBezelGeo.rotateX(-Math.PI / 2);
-  const floorHeartCrystalGeo = buildExtrudedHeartGeometry(tracker, 0.2, 0.026, 0.008);
-  floorHeartCrystalGeo.rotateX(-Math.PI / 2);
-  const floorDiamondCrystalGeo = tracker.trackGeo(new THREE.OctahedronGeometry(0.042, 0));
+  const getExtrudedLetterGeometries = (ch: string) => {
+    const cached = letterGeoCache.get(ch);
+    if (cached) return cached;
 
-  for (let h = 0; h < 8; h++) {
-    const ang = (h / 8) * Math.PI * 2 + Math.PI * 0.125;
-    const hr = 2.45;
-    const hx = Math.cos(ang) * hr;
-    const hz = Math.sin(ang) * hr;
+    const shape = createLetterShape2D(ch);
+    const letterW = ch === 'W' ? 0.22 : 0.175;
+    const letterH = 0.38; // 38cm tall floor letters for clear readability at 6m, 8m, and 10m
 
-    const hBezel = new THREE.Mesh(floorHeartBezelGeo, fountainGoldMat);
-    hBezel.position.set(hx, 0.015, hz);
-    hBezel.rotation.y = -ang + Math.PI * 0.5;
+    const goldGeo = tracker.trackGeo(
+      new THREE.ExtrudeGeometry(shape, {
+        depth: 0.022,
+        bevelEnabled: true,
+        bevelThickness: 0.005,
+        bevelSize: 0.004,
+        bevelSegments: 2,
+        curveSegments: 12,
+      }),
+    );
+    goldGeo.scale(letterW, letterH, 1.0);
 
-    const hCrystal = new THREE.Mesh(floorHeartCrystalGeo, floatingHeartCrystalMat);
-    hCrystal.position.set(hx, 0.018, hz);
-    hCrystal.rotation.y = -ang + Math.PI * 0.5;
+    const shadowGeo = tracker.trackGeo(
+      new THREE.ExtrudeGeometry(shape, {
+        depth: 0.008,
+        bevelEnabled: true,
+        bevelThickness: 0.004,
+        bevelSize: 0.012,
+        bevelSegments: 1,
+        curveSegments: 10,
+      }),
+    );
+    shadowGeo.scale(letterW, letterH, 1.0);
 
-    // Small lavender/pink crystal inlay between the heart motifs
-    const midAng = ang + Math.PI / 8;
-    const inlay = new THREE.Mesh(floorDiamondCrystalGeo, crystalArchMat);
-    inlay.position.set(Math.cos(midAng) * 2.45, 0.016, Math.sin(midAng) * 2.45);
-    inlay.scale.set(1.0, 0.35, 1.0);
+    const pair = { goldGeo, shadowGeo };
+    letterGeoCache.set(ch, pair);
+    return pair;
+  };
 
-    plazaFountainGroup.add(hBezel, hCrystal, inlay);
+  // Place the exact phrase "YESHWANTH LOVES HARSHA" along a single bold 142-degree front-facing arc
+  // (centered at centerPhi = Math.PI * 0.92, facing the primary player approach from the West/Plaza/Elevator/Stairs)
+  const inscriptionPhrase = 'YESHWANTH LOVES HARSHA';
+  const inscriptionRadius = 1.98;
+  const inscriptionCenterPhi = Math.PI * 0.92;
+  const charWeights = inscriptionPhrase.split('').map((c) => (c === ' ' ? 0.85 : c === 'W' ? 1.24 : 1.0));
+  const totalWeight = charWeights.reduce((acc, w) => acc + w, 0);
+  const inscriptionTotalArc = 2.46; // ~141 degrees across the dedicated 1.98m-radius band
+  const startPhi = inscriptionCenterPhi + inscriptionTotalArc * 0.5;
+
+  const _letterBasisMat = new THREE.Matrix4();
+  const _rightAxis = new THREE.Vector3();
+  const _forwardAxis = new THREE.Vector3();
+  const _upAxis = new THREE.Vector3(0, 1, 0);
+
+  let accumWeight = 0;
+  for (let i = 0; i < inscriptionPhrase.length; i++) {
+    const ch = inscriptionPhrase[i];
+    const w = charWeights[i];
+    const charCenterWeight = accumWeight + w * 0.5;
+    accumWeight += w;
+
+    if (ch === ' ') continue;
+
+    const u = charCenterWeight / totalWeight;
+    const phi = startPhi - u * inscriptionTotalArc;
+    const lxPos = Math.cos(phi) * inscriptionRadius;
+    const lzPos = Math.sin(phi) * inscriptionRadius;
+
+    // Right-handed basis on the floor so the viewer standing outside the fountain looking inward
+    // reads "YESHWANTH LOVES HARSHA" left-to-right with letter tops pointing inward toward the fountain:
+    //   local +X (letter width left->right) = (+sin(phi), 0, -cos(phi))
+    //   local +Y (letter height bottom->top) = (-cos(phi), 0, -sin(phi))
+    //   local +Z (extrusion height)          = (0, 1, 0)
+    _rightAxis.set(Math.sin(phi), 0, -Math.cos(phi));
+    _forwardAxis.set(-Math.cos(phi), 0, -Math.sin(phi));
+    _letterBasisMat.makeBasis(_rightAxis, _forwardAxis, _upAxis);
+
+    const { goldGeo, shadowGeo } = getExtrudedLetterGeometries(ch);
+
+    const shadowMesh = new THREE.Mesh(shadowGeo, inlaidLetterShadowMat);
+    shadowMesh.rotation.setFromRotationMatrix(_letterBasisMat);
+    shadowMesh.position.set(lxPos, 0.012, lzPos);
+
+    const goldMesh = new THREE.Mesh(goldGeo, inlaidLetterGoldMat);
+    goldMesh.rotation.setFromRotationMatrix(_letterBasisMat);
+    goldMesh.position.set(lxPos, 0.018, lzPos);
+    goldMesh.castShadow = true;
+    goldMesh.receiveShadow = true;
+
+    plazaFountainGroup.add(shadowMesh, goldMesh);
   }
+
+  // Single Small Inlaid Heart Motif on the Opposite Side of the Band (Antipode of the Inscription Arc)
+  // (Leaves the entire "YESHWANTH LOVES HARSHA" arc 100% clean and free of overlapping decorations)
+  const antipodePhi = inscriptionCenterPhi - Math.PI;
+  const floorHeartBezelGeo = buildExtrudedHeartGeometry(tracker, 0.28, 0.022, 0.008);
+  floorHeartBezelGeo.rotateX(-Math.PI / 2);
+  const floorHeartCrystalGeo = buildExtrudedHeartGeometry(tracker, 0.21, 0.026, 0.008);
+  floorHeartCrystalGeo.rotateX(-Math.PI / 2);
+
+  const antipodeBezel = new THREE.Mesh(floorHeartBezelGeo, fountainGoldMat);
+  antipodeBezel.position.set(
+    Math.cos(antipodePhi) * inscriptionRadius,
+    0.015,
+    Math.sin(antipodePhi) * inscriptionRadius,
+  );
+  antipodeBezel.rotation.y = -antipodePhi + Math.PI * 0.5;
+
+  const antipodeCrystal = new THREE.Mesh(floorHeartCrystalGeo, floatingHeartCrystalMat);
+  antipodeCrystal.position.set(
+    Math.cos(antipodePhi) * inscriptionRadius,
+    0.018,
+    Math.sin(antipodePhi) * inscriptionRadius,
+  );
+  antipodeCrystal.rotation.y = -antipodePhi + Math.PI * 0.5;
+  plazaFountainGroup.add(antipodeBezel, antipodeCrystal);
 
   // --- 0.2 SHALLOW CIRCULAR POLISHED BLUSH-MARBLE BASIN (Diameter = 2.68m, Radius = 1.34m) ---
   const basinBaseStepGeo = tracker.trackGeo(new THREE.CylinderGeometry(1.48, 1.54, 0.09, 48));
@@ -607,12 +1041,18 @@ export function createCastleFloor3Rooms(
   const basinInnerLip = new THREE.Mesh(basinInnerLipGeo, mats.pearlWhite);
   basinInnerLip.position.y = 0.42;
 
+  // Submerged Pearl-Blush Marble Basin Floor beneath the clear reflective water surface
+  const submergedBasinFloorGeo = tracker.trackGeo(new THREE.CylinderGeometry(1.23, 1.23, 0.02, 44));
+  const submergedBasinFloor = new THREE.Mesh(submergedBasinFloorGeo, mats.pearlWhite);
+  submergedBasinFloor.position.y = 0.33;
+
   plazaFountainGroup.add(
     basinBaseStep,
     basinUnderGlow,
     basinOuterWall,
     basinTopGoldRim,
     basinInnerLip,
+    submergedBasinFloor,
   );
 
   // 8 Subtle Engraved & Illuminated Heart Patterns around the Exterior of the Blush-Marble Basin
@@ -639,25 +1079,13 @@ export function createCastleFloor3Rooms(
     plazaFountainGroup.add(hFrame, hInner);
   }
 
-  // Shallow Layer of Clear Reflective Water inside the Basin + Animated Concentric Ripple Rings
-  const waterDiscGeo = tracker.trackGeo(new THREE.CylinderGeometry(1.25, 1.25, 0.03, 44));
-  const waterDisc = new THREE.Mesh(waterDiscGeo, fountainWaterMat);
-  waterDisc.position.y = 0.39;
+  // Clear Reflective Water Surface inside the Main Basin
+  const waterDiscGeo = tracker.trackGeo(new THREE.CylinderGeometry(1.25, 1.25, 0.018, 56));
+  const waterDisc = new THREE.Mesh(waterDiscGeo, fountainClearWaterSurfaceMat);
+  waterDisc.position.y = 0.395;
   plazaFountainGroup.add(waterDisc);
 
-  const plazaFountainRippleRings: THREE.Mesh[] = [];
-  [0.45, 0.78, 1.08].forEach((rInit) => {
-    const ripGeo = tracker.trackGeo(new THREE.TorusGeometry(1.0, 0.012, 8, 40));
-    ripGeo.rotateX(Math.PI / 2);
-    const ripMesh = new THREE.Mesh(ripGeo, fountainPinkGlowMat);
-    ripMesh.position.y = 0.41;
-    ripMesh.scale.setScalar(rInit);
-    plazaFountainRippleRings.push(ripMesh);
-    plazaFountainGroup.add(ripMesh);
-  });
-
   // --- 0.3 CENTRAL PEDESTAL, UPPER SPILL BOWL & SMALL ELEGANT CRYSTAL CENTERPIECE ---
-  // Central Fluted Blush-Marble Column + Upper Scalloped Spill Bowl
   const centerStemBaseGeo = tracker.trackGeo(new THREE.CylinderGeometry(0.36, 0.44, 0.14, 24));
   const centerStemBase = new THREE.Mesh(centerStemBaseGeo, fountainGoldMat);
   centerStemBase.position.y = 0.45;
@@ -675,9 +1103,9 @@ export function createCastleFloor3Rooms(
   const upperBowlGoldRim = new THREE.Mesh(upperBowlGoldRimGeo, fountainGoldMat);
   upperBowlGoldRim.position.y = 1.07;
 
-  const upperBowlWaterGeo = tracker.trackGeo(new THREE.CylinderGeometry(0.62, 0.62, 0.025, 32));
-  const upperBowlWater = new THREE.Mesh(upperBowlWaterGeo, fountainWaterMat);
-  upperBowlWater.position.y = 1.06;
+  const upperBowlWaterGeo = tracker.trackGeo(new THREE.CylinderGeometry(0.62, 0.62, 0.016, 36));
+  const upperBowlWater = new THREE.Mesh(upperBowlWaterGeo, fountainClearWaterSurfaceMat);
+  upperBowlWater.position.y = 1.062;
 
   plazaFountainGroup.add(
     centerStemBase,
@@ -741,52 +1169,162 @@ export function createCastleFloor3Rooms(
 
   plazaFountainGroup.add(plazaFountainHeartPivot, topFinialHeart, topFinialRim);
 
-  // --- 0.4 CALM, SMOOTH FLOWING WATER STREAMS (Zero Large Waterfall, Restrained Peaceful Shimmer) ---
-  // 4 Delicate Upper Streams flowing from beneath the suspended crystal into the upper bowl
+  // --- 0.4 TRANSPARENT, VARIABLE-PROFILE GRAVITY WATER STREAMS, POOLED IMPACT RIPPLES & CLEAR DROPLETS ---
+  // Builds a non-uniform, gravity-accelerated water stream mesh with an irregular/flattened cross-section
+  // that narrows mid-fall and feathers near impact (never a uniform cylindrical tube).
+  const buildVariableWaterStreamGeometry = (
+    p0: THREE.Vector3,
+    p1: THREE.Vector3,
+    p2: THREE.Vector3,
+    baseWidth: number,
+    baseThick: number,
+  ): THREE.BufferGeometry => {
+    const curve = new THREE.QuadraticBezierCurve3(p0, p1, p2);
+    const tubularSegments = 22;
+    const radialSegments = 10;
+    const positions: number[] = [];
+    const normals: number[] = [];
+    const uvs: number[] = [];
+    const indices: number[] = [];
+
+    const pt = new THREE.Vector3();
+    const tangent = new THREE.Vector3();
+    const sideAxis = new THREE.Vector3();
+    const outAxis = new THREE.Vector3();
+    const worldUp = new THREE.Vector3(0, 1, 0);
+    const vPos = new THREE.Vector3();
+    const vNorm = new THREE.Vector3();
+
+    for (let i = 0; i <= tubularSegments; i++) {
+      // Gravity-accelerated parameterization along the falling curve
+      const u = i / tubularSegments;
+      const gravityT = 0.65 * u + 0.35 * u * u;
+      curve.getPoint(gravityT, pt);
+      curve.getTangent(gravityT, tangent).normalize();
+
+      sideAxis.crossVectors(worldUp, tangent);
+      if (sideAxis.lengthSq() < 0.0001) {
+        sideAxis.set(1, 0, 0);
+      } else {
+        sideAxis.normalize();
+      }
+      outAxis.crossVectors(tangent, sideAxis).normalize();
+
+      // Stream narrows as velocity increases under gravity (vena contracta), then flares slightly at basin entry
+      const widthEnvelope =
+        baseWidth * (1.0 - 0.38 * Math.sin(u * Math.PI * 0.82) + 0.16 * Math.pow(u, 3.0));
+      const thickEnvelope = baseThick * (1.0 - 0.32 * u + 0.12 * u * u);
+
+      for (let j = 0; j <= radialSegments; j++) {
+        const v = j / radialSegments;
+        const theta = v * Math.PI * 2;
+        // Irregular fluted fluid cross-section so silhouette never reads as a cylinder
+        const fluteMod = 1.0 + 0.18 * Math.sin(theta * 3.0 + u * 5.0) + 0.08 * Math.cos(theta * 5.0);
+        const rx = Math.cos(theta) * widthEnvelope * fluteMod;
+        const ry = Math.sin(theta) * thickEnvelope * fluteMod;
+
+        vPos
+          .copy(pt)
+          .addScaledVector(sideAxis, rx)
+          .addScaledVector(outAxis, ry);
+        positions.push(vPos.x, vPos.y, vPos.z);
+
+        vNorm
+          .copy(sideAxis)
+          .multiplyScalar(Math.cos(theta) / Math.max(0.001, widthEnvelope))
+          .addScaledVector(outAxis, Math.sin(theta) / Math.max(0.001, thickEnvelope))
+          .normalize();
+        normals.push(vNorm.x, vNorm.y, vNorm.z);
+        uvs.push(u, v);
+      }
+    }
+
+    const stride = radialSegments + 1;
+    for (let i = 0; i < tubularSegments; i++) {
+      for (let j = 0; j < radialSegments; j++) {
+        const a = i * stride + j;
+        const b = (i + 1) * stride + j;
+        const c = (i + 1) * stride + (j + 1);
+        const d = i * stride + (j + 1);
+        indices.push(a, b, d, b, c, d);
+      }
+    }
+
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+    geo.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3));
+    geo.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+    geo.setIndex(indices);
+    return tracker.trackGeo(geo);
+  };
+
+  const impactRippleDiscGeo = tracker.trackGeo(new THREE.PlaneGeometry(0.32, 0.32));
+  impactRippleDiscGeo.rotateX(-Math.PI / 2);
+
+  // 4 Delicate Upper Streams emerging from the centerpiece into the upper bowl
   for (let us = 0; us < 4; us++) {
     const ang = (us / 4) * Math.PI * 2 + Math.PI * 0.25;
-    const uCurve = new THREE.QuadraticBezierCurve3(
+    const uStreamGeo = buildVariableWaterStreamGeometry(
       new THREE.Vector3(Math.cos(ang) * 0.06, 1.32, Math.sin(ang) * 0.06),
-      new THREE.Vector3(Math.cos(ang) * 0.28, 1.26, Math.sin(ang) * 0.28),
-      new THREE.Vector3(Math.cos(ang) * 0.46, 1.06, Math.sin(ang) * 0.46),
+      new THREE.Vector3(Math.cos(ang) * 0.28, 1.25, Math.sin(ang) * 0.28),
+      new THREE.Vector3(Math.cos(ang) * 0.46, 1.062, Math.sin(ang) * 0.46),
+      0.022,
+      0.01,
     );
-    const uStreamGeo = tracker.trackGeo(new THREE.TubeGeometry(uCurve, 16, 0.016, 8, false));
-    plazaFountainGroup.add(new THREE.Mesh(uStreamGeo, fountainStreamMat));
+    const uStreamMesh = new THREE.Mesh(uStreamGeo, fountainFlowingStreamMat);
+
+    const upperImpactPatch = new THREE.Mesh(impactRippleDiscGeo, fountainImpactRippleMat);
+    upperImpactPatch.position.set(Math.cos(ang) * 0.46, 1.066, Math.sin(ang) * 0.46);
+    upperImpactPatch.scale.setScalar(0.65);
+
+    plazaFountainGroup.add(uStreamMesh, upperImpactPatch);
   }
 
-  // 8 Smooth Arching Water Streams flowing from the upper bowl lip down into the main basin
-  const splashRingGeo = tracker.trackGeo(new THREE.TorusGeometry(0.085, 0.009, 6, 20));
-  splashRingGeo.rotateX(Math.PI / 2);
+  // 8 Gravity-Accelerated Water Streams arcing from the upper bowl lip into the main basin
   for (let ls = 0; ls < 8; ls++) {
     const ang = (ls / 8) * Math.PI * 2;
-    const lCurve = new THREE.QuadraticBezierCurve3(
-      new THREE.Vector3(Math.cos(ang) * 0.62, 1.05, Math.sin(ang) * 0.62),
-      new THREE.Vector3(Math.cos(ang) * 0.92, 0.86, Math.sin(ang) * 0.92),
-      new THREE.Vector3(Math.cos(ang) * 1.04, 0.39, Math.sin(ang) * 1.04),
+    const lStreamGeo = buildVariableWaterStreamGeometry(
+      new THREE.Vector3(Math.cos(ang) * 0.63, 1.055, Math.sin(ang) * 0.63),
+      new THREE.Vector3(Math.cos(ang) * 0.9, 0.9, Math.sin(ang) * 0.9),
+      new THREE.Vector3(Math.cos(ang) * 1.04, 0.395, Math.sin(ang) * 1.04),
+      0.032,
+      0.013,
     );
-    const lStreamGeo = tracker.trackGeo(new THREE.TubeGeometry(lCurve, 18, 0.022, 8, false));
-    const lStreamMesh = new THREE.Mesh(lStreamGeo, fountainStreamMat);
+    const lStreamMesh = new THREE.Mesh(lStreamGeo, fountainFlowingStreamMat);
 
-    const splashRing = new THREE.Mesh(splashRingGeo, fountainPinkGlowMat);
-    splashRing.position.set(Math.cos(ang) * 1.04, 0.405, Math.sin(ang) * 1.04);
+    const lowerImpactPatch = new THREE.Mesh(impactRippleDiscGeo, fountainImpactRippleMat);
+    lowerImpactPatch.position.set(Math.cos(ang) * 1.04, 0.401, Math.sin(ang) * 1.04);
+    lowerImpactPatch.rotation.y = ang;
 
-    plazaFountainGroup.add(lStreamMesh, splashRing);
+    plazaFountainGroup.add(lStreamMesh, lowerImpactPatch);
   }
 
-  // 12 Subtle Instanced Water Shimmer Motes gliding smoothly along the streams (Zero Excessive Particles)
-  const PLAZA_FOUNTAIN_SHIMMER_COUNT = 12;
-  const shimmerMoteGeo = tracker.trackGeo(new THREE.SphereGeometry(0.026, 8, 8));
-  const plazaFountainWaterShimmerInst = new THREE.InstancedMesh(
-    shimmerMoteGeo,
-    fountainPinkGlowMat,
-    PLAZA_FOUNTAIN_SHIMMER_COUNT,
+  // Restrained Pool of 16 Clear Specular Water Droplets near Stream Impacts (No Neon Pink Particles)
+  const PLAZA_FOUNTAIN_DROPLET_COUNT = 16;
+  const clearDropletGeo = tracker.trackGeo(new THREE.SphereGeometry(0.015, 8, 8));
+  const clearDropletMat = tracker.trackMat(
+    new THREE.MeshPhysicalMaterial({
+      color: new THREE.Color('#f0f9ff'),
+      roughness: 0.03,
+      metalness: 0.06,
+      transmission: 0.84,
+      transparent: true,
+      opacity: 0.76,
+      clearcoat: 1.0,
+      ior: 1.333,
+    }),
   );
-  plazaFountainWaterShimmerInst.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
-  plazaFountainGroup.add(plazaFountainWaterShimmerInst);
+  const plazaFountainDropletInst = new THREE.InstancedMesh(
+    clearDropletGeo,
+    clearDropletMat,
+    PLAZA_FOUNTAIN_DROPLET_COUNT,
+  );
+  plazaFountainDropletInst.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+  plazaFountainGroup.add(plazaFountainDropletInst);
 
   // --- 0.5 SMALL ROMANTIC FLOWER CLUSTERS & MINIATURE GOLD LANTERNS AROUND BASIN EDGE ---
-  // Hugs the immediate outer edge of the basin (r = 1.48m), leaving the "YESHWANTH LOVES HARSHA"
-  // floor inscription (r = 1.98m) and surrounding walking paths 100% clear and unobstructed!
+  // Hugs the immediate outer edge of the basin (r = 1.46m..1.50m), leaving the dedicated
+  // "YESHWANTH LOVES HARSHA" marble band (r = 1.62m..2.34m) 100% clear and unobstructed!
   const smallRoseGeo = tracker.trackGeo(new THREE.DodecahedronGeometry(0.058, 1));
   const tinyWhiteFlowerGeo = tracker.trackGeo(new THREE.SphereGeometry(0.036, 8, 8));
   const clusterLeafGeo = tracker.trackGeo(new THREE.ConeGeometry(0.048, 0.12, 5));
@@ -3809,27 +4347,25 @@ export function createCastleFloor3Rooms(
         salonGroomCelebrationTimer = Math.max(0, salonGroomCelebrationTimer - delta);
       }
 
-      // 0. Animate Floor 3 Central Plaza Romantic Crystal Fountain (Suspended Heart, Gentle Ripples & Smooth Water Shimmer)
+      // 0. Animate Floor 3 Central Plaza Romantic Crystal Fountain (Water Shaders, Suspended Heart & Clear Impact Droplets)
+      plazaFountainWaterUniforms.uTime.value = elapsedTime;
       plazaFountainHeartPivot.position.y = 1.46 + Math.sin(elapsedTime * 1.6) * 0.035;
       plazaFountainHeartPivot.rotation.y = Math.sin(elapsedTime * 0.85) * 0.22;
 
-      for (let r = 0; r < plazaFountainRippleRings.length; r++) {
-        const ripPhase = (elapsedTime * 0.36 + r / plazaFountainRippleRings.length) % 1.0;
-        const ripScale = 0.35 + ripPhase * 0.85;
-        plazaFountainRippleRings[r].scale.setScalar(ripScale);
-      }
-
-      for (let sm = 0; sm < PLAZA_FOUNTAIN_SHIMMER_COUNT; sm++) {
-        const sCycle = (elapsedTime * 0.55 + sm * (1.0 / PLAZA_FOUNTAIN_SHIMMER_COUNT)) % 1.0;
-        const sAng = (sm / PLAZA_FOUNTAIN_SHIMMER_COUNT) * Math.PI * 2;
-        const sRad = 0.62 + sCycle * 0.42;
-        const sY = 1.05 - sCycle * sCycle * 0.66;
-        _dummy.position.set(Math.cos(sAng) * sRad, sY, Math.sin(sAng) * sRad);
-        _dummy.scale.setScalar(0.65 + Math.sin(sCycle * Math.PI) * 0.45);
+      for (let sm = 0; sm < PLAZA_FOUNTAIN_DROPLET_COUNT; sm++) {
+        const streamIdx = sm >> 1; // 2 tiny droplets per lower stream impact (8 streams total)
+        const subIdx = sm & 1;
+        const sCycle = (elapsedTime * 1.35 + streamIdx * 0.19 + subIdx * 0.47) % 1.0;
+        const baseAng = (streamIdx / 8) * Math.PI * 2 + (subIdx === 0 ? -0.035 : 0.035);
+        // Parabolic mini-splash hop near the basin impact point (r = 1.04m, y = 0.40m)
+        const sRad = 1.01 + sCycle * 0.09 * (subIdx === 0 ? 1 : -0.6);
+        const sY = 0.402 + Math.sin(sCycle * Math.PI) * (subIdx === 0 ? 0.075 : 0.052);
+        _dummy.position.set(Math.cos(baseAng) * sRad, sY, Math.sin(baseAng) * sRad);
+        _dummy.scale.setScalar((1.0 - sCycle * 0.45) * (0.75 + Math.sin(sCycle * Math.PI) * 0.35));
         _dummy.updateMatrix();
-        plazaFountainWaterShimmerInst.setMatrixAt(sm, _dummy.matrix);
+        plazaFountainDropletInst.setMatrixAt(sm, _dummy.matrix);
       }
-      plazaFountainWaterShimmerInst.instanceMatrix.needsUpdate = true;
+      plazaFountainDropletInst.instanceMatrix.needsUpdate = true;
 
       // 1. Animate Heart Gallery Floating Crystal Heart & Orbiting Light Motes
       floatingCrystalHeartPivot.position.y =
