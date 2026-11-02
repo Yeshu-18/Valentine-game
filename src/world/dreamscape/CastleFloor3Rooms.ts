@@ -2,6 +2,10 @@ import * as THREE from 'three';
 import { ResourceTracker } from '../ProceduralKit';
 import { CircleCollider } from '../VegetationSystem';
 import { DreamCastleMaterials } from './CastleMaterials';
+import {
+  InteractivePortraitExhibit,
+  GALLERY_PLACEMENT_STORAGE_KEY,
+} from './HeartGalleryPlacementTool';
 
 export type Floor3ActiveCameraMode = 'none' | 'heart_gallery';
 
@@ -41,6 +45,7 @@ export interface CastleFloor3RoomsBundle {
   getCameraState: () => Floor3CameraState;
   setGalleryFrameImage: (frameIndex: number, imageSrc: string) => void;
   getGalleryFrames: () => readonly GalleryFrameInfo[];
+  getInteractivePortraitExhibits: () => InteractivePortraitExhibit[];
   isPlayerOnIceRink: (playerPos: THREE.Vector3) => boolean;
   triggerSkatingJump: () => void;
   update: (
@@ -2828,7 +2833,19 @@ export function createCastleFloor3Rooms(
 
     exhibitGroup.add(canopy, arm, hood, bulb, beamCone);
     heartGalleryGroup.add(exhibitGroup);
+    return exhibitGroup;
   };
+
+  const interactivePortraitExhibits: InteractivePortraitExhibit[] = [];
+  let savedPlacements: Record<string, { position?: [number, number, number]; rotation?: [number, number, number]; scale?: [number, number, number] }> = {};
+  try {
+    const raw = typeof localStorage !== 'undefined' ? localStorage.getItem(GALLERY_PLACEMENT_STORAGE_KEY) : null;
+    if (raw) {
+      savedPlacements = JSON.parse(raw);
+    }
+  } catch {
+    // Ignore storage parse issues
+  }
 
   // Instantiate the 5 Interactive Memory Portraits (indices 0..4)
   for (let i = 0; i < galleryMemories.length; i++) {
@@ -2858,7 +2875,37 @@ export function createCastleFloor3Rooms(
     );
     galleryFrameHalos.push(haloMat);
 
-    buildGalleryPortraitExhibit(p.lx, p.lz, p.rotY, scaleMult, tex, haloMat, Boolean(p.isHeroExhibit));
+    const exhibitGroup = buildGalleryPortraitExhibit(p.lx, p.lz, p.rotY, scaleMult, tex, haloMat, Boolean(p.isHeroExhibit));
+    const exhibitId = `portrait-${i}`;
+    exhibitGroup.name = `GalleryExhibit_${exhibitId}`;
+
+    const defaultTransform = {
+      position: [p.lx, y0, p.lz] as [number, number, number],
+      rotation: [0, p.rotY, 0] as [number, number, number],
+      scale: [scaleMult, scaleMult, scaleMult] as [number, number, number],
+    };
+
+    // Apply saved manual placement if present in localStorage
+    if (savedPlacements[exhibitId]) {
+      const sp = savedPlacements[exhibitId];
+      if (Array.isArray(sp.position) && sp.position.length === 3) {
+        exhibitGroup.position.set(sp.position[0], sp.position[1], sp.position[2]);
+      }
+      if (Array.isArray(sp.rotation) && sp.rotation.length === 3) {
+        exhibitGroup.rotation.set(sp.rotation[0], sp.rotation[1], sp.rotation[2]);
+      }
+      if (Array.isArray(sp.scale) && sp.scale.length === 3) {
+        exhibitGroup.scale.set(sp.scale[0], sp.scale[1], sp.scale[2]);
+      }
+      exhibitGroup.updateMatrixWorld(true);
+    }
+
+    interactivePortraitExhibits.push({
+      id: exhibitId,
+      name: galleryMemories[i].title,
+      group: exhibitGroup,
+      defaultTransform,
+    });
   }
 
   // --- 1.12 DECORATIVE ARCHITECTURAL PORTRAIT EXHIBITS (East Apse Pair + Right-Wall 3-Portrait Composition) ---
@@ -4049,8 +4096,10 @@ export function createCastleFloor3Rooms(
     let bestIdx = 0;
     let bestDist = Infinity;
     for (let i = 0; i < exhibitPlacements.length; i++) {
-      const p = exhibitPlacements[i];
-      const d = Math.hypot(lx - p.lx, lz - p.lz);
+      const curGroup = interactivePortraitExhibits[i]?.group;
+      const px = curGroup ? curGroup.position.x : exhibitPlacements[i].lx;
+      const pz = curGroup ? curGroup.position.z : exhibitPlacements[i].lz;
+      const d = Math.hypot(lx - px, lz - pz);
       if (d < bestDist) {
         bestDist = d;
         bestIdx = i;
@@ -4318,6 +4367,8 @@ export function createCastleFloor3Rooms(
         customImageSrc: m.customImageUrl ?? undefined,
       })),
 
+    getInteractivePortraitExhibits: () => interactivePortraitExhibits,
+
     isPlayerOnIceRink,
 
     triggerSkatingJump: () => {
@@ -4581,14 +4632,18 @@ export function createCastleFloor3Rooms(
 
         camState.blendAlpha = Math.min(1.0, camState.blendAlpha + delta * 2.6);
         const ex = exhibitPlacements[currentGalleryIndex];
-        const normalX = Math.sin(ex.rotY);
-        const normalZ = Math.cos(ex.rotY);
-        const rightX = Math.cos(ex.rotY);
-        const rightZ = -Math.sin(ex.rotY);
-        const camWx = originX + ex.lx + normalX * ex.camDist;
-        const camWz = originZ + ex.lz + normalZ * ex.camDist;
-        const lookWx = originX + ex.lx;
-        const lookWz = originZ + ex.lz;
+        const exhibitGroup = interactivePortraitExhibits[currentGalleryIndex]?.group;
+        const curLx = exhibitGroup ? exhibitGroup.position.x : ex.lx;
+        const curLz = exhibitGroup ? exhibitGroup.position.z : ex.lz;
+        const curRotY = exhibitGroup ? exhibitGroup.rotation.y : ex.rotY;
+        const normalX = Math.sin(curRotY);
+        const normalZ = Math.cos(curRotY);
+        const rightX = Math.cos(curRotY);
+        const rightZ = -Math.sin(curRotY);
+        const camWx = originX + curLx + normalX * ex.camDist;
+        const camWz = originZ + curLz + normalZ * ex.camDist;
+        const lookWx = originX + curLx;
+        const lookWz = originZ + curLz;
         const panOffset = Math.sin(lookYawOffset) * 0.85;
 
         camState.camWorldPos.set(camWx, floor3WorldY + 2.18, camWz);

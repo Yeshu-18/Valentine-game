@@ -48,6 +48,10 @@ import { AuroraDialogueLine } from './world/cinematics/auroraDialogueData';
 import { createCarnivalDistrict } from './world/carnival/CarnivalDistrict';
 import { createDreamCastle } from './world/dreamscape/DreamCastle';
 import {
+  createHeartGalleryPlacementTool,
+  HeartGalleryPlacementTool,
+} from './world/dreamscape/HeartGalleryPlacementTool';
+import {
   BROOM_STAND_POS,
   CASTLE_KEEP_POS,
   CASTLE_TERRACE_POS,
@@ -139,6 +143,7 @@ const GoldenHourGradeShader = {
 export default function App() {
   const canvasMountRef = useRef<HTMLDivElement | null>(null);
   const controllerRef = useRef<PlayerControllerBundle | null>(null);
+  const placementToolRef = useRef<HeartGalleryPlacementTool | null>(null);
   const hudCoordsRef = useRef<HTMLSpanElement | null>(null);
   const hudElevRef = useRef<HTMLSpanElement | null>(null);
   const hudAglRef = useRef<HTMLSpanElement | null>(null);
@@ -306,6 +311,20 @@ export default function App() {
     });
     scene.add(dreamCastle.group);
 
+    const galleryPlacementTool = createHeartGalleryPlacementTool({
+      scene,
+      camera,
+      domElement: renderer.domElement,
+      castleOrigin: new THREE.Vector3(
+        dreamCastle.nav.originX,
+        dreamCastle.nav.baseY,
+        dreamCastle.nav.originZ,
+      ),
+      portraitExhibits: dreamCastle.floor3Rooms.getInteractivePortraitExhibits(),
+      partitionMeshes: dreamCastle.floor3Rooms.partitionMeshes,
+    });
+    placementToolRef.current = galleryPlacementTool;
+
     const allColliders = [
       ...centralPlaza.colliders,
       ...distantLandmarks.colliders,
@@ -448,6 +467,7 @@ export default function App() {
       const elapsed = clock.getElapsedTime();
 
       playerController.update(delta, elapsed);
+      galleryPlacementTool.update();
       const playerPos = playerController.getPosition();
       const isIdle = playerController.isCompletelyIdle();
 
@@ -536,6 +556,8 @@ export default function App() {
       window.removeEventListener('resize', handleResize);
       window.removeEventListener('keydown', handleKeyHud);
 
+      galleryPlacementTool.dispose();
+      placementToolRef.current = null;
       playerController.dispose();
       auroraCinematic.dispose();
       carnivalDistrict.dispose();
@@ -591,6 +613,7 @@ export default function App() {
   }, []);
 
   const handleEngagePointerLock = () => {
+    if (placementToolRef.current?.isActive()) return;
     if (controllerRef.current?.getCurrentDialogue()) return;
     const canvas = canvasMountRef.current?.querySelector('canvas');
     if (!canvas || document.pointerLockElement === canvas) return;
@@ -1569,7 +1592,7 @@ export default function App() {
                       ? 'W Forward (15 m/s) · Shift+W Boost (22 m/s) · S Brake/Reverse · A/D Yaw & Bank · Space Ascend · Ctrl/C Descend · E/Esc Dismount'
                       : telemetry.cameraMode === 'camera-control'
                         ? 'Camera Position Mode: WASD Move Camera (Fwd/Back/Left/Right) · R/F or PageUp/PageDown Move Up/Down · Mouse/Arrows Rotate · Press C or Esc to Return'
-                        : 'WASD / Arrows to Walk · Hold Shift to Sprint · Press C for Free Camera Position · Press E to Interact'}
+                        : 'WASD / Arrows to Walk · Hold Shift to Sprint · Press C for Free Camera Position · Press E to Interact · Press P for Poster Placement'}
                   </span>
                 </span>
               </div>
