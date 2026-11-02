@@ -24,7 +24,9 @@ export type AvatarActivityPose =
   | 'pet_puppy'
   | 'groom_wash'
   | 'groom_brush'
-  | 'groom_style';
+  | 'groom_style'
+  | 'lego_build'
+  | 'lego_remote';
 
 export interface AvatarSkatingAnimState {
   active: boolean;
@@ -777,7 +779,62 @@ export function createPlayerAvatar(): PlayerAvatarBundle {
 
   hairRoseFlowerGroup.add(hairRoseLeaf1, hairRoseLeaf2, hairRoseBud, hairRoseOuter, hairRoseCore);
 
+  // 12. 3D Champagne-Gold & Blush-Pink LEGO Remote Control (Held in Hands during Remote Control Mode)
+  const legoRemoteGroup = new THREE.Group();
+  legoRemoteGroup.name = 'HarshaLegoRemoteControl';
+  legoRemoteGroup.position.set(-0.08, -0.02, 0.06);
+  legoRemoteGroup.rotation.set(Math.PI * 0.36, 0.18, 0.0);
+  legoRemoteGroup.visible = false;
+  rightHandAnchor.add(legoRemoteGroup);
+
+  const remoteBodyGeo = new THREE.BoxGeometry(0.18, 0.042, 0.11);
+  const remoteRimGeo = new THREE.BoxGeometry(0.19, 0.018, 0.12);
+  const remoteStudGeo = new THREE.CylinderGeometry(0.012, 0.012, 0.014, 8);
+  const remoteStickShaftGeo = new THREE.CylinderGeometry(0.0045, 0.0045, 0.036, 6);
+  remoteStickShaftGeo.translate(0, 0.018, 0);
+  const remoteStickCapGeo = new THREE.SphereGeometry(0.012, 8, 8);
+  remoteStickCapGeo.translate(0, 0.038, 0);
+  const remoteAntennaGeo = new THREE.CylinderGeometry(0.003, 0.004, 0.085, 6);
+  remoteAntennaGeo.translate(0, 0.0425, 0);
+
+  const remoteBodyMesh = new THREE.Mesh(remoteBodyGeo, dressMat);
+  const remoteRimMesh = new THREE.Mesh(remoteRimGeo, ribbonGoldMat);
+  remoteRimMesh.position.y = -0.014;
+  legoRemoteGroup.add(remoteBodyMesh, remoteRimMesh);
+
+  for (let sx = -1; sx <= 1; sx += 2) {
+    const stud = new THREE.Mesh(remoteStudGeo, ribbonGoldMat);
+    stud.position.set(sx * 0.068, 0.026, -0.03);
+    legoRemoteGroup.add(stud);
+  }
+
+  const remoteStickLPivot = new THREE.Group();
+  remoteStickLPivot.position.set(-0.042, 0.021, 0.012);
+  remoteStickLPivot.add(
+    new THREE.Mesh(remoteStickShaftGeo, ribbonGoldMat),
+    new THREE.Mesh(remoteStickCapGeo, tiaraGemMat),
+  );
+  const remoteStickRPivot = new THREE.Group();
+  remoteStickRPivot.position.set(0.042, 0.021, 0.012);
+  remoteStickRPivot.add(
+    new THREE.Mesh(remoteStickShaftGeo, ribbonGoldMat),
+    new THREE.Mesh(remoteStickCapGeo, tiaraGemMat),
+  );
+  const remoteAntennaShaft = new THREE.Mesh(remoteAntennaGeo, ribbonGoldMat);
+  remoteAntennaShaft.position.set(0, 0.02, -0.048);
+  remoteAntennaShaft.rotation.x = -0.25;
+  const remoteAntennaTip = new THREE.Mesh(pearlTinyGeo, tiaraGemMat);
+  remoteAntennaTip.scale.setScalar(1.35);
+  remoteAntennaTip.position.set(0, 0.1, -0.068);
+  legoRemoteGroup.add(remoteStickLPivot, remoteStickRPivot, remoteAntennaShaft, remoteAntennaTip);
+
   geometries.push(
+    remoteBodyGeo,
+    remoteRimGeo,
+    remoteStudGeo,
+    remoteStickShaftGeo,
+    remoteStickCapGeo,
+    remoteAntennaGeo,
     headGeo,
     hairCapGeo,
     ponytailGeo,
@@ -1547,6 +1604,51 @@ export function createPlayerAvatar(): PlayerAvatarBundle {
           headPivot.rotation.z = THREE.MathUtils.damp(headPivot.rotation.z, s * 0.08, dRate, delta);
           return;
         }
+
+        if (activityPose === 'lego_build' || activityPose === 'lego_remote') {
+          const cycle = elapsedTime * 5.2;
+          const s = Math.sin(cycle);
+          const c = Math.cos(cycle);
+          legoRemoteGroup.visible = activityPose === 'lego_remote';
+          bodyGroup.position.y = THREE.MathUtils.damp(
+            bodyGroup.position.y,
+            Math.abs(s) * 0.015,
+            dRate,
+            delta,
+          );
+          leftLegPivot.rotation.x = THREE.MathUtils.damp(leftLegPivot.rotation.x, 0, dRate, delta);
+          rightLegPivot.rotation.x = THREE.MathUtils.damp(rightLegPivot.rotation.x, 0, dRate, delta);
+
+          if (activityPose === 'lego_build') {
+            bodyGroup.rotation.x = THREE.MathUtils.damp(bodyGroup.rotation.x, 0.12, dRate, delta);
+            bodyGroup.rotation.y = THREE.MathUtils.damp(bodyGroup.rotation.y, s * 0.04, dRate, delta);
+            leftArmPivot.rotation.x = THREE.MathUtils.damp(leftArmPivot.rotation.x, -1.12 + s * 0.08, 12, delta);
+            rightArmPivot.rotation.x = THREE.MathUtils.damp(rightArmPivot.rotation.x, -1.18 - s * 0.1, 12, delta);
+            leftArmPivot.rotation.y = THREE.MathUtils.damp(leftArmPivot.rotation.y, -0.24, 12, delta);
+            rightArmPivot.rotation.y = THREE.MathUtils.damp(rightArmPivot.rotation.y, 0.24, 12, delta);
+            headPivot.rotation.x = THREE.MathUtils.damp(headPivot.rotation.x, 0.24, dRate, delta);
+            headPivot.rotation.y = THREE.MathUtils.damp(headPivot.rotation.y, c * 0.08, dRate, delta);
+          } else {
+            // Holding the 3D Champagne-Gold & Pink LEGO Remote Control with both hands & tilting joysticks
+            bodyGroup.rotation.x = THREE.MathUtils.damp(bodyGroup.rotation.x, 0.05, dRate, delta);
+            bodyGroup.rotation.y = THREE.MathUtils.damp(bodyGroup.rotation.y, s * 0.05, dRate, delta);
+            leftArmPivot.rotation.x = THREE.MathUtils.damp(leftArmPivot.rotation.x, -1.18, 14, delta);
+            rightArmPivot.rotation.x = THREE.MathUtils.damp(rightArmPivot.rotation.x, -1.18, 14, delta);
+            leftArmPivot.rotation.y = THREE.MathUtils.damp(leftArmPivot.rotation.y, -0.46, 14, delta);
+            rightArmPivot.rotation.y = THREE.MathUtils.damp(rightArmPivot.rotation.y, 0.36, 14, delta);
+            leftArmPivot.rotation.z = THREE.MathUtils.damp(leftArmPivot.rotation.z, 0.18, 14, delta);
+            rightArmPivot.rotation.z = THREE.MathUtils.damp(rightArmPivot.rotation.z, -0.18, 14, delta);
+            headPivot.rotation.x = THREE.MathUtils.damp(headPivot.rotation.x, 0.12, dRate, delta);
+            headPivot.rotation.y = THREE.MathUtils.damp(headPivot.rotation.y, s * 0.1, dRate, delta);
+            remoteStickLPivot.rotation.x = Math.sin(elapsedTime * 8.5) * 0.32;
+            remoteStickLPivot.rotation.z = Math.cos(elapsedTime * 6.8) * 0.28;
+            remoteStickRPivot.rotation.x = Math.cos(elapsedTime * 7.8) * 0.28;
+            remoteStickRPivot.rotation.z = Math.sin(elapsedTime * 9.2) * 0.32;
+          }
+          return;
+        }
+      } else if (legoRemoteGroup.visible) {
+        legoRemoteGroup.visible = false;
       }
 
       // Floor 3 Dedicated Arcade Ice Skating Animation (Stride, Coasting Glide, Carve Banking & 360 Spin Jump)
@@ -1980,12 +2082,14 @@ export function createPlayerAvatar(): PlayerAvatarBundle {
     },
     setActivityPose(pose: AvatarActivityPose): void {
       activityPose = pose;
+      legoRemoteGroup.visible = pose === 'lego_remote';
     },
     getActivityPose(): AvatarActivityPose {
       return activityPose;
     },
     resetNeutralPose() {
       activityPose = 'none';
+      legoRemoteGroup.visible = false;
       bodyGroup.rotation.set(0, 0, 0);
       bodyGroup.position.set(0, 0, 0);
       headPivot.rotation.set(0, 0, 0);

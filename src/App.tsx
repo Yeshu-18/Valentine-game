@@ -47,6 +47,7 @@ import { AuroraDialogueCard } from './world/cinematics/AuroraDialogueCard';
 import { AuroraDialogueLine } from './world/cinematics/auroraDialogueData';
 import { createCarnivalDistrict } from './world/carnival/CarnivalDistrict';
 import { createDreamCastle } from './world/dreamscape/DreamCastle';
+import { createPlayfulBrickWorkshop } from './world/dreamscape/CastleLegoWorkshop';
 import {
   createHeartGalleryPlacementTool,
   HeartGalleryPlacementTool,
@@ -183,6 +184,7 @@ export default function App() {
     carnivalPrizesCount: 0,
     castlePrompt: null,
     castleFountainCaption: null,
+    legoWorkshopState: null,
   }));
 
   const [auroraDialogue, setAuroraDialogue] = useState<AuroraDialogueLine | null>(null);
@@ -311,6 +313,9 @@ export default function App() {
     });
     scene.add(dreamCastle.group);
 
+    const brickWorkshop = createPlayfulBrickWorkshop();
+    scene.add(brickWorkshop.group);
+
     const galleryPlacementTool = createHeartGalleryPlacementTool({
       scene,
       camera,
@@ -322,6 +327,7 @@ export default function App() {
       ),
       portraitExhibits: dreamCastle.floor3Rooms.getInteractivePortraitExhibits(),
       partitionMeshes: dreamCastle.floor3Rooms.partitionMeshes,
+      canActivate: () => !brickWorkshop.isActive(),
     });
     placementToolRef.current = galleryPlacementTool;
 
@@ -336,6 +342,7 @@ export default function App() {
       ...auroraCinematic.colliders,
       ...carnivalDistrict.colliders,
       ...dreamCastle.colliders,
+      ...brickWorkshop.colliders,
     ];
 
     const avatar = createPlayerAvatar();
@@ -386,6 +393,7 @@ export default function App() {
         setTelemetry(nextTelemetry);
       },
       dreamCastle,
+      brickWorkshop,
     );
     controllerRef.current = playerController;
 
@@ -562,6 +570,7 @@ export default function App() {
       auroraCinematic.dispose();
       carnivalDistrict.dispose();
       dreamCastle.dispose();
+      brickWorkshop.dispose();
       avatar.dispose();
       magicFlight.dispose();
       mysteryBox.dispose();
@@ -1149,7 +1158,9 @@ export default function App() {
               <span>
                 {telemetry.castleFountainCaption === 'I Love u Mandu 💕'
                   ? 'Starlight Orchid Conservatory • Yeshwanth & Harsha'
-                  : 'Crystal Lotus Fountain • Yeshwanth & Harsha'}
+                  : telemetry.regionName === 'Playful Brick District'
+                    ? 'Playful Brick District • LEGO World Workshop'
+                    : 'Crystal Lotus Fountain • Yeshwanth & Harsha'}
               </span>
             </div>
             <p className="text-lg leading-relaxed text-amber-100 font-serif italic font-semibold drop-shadow-[0_0_10px_rgba(244,114,182,0.7)]">
@@ -1159,14 +1170,331 @@ export default function App() {
         </div>
       )}
 
-      {/* Dream Castle Interaction & Elevator Proximity Prompt */}
-      {telemetry.castlePrompt && !telemetry.carnivalOverlay && (
+      {/* LEGO Workshop: "Choose What to Build" Interactive Modal */}
+      {telemetry.legoWorkshopState?.mode === 'lego_build' &&
+        telemetry.legoWorkshopState.isChoosingBlueprint &&
+        !telemetry.carnivalOverlay && (
+          <div className="pointer-events-auto absolute inset-0 z-40 flex items-center justify-center bg-slate-950/65 backdrop-blur-sm p-4">
+            <div className="w-full max-w-2xl rounded-2xl bg-slate-950/95 border border-pink-300/50 p-6 text-white shadow-[0_0_40px_rgba(244,114,182,0.35)]">
+              <div className="flex items-center justify-between border-b border-pink-300/25 pb-3 mb-4">
+                <div>
+                  <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-amber-300">
+                    <Sparkles className="w-4 h-4 text-pink-400" />
+                    <span>Playful Brick District • LEGO World Workshop</span>
+                  </div>
+                  <h2 className="text-xl font-bold text-pink-100 mt-0.5">
+                    🧱 Choose What You Want to Build
+                  </h2>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => controllerRef.current?.interactCreativeWingKey('Escape')}
+                  className="px-3 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-pink-200 text-xs font-semibold border border-pink-300/30 cursor-pointer"
+                >
+                  [Esc] Close
+                </button>
+              </div>
+
+              <p className="text-xs text-slate-300 mb-4">
+                Select a royal blueprint or freeform mode below (or press keys{' '}
+                <kbd className="px-1.5 py-0.5 bg-slate-800 rounded border border-pink-300/30 text-amber-200 font-mono">
+                  1
+                </kbd>
+                –
+                <kbd className="px-1.5 py-0.5 bg-slate-800 rounded border border-pink-300/30 text-amber-200 font-mono">
+                  6
+                </kbd>
+                ). Each brick starts at the <strong className="text-amber-200">Top-Left</strong> of the mat — move it with{' '}
+                <strong className="text-pink-200">[WASD / Arrows]</strong>, rotate with{' '}
+                <strong className="text-pink-200">[R]</strong>, place with{' '}
+                <strong className="text-pink-200">[Space / E]</strong>, and press{' '}
+                <strong className="text-amber-300">[P] Bring to Life!</strong>
+              </p>
+
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                {[
+                  {
+                    idx: 0,
+                    key: '1',
+                    icon: '🚗',
+                    title: 'Royal Roadster',
+                    sub: '8 Bricks • Drive & Wheelie Jump',
+                  },
+                  {
+                    idx: 1,
+                    key: '2',
+                    icon: '🦖',
+                    title: 'Cute Baby Dino',
+                    sub: '7 Bricks • Hop & Heart Roar',
+                  },
+                  {
+                    idx: 2,
+                    key: '3',
+                    icon: '🤖',
+                    title: 'Heart-Bot',
+                    sub: '7 Bricks • March & 360° Spin',
+                  },
+                  {
+                    idx: 3,
+                    key: '4',
+                    icon: '🚀',
+                    title: 'Starlight Cruiser',
+                    sub: '6 Bricks • Fly & Barrel Roll',
+                  },
+                  {
+                    idx: 4,
+                    key: '5',
+                    icon: '🏠',
+                    title: 'Love Cottage',
+                    sub: '8 Bricks • Music-Box & Smoke',
+                  },
+                  {
+                    idx: 5,
+                    key: '6',
+                    icon: '🎨',
+                    title: 'Free Build',
+                    sub: 'Unlimited • Custom Invention',
+                  },
+                ].map((opt) => {
+                  const isSelected =
+                    telemetry.legoWorkshopState?.activeGuideIndex === opt.idx;
+                  return (
+                    <button
+                      key={opt.idx}
+                      type="button"
+                      onClick={() => controllerRef.current?.selectLegoBlueprint(opt.idx)}
+                      className={`flex flex-col items-start p-3 rounded-xl border text-left transition-all cursor-pointer ${
+                        isSelected
+                          ? 'bg-pink-600/35 border-amber-300 shadow-[0_0_16px_rgba(244,114,182,0.4)]'
+                          : 'bg-slate-900/90 hover:bg-slate-800 border-pink-300/30'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between w-full mb-1">
+                        <span className="text-xl">{opt.icon}</span>
+                        <span className="px-1.5 py-0.5 rounded bg-slate-800 text-[10px] font-mono font-bold text-amber-200 border border-amber-300/30">
+                          [{opt.key}]
+                        </span>
+                      </div>
+                      <span className="text-sm font-bold text-white">{opt.title}</span>
+                      <span className="text-[11px] text-pink-200/80 mt-0.5">{opt.sub}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        )}
+
+      {/* Active LEGO Build Table Controls & Quick Build Switcher */}
+      {telemetry.legoWorkshopState?.mode === 'lego_build' &&
+        !telemetry.legoWorkshopState.isChoosingBlueprint &&
+        !telemetry.carnivalOverlay && (
+          <div className="pointer-events-auto absolute bottom-4 sm:bottom-5 left-1/2 -translate-x-1/2 z-30 w-full max-w-3xl px-4">
+            <div className="flex flex-col gap-2 bg-slate-950/95 border border-pink-300/45 rounded-2xl p-3.5 text-white shadow-2xl">
+              {/* Row 1: Choose What to Build Quick Options */}
+              <div className="flex items-center justify-between gap-1.5 flex-wrap border-b border-pink-300/20 pb-2">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-amber-300 mr-1">
+                  Build Options:
+                </span>
+                {[
+                  { idx: 0, label: '1: 🚗 Roadster' },
+                  { idx: 1, label: '2: 🦖 Dino' },
+                  { idx: 2, label: '3: 🤖 Robot' },
+                  { idx: 3, label: '4: 🚀 Cruiser' },
+                  { idx: 4, label: '5: 🏠 Cottage' },
+                  { idx: 5, label: '6: 🎨 Free Build' },
+                ].map((opt) => {
+                  const active = telemetry.legoWorkshopState?.activeGuideIndex === opt.idx;
+                  return (
+                    <button
+                      key={opt.idx}
+                      type="button"
+                      onClick={() => controllerRef.current?.selectLegoBlueprint(opt.idx)}
+                      className={`px-2 py-1 rounded-lg text-[11px] font-semibold border transition-colors cursor-pointer ${
+                        active
+                          ? 'bg-pink-500 text-white border-amber-300 shadow-sm'
+                          : 'bg-slate-800/90 hover:bg-slate-700 text-pink-200 border-pink-300/30'
+                      }`}
+                    >
+                      {opt.label}
+                    </button>
+                  );
+                })}
+                <button
+                  type="button"
+                  onClick={() => controllerRef.current?.openLegoBlueprintSelector()}
+                  className="px-2 py-1 rounded-lg bg-amber-500/20 hover:bg-amber-500/35 text-amber-200 text-[11px] font-semibold border border-amber-300/40 cursor-pointer"
+                >
+                  [G] All Options
+                </button>
+              </div>
+
+              {/* Row 2: Step Progress, Top-Left Brick Position Status & Alignment Feedback */}
+              <div className="flex items-center justify-between gap-2 flex-wrap text-xs">
+                <div className="flex items-center gap-2">
+                  <span
+                    className="w-3.5 h-3.5 rounded-sm border border-white/50 shrink-0"
+                    style={{ backgroundColor: telemetry.legoWorkshopState.heldColorHex }}
+                  />
+                  <span className="font-bold text-pink-200">
+                    {telemetry.legoWorkshopState.activeGuideIndex < 5
+                      ? `Step ${ Math.min(telemetry.legoWorkshopState.activeGuideStep + 1, telemetry.legoWorkshopState.totalGuideSteps) }/${telemetry.legoWorkshopState.totalGuideSteps}: ${telemetry.legoWorkshopState.requiredBrickLabel}`
+                      : `Free Build (${telemetry.legoWorkshopState.placedBricksCount} bricks) • Held: ${telemetry.legoWorkshopState.heldBrickLabel}`}
+                  </span>
+                </div>
+                <div className="text-[11px] font-medium">
+                  {telemetry.legoWorkshopState.activeGuideIndex < 5 &&
+                  telemetry.legoWorkshopState.activeGuideStep >=
+                    telemetry.legoWorkshopState.totalGuideSteps ? (
+                    <span className="text-emerald-300 font-bold">
+                      🎉 Build Complete! Press [P] to Bring to Life!
+                    </span>
+                  ) : telemetry.legoWorkshopState.targetStudX !== null &&
+                    telemetry.legoWorkshopState.targetStudZ !== null ? (
+                    !telemetry.legoWorkshopState.isPositionMatched ? (
+                      <span className="text-amber-200">
+                        🎯 Brick at ({telemetry.legoWorkshopState.cursorStudX + 1},{' '}
+                        {telemetry.legoWorkshopState.cursorStudZ + 1}) → Move [WASD] to Target (
+                        {telemetry.legoWorkshopState.targetStudX + 1},{' '}
+                        {telemetry.legoWorkshopState.targetStudZ + 1})
+                      </span>
+                    ) : !telemetry.legoWorkshopState.isRotationMatched ? (
+                      <span className="text-pink-300 font-bold">
+                        🔄 Position Matched! Now Press [R] to Rotate Brick to Match Target!
+                      </span>
+                    ) : (
+                      <span className="text-emerald-300 font-bold">
+                        ✅ Target &amp; Rotation Aligned! Press [Space] or [E] to Place!
+                      </span>
+                    )
+                  ) : (
+                    <span className="text-slate-300">
+                      Brick at ({telemetry.legoWorkshopState.cursorStudX + 1},{' '}
+                      {telemetry.legoWorkshopState.cursorStudZ + 1}) • Move [WASD], Rotate [R], Place [Space]
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              {/* Row 3: Action Buttons (Move, Rotate, Place, 360° View, Bring to Life, Exit) */}
+              <div className="flex items-center justify-between gap-1.5 flex-wrap pt-1">
+                <div className="flex items-center gap-1 flex-wrap">
+                  <span className="text-[10px] text-slate-400 uppercase font-semibold mr-1">
+                    Move:
+                  </span>
+                  {[
+                    { key: 'w', label: '↑ W' },
+                    { key: 'a', label: '← A' },
+                    { key: 's', label: '↓ S' },
+                    { key: 'd', label: '→ D' },
+                  ].map((mv) => (
+                    <button
+                      key={mv.key}
+                      type="button"
+                      onClick={() => controllerRef.current?.interactCreativeWingKey(mv.key)}
+                      className="px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-100 text-xs font-mono font-semibold border border-slate-600 cursor-pointer"
+                    >
+                      {mv.label}
+                    </button>
+                  ))}
+                  <button
+                    type="button"
+                    onClick={() => controllerRef.current?.interactCreativeWingKey('r')}
+                    className="ml-1 px-2.5 py-1 rounded bg-purple-700 hover:bg-purple-600 text-white text-xs font-semibold border border-purple-300/40 cursor-pointer"
+                  >
+                    🔄 [R] Rotate 90°
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => controllerRef.current?.interactCreativeWingKey(' ')}
+                    className="px-3 py-1 rounded bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold border border-emerald-300/50 cursor-pointer"
+                  >
+                    🧱 [Space] Place Brick
+                  </button>
+                  {telemetry.legoWorkshopState.activeGuideIndex === 5 && (
+                    <button
+                      type="button"
+                      onClick={() => controllerRef.current?.interactCreativeWingKey('c')}
+                      className="px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-pink-200 text-xs font-semibold border border-pink-300/30 cursor-pointer"
+                    >
+                      🎨 [C] Color
+                    </button>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <button
+                    type="button"
+                    onClick={() => controllerRef.current?.orbitLegoCamera(-0.68, 0)}
+                    title="Orbit Left 45° (or swipe 2 fingers on trackpad)"
+                    className="px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-cyan-200 text-xs font-semibold border border-cyan-400/35 cursor-pointer"
+                  >
+                    ◀ 360°
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => controllerRef.current?.toggleLegoAutoOrbit360()}
+                    title="Toggle 360° Turntable Auto-Spin"
+                    className={`px-2.5 py-1 rounded-lg text-xs font-semibold border transition-colors cursor-pointer ${
+                      telemetry.legoWorkshopState.isAutoOrbit360
+                        ? 'bg-cyan-500 text-slate-950 border-amber-300'
+                        : 'bg-slate-800 hover:bg-slate-700 text-cyan-200 border-cyan-400/35'
+                    }`}
+                  >
+                    🔄 {telemetry.legoWorkshopState.cameraYawDeg}° Spin
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => controllerRef.current?.orbitLegoCamera(0.68, 0)}
+                    title="Orbit Right 45° (or swipe 2 fingers on trackpad)"
+                    className="px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-cyan-200 text-xs font-semibold border border-cyan-400/35 cursor-pointer"
+                  >
+                    360° ▶
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => controllerRef.current?.resetLegoCamera()}
+                    title="Reset 360° Camera View"
+                    className="px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px] font-semibold border border-slate-600 cursor-pointer"
+                  >
+                    Reset View
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => controllerRef.current?.interactCreativeWingKey('p')}
+                    className="px-3 py-1 rounded-lg bg-gradient-to-r from-pink-500 to-amber-500 hover:from-pink-400 hover:to-amber-400 text-slate-950 text-xs font-bold shadow-md cursor-pointer"
+                  >
+                    ✨ [P] Bring to Life!
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => controllerRef.current?.interactCreativeWingKey('Escape')}
+                    className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold border border-slate-600 cursor-pointer"
+                  >
+                    [Esc] Exit
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+      {/* Dream Castle & Playful Brick District Interaction Prompt */}
+      {telemetry.castlePrompt &&
+        !telemetry.carnivalOverlay &&
+        telemetry.legoWorkshopState?.mode !== 'lego_build' && (
         <div className="pointer-events-auto absolute bottom-32 left-1/2 -translate-x-1/2 z-20 flex items-center gap-3 bg-slate-950/92 border border-pink-300/40 rounded-xl px-3.5 py-1.5 text-white shadow-xl max-w-2xl">
           <Sparkles className="w-4 h-4 text-pink-300 shrink-0" />
           {!(telemetry.castlePrompt.includes('Freestyle Dance') || telemetry.castlePrompt.includes('Choose Song')) && (
             <div className="flex flex-col">
               <span className="text-xs font-semibold text-pink-200">
-                Pastel Dream Castle
+                {telemetry.regionName === 'Playful Brick District' ||
+                telemetry.castlePrompt.includes('LEGO') ||
+                telemetry.castlePrompt.includes('Build Studio') ||
+                telemetry.castlePrompt.includes('Guidebook') ||
+                telemetry.castlePrompt.includes('Bring to Life')
+                  ? 'Playful Brick District • LEGO Workshop'
+                  : 'Pastel Dream Castle'}
               </span>
               <span className="text-xs text-slate-200 whitespace-nowrap">
                 {telemetry.castlePrompt}
@@ -1386,7 +1714,7 @@ export default function App() {
         )}
 
       {/* Collapsible Bottom Control Dock (Zero Viewport Occlusion) */}
-      {!isInMysteryCinematic && (
+      {!isInMysteryCinematic && telemetry.legoWorkshopState?.mode !== 'lego_build' && (
         <div className="pointer-events-auto absolute bottom-5 left-1/2 -translate-x-1/2 z-10 flex flex-col items-center w-full max-w-[min(1020px,95vw)]">
           {/* Collapse / Expand Tab */}
           <button
@@ -1576,7 +1904,13 @@ export default function App() {
                   <button
                     key={zone.id}
                     type="button"
-                    onClick={() => handleTeleport(zone.x, zone.z)}
+                    onClick={() =>
+                      handleTeleport(
+                        zone.x,
+                        zone.z,
+                        zone.id === 'brick-valley' ? 0 : undefined,
+                      )
+                    }
                     className="px-2.5 py-1 text-xs font-medium rounded-md bg-slate-900 hover:bg-slate-800 text-slate-200 border border-white/10 transition-colors whitespace-nowrap shrink-0 cursor-pointer"
                   >
                     {zone.name}

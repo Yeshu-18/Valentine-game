@@ -29,6 +29,10 @@ import {
 } from './carnival/CarnivalState';
 import { DreamCastleBundle } from './dreamscape/DreamCastle';
 import {
+  CastleLegoWorkshopBundle,
+  LegoWorkshopUiState,
+} from './dreamscape/CastleLegoWorkshop';
+import {
   BROOM_STAND_POS,
   CASTLE_KEEP_POS,
   CASTLE_TERRACE_POS,
@@ -90,6 +94,7 @@ export interface PlayerTelemetry {
   carnivalPrizesCount: number;
   castlePrompt: string | null;
   castleFountainCaption: string | null;
+  legoWorkshopState: LegoWorkshopUiState | null;
 }
 
 export interface PlayerControllerBundle {
@@ -113,6 +118,12 @@ export interface PlayerControllerBundle {
   setCustomPortraitBackdrop: (imageSource: string) => void;
   triggerTakePortrait: () => boolean;
   interactCreativeWingKey: (key: string) => boolean;
+  selectLegoBlueprint: (index: number) => void;
+  openLegoBlueprintSelector: () => void;
+  orbitLegoCamera: (yawDelta: number, pitchDelta: number) => void;
+  zoomLegoCamera: (zoomDelta: number) => void;
+  resetLegoCamera: () => void;
+  toggleLegoAutoOrbit360: () => void;
   getGalleryFrames: () => readonly {
     index: number;
     title: string;
@@ -182,7 +193,14 @@ export function createPlayerController(
   colliders: CircleCollider[],
   onTelemetryChange?: (telemetry: PlayerTelemetry) => void,
   dreamCastle?: DreamCastleBundle,
+  brickWorkshop?: CastleLegoWorkshopBundle,
 ): PlayerControllerBundle {
+  if (brickWorkshop) {
+    brickWorkshop.setAvatarBridge({
+      setActivityPose: (pose) => avatar.setActivityPose(pose),
+      resetNeutralPose: () => avatar.resetNeutralPose?.(),
+    });
+  }
   if (dreamCastle) {
     dreamCastle.floor2Rooms.setAvatarCallbacks({
       setOutfitPalette: (idx) => avatar.setOutfitPalette(idx),
@@ -872,7 +890,26 @@ export function createPlayerController(
   }
 
   function triggerCastleAction(): boolean {
-    if (locomotionState !== 'walk' || !dreamCastle) return false;
+    if (locomotionState !== 'walk') return false;
+    if (brickWorkshop) {
+      const wasBrickActive = brickWorkshop.isActive();
+      if (brickWorkshop.interact(playerPos)) {
+        const nowBrickActive = brickWorkshop.isActive();
+        if (wasBrickActive && !nowBrickActive) {
+          restoreExplorationControls();
+        } else {
+          isDragging = false;
+          lastFreeMouseX = null;
+          lastFreeMouseY = null;
+          playerVelocity.set(0, 0, 0);
+          verticalVel = 0;
+          isGrounded = true;
+        }
+        onTelemetryChange?.(buildTelemetry());
+        return true;
+      }
+    }
+    if (!dreamCastle) return false;
     const wasInElevatorFpv = dreamCastle.nav.isElevatorFpvActive;
     const wasCamActive =
       dreamCastle.floor1Rooms.getCameraState().active ||
@@ -984,8 +1021,25 @@ export function createPlayerController(
     idleTimer = 0;
 
     // Decouple input polling from browser key-repeat events:
-    // Continuous movement is read from `keys` Set every frame; discrete actions ignore repeat events.
+    // Continuous movement is read from `keys` Set every frame; discrete actions ignore repeat events,
+    // except WASD / Arrow grid movement inside LEGO Build mode so holding a direction smoothly moves the brick.
     if (e.repeat) {
+      if (
+        brickWorkshop?.getMode() === 'lego_build' &&
+        (e.code === 'KeyW' ||
+          e.code === 'KeyA' ||
+          e.code === 'KeyS' ||
+          e.code === 'KeyD' ||
+          e.code === 'ArrowUp' ||
+          e.code === 'ArrowDown' ||
+          e.code === 'ArrowLeft' ||
+          e.code === 'ArrowRight')
+      ) {
+        e.preventDefault();
+        if (brickWorkshop.handleKeyAction(e.key, playerPos)) {
+          onTelemetryChange?.(buildTelemetry());
+        }
+      }
       return;
     }
 
@@ -1021,6 +1075,10 @@ export function createPlayerController(
           cameraPitch,
         );
       }
+      if (brickWorkshop?.handleKeyAction(e.key, playerPos)) {
+        onTelemetryChange?.(buildTelemetry());
+        return;
+      }
       if (
         dreamCastle &&
         (dreamCastle.floor3Rooms.handleKeyAction(e.code) ||
@@ -1037,6 +1095,13 @@ export function createPlayerController(
 
     if (e.code === 'Escape') {
       if (!e.repeat) {
+        if (brickWorkshop?.isActive()) {
+          e.preventDefault();
+          brickWorkshop.handleKeyAction('Escape', playerPos);
+          restoreExplorationControls();
+          onTelemetryChange?.(buildTelemetry());
+          return;
+        }
         if (dreamCastle?.nav.isElevatorFpvActive) {
           e.preventDefault();
           dreamCastle.nav.exitElevatorFpv(playerPos);
@@ -1189,7 +1254,13 @@ export function createPlayerController(
     if (e.code === 'KeyV' && !e.repeat) {
       toggleCameraMode();
       onTelemetryChange?.(buildTelemetry());
-    } else if (e.code === 'KeyC' && !e.repeat && locomotionState === 'walk') {
+    } else if (
+      e.code === 'KeyC' &&
+      !e.repeat &&
+      locomotionState === 'walk' &&
+      !dreamCastle?.floor2CreativeWing.getCameraState().active &&
+      !brickWorkshop?.isActive()
+    ) {
       e.preventDefault();
       const nextMode: CameraMode =
         cameraMode === 'camera-control' ? 'third-person' : 'camera-control';
@@ -1205,6 +1276,12 @@ export function createPlayerController(
       e.preventDefault();
       dreamCastle.nav.skipCameraFocus();
       restoreExplorationControls();
+      onTelemetryChange?.(buildTelemetry());
+    } else if (brickWorkshop?.handleKeyAction(e.key, playerPos)) {
+      e.preventDefault();
+      if (!brickWorkshop.isActive()) {
+        restoreExplorationControls();
+      }
       onTelemetryChange?.(buildTelemetry());
     } else if (
       dreamCastle &&
@@ -1258,9 +1335,26 @@ export function createPlayerController(
     lastFreeMouseY = null;
   };
 
+  const onContextMenu = (e: MouseEvent) => {
+    if (brickWorkshop?.isActive()) {
+      e.preventDefault();
+    }
+  };
+
   const onPointerDown = (e: PointerEvent) => {
-    if (e.button !== 0) return;
     idleTimer = 0;
+    if (brickWorkshop?.isActive()) {
+      const rect = domElement.getBoundingClientRect();
+      if (rect.width > 0 && rect.height > 0) {
+        const ndcX = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+        const ndcY = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+        if (brickWorkshop.handlePointerDown(ndcX, ndcY, e.button, camera)) {
+          onTelemetryChange?.(buildTelemetry());
+          return;
+        }
+      }
+    }
+    if (e.button !== 0) return;
     if (carnivalDistrict.isActive()) {
       performCarnivalGameAction();
     }
@@ -1273,6 +1367,14 @@ export function createPlayerController(
 
   const onPointerMove = (e: PointerEvent) => {
     idleTimer = 0;
+    if (brickWorkshop?.isActive() && !isDragging) {
+      const rect = domElement.getBoundingClientRect();
+      if (rect.width > 0 && rect.height > 0) {
+        const ndcX = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+        const ndcY = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+        brickWorkshop.handlePointerMove(ndcX, ndcY, camera);
+      }
+    }
     if (auroraCinematic.isActive()) {
       if (isPointerLocked) {
         auroraCinematic.applyMouseLookDelta(e.movementX, e.movementY);
@@ -1346,6 +1448,7 @@ export function createPlayerController(
     const isCreativeCamActive = Boolean(creativeCam?.active);
     const floor3Cam = dreamCastle?.floor3Rooms.getCameraState();
     const isFloor3CamActive = Boolean(floor3Cam?.active);
+    const isBrickCamActive = Boolean(brickWorkshop?.isActive());
 
     const isOverInteractiveHudControl =
       e.target instanceof HTMLElement &&
@@ -1397,6 +1500,16 @@ export function createPlayerController(
         lookDy * 0.0036,
       );
     }
+    if (isBrickCamActive) {
+      const brickYawMult = isDragging ? 0.011 : 0.0062;
+      const brickPitchMult = isDragging ? 0.0082 : 0.0045;
+      brickWorkshop?.applyLookDelta(
+        lookDx * brickYawMult,
+        lookDy * brickPitchMult,
+      );
+      lastMouseMoveElapsed = currentElapsedTime;
+      return;
+    }
     if (isFloor3CamActive) {
       dreamCastle?.floor3Rooms.applyLookDelta(
         lookDx * 0.0044,
@@ -1440,7 +1553,29 @@ export function createPlayerController(
     const isFloor1CamActive = Boolean(dreamCastle?.floor1Rooms.getCameraState().active);
     const isFloor2CamActive = Boolean(dreamCastle?.floor2Rooms.getCameraState().active);
     const isCreativeCamActive = Boolean(dreamCastle?.floor2CreativeWing.getCameraState().active);
+    const isBrickCamActive = Boolean(brickWorkshop?.isActive());
     const isFloor3CamActive = Boolean(dreamCastle?.floor3Rooms.getCameraState().active);
+
+    // Full 360° Trackpad Orbit & Pinch-Zoom for the Built Item in LEGO Workshop
+    if (isBrickCamActive) {
+      e.preventDefault();
+      if (e.ctrlKey) {
+        // Trackpad two-finger pinch gesture -> Zoom in/out on the built item
+        const zoomDy = THREE.MathUtils.clamp(e.deltaY, -60, 60);
+        brickWorkshop?.applyZoomDelta(zoomDy * 0.045);
+      } else {
+        // Trackpad two-finger swipe -> Smooth 360° horizontal orbit & vertical elevation
+        const panDx = THREE.MathUtils.clamp(e.deltaX, -80, 80);
+        const panDy = THREE.MathUtils.clamp(e.deltaY, -80, 80);
+        if (e.shiftKey && Math.abs(panDx) < 0.5) {
+          brickWorkshop?.applyLookDelta(panDy * 0.014, 0);
+        } else {
+          brickWorkshop?.applyLookDelta(panDx * 0.014, panDy * 0.0075);
+        }
+      }
+      lastMouseMoveElapsed = currentElapsedTime;
+      return;
+    }
 
     // Support laptop two-finger touchpad horizontal swipe (deltaX) for smooth 360° camera rotation
     if (Math.abs(e.deltaX) > 0.25) {
@@ -1488,10 +1623,11 @@ export function createPlayerController(
   window.addEventListener('keydown', onKeyDown);
   window.addEventListener('keyup', onKeyUp);
   window.addEventListener('blur', onWindowBlur);
+  domElement.addEventListener('contextmenu', onContextMenu);
   domElement.addEventListener('pointerdown', onPointerDown);
   window.addEventListener('pointermove', onPointerMove);
   window.addEventListener('pointerup', onPointerUp);
-  domElement.addEventListener('wheel', onWheel, { passive: true });
+  domElement.addEventListener('wheel', onWheel, { passive: false });
   document.addEventListener('pointerlockchange', onPointerLockChange);
 
   function setCameraMode(mode: CameraMode) {
@@ -1617,19 +1753,31 @@ export function createPlayerController(
         ? carnivalDistrict.getProximityPrompt(playerPos)
         : null;
 
+    const distToBrickDistrict = Math.hypot(playerPos.x - -80.0, playerPos.z - 5.0);
+    const brickPrompt =
+      isWalk && brickWorkshop && (distToBrickDistrict <= 24.0 || brickWorkshop.isActive())
+        ? brickWorkshop.getProximityPrompt(playerPos)?.prompt ?? null
+        : null;
+    const brickCaption =
+      isWalk && brickWorkshop && (distToBrickDistrict <= 24.0 || brickWorkshop.isActive())
+        ? brickWorkshop.getActiveCaption()
+        : null;
+
     const distToDreamCastle = Math.hypot(playerPos.x - 88.0, playerPos.z - 18.0);
     const castlePrompt =
-      isWalk && dreamCastle && distToDreamCastle <= 52.0
+      brickPrompt ??
+      (isWalk && dreamCastle && distToDreamCastle <= 52.0
         ? dreamCastle.getProximityPrompt(playerPos)?.prompt ?? null
-        : null;
+        : null);
     const castleFountainCaption =
-      isWalk && dreamCastle && distToDreamCastle <= 52.0
+      brickCaption ??
+      (isWalk && dreamCastle && distToDreamCastle <= 52.0
         ? dreamCastle.nav.getActiveFountainCaption() ??
           dreamCastle.floor2CreativeWing.getActiveRoomCaption() ??
           dreamCastle.floor2Rooms.getActiveRoomCaption() ??
           dreamCastle.floor3Rooms.getActiveRoomCaption() ??
           dreamCastle.floor1Rooms.getActiveRoomCaption()
-        : null;
+        : null);
 
     const horizSpeed =
       locomotionState === 'flight'
@@ -1677,6 +1825,7 @@ export function createPlayerController(
       carnivalPrizesCount: carnivalDistrict.getEarnedPrizeIds().length,
       castlePrompt,
       castleFountainCaption,
+      legoWorkshopState: brickWorkshop?.getUiState() ?? null,
     };
   }
 
@@ -1684,6 +1833,7 @@ export function createPlayerController(
     if (!onTelemetryChange) return;
     const next = buildTelemetry();
     const ov = next.carnivalOverlay;
+    const lw = next.legoWorkshopState;
     const meterBucket =
       ov && typeof ov.powerMeter === 'number'
         ? Math.round(ov.powerMeter * 25)
@@ -1726,6 +1876,16 @@ export function createPlayerController(
       next.carnivalPrizesCount,
       next.castlePrompt ?? '',
       next.castleFountainCaption ?? '',
+      lw?.mode ?? '',
+      lw?.isChoosingBlueprint ? 1 : 0,
+      lw?.activeGuideIndex ?? -1,
+      lw?.activeGuideStep ?? -1,
+      lw?.cursorStudX ?? -1,
+      lw?.cursorStudZ ?? -1,
+      lw?.heldRotY ?? -1,
+      lw?.heldBrickLabel ?? '',
+      lw?.heldColorHex ?? '',
+      lw?.placedBricksCount ?? 0,
     ].join('|');
 
     if (force || sig !== lastDiscreteSignature) {
@@ -1842,6 +2002,13 @@ export function createPlayerController(
       return ok;
     },
     interactCreativeWingKey: (key: string) => {
+      if (brickWorkshop?.handleKeyAction(key, playerPos)) {
+        if (!brickWorkshop.isActive()) {
+          restoreExplorationControls();
+        }
+        onTelemetryChange?.(buildTelemetry());
+        return true;
+      }
       if (!dreamCastle) return false;
       dreamCastle.floor2CreativeWing.capturePlayerPose(
         playerPos,
@@ -1855,6 +2022,36 @@ export function createPlayerController(
         onTelemetryChange?.(buildTelemetry());
       }
       return ok;
+    },
+    selectLegoBlueprint: (index: number) => {
+      if (!brickWorkshop) return;
+      brickWorkshop.selectBlueprint(index);
+      onTelemetryChange?.(buildTelemetry());
+    },
+    openLegoBlueprintSelector: () => {
+      if (!brickWorkshop) return;
+      brickWorkshop.openBlueprintSelector();
+      onTelemetryChange?.(buildTelemetry());
+    },
+    orbitLegoCamera: (yawDelta: number, pitchDelta: number) => {
+      if (!brickWorkshop) return;
+      brickWorkshop.applyLookDelta(yawDelta, pitchDelta);
+      onTelemetryChange?.(buildTelemetry());
+    },
+    zoomLegoCamera: (zoomDelta: number) => {
+      if (!brickWorkshop) return;
+      brickWorkshop.applyZoomDelta(zoomDelta);
+      onTelemetryChange?.(buildTelemetry());
+    },
+    resetLegoCamera: () => {
+      if (!brickWorkshop) return;
+      brickWorkshop.resetCameraView();
+      onTelemetryChange?.(buildTelemetry());
+    },
+    toggleLegoAutoOrbit360: () => {
+      if (!brickWorkshop) return;
+      brickWorkshop.toggleAutoOrbit360();
+      onTelemetryChange?.(buildTelemetry());
     },
     getGalleryFrames: () => dreamCastle?.getGalleryFrames() ?? [],
     getDanceStudioState: () => dreamCastle?.floor2Rooms.getDanceStudioState() ?? null,
@@ -2351,8 +2548,10 @@ export function createPlayerController(
         const isLittleCastleActive = Boolean(
           dreamCastle?.floor2CreativeWing.tabletopWorld.isTransitionActive(),
         );
+        const isLegoWorkshopActive = Boolean(brickWorkshop?.isActive());
         const rotLeft =
           !lakeMemoryActive &&
+          !isLegoWorkshopActive &&
           (keys.has('Numpad4') ||
             (!isCameraControlMode && !isLittleCastleActive && keys.has('KeyQ')) ||
             ((isElevatorFpv || isCastleFocusActive || isCameraControlMode) &&
@@ -2360,6 +2559,7 @@ export function createPlayerController(
             (isElevatorFpv && keys.has('KeyA')));
         const rotRight =
           !lakeMemoryActive &&
+          !isLegoWorkshopActive &&
           (keys.has('Numpad6') ||
             (!isCameraControlMode &&
               !isCastleFocusActive &&
@@ -2464,6 +2664,7 @@ export function createPlayerController(
           floor1Active ||
           floor2Active ||
           creativeWingActive ||
+          isLegoWorkshopActive ||
           floor3Active;
         if (wasAnyCastleActivityCamActive && !anyCastleActivityCamActive) {
           restoreExplorationControls();
@@ -2479,6 +2680,7 @@ export function createPlayerController(
           isCameraControlMode ||
           floor2Active ||
           creativeWingActive ||
+          isLegoWorkshopActive ||
           floor3Active ||
           floor1Mode === 'sofa_sit' ||
           floor1Mode === 'piano_play' ||
@@ -2728,7 +2930,21 @@ export function createPlayerController(
         const embraceAlpha = activeFocus?.embraceAlpha ?? 0;
         const kissAlpha = activeFocus?.kissAlpha ?? 0;
 
-        const castleFocusNow = dreamCastle?.getCameraFocus();
+        const brickCamNow = brickWorkshop?.isActive()
+          ? brickWorkshop.getCameraState()
+          : null;
+        const castleFocusNow = brickCamNow
+          ? {
+              position: brickCamNow.camWorldPos,
+              target: brickCamNow.lookWorldPos,
+              fov: brickCamNow.fov,
+              blendAlpha: 1.0,
+              seatWorldPos: brickCamNow.seatWorldPos,
+              seatYaw: brickCamNow.seatYaw,
+              isSitting: brickCamNow.isSitting,
+              isFirstPersonSeated: false,
+            }
+          : dreamCastle?.getCameraFocus();
         const isCastleSitting = Boolean(castleFocusNow?.isSitting);
         const isCastlePosed = Boolean(castleFocusNow?.seatWorldPos);
         if (isCastlePosed && castleFocusNow?.seatWorldPos) {
@@ -3125,7 +3341,14 @@ export function createPlayerController(
             }
           }
 
-          if (dreamCastle) {
+          if (brickCamNow) {
+            _desiredCamPos.lerp(brickCamNow.camWorldPos, 1.0);
+            _desiredLookAt.lerp(brickCamNow.lookWorldPos, 1.0);
+            if (brickCamNow.fov) {
+              camera.fov = dampValue(camera.fov, brickCamNow.fov, 6.0, dt);
+              camera.updateProjectionMatrix();
+            }
+          } else if (dreamCastle) {
             const castleFocus = dreamCastle.getCameraFocus();
             if (castleFocus) {
               if (dreamCastle.nav.activeCameraFocus?.mode === 'entrance') {
@@ -3158,10 +3381,11 @@ export function createPlayerController(
         }
       }
 
-      // Advance the MagicFlight, MagicMysteryBox, WizardingSchool & DreamCastle systems
+      // Advance the MagicFlight, MagicMysteryBox, WizardingSchool, PlayfulBrickWorkshop & DreamCastle systems
       magicFlight.update(dt, elapsedTime);
       mysteryBox.update(dt, elapsedTime);
       wizardingSchool.update(dt, elapsedTime, playerPos);
+      brickWorkshop?.update(dt, elapsedTime, playerPos, keys);
       if (dreamCastle) {
         dreamCastle.update(dt, playerPos, elapsedTime, keys);
         if (dreamCastle.nav.hasTriggeredEntranceReveal) {
@@ -3201,7 +3425,8 @@ export function createPlayerController(
         !carnivalDistrict.isActive() &&
         !wizardingSchool.isDialogueActive() &&
         !dreamCastle?.nav.activeCameraFocus &&
-        !dreamCastle?.nav.isFountainHologramVisible();
+        !dreamCastle?.nav.isFountainHologramVisible() &&
+        !brickWorkshop?.isActive();
 
       if (isStandingStill) {
         idleTimer += smoothDt;
@@ -3221,6 +3446,7 @@ export function createPlayerController(
       window.removeEventListener('keydown', onKeyDown);
       window.removeEventListener('keyup', onKeyUp);
       window.removeEventListener('blur', onWindowBlur);
+      domElement.removeEventListener('contextmenu', onContextMenu);
       domElement.removeEventListener('pointerdown', onPointerDown);
       window.removeEventListener('pointermove', onPointerMove);
       window.removeEventListener('pointerup', onPointerUp);

@@ -1055,42 +1055,114 @@ export function createCastleFloor1Rooms(
   kitchenGroup.add(northCounter, northMarble, northUpperCab);
 
   // Retro Curved Pastel-Pink Refrigerator (lx = 7.6, lz = -14.1)
-  const fridgeBodyGeo = tracker.trackGeo(new THREE.BoxGeometry(1.28, 2.35, 1.05));
-  fridgeBodyGeo.translate(0, 1.425, 0);
-  const fridgeCrownGeo = tracker.trackGeo(new THREE.CylinderGeometry(0.62, 0.64, 1.02, 16, 1, false, 0, Math.PI));
+  // Built as a hollow open-front cabinet so the interior shelves & food items are 100% visible when the door swings open!
+  const fridgeSideWallGeo = tracker.trackGeo(new THREE.BoxGeometry(0.09, 2.35, 1.02));
+  fridgeSideWallGeo.translate(0, 1.425, 0);
+  const fridgeBackWallGeo = tracker.trackGeo(new THREE.BoxGeometry(1.28, 2.35, 0.09));
+  fridgeBackWallGeo.translate(0, 1.425, -0.475);
+  const fridgeTopBottomGeo = tracker.trackGeo(new THREE.BoxGeometry(1.28, 0.16, 1.02));
+  const fridgeCrownGeo = tracker.trackGeo(
+    new THREE.CylinderGeometry(0.62, 0.64, 1.02, 16, 1, false, 0, Math.PI),
+  );
   fridgeCrownGeo.rotateZ(Math.PI / 2);
   fridgeCrownGeo.rotateY(Math.PI / 2);
   fridgeCrownGeo.translate(0, 2.6, 0);
 
   const fridgeGroup = new THREE.Group();
   fridgeGroup.position.set(7.6, 0, -14.1);
-  const fridgeBody = new THREE.Mesh(fridgeBodyGeo, blushQuiltedVelvet);
+
+  const fridgeLeftWall = new THREE.Mesh(fridgeSideWallGeo, blushQuiltedVelvet);
+  fridgeLeftWall.position.x = -0.595;
+  const fridgeRightWall = new THREE.Mesh(fridgeSideWallGeo, blushQuiltedVelvet);
+  fridgeRightWall.position.x = 0.595;
+  const fridgeBackWall = new THREE.Mesh(fridgeBackWallGeo, blushQuiltedVelvet);
+  const fridgeBottomBase = new THREE.Mesh(fridgeTopBottomGeo, blushQuiltedVelvet);
+  fridgeBottomBase.position.set(0, 0.33, 0);
+  const fridgeTopHeader = new THREE.Mesh(fridgeTopBottomGeo, blushQuiltedVelvet);
+  fridgeTopHeader.position.set(0, 2.52, 0);
   const fridgeCrown = new THREE.Mesh(fridgeCrownGeo, barbieRoseLacquer);
+
+  // Gold front trim framing the open refrigerator cavity
+  const fridgeFrameVGeo = tracker.trackGeo(new THREE.BoxGeometry(0.045, 2.28, 0.04));
+  const fridgeFrameHGeo = tracker.trackGeo(new THREE.BoxGeometry(1.24, 0.045, 0.04));
+  const fridgeTrimL = new THREE.Mesh(fridgeFrameVGeo, mats.champagneGold);
+  fridgeTrimL.position.set(-0.58, 1.42, 0.5);
+  const fridgeTrimR = new THREE.Mesh(fridgeFrameVGeo, mats.champagneGold);
+  fridgeTrimR.position.set(0.58, 1.42, 0.5);
+  const fridgeTrimT = new THREE.Mesh(fridgeFrameHGeo, mats.champagneGold);
+  fridgeTrimT.position.set(0, 2.48, 0.5);
+  const fridgeTrimB = new THREE.Mesh(fridgeFrameHGeo, mats.champagneGold);
+  fridgeTrimB.position.set(0, 0.38, 0.5);
+
+  // Warm illuminated interior back & side liners at the rear of the cavity (z = -0.41)
   const fridgeGlowBack = new THREE.Mesh(
-    tracker.trackGeo(new THREE.PlaneGeometry(1.05, 1.95)),
+    tracker.trackGeo(new THREE.PlaneGeometry(1.08, 2.02)),
     fridgeInteriorGlowMat,
   );
-  fridgeGlowBack.position.set(0, 1.45, 0.48);
+  fridgeGlowBack.position.set(0, 1.44, -0.41);
+  const fridgeInnerSideGeo = tracker.trackGeo(new THREE.PlaneGeometry(0.88, 2.02));
+  const fridgeGlowLeft = new THREE.Mesh(fridgeInnerSideGeo, fridgeInteriorGlowMat);
+  fridgeGlowLeft.position.set(-0.54, 1.44, 0.03);
+  fridgeGlowLeft.rotation.y = Math.PI / 2;
+  const fridgeGlowRight = new THREE.Mesh(fridgeInnerSideGeo, fridgeInteriorGlowMat);
+  fridgeGlowRight.position.set(0.54, 1.44, 0.03);
+  fridgeGlowRight.rotation.y = -Math.PI / 2;
 
-  // 3 Crystal-Glass Shelves inside the Fridge (Top: y=1.88, Middle: y=1.48, Bottom: y=1.08)
+  fridgeGroup.add(
+    fridgeLeftWall,
+    fridgeRightWall,
+    fridgeBackWall,
+    fridgeBottomBase,
+    fridgeTopHeader,
+    fridgeCrown,
+    fridgeTrimL,
+    fridgeTrimR,
+    fridgeTrimT,
+    fridgeTrimB,
+    fridgeGlowBack,
+    fridgeGlowLeft,
+    fridgeGlowRight,
+  );
+
+  // 3 Crystal-Glass Shelves with Champagne-Gold Front Trim (Top: y=1.92, Middle: y=1.48, Bottom: y=1.04)
   const fridgeCrystalShelfGeo = tracker.trackGeo(new THREE.BoxGeometry(1.06, 0.024, 0.78));
-  [1.08, 1.48, 1.88].forEach((sy) => {
+  const fridgeShelfTrimGeo = tracker.trackGeo(new THREE.BoxGeometry(1.06, 0.028, 0.025));
+  [1.04, 1.48, 1.92].forEach((sy) => {
     const shelfMesh = new THREE.Mesh(fridgeCrystalShelfGeo, mats.crystalGlass);
-    shelfMesh.position.set(0, sy, 0.06);
-    fridgeGroup.add(shelfMesh);
+    shelfMesh.position.set(0, sy, 0.04);
+    const shelfTrim = new THREE.Mesh(fridgeShelfTrimGeo, mats.champagneGold);
+    shelfTrim.position.set(0, sy, 0.43);
+    fridgeGroup.add(shelfMesh, shelfTrim);
   });
 
-  // Low-poly reusable food geometries for the 3 crystal-glass fridge shelves
-  const cakeGeo = tracker.trackGeo(new THREE.CylinderGeometry(0.19, 0.19, 0.14, 14));
-  const cakeFrostingGeo = tracker.trackGeo(new THREE.CylinderGeometry(0.2, 0.2, 0.04, 14));
-  const milkGeo = tracker.trackGeo(new THREE.CylinderGeometry(0.048, 0.064, 0.24, 10));
-  const berryGeo = tracker.trackGeo(new THREE.SphereGeometry(0.042, 8, 8));
-  const macaronGeo = tracker.trackGeo(new THREE.CylinderGeometry(0.045, 0.045, 0.032, 10));
-  const tartCupGeo = tracker.trackGeo(new THREE.CylinderGeometry(0.075, 0.055, 0.055, 10));
-  const puddingCupGeo = tracker.trackGeo(new THREE.CylinderGeometry(0.06, 0.048, 0.085, 10));
+  // Translucent Crystal Crisper Drawer at bottom of fridge (y = 0.44..0.72)
+  const crisperBinGeo = tracker.trackGeo(new THREE.BoxGeometry(1.02, 0.24, 0.68));
+  const crisperBin = new THREE.Mesh(crisperBinGeo, mats.crystalGlass);
+  crisperBin.position.set(0, 0.56, 0.06);
+  const crisperHandle = new THREE.Mesh(fridgeShelfTrimGeo, mats.champagneGold);
+  crisperHandle.position.set(0, 0.66, 0.41);
+  fridgeGroup.add(crisperBin, crisperHandle);
+
+  // Reusable Food & Drink Geometries for the Fridge Interior
+  const cakePlateGeo = tracker.trackGeo(new THREE.CylinderGeometry(0.22, 0.19, 0.022, 16));
+  const cakeGeo = tracker.trackGeo(new THREE.CylinderGeometry(0.18, 0.18, 0.14, 16));
+  const cakeFrostingGeo = tracker.trackGeo(new THREE.CylinderGeometry(0.19, 0.19, 0.045, 16));
+  const cakeUpperTierGeo = tracker.trackGeo(new THREE.CylinderGeometry(0.11, 0.11, 0.09, 14));
+  const milkGeo = tracker.trackGeo(new THREE.CylinderGeometry(0.048, 0.068, 0.25, 12));
+  const bottleCapGeo = tracker.trackGeo(new THREE.CylinderGeometry(0.052, 0.052, 0.03, 10));
+  const berryGeo = tracker.trackGeo(new THREE.SphereGeometry(0.044, 8, 8));
+  const fruitAppleGeo = tracker.trackGeo(new THREE.SphereGeometry(0.068, 10, 10));
+  const macaronGeo = tracker.trackGeo(new THREE.CylinderGeometry(0.048, 0.048, 0.034, 12));
+  const tartCupGeo = tracker.trackGeo(new THREE.CylinderGeometry(0.082, 0.06, 0.058, 12));
+  const puddingCupGeo = tracker.trackGeo(new THREE.CylinderGeometry(0.065, 0.05, 0.095, 12));
+  const fruitBowlGeo = tracker.trackGeo(
+    new THREE.CylinderGeometry(0.17, 0.1, 0.095, 14),
+  );
+  const parfaitGlassGeo = tracker.trackGeo(new THREE.ConeGeometry(0.065, 0.18, 12));
+  const sodaCanGeo = tracker.trackGeo(new THREE.CylinderGeometry(0.046, 0.046, 0.13, 12));
 
   const cherryRedMat = tracker.trackMat(
-    new THREE.MeshStandardMaterial({ color: new THREE.Color('#be185d'), roughness: 0.22 }),
+    new THREE.MeshStandardMaterial({ color: new THREE.Color('#e11d48'), roughness: 0.22 }),
   );
   const roseCrystalFoodMat = tracker.trackMat(
     new THREE.MeshStandardMaterial({
@@ -1099,84 +1171,168 @@ export function createCastleFloor1Rooms(
       metalness: 0.1,
     }),
   );
+  const citrusOrangeMat = tracker.trackMat(
+    new THREE.MeshStandardMaterial({ color: new THREE.Color('#fb923c'), roughness: 0.25 }),
+  );
+  const lemonCreamMat = tracker.trackMat(
+    new THREE.MeshStandardMaterial({ color: new THREE.Color('#fef08a'), roughness: 0.28 }),
+  );
 
-  // TOP SHELF (y = 1.88m): Strawberry cake + cherry + strawberries
-  const shelfCake = new THREE.Mesh(cakeGeo, blushQuiltedVelvet);
-  shelfCake.position.set(-0.22, 1.96, 0.12);
+  // TOP SHELF (y = 1.92m): Two-tier Strawberry Cream Cake + Crystal Berry Bowl + Golden Truffle Box
+  const cakePlate = new THREE.Mesh(cakePlateGeo, mats.champagneGold);
+  cakePlate.position.set(-0.24, 1.945, 0.16);
+  const shelfCake = new THREE.Mesh(cakeGeo, mats.pearlWhite);
+  shelfCake.position.set(-0.24, 2.025, 0.16);
   const shelfCakeFrosting = new THREE.Mesh(cakeFrostingGeo, barbieRoseLacquer);
-  shelfCakeFrosting.position.set(-0.22, 2.04, 0.12);
+  shelfCakeFrosting.position.set(-0.24, 2.1, 0.16);
+  const shelfCakeUpper = new THREE.Mesh(cakeUpperTierGeo, blushQuiltedVelvet);
+  shelfCakeUpper.position.set(-0.24, 2.16, 0.16);
   const shelfCakeCherry = new THREE.Mesh(berryGeo, cherryRedMat);
-  shelfCakeCherry.position.set(-0.22, 2.08, 0.12);
-  fridgeGroup.add(shelfCake, shelfCakeFrosting, shelfCakeCherry);
+  shelfCakeCherry.position.set(-0.24, 2.23, 0.16);
 
-  // Instanced strawberries & cherries on top shelf + fruit tart toppings (10 instances, 1 draw call)
-  const fridgeBerryInst = new THREE.InstancedMesh(berryGeo, barbieRoseLacquer, 10);
+  const berryBowl = new THREE.Mesh(fruitBowlGeo, mats.champagneGold);
+  berryBowl.position.set(0.24, 1.98, 0.18);
+  const truffleBox = new THREE.Mesh(
+    tracker.trackGeo(new THREE.BoxGeometry(0.18, 0.065, 0.16)),
+    cherryRedMat,
+  );
+  truffleBox.position.set(0.02, 1.965, 0.26);
+  const truffleRibbon = new THREE.Mesh(
+    tracker.trackGeo(new THREE.BoxGeometry(0.185, 0.07, 0.035)),
+    mats.champagneGold,
+  );
+  truffleRibbon.position.set(0.02, 1.965, 0.26);
+  fridgeGroup.add(
+    cakePlate,
+    shelfCake,
+    shelfCakeFrosting,
+    shelfCakeUpper,
+    shelfCakeCherry,
+    berryBowl,
+    truffleBox,
+    truffleRibbon,
+  );
+
+  // Instanced Strawberries & Cherries across the Cake, Berry Bowl & Fruit Tarts (16 instances)
+  const fridgeBerryInst = new THREE.InstancedMesh(berryGeo, cherryRedMat, 16);
   const berryCoords = [
-    [0.12, 1.92, 0.14],
-    [0.22, 1.92, 0.16],
-    [0.31, 1.92, 0.12],
-    [0.17, 1.92, 0.24],
-    [0.27, 1.92, 0.22],
-    [-0.28, 2.07, 0.16],
-    [-0.16, 2.07, 0.16],
-    [-0.22, 2.07, 0.05],
-    [-0.32, 1.16, 0.15],
-    [-0.12, 1.16, 0.15],
+    // In the top-shelf crystal berry bowl
+    [0.18, 2.04, 0.15],
+    [0.25, 2.05, 0.18],
+    [0.31, 2.04, 0.16],
+    [0.21, 2.04, 0.23],
+    [0.28, 2.04, 0.22],
+    [0.24, 2.08, 0.19],
+    // Around the two-tier strawberry cake
+    [-0.35, 2.13, 0.22],
+    [-0.13, 2.13, 0.22],
+    [-0.24, 2.13, 0.29],
+    [-0.34, 2.13, 0.09],
+    [-0.14, 2.13, 0.09],
+    // Atop the 2 middle-shelf parfaits
+    [0.08, 1.69, 0.28],
+    [0.24, 1.69, 0.28],
+    // Atop the 3 bottom-shelf fruit tarts
+    [-0.36, 1.13, 0.22],
+    [-0.16, 1.13, 0.22],
+    [0.04, 1.13, 0.22],
   ];
   for (let b = 0; b < berryCoords.length; b++) {
     _scratchDummy.position.set(berryCoords[b][0], berryCoords[b][1], berryCoords[b][2]);
     _scratchDummy.rotation.set(0, b * 0.6, 0);
-    _scratchDummy.scale.set(0.95, 1.15, 0.95);
+    _scratchDummy.scale.set(1.0, 1.18, 1.0);
     _scratchDummy.updateMatrix();
     fridgeBerryInst.setMatrixAt(b, _scratchDummy.matrix);
   }
   fridgeBerryInst.instanceMatrix.needsUpdate = true;
   fridgeGroup.add(fridgeBerryInst);
 
-  // MIDDLE SHELF (y = 1.48m): Pastel milk bottles, pink berry lemonade & macarons
+  // MIDDLE SHELF (y = 1.48m): Milk Carafes, Pink Berry Lemonade Pitcher, Strawberry Parfaits & Pastel Macaron Stack
   const milkBottle1 = new THREE.Mesh(milkGeo, mats.pearlWhite);
-  milkBottle1.position.set(-0.34, 1.61, 0.12);
-  const milkBottle2 = new THREE.Mesh(milkGeo, blushQuiltedVelvet);
-  milkBottle2.position.set(-0.18, 1.61, 0.14);
-  const lemonadeCarafe = new THREE.Mesh(milkGeo, smoothieBerryMat);
-  lemonadeCarafe.position.set(0.0, 1.62, 0.12);
-  lemonadeCarafe.scale.set(1.25, 1.08, 1.25);
-  fridgeGroup.add(milkBottle1, milkBottle2, lemonadeCarafe);
+  milkBottle1.position.set(-0.38, 1.62, 0.18);
+  const milkCap1 = new THREE.Mesh(bottleCapGeo, mats.champagneGold);
+  milkCap1.position.set(-0.38, 1.755, 0.18);
 
-  const fridgeMacaronInst = new THREE.InstancedMesh(macaronGeo, roseCrystalFoodMat, 6);
-  for (let m = 0; m < 6; m++) {
-    const mx = 0.18 + (m % 3) * 0.1;
-    const my = 1.51 + Math.floor(m / 3) * 0.034;
-    _scratchDummy.position.set(mx, my, 0.16);
+  const milkBottle2 = new THREE.Mesh(milkGeo, blushQuiltedVelvet);
+  milkBottle2.position.set(-0.22, 1.62, 0.2);
+  const milkCap2 = new THREE.Mesh(bottleCapGeo, barbieRoseLacquer);
+  milkCap2.position.set(-0.22, 1.755, 0.2);
+
+  const lemonadeCarafe = new THREE.Mesh(milkGeo, smoothieBerryMat);
+  lemonadeCarafe.position.set(-0.05, 1.63, 0.16);
+  lemonadeCarafe.scale.set(1.28, 1.12, 1.28);
+  const orangeJuiceCarafe = new THREE.Mesh(milkGeo, citrusOrangeMat);
+  orangeJuiceCarafe.position.set(-0.12, 1.62, -0.06);
+
+  // 2 Chilled Berry Parfait Glasses
+  [0.08, 0.24].forEach((px, idx) => {
+    const parfait = new THREE.Mesh(
+      parfaitGlassGeo,
+      idx === 0 ? roseCrystalFoodMat : lemonCreamMat,
+    );
+    parfait.position.set(px, 1.59, 0.28);
+    parfait.rotation.x = Math.PI;
+    fridgeGroup.add(parfait);
+  });
+
+  fridgeGroup.add(
+    milkBottle1,
+    milkCap1,
+    milkBottle2,
+    milkCap2,
+    lemonadeCarafe,
+    orangeJuiceCarafe,
+  );
+
+  // Stack of 9 Pastel Macarons on Middle Shelf Right
+  const fridgeMacaronInst = new THREE.InstancedMesh(macaronGeo, roseCrystalFoodMat, 9);
+  for (let m = 0; m < 9; m++) {
+    const mx = 0.24 + (m % 3) * 0.1;
+    const my = 1.515 + Math.floor(m / 3) * 0.036;
+    _scratchDummy.position.set(mx, my, 0.12);
     _scratchDummy.rotation.set(0, m * 0.4, 0);
-    _scratchDummy.scale.setScalar(1.0);
+    _scratchDummy.scale.setScalar(1.05);
     _scratchDummy.updateMatrix();
     fridgeMacaronInst.setMatrixAt(m, _scratchDummy.matrix);
   }
   fridgeMacaronInst.instanceMatrix.needsUpdate = true;
   fridgeGroup.add(fridgeMacaronInst);
 
-  // BOTTOM SHELF (y = 1.08m): Fruit tarts, pudding cups & sparkling rose-water bottles
-  [-0.32, -0.12].forEach((tx) => {
+  // BOTTOM SHELF (y = 1.04m): 3 Golden Fruit Tarts, 2 Crème Caramel Puddings & 4 Sparkling Soda/Juice Cans
+  [-0.36, -0.16, 0.04].forEach((tx) => {
     const tart = new THREE.Mesh(tartCupGeo, champagneGoldFiligreeMat);
-    tart.position.set(tx, 1.12, 0.15);
+    tart.position.set(tx, 1.085, 0.22);
     fridgeGroup.add(tart);
   });
-  [0.06, 0.2].forEach((px) => {
-    const pudding = new THREE.Mesh(puddingCupGeo, lavenderSilk);
-    pudding.position.set(px, 1.135, 0.15);
+  [0.2, 0.36].forEach((px, idx) => {
+    const pudding = new THREE.Mesh(puddingCupGeo, idx === 0 ? lavenderSilk : lemonCreamMat);
+    pudding.position.set(px, 1.1, 0.22);
     fridgeGroup.add(pudding);
   });
-  [0.34, 0.44].forEach((rx) => {
-    const roseWater = new THREE.Mesh(milkGeo, roseCrystalFoodMat);
-    roseWater.position.set(rx, 1.21, 0.12);
-    roseWater.scale.set(0.85, 0.95, 0.85);
-    fridgeGroup.add(roseWater);
+  [-0.34, -0.18, -0.02, 0.14, 0.3].forEach((cx, idx) => {
+    const can = new THREE.Mesh(
+      sodaCanGeo,
+      idx % 2 === 0 ? barbieRoseLacquer : mintPastelEnamel,
+    );
+    can.position.set(cx, 1.12, -0.04);
+    fridgeGroup.add(can);
   });
 
-  fridgeGroup.add(fridgeBody, fridgeCrown, fridgeGlowBack);
+  // CRISPER DRAWER (y = 0.56m): Fresh Red Apples, Citrus Oranges & Sweet Melons
+  [
+    { x: -0.34, z: 0.18, mat: cherryRedMat, s: 1.0 },
+    { x: -0.18, z: 0.22, mat: cherryRedMat, s: 0.95 },
+    { x: -0.02, z: 0.18, mat: citrusOrangeMat, s: 1.05 },
+    { x: 0.14, z: 0.22, mat: citrusOrangeMat, s: 0.98 },
+    { x: 0.31, z: 0.18, mat: mintPastelEnamel, s: 1.25 },
+  ].forEach((fr) => {
+    const fruit = new THREE.Mesh(fruitAppleGeo, fr.mat);
+    fruit.position.set(fr.x, 0.56, fr.z);
+    fruit.scale.setScalar(fr.s);
+    fridgeGroup.add(fruit);
+  });
 
-  // Hinged Fridge Door (swings open 95 deg on left hinge)
+  // Hinged Fridge Door (swings open 95 deg on left hinge) with Interior Door Condiment Racks
   const fridgeDoorPivot = new THREE.Group();
   fridgeDoorPivot.position.set(-0.62, 0.25, 0.54);
   dynamicObjects.add(fridgeDoorPivot);
@@ -1187,6 +1343,24 @@ export function createCastleFloor1Rooms(
     tracker.trackGeo(new THREE.BoxGeometry(0.08, 0.52, 0.12)).translate(1.08, 1.2, 0.08),
     mats.champagneGold,
   );
+
+  // 2 Interior Door Racks holding Chilled Jam Jars & Rose Nectar Bottles (swing open with the door!)
+  const doorRackGeo = tracker.trackGeo(new THREE.BoxGeometry(0.88, 0.05, 0.16));
+  [0.78, 1.38].forEach((ry, rIdx) => {
+    const rack = new THREE.Mesh(doorRackGeo, mats.pearlWhite);
+    rack.position.set(0.62, ry, -0.1);
+    fridgeDoorPivot.add(rack);
+    [0.34, 0.54, 0.74, 0.9].forEach((bx, bIdx) => {
+      const itemMesh = new THREE.Mesh(
+        rIdx === 0 ? sodaCanGeo : milkGeo,
+        (bIdx + rIdx) % 2 === 0 ? roseCrystalFoodMat : lemonCreamMat,
+      );
+      itemMesh.scale.setScalar(rIdx === 0 ? 0.85 : 0.72);
+      itemMesh.position.set(bx, ry + 0.09, -0.1);
+      fridgeDoorPivot.add(itemMesh);
+    });
+  });
+
   fridgeDoorPivot.add(fridgeDoorMesh, fridgeHandleMesh);
   fridgeGroup.add(fridgeDoorPivot);
   kitchenGroup.add(fridgeGroup);

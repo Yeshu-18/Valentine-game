@@ -388,17 +388,40 @@ export function createDreamCastle(): DreamCastleBundle {
 
   const dummy = new THREE.Object3D();
   const samplePathwayCenter = (t: number): { lx: number; lz: number; tangentAngle: number } => {
-    // t = 0: Castle Porch Steps (lx: 0, lz: -20.5) [World: X 88, Z -2.5]
-    // t = 1: Fashion Boulevard Welcome Board (lx: -27.0, lz: -20.0) [World: X 61, Z -2]
-    const lx = THREE.MathUtils.lerp(0.0, -27.0, t);
-    const arcZ = Math.sin(t * Math.PI) * -4.5;
-    const lz = THREE.MathUtils.lerp(-20.5, -20.0, t) + arcZ;
+    // Cubic Bezier pathway connecting the Castle Front Entrance Steps (lx: 0, lz: -22.2)
+    // straight South (-Z) along the entrance centerline before curving smoothly West
+    // to the Fashion Boulevard Welcome Board (lx: -27.0, lz: -20.0).
+    const u = 1.0 - t;
+    const p0x = 0.0;
+    const p0z = -22.2;
+    const p1x = 0.0;
+    const p1z = -27.2;
+    const p2x = -15.5;
+    const p2z = -27.2;
+    const p3x = -27.0;
+    const p3z = -20.0;
 
-    const dt = 0.02;
-    const t2 = Math.min(1.0, t + dt);
-    const lx2 = THREE.MathUtils.lerp(0.0, -27.0, t2);
-    const lz2 = THREE.MathUtils.lerp(-20.5, -20.0, t2) + Math.sin(t2 * Math.PI) * -4.5;
-    const tangentAngle = Math.atan2(lx2 - lx, lz2 - lz);
+    const lx =
+      u * u * u * p0x +
+      3 * u * u * t * p1x +
+      3 * u * t * t * p2x +
+      t * t * t * p3x;
+    const lz =
+      u * u * u * p0z +
+      3 * u * u * t * p1z +
+      3 * u * t * t * p2z +
+      t * t * t * p3z;
+
+    // Exact analytic Bezier tangent dB/dt
+    const dx =
+      3 * u * u * (p1x - p0x) +
+      6 * u * t * (p2x - p1x) +
+      3 * t * t * (p3x - p2x);
+    const dz =
+      3 * u * u * (p1z - p0z) +
+      6 * u * t * (p2z - p1z) +
+      3 * t * t * (p3z - p2z);
+    const tangentAngle = Math.atan2(dx, dz);
 
     return { lx, lz, tangentAngle };
   };
@@ -431,7 +454,9 @@ export function createDreamCastle(): DreamCastleBundle {
       dummy.updateMatrix();
       sidePaverInst.setMatrixAt(idx, dummy.matrix);
 
-      const bedOffset = (2.35 + (i % 2) * 0.35) * side;
+      // Keep flower mounds outside the entrance lantern plaza near t = 0 so the entrance walkway is 100% clear
+      const entranceFlare = t < 0.14 ? (1.0 - t / 0.14) * 1.15 : 0.0;
+      const bedOffset = (2.35 + entranceFlare + (i % 2) * 0.35) * side;
       const fx = lx + perpX * bedOffset;
       const fz = lz + perpZ * bedOffset;
       const fy = getTerrainHeight(nav.originX + fx, nav.originZ + fz) - nav.baseY;
@@ -4149,45 +4174,95 @@ export function createDreamCastle(): DreamCastleBundle {
     bgStyle: 'gold' | 'blush' = 'gold',
   ): THREE.CanvasTexture => {
     const canvas = document.createElement('canvas');
-    canvas.width = 768;
-    canvas.height = 220;
+    canvas.width = 1536;
+    canvas.height = 440;
     const ctx = canvas.getContext('2d');
     if (ctx) {
       ctx.setTransform(1, 0, 0, 1, 0, 0);
-      ctx.clearRect(0, 0, 768, 220);
+      ctx.clearRect(0, 0, 1536, 440);
 
-      const grad = ctx.createLinearGradient(0, 0, 768, 220);
+      // 1. Radiant luminous pearl-gold enamel gradient
+      const grad = ctx.createLinearGradient(0, 0, 1536, 440);
       if (bgStyle === 'gold') {
-        grad.addColorStop(0, '#fffdf7');
-        grad.addColorStop(0.5, '#fef3c7');
-        grad.addColorStop(1, '#fde68a');
+        grad.addColorStop(0, '#fffef5');
+        grad.addColorStop(0.2, '#fef9c3');
+        grad.addColorStop(0.5, '#fef08a');
+        grad.addColorStop(0.8, '#fde68a');
+        grad.addColorStop(1, '#fef3c7');
       } else {
         grad.addColorStop(0, '#fff1f2');
-        grad.addColorStop(0.5, '#fce7f3');
-        grad.addColorStop(1, '#fbcfe8');
+        grad.addColorStop(0.4, '#fce7f3');
+        grad.addColorStop(0.75, '#fbcfe8');
+        grad.addColorStop(1, '#f9a8d4');
       }
       ctx.fillStyle = grad;
-      ctx.fillRect(8, 8, 752, 204);
+      ctx.fillRect(12, 12, 1512, 416);
 
-      ctx.strokeStyle = '#d4af37';
-      ctx.lineWidth = 7;
-      ctx.strokeRect(14, 14, 740, 192);
+      // 2. Chiseled Champagne-Gold Outer Border & Inner Filigree Inlay
+      ctx.strokeStyle = '#b45309';
+      ctx.lineWidth = 14;
+      ctx.strokeRect(18, 18, 1500, 404);
+
+      ctx.strokeStyle = '#d97706';
+      ctx.lineWidth = 8;
+      ctx.strokeRect(30, 30, 1476, 380);
+
       ctx.strokeStyle = '#be185d';
-      ctx.lineWidth = 2.5;
-      ctx.strokeRect(24, 24, 720, 172);
+      ctx.lineWidth = 4;
+      ctx.strokeRect(44, 44, 1448, 352);
 
+      // 3. Ornate Corner Flourishes
+      const drawCornerFlourish = (cx: number, cy: number, rot: number) => {
+        ctx.save();
+        ctx.translate(cx, cy);
+        ctx.rotate(rot);
+        ctx.strokeStyle = '#d97706';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.arc(0, 0, 32, 0, Math.PI * 0.5);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(0, 0, 22, 0, Math.PI * 0.5);
+        ctx.stroke();
+        ctx.fillStyle = '#be185d';
+        ctx.beginPath();
+        ctx.arc(24, 24, 5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      };
+      drawCornerFlourish(48, 48, 0);
+      drawCornerFlourish(1488, 48, Math.PI * 0.5);
+      drawCornerFlourish(1488, 392, Math.PI);
+      drawCornerFlourish(48, 392, Math.PI * 1.5);
+
+      // 4. Headline Typography (Large, Bold, High-Contrast Royal Ruby with Warm Shadow)
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillStyle = '#9d174d';
-      ctx.font = 'bold 42px Georgia, serif';
-      ctx.fillText(headline, 384, 84);
+      ctx.save();
+      ctx.shadowColor = 'rgba(180, 83, 9, 0.45)';
+      ctx.shadowBlur = 10;
+      ctx.shadowOffsetY = 3;
+      ctx.fillStyle = '#831843';
+      ctx.font = 'bold 84px Georgia, serif';
+      ctx.fillText(headline, 768, 168);
+      ctx.restore();
 
-      ctx.fillStyle = '#78350f';
-      ctx.font = 'italic 25px Georgia, serif';
-      ctx.fillText(subline, 384, 148);
+      // 5. Subline Typography (Italic Bronze-Plum Serif with Clean Spacing)
+      ctx.fillStyle = '#581c87';
+      ctx.font = 'italic 44px Georgia, serif';
+      ctx.fillText(subline, 768, 292);
+
+      // 6. Subtle Gold Accent Dots & Stars
+      ctx.fillStyle = '#d97706';
+      ctx.beginPath();
+      ctx.arc(768, 360, 6, 0, Math.PI * 2);
+      ctx.arc(718, 360, 4, 0, Math.PI * 2);
+      ctx.arc(818, 360, 4, 0, Math.PI * 2);
+      ctx.fill();
     }
     const tex = tracker.trackTex(new THREE.CanvasTexture(canvas));
     tex.colorSpace = THREE.SRGBColorSpace;
+    tex.anisotropy = 8;
     tex.flipY = true;
     tex.needsUpdate = true;
     return tex;
@@ -4202,34 +4277,77 @@ export function createDreamCastle(): DreamCastleBundle {
   entranceFrameGroup.name = 'RomanticCastleEntranceFrame';
   group.add(entranceFrameGroup);
 
+  const entranceEngravingTex = createRomanticEngravingTex(
+    '✦ ROYAL DREAM PALACE ✦',
+    'Welcome to our forever sanctuary on Heart Island',
+    'gold',
+  );
+
   const entranceEngravingMat = tracker.trackMat(
-    new THREE.MeshBasicMaterial({
-      map: createRomanticEngravingTex(
-        '✦ ROYAL DREAM PALACE ✦',
-        'Welcome to our forever sanctuary on Heart Island',
-        'gold',
-      ),
+    new THREE.MeshStandardMaterial({
+      map: entranceEngravingTex,
+      color: new THREE.Color('#ffffff'),
+      emissive: new THREE.Color('#fffbeb'),
+      emissiveIntensity: 0.68,
+      emissiveMap: entranceEngravingTex,
+      roughness: 0.18,
+      metalness: 0.22,
       side: THREE.FrontSide,
     }),
   );
-  const entranceFriezeBoardGeo = tracker.trackGeo(new THREE.BoxGeometry(5.2, 1.15, 0.14));
-  const entranceFriezePlaneGeo = tracker.trackGeo(new THREE.PlaneGeometry(4.95, 0.98));
 
+  // Board dimensions: Exactly 3.35m wide to comfortably fit between the two inner entrance columns (cx = ±1.9m)
+  // with 0.225m clearance on both sides, ensuring 100% of the board and letters are fully visible with zero column occlusion!
+  const entranceFriezeBoardGeo = tracker.trackGeo(new THREE.BoxGeometry(3.38, 0.96, 0.14));
+  const entranceFriezePlaneGeo = tracker.trackGeo(new THREE.PlaneGeometry(3.26, 0.88));
+  const entranceFriezeBracketGeo = tracker.trackGeo(new THREE.BoxGeometry(0.18, 0.44, 0.48));
+  const entranceCrownHeartGeo = buildSculptedHeart(0.48, tracker.trackMat(
+    new THREE.MeshStandardMaterial({
+      color: new THREE.Color('#f43f5e'),
+      emissive: new THREE.Color('#e11d48'),
+      emissiveIntensity: 0.6,
+      roughness: 0.15,
+      metalness: 0.1,
+    }),
+  ));
+
+  // Front Frieze Board mounted proudly at y = 6.42m, lz = -16.85m directly between the inner columns
   const entranceFriezeBoard = new THREE.Mesh(entranceFriezeBoardGeo, mats.champagneGold);
-  entranceFriezeBoard.position.set(0, 6.45, -16.92);
+  entranceFriezeBoard.position.set(0, 6.42, -16.85);
+
+  // Ornate gold bracket corbels anchoring the frieze board to the inner colonnade columns
+  const entranceFriezeBracketL = new THREE.Mesh(entranceFriezeBracketGeo, mats.champagneGold);
+  entranceFriezeBracketL.position.set(-1.68, 6.42, -16.85);
+  const entranceFriezeBracketR = new THREE.Mesh(entranceFriezeBracketGeo, mats.champagneGold);
+  entranceFriezeBracketR.position.set(1.68, 6.42, -16.85);
+
   // Front plaque facing South (-Z) toward approaching player & entrance camera (rotation.y = Math.PI)
   const entranceFriezeFront = new THREE.Mesh(entranceFriezePlaneGeo, entranceEngravingMat);
-  entranceFriezeFront.position.set(0, 6.45, -17.0);
+  entranceFriezeFront.position.set(0, 6.42, -16.93);
   entranceFriezeFront.rotation.y = Math.PI;
+
+  // Ornate sculpted Champagne-Gold Crown and Glowing Pink Crystal Heart Cameo above the Board
+  const entranceFriezeCrown = new THREE.Mesh(
+    tracker.trackGeo(new THREE.ConeGeometry(0.24, 0.52, 5)).translate(0, 0.26, 0),
+    mats.champagneGold,
+  );
+  entranceFriezeCrown.position.set(0, 6.9, -16.85);
+  entranceCrownHeartGeo.position.set(0, 7.02, -16.86);
+
   // Interior backing board & plaque facing North (+Z) toward the Grand Hall (rotation.y = 0)
   const entranceFriezeInnerBoard = new THREE.Mesh(entranceFriezeBoardGeo, mats.champagneGold);
-  entranceFriezeInnerBoard.position.set(0, 6.45, -15.39);
+  entranceFriezeInnerBoard.position.set(0, 6.42, -15.42);
   const entranceFriezeBack = new THREE.Mesh(entranceFriezePlaneGeo, entranceEngravingMat);
-  entranceFriezeBack.position.set(0, 6.45, -15.31);
+  entranceFriezeBack.position.set(0, 6.42, -15.34);
   entranceFriezeBack.rotation.y = 0;
+
   entranceFrameGroup.add(
     entranceFriezeBoard,
+    entranceFriezeBracketL,
+    entranceFriezeBracketR,
     entranceFriezeFront,
+    entranceFriezeCrown,
+    entranceCrownHeartGeo,
     entranceFriezeInnerBoard,
     entranceFriezeBack,
   );
@@ -4242,7 +4360,7 @@ export function createDreamCastle(): DreamCastleBundle {
     }),
   );
   const vineBlossomGeo = tracker.trackGeo(new THREE.SphereGeometry(0.11, 8, 8));
-  const hangingRibbonGeo = tracker.trackGeo(new THREE.BoxGeometry(0.18, 2.2, 0.03));
+  const hangingRibbonGeo = tracker.trackGeo(new THREE.BoxGeometry(0.18, 1.85, 0.03));
   const entranceLanternOrbGeo = tracker.trackGeo(new THREE.SphereGeometry(0.24, 10, 10));
 
   const awakeningWindowGlowMat = tracker.trackMat(
@@ -4263,7 +4381,7 @@ export function createDreamCastle(): DreamCastleBundle {
       vinePts.push(
         new THREE.Vector3(
           cx + Math.cos(vang) * 0.42,
-          0.35 + vt * 6.2,
+          0.35 + vt * 5.4,
           -16.8 + Math.sin(vang) * 0.42,
         ),
       );
@@ -4274,7 +4392,7 @@ export function createDreamCastle(): DreamCastleBundle {
         );
         rose.position.set(
           cx + Math.cos(vang) * 0.47,
-          0.35 + vt * 6.2,
+          0.35 + vt * 5.4,
           -16.8 + Math.sin(vang) * 0.47,
         );
         entranceFrameGroup.add(rose);
@@ -4287,12 +4405,12 @@ export function createDreamCastle(): DreamCastleBundle {
     );
     entranceFrameGroup.add(vineTube);
 
-    // Flowing silk ribbon & warm golden lantern suspended from the column capital
+    // Flowing silk ribbon & warm golden lantern suspended below the frieze board so it never blocks the sign
     const ribbon = new THREE.Mesh(hangingRibbonGeo, loveRibbonPinkMat);
-    ribbon.position.set(cx, 5.65, -17.28);
+    ribbon.position.set(cx, 4.72, -17.28);
     ribbon.rotation.z = (cIdx < 2 ? 1 : -1) * 0.08;
     const lanternOrb = new THREE.Mesh(entranceLanternOrbGeo, awakeningWindowGlowMat);
-    lanternOrb.position.set(cx, 5.15, -17.42);
+    lanternOrb.position.set(cx, 4.25, -17.38);
     entranceFrameGroup.add(ribbon, lanternOrb);
   });
 

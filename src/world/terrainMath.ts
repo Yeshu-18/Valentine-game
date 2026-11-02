@@ -755,7 +755,9 @@ export function getTerrainHeight(x: number, z: number): number {
     if (dist < totalR) {
       const plateauWeight = 1.0 - smoothstep(zone.radius * 0.55, totalR, dist);
       const isFlatCore =
-        zone.id === 'central-plaza' || zone.id === 'carnival-midway';
+        zone.id === 'central-plaza' ||
+        zone.id === 'carnival-midway' ||
+        zone.id === 'brick-valley';
       const zoneMicro = isFlatCore
         ? 0
         : noise2D(x * 0.04, z * 0.04) * 0.4 * (1.0 - plateauWeight * 0.7);
@@ -830,6 +832,13 @@ export function getTerrainHeight(x: number, z: number): number {
   if (distFromDreamCastle < 24.0) {
     const castleFlatWeight = 1.0 - smoothstep(18.0, 24.0, distFromDreamCastle);
     height = THREE.MathUtils.lerp(height, 10.0, castleFlatWeight);
+  }
+
+  // Level shelf at the Playful Brick District Workshop Plaza (-80, 5) at Y = 8.2m
+  const distFromBrickDistrict = Math.hypot(x - -80.0, z - 5.0);
+  if (distFromBrickDistrict < 22.0) {
+    const brickFlatWeight = 1.0 - smoothstep(15.0, 22.0, distFromBrickDistrict);
+    height = THREE.MathUtils.lerp(height, 8.2, brickFlatWeight);
   }
 
   const shoreTaper = smoothstep(0.0, 0.09, mask);

@@ -2143,59 +2143,65 @@ export class CreativeWing implements CastleFloor2CreativeWingBundle {
     dollRoomGroup.add(dollhouseGroup);
     this.addLocalCollider(9.55, 11.8, 0.35);
 
-    // LEGO-Style Construction Table (lx = 10.1, lz = 12.6 — tucked near NW corner so doorway foyer lz = 6.2..10.6 is 100% open)
-    const legoTableGroup = new THREE.Group();
-    legoTableGroup.position.set(10.1, y0, 12.6);
-    const legoTableBaseGeo = tracker.trackGeo(new THREE.BoxGeometry(1.1, 0.55, 0.9));
-    legoTableBaseGeo.translate(0, 0.275, 0);
-    legoTableGroup.add(new THREE.Mesh(legoTableBaseGeo, mats.softLavender));
-    dollRoomGroup.add(legoTableGroup);
-    this.addLocalCollider(10.1, 12.6, 0.42);
-
-    // Craft Table (lx = 14.55, lz = 8.4 — tucked along East wall so South Tabletop approach has >3.0m clear circle)
+    // Craft Table at (14.3, y0, 7.4)
     const craftGroup = new THREE.Group();
-    craftGroup.position.set(14.55, y0, 8.4);
-    const craftTableGeo = tracker.trackGeo(new THREE.CylinderGeometry(0.52, 0.52, 0.52, 16));
-    craftTableGeo.translate(0, 0.26, 0);
-    craftGroup.add(new THREE.Mesh(craftTableGeo, mats.pearlWhite));
+    craftGroup.position.set(14.3, y0, 7.4);
+    const craftTopGeo = tracker.trackGeo(new THREE.BoxGeometry(0.75, 0.52, 1.1));
+    craftTopGeo.translate(0, 0.26, 0);
+    const craftRimGeo = tracker.trackGeo(new THREE.BoxGeometry(0.81, 0.04, 1.16));
+    craftRimGeo.translate(0, 0.52, 0);
+    craftGroup.add(
+      new THREE.Mesh(craftTopGeo, wallMat),
+      new THREE.Mesh(craftRimGeo, goldTrimMat),
+    );
     dollRoomGroup.add(craftGroup);
-    this.addLocalCollider(14.55, 8.4, 0.45);
+    this.addLocalCollider(14.3, 7.4, 0.55);
+
+    // North Toy Shelf at (12.15, y0, 14.6)
+    const toyShelfGroup = new THREE.Group();
+    toyShelfGroup.position.set(12.15, y0, 14.6);
+    const tsBackGeo = tracker.trackGeo(new THREE.BoxGeometry(2.2, 1.6, 0.42));
+    tsBackGeo.translate(0, 0.8, 0);
+    toyShelfGroup.add(new THREE.Mesh(tsBackGeo, wallMat));
+    [0.52, 1.05, 1.58].forEach((sy) => {
+      const shelfBoardGeo = tracker.trackGeo(new THREE.BoxGeometry(2.24, 0.04, 0.46));
+      shelfBoardGeo.translate(0, sy, 0);
+      toyShelfGroup.add(new THREE.Mesh(shelfBoardGeo, goldTrimMat));
+    });
+    dollRoomGroup.add(toyShelfGroup);
+    this.addLocalCollider(12.15, 14.6, 0.45);
+
+    // Doll Bedroom Corner at (10.15, y0, 13.8)
+    const dollBedCorner = new THREE.Group();
+    dollBedCorner.position.set(10.15, y0, 13.8);
+    const bedFrameGeo = tracker.trackGeo(new THREE.BoxGeometry(0.95, 0.28, 1.25));
+    bedFrameGeo.translate(0, 0.14, 0);
+    const headboardGeo = tracker.trackGeo(new THREE.BoxGeometry(0.95, 0.65, 0.08));
+    headboardGeo.translate(0, 0.325, 0.58);
+    dollBedCorner.add(
+      new THREE.Mesh(bedFrameGeo, mats.blushRoseMarble),
+      new THREE.Mesh(headboardGeo, goldTrimMat),
+    );
+    dollRoomGroup.add(dollBedCorner);
+    this.addLocalCollider(10.15, 13.8, 0.58);
+
+    // Indoor Miniature Raised Garden Planter at (14.4, y0, 13.8)
+    const planterGroup = new THREE.Group();
+    planterGroup.position.set(14.4, y0, 13.8);
+    const planterBoxGeo = tracker.trackGeo(new THREE.BoxGeometry(0.85, 0.26, 0.85));
+    planterBoxGeo.translate(0, 0.13, 0);
+    const planterRimGeo = tracker.trackGeo(new THREE.BoxGeometry(0.91, 0.04, 0.91));
+    planterRimGeo.translate(0, 0.26, 0);
+    planterGroup.add(
+      new THREE.Mesh(planterBoxGeo, wallMat),
+      new THREE.Mesh(planterRimGeo, goldTrimMat),
+    );
+    dollRoomGroup.add(planterGroup);
+    this.addLocalCollider(14.4, 13.8, 0.48);
 
     const kidDrawTex = createSampleArtworkTexture(tracker, 'kid_drawing');
     this.addWallFrame(dollRoomGroup, 14.3, y0 + 2.0, 6.42, 0, kidDrawTex);
     this.addWallFrame(dollRoomGroup, 9.42, y0 + 2.0, 8.6, Math.PI / 2, kidDrawTex);
-
-    // Toy Shelf along North Wall (lx = 12.2, lz = 14.6)
-    const toyShelfGroup = new THREE.Group();
-    toyShelfGroup.position.set(12.2, y0, 14.6);
-    const tsShelfGeo = tracker.trackGeo(new THREE.BoxGeometry(2.6, 1.6, 0.38));
-    tsShelfGeo.translate(0, 0.8, 0);
-    toyShelfGroup.add(new THREE.Mesh(tsShelfGeo, wallMat));
-    dollRoomGroup.add(toyShelfGroup);
-    this.addLocalCollider(12.2, 14.6, 0.55);
-
-    // Doll Bedroom Corner (lx = 10.1, lz = 13.8)
-    const dollBedCorner = new THREE.Group();
-    dollBedCorner.position.set(10.1, y0, 13.8);
-    const miniBedGeo = tracker.trackGeo(new THREE.BoxGeometry(0.85, 0.28, 0.62));
-    miniBedGeo.translate(0, 0.14, 0);
-    const miniPillowGeo = tracker.trackGeo(new THREE.BoxGeometry(0.22, 0.08, 0.42));
-    miniPillowGeo.translate(-0.26, 0.31, 0);
-    dollBedCorner.add(
-      new THREE.Mesh(miniBedGeo, mats.blushRoseMarble),
-      new THREE.Mesh(miniPillowGeo, mats.pearlWhite),
-    );
-    dollRoomGroup.add(dollBedCorner);
-    this.addLocalCollider(10.1, 13.8, 0.48);
-
-    // Indoor Miniature Raised Garden Planter (lx = 14.4, lz = 13.8)
-    const miniGardenCorner = new THREE.Group();
-    miniGardenCorner.position.set(14.4, y0, 13.8);
-    const planterGeo = tracker.trackGeo(new THREE.CylinderGeometry(0.65, 0.72, 0.26, 16));
-    planterGeo.translate(0, 0.13, 0);
-    miniGardenCorner.add(new THREE.Mesh(planterGeo, mats.creamStone));
-    dollRoomGroup.add(miniGardenCorner);
-    this.addLocalCollider(14.4, 13.8, 0.55);
 
     // Instantiate Doll Playroom Micro-Props via shared MicroPropLibrary
     this.microPropLibrary.instantiateDollPlayroomProps(y0, yCeil);
@@ -3204,7 +3210,7 @@ export class CreativeWing implements CastleFloor2CreativeWingBundle {
       if (Math.hypot(lx - 12.85, lz - 11.85) <= 2.35) {
         return '[E] Inspect Garden Sanctuary · Walk to South Threshold for [E] Enter';
       }
-      return 'Walk to Sanctuary Table for [E] Enter Garden Sanctuary';
+      return 'Walk to the South Threshold of the Garden Sanctuary Table for [E]';
     }
 
     return null;
@@ -3618,7 +3624,7 @@ export class CreativeWing implements CastleFloor2CreativeWingBundle {
       this.filmRackLightMat.emissiveIntensity = 1.35 + Math.sin(clockTime * 2.4) * 0.15;
     }
 
-    // Update Jewellery Atelier & Tabletop Castle / Little Dream World subsystems
+    // Update Jewellery Atelier & Tabletop Castle subsystems
     this.jewelleryAtelier.update(delta, clockTime);
     this.tabletopWorld.update(delta, clockTime, playerPos);
 

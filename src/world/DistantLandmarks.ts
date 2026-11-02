@@ -1050,7 +1050,11 @@ export function createDistantLandmarks(): DistantLandmarksBundle {
   brickGroup.position.set(-80, brickBaseY, 5);
   brickGroup.rotation.y = Math.PI / 2;
   group.add(brickGroup);
-  colliders.push({ x: -80, z: 5, radius: 12 });
+  // Backdrop brick castle & crane colliders positioned on the West/South perimeter so (-80, 5) is an open walkable LEGO Workshop Plaza
+  colliders.push({ x: -94.0, z: 5.0, radius: 6.8 });
+  colliders.push({ x: -91.0, z: 15.0, radius: 3.4 });
+  colliders.push({ x: -91.0, z: -5.0, radius: 3.4 });
+  colliders.push({ x: -87.5, z: -8.5, radius: 1.5 });
 
   const brickRedMat = tracker.trackMat(
     new THREE.MeshPhysicalMaterial({
@@ -1118,18 +1122,18 @@ export function createDistantLandmarks(): DistantLandmarksBundle {
     }
   }
 
-  // Blue-and-Cream Brick Castle & Colorful Gabled Townhouses (Page 5!)
-  addGiantBrickBlock(0, 0, 0, 13, 8.0, 8.5, brickWhiteMat, 4, 2);
-  addGiantBrickBlock(0, 8.0, 0, 7.0, 10.5, 7.0, brickYellowMat, 2, 2);
-  addGiantBrickBlock(-8.0, 0, 2.0, 5.4, 13.0, 5.4, brickRedMat, 2, 2);
-  addGiantBrickBlock(8.0, 0, 2.0, 5.4, 13.0, 5.4, brickBlueMat, 2, 2);
-  addGiantBrickBlock(-13.5, 0, 7.5, 4.8, 8.5, 4.8, brickWhiteMat, 2, 2);
+  // Blue-and-Cream Brick Castle & Colorful Gabled Townhouses framing the West backdrop of the Playful Brick District Plaza
+  addGiantBrickBlock(0, 0, -14.0, 13, 8.0, 8.5, brickWhiteMat, 4, 2);
+  addGiantBrickBlock(0, 8.0, -14.0, 7.0, 10.5, 7.0, brickYellowMat, 2, 2);
+  addGiantBrickBlock(-10.0, 0, -11.0, 5.4, 13.0, 5.4, brickRedMat, 2, 2);
+  addGiantBrickBlock(10.0, 0, -11.0, 5.4, 13.0, 5.4, brickBlueMat, 2, 2);
+  addGiantBrickBlock(-13.5, 0, -4.5, 4.8, 8.5, 4.8, brickWhiteMat, 2, 2);
 
   const brickRoofCenterGeo = tracker.trackGeo(
     new THREE.ConeGeometry(5.5, 7.2, 4),
   );
   brickRoofCenterGeo.rotateY(Math.PI / 4);
-  brickRoofCenterGeo.translate(0, 22.1, 0);
+  brickRoofCenterGeo.translate(0, 22.1, -14.0);
   const brickRoofSideGeo = tracker.trackGeo(
     new THREE.ConeGeometry(4.0, 5.4, 4),
   );
@@ -1137,16 +1141,16 @@ export function createDistantLandmarks(): DistantLandmarksBundle {
 
   const bRoofC = new THREE.Mesh(brickRoofCenterGeo, brickBlueMat);
   const bRoofL = new THREE.Mesh(brickRoofSideGeo, brickBlueMat);
-  bRoofL.position.set(-8.0, 15.7, 2.0);
+  bRoofL.position.set(-10.0, 15.7, -11.0);
   const bRoofR = new THREE.Mesh(brickRoofSideGeo, brickRedMat);
-  bRoofR.position.set(8.0, 15.7, 2.0);
+  bRoofR.position.set(10.0, 15.7, -11.0);
   const bRoofTown = new THREE.Mesh(brickRoofSideGeo, brickRedMat);
-  bRoofTown.position.set(-13.5, 11.2, 7.5);
+  bRoofTown.position.set(-13.5, 11.2, -4.5);
   brickGroup.add(bRoofC, bRoofL, bRoofR, bRoofTown);
 
-  // Vintage Brick-Built Steam Express Train Puffing White Steam Clouds (Page 5!)
+  // Vintage Brick-Built Steam Express Train Puffing White Steam Clouds along the North flank of the Plaza
   const trainGroup = new THREE.Group();
-  trainGroup.position.set(-5, 0.2, 13.0);
+  trainGroup.position.set(-11.5, 0.2, 3.5);
   brickGroup.add(trainGroup);
 
   const boilerGeo = tracker.trackGeo(
@@ -1176,9 +1180,9 @@ export function createDistantLandmarks(): DistantLandmarksBundle {
     trainGroup.add(steamPuff);
   }
 
-  // Rotating Yellow Brick Construction Crane lifting a Blue Brick Block (Page 5!)
+  // Rotating Yellow Brick Construction Crane lifting a Blue Brick Block on the South flank of the Plaza
   const cranePivot = new THREE.Group();
-  cranePivot.position.set(13.5, 0, -4);
+  cranePivot.position.set(13.5, 0, -7.5);
   brickGroup.add(cranePivot);
   const craneMastGeo = tracker.trackGeo(new THREE.BoxGeometry(1.7, 22, 1.7));
   craneMastGeo.translate(0, 11, 0);

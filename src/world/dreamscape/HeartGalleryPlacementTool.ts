@@ -30,6 +30,7 @@ export interface HeartGalleryPlacementToolOptions {
   portraitExhibits: InteractivePortraitExhibit[];
   partitionMeshes: THREE.Mesh[];
   onActiveChange?: (active: boolean) => void;
+  canActivate?: () => boolean;
 }
 
 export interface HeartGalleryPlacementTool {
@@ -47,9 +48,11 @@ export function createHeartGalleryPlacementTool(
     scene,
     camera,
     domElement,
+    castleOrigin,
     portraitExhibits,
     partitionMeshes,
     onActiveChange,
+    canActivate,
   } = options;
 
   let active = false;
@@ -680,8 +683,20 @@ export function createHeartGalleryPlacementTool(
       return;
     }
 
-    // Key 'P' toggles placement mode
+    // Key 'P' toggles placement mode ONLY when already active OR when inside Dream Castle Floor 3 Heart Gallery
     if (e.code === 'KeyP') {
+      if (!active) {
+        if (canActivate && !canActivate()) {
+          return;
+        }
+        const inHeartGallery =
+          Math.abs(camera.position.x - castleOrigin.x) <= 22.0 &&
+          Math.abs(camera.position.z - castleOrigin.z) <= 22.0 &&
+          camera.position.y >= castleOrigin.y + 15.0;
+        if (!inHeartGallery) {
+          return;
+        }
+      }
       e.preventDefault();
       e.stopPropagation();
       setModeActive(!active);

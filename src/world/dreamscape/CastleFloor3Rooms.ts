@@ -381,16 +381,16 @@ export function createCastleFloor3Rooms(
     }),
   );
 
-  // Dedicated Champagne-Gold Material for the Physical 3D Floor Lettering (Controlled Specular, Low Emissive)
+  // Dedicated Champagne-Gold Material for the Physical 3D Floor Lettering (Vivid Warm Gold, Controlled Emissive)
   const inlaidLetterGoldMat = tracker.trackMat(
     new THREE.MeshPhysicalMaterial({
-      color: new THREE.Color('#fae29c'),
-      emissive: new THREE.Color('#b45309'),
-      emissiveIntensity: 0.08,
-      roughness: 0.2,
-      metalness: 0.86,
-      clearcoat: 0.65,
-      clearcoatRoughness: 0.14,
+      color: new THREE.Color('#fef08a'),
+      emissive: new THREE.Color('#d97706'),
+      emissiveIntensity: 0.38,
+      roughness: 0.16,
+      metalness: 0.88,
+      clearcoat: 0.8,
+      clearcoatRoughness: 0.1,
     }),
   );
 
@@ -936,15 +936,15 @@ export function createCastleFloor3Rooms(
     if (cached) return cached;
 
     const shape = createLetterShape2D(ch);
-    const letterW = ch === 'W' ? 0.22 : 0.175;
-    const letterH = 0.38; // 38cm tall floor letters for clear readability at 6m, 8m, and 10m
+    const letterW = ch === 'W' ? 0.24 : 0.19;
+    const letterH = 0.42; // 42cm tall floor letters for crystal-clear readability from distance
 
     const goldGeo = tracker.trackGeo(
       new THREE.ExtrudeGeometry(shape, {
-        depth: 0.022,
+        depth: 0.032,
         bevelEnabled: true,
-        bevelThickness: 0.005,
-        bevelSize: 0.004,
+        bevelThickness: 0.007,
+        bevelSize: 0.005,
         bevelSegments: 2,
         curveSegments: 12,
       }),
@@ -953,10 +953,10 @@ export function createCastleFloor3Rooms(
 
     const shadowGeo = tracker.trackGeo(
       new THREE.ExtrudeGeometry(shape, {
-        depth: 0.008,
+        depth: 0.012,
         bevelEnabled: true,
-        bevelThickness: 0.004,
-        bevelSize: 0.012,
+        bevelThickness: 0.005,
+        bevelSize: 0.014,
         bevelSegments: 1,
         curveSegments: 10,
       }),
@@ -1015,11 +1015,11 @@ export function createCastleFloor3Rooms(
 
       const shadowMesh = new THREE.Mesh(shadowGeo, inlaidLetterShadowMat);
       shadowMesh.rotation.setFromRotationMatrix(_letterBasisMat);
-      shadowMesh.position.set(lxPos, 0.012, lzPos);
+      shadowMesh.position.set(lxPos, 0.015, lzPos);
 
       const goldMesh = new THREE.Mesh(goldGeo, inlaidLetterGoldMat);
       goldMesh.rotation.setFromRotationMatrix(_letterBasisMat);
-      goldMesh.position.set(lxPos, 0.018, lzPos);
+      goldMesh.position.set(lxPos, 0.024, lzPos);
       goldMesh.castShadow = true;
       goldMesh.receiveShadow = true;
 
@@ -1031,16 +1031,16 @@ export function createCastleFloor3Rooms(
   placeArcInscription('HARSHA LOVES YESHWANTH', oppositeCenterPhi);
 
   // Two Inlaid Heart Motifs in between both texts (at primaryCenterPhi ± Math.PI * 0.5)
-  const floorHeartBezelGeo = buildExtrudedHeartGeometry(tracker, 0.28, 0.022, 0.008);
+  const floorHeartBezelGeo = buildExtrudedHeartGeometry(tracker, 0.32, 0.026, 0.009);
   floorHeartBezelGeo.rotateX(-Math.PI / 2);
-  const floorHeartCrystalGeo = buildExtrudedHeartGeometry(tracker, 0.21, 0.026, 0.008);
+  const floorHeartCrystalGeo = buildExtrudedHeartGeometry(tracker, 0.24, 0.032, 0.009);
   floorHeartCrystalGeo.rotateX(-Math.PI / 2);
 
   [primaryCenterPhi - Math.PI * 0.5, primaryCenterPhi + Math.PI * 0.5].forEach((heartPhi) => {
     const heartBezel = new THREE.Mesh(floorHeartBezelGeo, fountainGoldMat);
     heartBezel.position.set(
       Math.cos(heartPhi) * inscriptionRadius,
-      0.015,
+      0.018,
       Math.sin(heartPhi) * inscriptionRadius,
     );
     heartBezel.rotation.y = -heartPhi + Math.PI * 0.5;
@@ -1048,11 +1048,154 @@ export function createCastleFloor3Rooms(
     const heartCrystal = new THREE.Mesh(floorHeartCrystalGeo, floatingHeartCrystalMat);
     heartCrystal.position.set(
       Math.cos(heartPhi) * inscriptionRadius,
-      0.018,
+      0.022,
       Math.sin(heartPhi) * inscriptionRadius,
     );
     heartCrystal.rotation.y = -heartPhi + Math.PI * 0.5;
     plazaFountainGroup.add(heartBezel, heartCrystal);
+  });
+
+  // --- 0.1B DEDICATED ROYAL FOUNTAIN COMMEMORATIVE DEDICATION BOARDS / PLAQUES ---
+  // High-contrast, illuminated, eye-level angled presentation boards mounted on the fountain rim
+  // so "HARSHA LOVES YESHWANTH" & "YESHWANTH LOVES HARSHA" are 100% visible, elevated, and unmissable!
+  const createFountainDedicationPlaqueTex = (): THREE.CanvasTexture => {
+    const canvas = document.createElement('canvas');
+    canvas.width = 1024;
+    canvas.height = 420;
+    const ctx = canvas.getContext('2d');
+    if (ctx) {
+      ctx.clearRect(0, 0, 1024, 420);
+
+      // 1. Radiant champagne-gold & soft rose enamel gradient
+      const bgGrad = ctx.createLinearGradient(0, 0, 1024, 420);
+      bgGrad.addColorStop(0, '#fffdf7');
+      bgGrad.addColorStop(0.25, '#fef9c3');
+      bgGrad.addColorStop(0.5, '#fef08a');
+      bgGrad.addColorStop(0.75, '#fde68a');
+      bgGrad.addColorStop(1, '#fce7f3');
+      ctx.fillStyle = bgGrad;
+      ctx.fillRect(8, 8, 1008, 404);
+
+      // 2. Chiseled Royal Gold & Ruby Inlay Borders
+      ctx.strokeStyle = '#b45309';
+      ctx.lineWidth = 12;
+      ctx.strokeRect(14, 14, 996, 392);
+
+      ctx.strokeStyle = '#d97706';
+      ctx.lineWidth = 6;
+      ctx.strokeRect(26, 26, 972, 368);
+
+      ctx.strokeStyle = '#be185d';
+      ctx.lineWidth = 3.5;
+      ctx.strokeRect(38, 38, 948, 344);
+
+      // 3. Ornate Corner Medallions
+      [
+        { x: 42, y: 42 },
+        { x: 982, y: 42 },
+        { x: 982, y: 378 },
+        { x: 42, y: 378 },
+      ].forEach((c) => {
+        ctx.fillStyle = '#be185d';
+        ctx.beginPath();
+        ctx.arc(c.x, c.y, 7, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = '#d97706';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+      });
+
+      // 4. Line 1: HARSHA LOVES YESHWANTH
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.save();
+      ctx.shadowColor = 'rgba(180, 83, 9, 0.45)';
+      ctx.shadowBlur = 8;
+      ctx.shadowOffsetY = 2;
+      ctx.fillStyle = '#831843';
+      ctx.font = 'bold 54px Georgia, serif';
+      ctx.fillText('✦ HARSHA LOVES YESHWANTH ✦', 512, 118);
+      ctx.restore();
+
+      // 5. Center Golden Heart Medallion & Flourish
+      ctx.fillStyle = '#e11d48';
+      ctx.font = 'bold 44px Georgia, serif';
+      ctx.fillText('💖', 512, 192);
+
+      // 6. Line 2: YESHWANTH LOVES HARSHA
+      ctx.save();
+      ctx.shadowColor = 'rgba(180, 83, 9, 0.45)';
+      ctx.shadowBlur = 8;
+      ctx.shadowOffsetY = 2;
+      ctx.fillStyle = '#831843';
+      ctx.font = 'bold 54px Georgia, serif';
+      ctx.fillText('✦ YESHWANTH LOVES HARSHA ✦', 512, 268);
+      ctx.restore();
+
+      // 7. Dedication Subtitle
+      ctx.fillStyle = '#581c87';
+      ctx.font = 'italic 28px Georgia, serif';
+      ctx.fillText('Forever & Always on Heart Island · Floor 3 Palace Sanctuary', 512, 346);
+    }
+
+    const tex = tracker.trackTex(new THREE.CanvasTexture(canvas));
+    tex.colorSpace = THREE.SRGBColorSpace;
+    tex.anisotropy = 8;
+    tex.flipY = true;
+    tex.needsUpdate = true;
+    return tex;
+  };
+
+  const fountainDedicationTex = createFountainDedicationPlaqueTex();
+  const fountainDedicationPlaqueMat = tracker.trackMat(
+    new THREE.MeshStandardMaterial({
+      map: fountainDedicationTex,
+      color: new THREE.Color('#ffffff'),
+      emissive: new THREE.Color('#fffbeb'),
+      emissiveIntensity: 0.72,
+      emissiveMap: fountainDedicationTex,
+      roughness: 0.16,
+      metalness: 0.25,
+      side: THREE.FrontSide,
+    }),
+  );
+
+  const plaqueCartoucheBoardGeo = tracker.trackGeo(new THREE.BoxGeometry(1.22, 0.52, 0.06));
+  const plaqueCartouchePlaneGeo = tracker.trackGeo(new THREE.PlaneGeometry(1.16, 0.46));
+  const plaqueCartoucheLegGeo = tracker.trackGeo(new THREE.CylinderGeometry(0.04, 0.05, 0.42, 12));
+  const plaqueHeartFinialGeo = buildExtrudedHeartGeometry(tracker, 0.14, 0.035, 0.012);
+
+  // Mount twin dedication boards on the South promenade face and North gallery face of the fountain
+  [primaryCenterPhi, oppositeCenterPhi].forEach((plaquePhi) => {
+    const plaqueHolder = new THREE.Group();
+    // Positioned at the outer basin rim (r = 1.48m, y = 0.48m)
+    const px = Math.cos(plaquePhi) * 1.46;
+    const pz = Math.sin(plaquePhi) * 1.46;
+    plaqueHolder.position.set(px, 0.48, pz);
+
+    // Orient facing outward away from fountain center, tilted upward 26° for comfortable standing eye-level viewing
+    plaqueHolder.rotation.y = -plaquePhi - Math.PI * 0.5;
+    plaqueHolder.rotation.x = -Math.PI * 0.14;
+
+    const boardBack = new THREE.Mesh(plaqueCartoucheBoardGeo, fountainGoldMat);
+    const boardFace = new THREE.Mesh(plaqueCartouchePlaneGeo, fountainDedicationPlaqueMat);
+    boardFace.position.z = 0.032;
+
+    // Ornate top crystal heart finial
+    const topHeart = new THREE.Mesh(plaqueHeartFinialGeo, floatingHeartCrystalMat);
+    topHeart.position.set(0, 0.32, 0.015);
+    topHeart.rotation.z = Math.PI;
+
+    // Twin champagne-gold plinth legs anchoring to the marble basin rim
+    [-0.42, 0.42].forEach((lx) => {
+      const leg = new THREE.Mesh(plaqueCartoucheLegGeo, fountainGoldMat);
+      leg.position.set(lx, -0.32, -0.02);
+      leg.rotation.x = Math.PI * 0.14; // counter-tilt to stay vertical into the basin rim
+      plaqueHolder.add(leg);
+    });
+
+    plaqueHolder.add(boardBack, boardFace, topHeart);
+    plazaFountainGroup.add(plaqueHolder);
   });
 
   // --- 0.2 SHALLOW CIRCULAR POLISHED BLUSH-MARBLE BASIN (Diameter = 2.68m, Radius = 1.34m) ---
