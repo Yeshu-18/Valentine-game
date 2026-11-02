@@ -20,7 +20,20 @@ export type AvatarActivityPose =
   | 'manual_dance_l'
   | 'photo_pose_1'
   | 'photo_pose_2'
-  | 'photo_pose_3';
+  | 'photo_pose_3'
+  | 'pet_puppy'
+  | 'groom_wash'
+  | 'groom_brush'
+  | 'groom_style';
+
+export interface AvatarSkatingAnimState {
+  active: boolean;
+  accelerating: boolean;
+  turnSteer: number;
+  boosting: boolean;
+  spinProgress: number;
+  holdingBall?: boolean;
+}
 
 export interface OutfitPalettePreset {
   name: string;
@@ -94,6 +107,7 @@ export interface PlayerAvatarBundle {
     embraceAlpha?: number,
     kissAlpha?: number,
     isSitting?: boolean,
+    skatingState?: AvatarSkatingAnimState,
   ) => void;
   getRightHandWorldPosition: (target: THREE.Vector3) => THREE.Vector3;
   setFirstPersonVisibility: (isFirstPerson: boolean) => void;
@@ -841,6 +855,7 @@ export function createPlayerAvatar(): PlayerAvatarBundle {
       embraceAlpha = 0,
       kissAlpha = 0,
       isSitting = false,
+      skatingState?: AvatarSkatingAnimState,
     ) {
       if (isSitting) {
         bodyGroup.rotation.y = THREE.MathUtils.damp(bodyGroup.rotation.y, 0, 8, delta);
@@ -1460,6 +1475,203 @@ export function createPlayerAvatar(): PlayerAvatarBundle {
           );
           return;
         }
+
+        if (activityPose === 'pet_puppy') {
+          // Gentle forward crouch/bend with right hand reaching down in a soft petting motion
+          const petWave = Math.sin(elapsedTime * 7.2);
+          bodyGroup.position.y = THREE.MathUtils.damp(bodyGroup.position.y, -0.14, dRate, delta);
+          bodyGroup.rotation.x = THREE.MathUtils.damp(bodyGroup.rotation.x, 0.28, dRate, delta);
+          bodyGroup.rotation.y = THREE.MathUtils.damp(bodyGroup.rotation.y, petWave * 0.05, dRate, delta);
+          leftLegPivot.rotation.x = THREE.MathUtils.damp(leftLegPivot.rotation.x, -0.32, dRate, delta);
+          rightLegPivot.rotation.x = THREE.MathUtils.damp(rightLegPivot.rotation.x, -0.24, dRate, delta);
+          rightArmPivot.rotation.x = THREE.MathUtils.damp(
+            rightArmPivot.rotation.x,
+            -1.08 + petWave * 0.16,
+            14,
+            delta,
+          );
+          rightArmPivot.rotation.y = THREE.MathUtils.damp(
+            rightArmPivot.rotation.y,
+            -0.18 + Math.cos(elapsedTime * 7.2) * 0.14,
+            14,
+            delta,
+          );
+          rightArmPivot.rotation.z = THREE.MathUtils.damp(rightArmPivot.rotation.z, -0.1, dRate, delta);
+          leftArmPivot.rotation.x = THREE.MathUtils.damp(leftArmPivot.rotation.x, -0.45, dRate, delta);
+          leftArmPivot.rotation.z = THREE.MathUtils.damp(leftArmPivot.rotation.z, 0.22, dRate, delta);
+          headPivot.rotation.x = THREE.MathUtils.damp(headPivot.rotation.x, 0.24, dRate, delta);
+          headPivot.rotation.z = THREE.MathUtils.damp(headPivot.rotation.z, 0.1, dRate, delta);
+          ponytailPivot.rotation.x = 0.22;
+          return;
+        }
+
+        if (
+          activityPose === 'groom_wash' ||
+          activityPose === 'groom_brush' ||
+          activityPose === 'groom_style'
+        ) {
+          const cycle = elapsedTime * 6.5;
+          const s = Math.sin(cycle);
+          const c = Math.cos(cycle);
+          bodyGroup.position.y = THREE.MathUtils.damp(
+            bodyGroup.position.y,
+            Math.abs(s) * 0.025,
+            dRate,
+            delta,
+          );
+          bodyGroup.rotation.x = THREE.MathUtils.damp(bodyGroup.rotation.x, 0.14, dRate, delta);
+          bodyGroup.rotation.y = THREE.MathUtils.damp(bodyGroup.rotation.y, s * 0.08, dRate, delta);
+          leftLegPivot.rotation.x = THREE.MathUtils.damp(leftLegPivot.rotation.x, 0, dRate, delta);
+          rightLegPivot.rotation.x = THREE.MathUtils.damp(rightLegPivot.rotation.x, 0, dRate, delta);
+
+          if (activityPose === 'groom_wash') {
+            // Circular lathering with both hands over the grooming table
+            leftArmPivot.rotation.x = THREE.MathUtils.damp(leftArmPivot.rotation.x, -1.25 + s * 0.18, 14, delta);
+            rightArmPivot.rotation.x = THREE.MathUtils.damp(rightArmPivot.rotation.x, -1.25 - s * 0.18, 14, delta);
+            leftArmPivot.rotation.y = THREE.MathUtils.damp(leftArmPivot.rotation.y, -0.28 + c * 0.15, 14, delta);
+            rightArmPivot.rotation.y = THREE.MathUtils.damp(rightArmPivot.rotation.y, 0.28 - c * 0.15, 14, delta);
+          } else if (activityPose === 'groom_brush') {
+            // Sweeping brush strokes with right hand while left hand steadies
+            leftArmPivot.rotation.x = THREE.MathUtils.damp(leftArmPivot.rotation.x, -1.05, dRate, delta);
+            leftArmPivot.rotation.y = THREE.MathUtils.damp(leftArmPivot.rotation.y, -0.22, dRate, delta);
+            rightArmPivot.rotation.x = THREE.MathUtils.damp(rightArmPivot.rotation.x, -1.32 + s * 0.24, 15, delta);
+            rightArmPivot.rotation.y = THREE.MathUtils.damp(rightArmPivot.rotation.y, 0.18 + c * 0.25, 15, delta);
+          } else {
+            // Placing royal bow/crown accessory gently with both hands
+            leftArmPivot.rotation.x = THREE.MathUtils.damp(leftArmPivot.rotation.x, -1.38, dRate, delta);
+            rightArmPivot.rotation.x = THREE.MathUtils.damp(rightArmPivot.rotation.x, -1.38, dRate, delta);
+            leftArmPivot.rotation.y = THREE.MathUtils.damp(leftArmPivot.rotation.y, -0.35, dRate, delta);
+            rightArmPivot.rotation.y = THREE.MathUtils.damp(rightArmPivot.rotation.y, 0.35, dRate, delta);
+          }
+          headPivot.rotation.x = THREE.MathUtils.damp(headPivot.rotation.x, 0.18, dRate, delta);
+          headPivot.rotation.z = THREE.MathUtils.damp(headPivot.rotation.z, s * 0.08, dRate, delta);
+          return;
+        }
+      }
+
+      // Floor 3 Dedicated Arcade Ice Skating Animation (Stride, Coasting Glide, Carve Banking & 360 Spin Jump)
+      if (skatingState?.active) {
+        const dRate = 11.0;
+        const speedNorm = THREE.MathUtils.clamp(moveSpeed / 7.5, 0, 1.35);
+
+        if (skatingState.spinProgress > 0) {
+          // Airborne 360-degree Figure Skating Spin Jump: arms tucked tight to chest, legs crossed cleanly
+          bodyGroup.position.y = THREE.MathUtils.damp(bodyGroup.position.y, 0.08, 16, delta);
+          bodyGroup.rotation.x = THREE.MathUtils.damp(bodyGroup.rotation.x, 0.04, 14, delta);
+          bodyGroup.rotation.z = THREE.MathUtils.damp(bodyGroup.rotation.z, 0, 14, delta);
+          leftArmPivot.rotation.x = THREE.MathUtils.damp(leftArmPivot.rotation.x, -1.45, 16, delta);
+          rightArmPivot.rotation.x = THREE.MathUtils.damp(rightArmPivot.rotation.x, -1.45, 16, delta);
+          leftArmPivot.rotation.y = THREE.MathUtils.damp(leftArmPivot.rotation.y, -0.78, 16, delta);
+          rightArmPivot.rotation.y = THREE.MathUtils.damp(rightArmPivot.rotation.y, 0.78, 16, delta);
+          leftArmPivot.rotation.z = THREE.MathUtils.damp(leftArmPivot.rotation.z, 0.18, 16, delta);
+          rightArmPivot.rotation.z = THREE.MathUtils.damp(rightArmPivot.rotation.z, -0.18, 16, delta);
+          leftLegPivot.rotation.x = THREE.MathUtils.damp(leftLegPivot.rotation.x, -0.18, 16, delta);
+          rightLegPivot.rotation.x = THREE.MathUtils.damp(rightLegPivot.rotation.x, 0.28, 16, delta);
+          leftLegPivot.rotation.z = THREE.MathUtils.damp(leftLegPivot.rotation.z, -0.12, 16, delta);
+          rightLegPivot.rotation.z = THREE.MathUtils.damp(rightLegPivot.rotation.z, 0.16, 16, delta);
+          headPivot.rotation.x = THREE.MathUtils.damp(headPivot.rotation.x, -0.08, 14, delta);
+          ponytailPivot.rotation.x = 0.38;
+          ponytailPivot.rotation.y = Math.sin(elapsedTime * 14.0) * 0.28;
+          return;
+        }
+
+        const bankRoll = THREE.MathUtils.clamp(
+          skatingState.turnSteer * (skatingState.boosting ? 0.28 : 0.2),
+          -0.3,
+          0.3,
+        );
+        const forwardLean =
+          speedNorm > 0.06
+            ? (skatingState.boosting ? 0.25 : 0.16) * Math.min(speedNorm, 1.1)
+            : 0.04;
+
+        if (skatingState.accelerating && speedNorm > 0.05) {
+          // Alternating left/right skate push-off stride sway
+          const strideFreq = skatingState.boosting ? 9.2 : 6.8;
+          walkPhase += delta * strideFreq * Math.max(0.45, Math.min(speedNorm, 1.25));
+          const s = Math.sin(walkPhase);
+          const c = Math.cos(walkPhase);
+
+          bodyGroup.position.y = THREE.MathUtils.damp(
+            bodyGroup.position.y,
+            -0.03 + Math.abs(c) * 0.045,
+            dRate,
+            delta,
+          );
+          bodyGroup.rotation.x = THREE.MathUtils.damp(bodyGroup.rotation.x, forwardLean, dRate, delta);
+          bodyGroup.rotation.z = THREE.MathUtils.damp(
+            bodyGroup.rotation.z,
+            bankRoll - s * 0.09,
+            dRate,
+            delta,
+          );
+          bodyGroup.rotation.y = THREE.MathUtils.damp(bodyGroup.rotation.y, s * 0.1, dRate, delta);
+
+          leftLegPivot.rotation.x = THREE.MathUtils.damp(leftLegPivot.rotation.x, s * 0.52, dRate, delta);
+          rightLegPivot.rotation.x = THREE.MathUtils.damp(rightLegPivot.rotation.x, -s * 0.52, dRate, delta);
+          leftLegPivot.rotation.z = THREE.MathUtils.damp(
+            leftLegPivot.rotation.z,
+            Math.max(0, -s) * 0.22,
+            dRate,
+            delta,
+          );
+          rightLegPivot.rotation.z = THREE.MathUtils.damp(
+            rightLegPivot.rotation.z,
+            -Math.max(0, s) * 0.22,
+            dRate,
+            delta,
+          );
+
+          leftArmPivot.rotation.x = THREE.MathUtils.damp(leftArmPivot.rotation.x, -s * 0.45 - 0.15, dRate, delta);
+          rightArmPivot.rotation.x = THREE.MathUtils.damp(
+            rightArmPivot.rotation.x,
+            skatingState.holdingBall ? -0.95 : s * 0.45 - 0.15,
+            dRate,
+            delta,
+          );
+          leftArmPivot.rotation.z = THREE.MathUtils.damp(leftArmPivot.rotation.z, 0.38, dRate, delta);
+          rightArmPivot.rotation.z = THREE.MathUtils.damp(rightArmPivot.rotation.z, -0.38, dRate, delta);
+          headPivot.rotation.z = THREE.MathUtils.damp(headPivot.rotation.z, -bankRoll * 0.5, dRate, delta);
+          ponytailPivot.rotation.x = 0.22 + speedNorm * 0.18;
+          ponytailPivot.rotation.y = c * 0.22;
+          return;
+        } else if (speedNorm > 0.12) {
+          // Graceful one-leg coasting figure-skater glide pose
+          bodyGroup.position.y = THREE.MathUtils.damp(
+            bodyGroup.position.y,
+            -0.02 + Math.sin(elapsedTime * 3.0) * 0.015,
+            dRate,
+            delta,
+          );
+          bodyGroup.rotation.x = THREE.MathUtils.damp(bodyGroup.rotation.x, forwardLean + 0.04, dRate, delta);
+          bodyGroup.rotation.z = THREE.MathUtils.damp(bodyGroup.rotation.z, bankRoll, dRate, delta);
+          bodyGroup.rotation.y = THREE.MathUtils.damp(bodyGroup.rotation.y, 0.08, dRate, delta);
+
+          leftLegPivot.rotation.x = THREE.MathUtils.damp(leftLegPivot.rotation.x, -0.14, dRate, delta);
+          rightLegPivot.rotation.x = THREE.MathUtils.damp(
+            rightLegPivot.rotation.x,
+            0.55 * Math.min(1.0, speedNorm),
+            dRate,
+            delta,
+          );
+          leftLegPivot.rotation.z = THREE.MathUtils.damp(leftLegPivot.rotation.z, 0.04, dRate, delta);
+          rightLegPivot.rotation.z = THREE.MathUtils.damp(rightLegPivot.rotation.z, -0.12, dRate, delta);
+
+          leftArmPivot.rotation.x = THREE.MathUtils.damp(leftArmPivot.rotation.x, -0.42, dRate, delta);
+          rightArmPivot.rotation.x = THREE.MathUtils.damp(
+            rightArmPivot.rotation.x,
+            skatingState.holdingBall ? -0.95 : -0.32,
+            dRate,
+            delta,
+          );
+          leftArmPivot.rotation.z = THREE.MathUtils.damp(leftArmPivot.rotation.z, 0.58, dRate, delta);
+          rightArmPivot.rotation.z = THREE.MathUtils.damp(rightArmPivot.rotation.z, -0.58, dRate, delta);
+          headPivot.rotation.x = THREE.MathUtils.damp(headPivot.rotation.x, -0.08, dRate, delta);
+          headPivot.rotation.z = THREE.MathUtils.damp(headPivot.rotation.z, -bankRoll * 0.45, dRate, delta);
+          ponytailPivot.rotation.x = 0.2 + speedNorm * 0.2;
+          ponytailPivot.rotation.y = Math.sin(elapsedTime * 3.5) * 0.12;
+          return;
+        }
       }
 
       bodyGroup.rotation.y = THREE.MathUtils.damp(bodyGroup.rotation.y, 0, 10, delta);
@@ -1620,12 +1832,15 @@ export function createPlayerAvatar(): PlayerAvatarBundle {
         leftLegPivot.rotation.x = Math.sin(walkPhase) * swingAmp;
         rightLegPivot.rotation.x = -Math.sin(walkPhase) * swingAmp;
 
+        const holdingBallPose = Boolean(skatingState?.holdingBall);
         leftArmPivot.rotation.x = -Math.sin(walkPhase) * swingAmp * 0.82;
         rightArmPivot.rotation.x = handGiftPose
           ? THREE.MathUtils.damp(rightArmPivot.rotation.x, -1.25, 10, delta)
-          : roseHeld
-            ? THREE.MathUtils.damp(rightArmPivot.rotation.x, -0.68, 10, delta)
-            : Math.sin(walkPhase) * swingAmp * 0.82;
+          : holdingBallPose
+            ? THREE.MathUtils.damp(rightArmPivot.rotation.x, -0.92, 12, delta)
+            : roseHeld
+              ? THREE.MathUtils.damp(rightArmPivot.rotation.x, -0.68, 10, delta)
+              : Math.sin(walkPhase) * swingAmp * 0.82;
 
         bodyGroup.position.y = Math.abs(Math.sin(walkPhase)) * 0.055;
         const targetLean = isSprinting ? 0.14 : 0.06;
@@ -1657,9 +1872,16 @@ export function createPlayerAvatar(): PlayerAvatarBundle {
           10,
           delta,
         );
+        const holdingBallIdle = Boolean(skatingState?.holdingBall);
         rightArmPivot.rotation.x = THREE.MathUtils.damp(
           rightArmPivot.rotation.x,
-          handGiftPose ? -1.25 : roseHeld ? -0.72 : -Math.sin(elapsedTime * 1.8) * 0.03,
+          handGiftPose
+            ? -1.25
+            : holdingBallIdle
+              ? -0.92
+              : roseHeld
+                ? -0.72
+                : -Math.sin(elapsedTime * 1.8) * 0.03,
           10,
           delta,
         );

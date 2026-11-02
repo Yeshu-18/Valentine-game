@@ -194,6 +194,8 @@ export function createPlayerController(
     dreamCastle.floor3Rooms.setAvatarCallbacks({
       setActivityPose: (pose) => avatar.setActivityPose(pose),
       resetNeutralPose: () => avatar.resetNeutralPose?.(),
+      getRightHandWorldPos: (out) => avatar.getRightHandWorldPosition(out),
+      getPlayerFacingYaw: () => facingYaw,
     });
     dreamCastle.floor2CreativeWing.setAvatarBridge({
       getRingAttachmentWorldPos: (out) => avatar.getRingAttachmentWorldPos(out),
@@ -841,6 +843,16 @@ export function createPlayerController(
   let suppressNextPointerDeltas = 0;
   let wasAnyCastleActivityCamActive = false;
   let skatingSpinTimer = 0.0;
+  let skateForwardSpeed = 0.0;
+  let skateSteerSmoothed = 0.0;
+  const _skatingAnimState = {
+    active: false,
+    accelerating: false,
+    turnSteer: 0,
+    boosting: false,
+    spinProgress: 0,
+    holdingBall: false,
+  };
   const cameraTargetPosition = new THREE.Vector3();
   const cameraTargetLookAt = new THREE.Vector3();
   const cameraControlVel = new THREE.Vector3();
@@ -901,7 +913,10 @@ export function createPlayerController(
         isDragging = false;
         lastFreeMouseX = null;
         lastFreeMouseY = null;
-        playerVelocity.set(0, 0, 0);
+        if (!dreamCastle.floor3Rooms.isSkatingModeActive?.()) {
+          playerVelocity.set(0, 0, 0);
+          skateForwardSpeed = 0;
+        }
         verticalVel = 0;
         isGrounded = true;
       }
@@ -1222,10 +1237,11 @@ export function createPlayerController(
     } else if (e.code === 'Space' && locomotionState === 'walk' && isGrounded) {
       e.preventDefault();
       const onIce = Boolean(dreamCastle?.floor3Rooms.isPlayerOnIceRink?.(playerPos));
-      verticalVel = onIce ? 6.4 : 7.2;
+      const isSkating = Boolean(onIce && dreamCastle?.floor3Rooms.isSkatingModeActive?.());
+      verticalVel = isSkating ? 6.6 : onIce ? 6.4 : 7.2;
       isGrounded = false;
-      if (onIce) {
-        skatingSpinTimer = 0.65;
+      if (isSkating || onIce) {
+        skatingSpinTimer = 0.68;
         dreamCastle?.floor3Rooms.triggerSkatingJump?.();
       }
     }
@@ -1733,6 +1749,11 @@ export function createPlayerController(
       locomotionState === 'flight' &&
       (keys.has('ShiftLeft') || keys.has('ShiftRight')) &&
       flightForwardSpeed > 15.5;
+    const isSkatingNow = Boolean(
+      locomotionState === 'walk' &&
+        dreamCastle?.floor3Rooms.isSkatingModeActive?.() &&
+        dreamCastle?.floor3Rooms.isPlayerOnIceRink?.(playerPos),
+    );
     const statusLabel =
       locomotionState === 'flight'
         ? isBoosting
@@ -1740,11 +1761,15 @@ export function createPlayerController(
           : 'Broom Flight'
         : locomotionState === 'mounting'
           ? 'Mounting Broom'
-          : isSprinting
-            ? 'Sprinting'
-            : horizSpeed > 0.3
-              ? 'Walking'
-              : 'Standing';
+          : isSkatingNow
+            ? isSprinting
+              ? 'Skating Boost'
+              : 'Ice Skating'
+            : isSprinting
+              ? 'Sprinting'
+              : horizSpeed > 0.3
+                ? 'Walking'
+                : 'Standing';
 
     return {
       x: playerPos.x,
@@ -2490,35 +2515,112 @@ export function createPlayerController(
         if (moveRight) _moveDir.add(_right);
         if (moveLeft) _moveDir.sub(_right);
 
-        const isSkatingOnIce = Boolean(
+        const onIceRinkSurface = Boolean(
           dreamCastle?.floor3Rooms.isPlayerOnIceRink?.(playerPos),
+        );
+        if (!onIceRinkSurface && dreamCastle?.floor3Rooms.isSkatingModeActive?.()) {
+          dreamCastle.floor3Rooms.exitSkatingMode();
+          skateForwardSpeed = 0;
+        }
+        const isSkatingMode = Boolean(
+          onIceRinkSurface && dreamCastle?.floor3Rooms.isSkatingModeActive?.(),
         );
         if (skatingSpinTimer > 0) {
           skatingSpinTimer = Math.max(0, skatingSpinTimer - dt);
         }
 
         const hasInput = !lakeMemoryActive && _moveDir.lengthSq() > 0.001;
-        if (hasInput) {
-          _moveDir.normalize();
-          const baseMaxSpeed = isSprinting ? SPRINT_SPEED : WALK_SPEED;
-          const maxSpeed = isSkatingOnIce ? baseMaxSpeed * 1.26 : baseMaxSpeed;
-          _targetVelocity.set(_moveDir.x * maxSpeed, 0, _moveDir.z * maxSpeed);
+        if (isSkatingMode && !lakeMemoryActive && !isInstrumentOrInspectLocked) {
+          // ==================================================================
+          // DEDICATED ARCADE ICE SKATING MOVEMENT (Floor 3 Ice Skating Palace)
+          // W = accelerate forward, S = brake/reverse, A/D = smooth carving turn,
+          // Shift = speed boost, Space = 360° spin jump, low-friction coasting glide
+          // ==================================================================
+          const SKATE_CRUISE_SPEED = 6.5;
+          const SKATE_BOOST_SPEED = 9.2;
+          const SKATE_REVERSE_SPEED = -2.4;
 
-          const targetFacing = Math.atan2(_moveDir.x, _moveDir.z);
-          const diff = wrapAnglePi(targetFacing - facingYaw);
-          const turnRate = isSkatingOnIce ? 7.5 : 12.0;
-          facingYaw = wrapAnglePi(
-            facingYaw + diff * (1 - Math.exp(-turnRate * smoothDt)),
+          let targetSkateSpeed = 0.0;
+          if (moveForward) {
+            targetSkateSpeed = isSprinting ? SKATE_BOOST_SPEED : SKATE_CRUISE_SPEED;
+          } else if (moveBackward) {
+            targetSkateSpeed = SKATE_REVERSE_SPEED;
+          }
+
+          // Gradual acceleration when pressing W, gentle braking on S, very low ice friction when coasting
+          const skateAccelRate = moveForward
+            ? isSprinting
+              ? 4.4
+              : 3.4
+            : moveBackward
+              ? 4.8
+              : 0.72;
+          skateForwardSpeed = dampValue(
+            skateForwardSpeed,
+            targetSkateSpeed,
+            skateAccelRate,
+            smoothDt,
           );
-        } else {
-          _targetVelocity.set(0, 0, 0);
-        }
+          if (!moveForward && !moveBackward && Math.abs(skateForwardSpeed) < 0.04) {
+            skateForwardSpeed = 0;
+          }
 
-        // Smooth player velocity transitions (low-friction gliding momentum on Floor 3 Ice Rink)
-        const accelDamp = isSkatingOnIce ? (hasInput ? 4.8 : 2.6) : 14.0;
-        playerVelocity.lerp(_targetVelocity, 1 - Math.exp(-accelDamp * smoothDt));
-        if (!hasInput && playerVelocity.lengthSq() < 0.0001) {
-          playerVelocity.set(0, 0, 0);
+          // Smooth Carving Steering (A = carve left, D = carve right; wider arc at high speed, agile at low speed)
+          let steerInput = (moveLeft ? 1 : 0) - (moveRight ? 1 : 0);
+          if (moveForward && steerInput === 0) {
+            // Subtle alignment toward camera heading when skating straight ahead
+            const camDiff = wrapAnglePi(cameraYaw - facingYaw);
+            if (Math.abs(camDiff) > 0.03) {
+              steerInput = THREE.MathUtils.clamp(camDiff * 0.95, -0.85, 0.85);
+            }
+          }
+          skateSteerSmoothed = dampValue(skateSteerSmoothed, steerInput, 9.5, smoothDt);
+
+          const speedRatio = THREE.MathUtils.clamp(
+            Math.abs(skateForwardSpeed) / SKATE_BOOST_SPEED,
+            0,
+            1,
+          );
+          // Turn rate is faster at low speed (4.0 rad/s) and wider at high speed (2.35 rad/s)
+          const carveTurnRate = THREE.MathUtils.lerp(4.0, 2.35, speedRatio);
+          const revSign = skateForwardSpeed < -0.2 ? -1 : 1;
+          facingYaw = wrapAnglePi(
+            facingYaw + skateSteerSmoothed * carveTurnRate * revSign * smoothDt,
+          );
+
+          // Velocity smoothly carves along facingYaw with slight ice drift inertia
+          const skateFwdX = Math.sin(facingYaw);
+          const skateFwdZ = Math.cos(facingYaw);
+          _targetVelocity.set(
+            skateFwdX * skateForwardSpeed,
+            0,
+            skateFwdZ * skateForwardSpeed,
+          );
+          playerVelocity.lerp(_targetVelocity, 1 - Math.exp(-6.2 * smoothDt));
+        } else {
+          skateForwardSpeed = Math.hypot(playerVelocity.x, playerVelocity.z);
+          skateSteerSmoothed = dampValue(skateSteerSmoothed, 0, 10.0, smoothDt);
+          if (hasInput) {
+            _moveDir.normalize();
+            const baseMaxSpeed = isSprinting ? SPRINT_SPEED : WALK_SPEED;
+            const maxSpeed = onIceRinkSurface ? baseMaxSpeed * 1.15 : baseMaxSpeed;
+            _targetVelocity.set(_moveDir.x * maxSpeed, 0, _moveDir.z * maxSpeed);
+
+            const targetFacing = Math.atan2(_moveDir.x, _moveDir.z);
+            const diff = wrapAnglePi(targetFacing - facingYaw);
+            const turnRate = onIceRinkSurface ? 8.5 : 12.0;
+            facingYaw = wrapAnglePi(
+              facingYaw + diff * (1 - Math.exp(-turnRate * smoothDt)),
+            );
+          } else {
+            _targetVelocity.set(0, 0, 0);
+          }
+
+          const accelDamp = onIceRinkSurface ? (hasInput ? 6.0 : 3.8) : 14.0;
+          playerVelocity.lerp(_targetVelocity, 1 - Math.exp(-accelDamp * smoothDt));
+          if (!hasInput && playerVelocity.lengthSq() < 0.0001) {
+            playerVelocity.set(0, 0, 0);
+          }
         }
 
         // Sub-stepped movement & collision resolution (4 sub-steps per tick) so fast sprinting never tunnels through walls
@@ -2541,6 +2643,13 @@ export function createPlayerController(
           } else {
             playerVelocity.x = 0;
             playerVelocity.z = 0;
+          }
+
+          if (isSkatingMode && dreamCastle) {
+            dreamCastle.floor3Rooms.constrainSkatingToRinkCurb(
+              playerPos,
+              playerVelocity,
+            );
           }
 
           const walkNearby = queryNearbyColliders(playerPos.x, playerPos.z);
@@ -2604,6 +2713,15 @@ export function createPlayerController(
         }
 
         const horizSpeed = Math.hypot(playerVelocity.x, playerVelocity.z);
+        if (isSkatingMode && isGrounded && dreamCastle) {
+          dreamCastle.floor3Rooms.recordSkateBladeMark(
+            playerPos.x,
+            playerPos.z,
+            facingYaw,
+            horizSpeed,
+          );
+        }
+
         const activeFocus = lakeMemoryActive
           ? wizardingSchool.getCameraFocus()
           : null;
@@ -2623,7 +2741,7 @@ export function createPlayerController(
           avatar.group.position.copy(playerPos);
           const spinYawOffset =
             skatingSpinTimer > 0
-              ? (1.0 - skatingSpinTimer / 0.65) * Math.PI * 2.0
+              ? (1.0 - skatingSpinTimer / 0.68) * Math.PI * 2.0
               : 0.0;
           avatar.group.rotation.set(0, facingYaw + spinYawOffset, 0);
         }
@@ -2635,16 +2753,28 @@ export function createPlayerController(
         if (dreamCastle?.nav.activeCameraFocus?.mode === 'entrance') {
           avatar.setRaisingHand(dreamCastle.nav.isEntranceRoseHandoverMoment());
         }
+
+        _skatingAnimState.active = isSkatingMode && !isCastlePosed;
+        _skatingAnimState.accelerating = Boolean(moveForward || moveBackward);
+        _skatingAnimState.turnSteer = skateSteerSmoothed;
+        _skatingAnimState.boosting = Boolean(isSprinting && moveForward);
+        _skatingAnimState.spinProgress =
+          skatingSpinTimer > 0 ? 1.0 - skatingSpinTimer / 0.68 : 0.0;
+        _skatingAnimState.holdingBall = Boolean(
+          dreamCastle?.floor3Rooms.isHoldingPuppyBall?.(),
+        );
+
         avatar.updateAnimation(
           dt,
           isCastlePosed ? 0 : horizSpeed,
-          isSprinting && hasInput && !isCastlePosed,
+          isSprinting && (hasInput || isSkatingMode) && !isCastlePosed,
           elapsedTime,
           false,
           false,
           embraceAlpha,
           kissAlpha,
           isCastleSitting,
+          _skatingAnimState,
         );
 
         // Locked Correction Pass Section 2: ZERO early zoom-out during castle entrance approach!

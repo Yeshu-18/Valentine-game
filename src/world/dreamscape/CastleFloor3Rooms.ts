@@ -6,6 +6,9 @@ import {
   InteractivePortraitExhibit,
   GALLERY_PLACEMENT_STORAGE_KEY,
 } from './HeartGalleryPlacementTool';
+import { RosePetalGeometry } from './RosePetalGeometry';
+
+export { RosePetalGeometry };
 
 export type Floor3ActiveCameraMode = 'none' | 'heart_gallery';
 
@@ -37,6 +40,8 @@ export interface CastleFloor3RoomsBundle {
   setAvatarCallbacks: (cbs: {
     setActivityPose: (pose: any) => void;
     resetNeutralPose: () => void;
+    getRightHandWorldPos?: (out: THREE.Vector3) => THREE.Vector3;
+    getPlayerFacingYaw?: () => number;
   }) => void;
   interact: (playerPos: THREE.Vector3) => boolean;
   handleKeyAction: (code: string) => boolean;
@@ -48,6 +53,14 @@ export interface CastleFloor3RoomsBundle {
   getGalleryFrames: () => readonly GalleryFrameInfo[];
   getInteractivePortraitExhibits: () => InteractivePortraitExhibit[];
   isPlayerOnIceRink: (playerPos: THREE.Vector3) => boolean;
+  isSkatingModeActive: () => boolean;
+  exitSkatingMode: () => void;
+  constrainSkatingToRinkCurb: (
+    playerPos: THREE.Vector3,
+    playerVel: THREE.Vector3,
+  ) => void;
+  recordSkateBladeMark: (wx: number, wz: number, yaw: number, speed: number) => void;
+  isHoldingPuppyBall: () => boolean;
   triggerSkatingJump: () => void;
   update: (
     delta: number,
@@ -70,10 +83,13 @@ interface GalleryMemory {
 
 type PuppyBehaviorState = 'REST' | 'WANDER' | 'PLAY' | 'FOLLOW_PLAYER';
 
+type PuppyRetrievePhase = 'NONE' | 'CHASE_BALL' | 'RETURN_TO_PLAYER' | 'PLAY_BOW';
+
 interface PuppyNpc {
   name: string;
   personality: 'energetic' | 'curious' | 'sleepy' | 'playful';
   root: THREE.Group;
+  bodyMesh: THREE.Mesh;
   headPivot: THREE.Group;
   tailPivot: THREE.Group;
   legFL: THREE.Group;
@@ -92,6 +108,10 @@ interface PuppyNpc {
   speed: number;
   hopPhase: number;
   barkSparkleBoost: number;
+  retrievePhase: PuppyRetrievePhase;
+  playBowTimer: number;
+  carryingBallIdx: number;
+  followDisengageTimer: number;
 }
 
 const GALLERY_STORAGE_KEY_PREFIX = 'heart_island_gallery_frame_v1_';
@@ -155,7 +175,10 @@ export function createCastleFloor3Rooms(
   let avatarCallbacks: {
     setActivityPose: (pose: any) => void;
     resetNeutralPose: () => void;
+    getRightHandWorldPos?: (out: THREE.Vector3) => THREE.Vector3;
+    getPlayerFacingYaw?: () => number;
   } | null = null;
+  const _handWorldScratch = new THREE.Vector3();
 
   let audioCtx: AudioContext | null = null;
   const playChime = (freq1 = 523.25, freq2 = 659.25) => {
@@ -945,83 +968,92 @@ export function createCastleFloor3Rooms(
     return pair;
   };
 
-  // Place the exact phrase "YESHWANTH LOVES HARSHA" along a single bold 142-degree front-facing arc
-  // (centered at centerPhi = Math.PI * 0.92, facing the primary player approach from the West/Plaza/Elevator/Stairs)
-  const inscriptionPhrase = 'YESHWANTH LOVES HARSHA';
+  // Place "YESHWANTH LOVES HARSHA" on the West side (centerPhi = Math.PI * 0.92)
+  // and "HARSHA LOVES YESHWANTH" on the opposite East side (centerPhi = Math.PI * 0.92 - Math.PI)
+  // in matching 3D extruded champagne-gold lettering, with inlaid hearts in between both texts.
   const inscriptionRadius = 1.98;
-  const inscriptionCenterPhi = Math.PI * 0.92;
-  const charWeights = inscriptionPhrase.split('').map((c) => (c === ' ' ? 0.85 : c === 'W' ? 1.24 : 1.0));
-  const totalWeight = charWeights.reduce((acc, w) => acc + w, 0);
-  const inscriptionTotalArc = 2.46; // ~141 degrees across the dedicated 1.98m-radius band
-  const startPhi = inscriptionCenterPhi + inscriptionTotalArc * 0.5;
+  const primaryCenterPhi = Math.PI * 0.92;
+  const oppositeCenterPhi = primaryCenterPhi - Math.PI;
+  const inscriptionTotalArc = 2.42; // ~138.6 degrees per phrase, leaving clean space for the hearts in between
 
   const _letterBasisMat = new THREE.Matrix4();
   const _rightAxis = new THREE.Vector3();
   const _forwardAxis = new THREE.Vector3();
   const _upAxis = new THREE.Vector3(0, 1, 0);
 
-  let accumWeight = 0;
-  for (let i = 0; i < inscriptionPhrase.length; i++) {
-    const ch = inscriptionPhrase[i];
-    const w = charWeights[i];
-    const charCenterWeight = accumWeight + w * 0.5;
-    accumWeight += w;
+  const placeArcInscription = (phrase: string, centerPhi: number) => {
+    const charWeights = phrase
+      .split('')
+      .map((c) => (c === ' ' ? 0.85 : c === 'W' ? 1.24 : 1.0));
+    const totalWeight = charWeights.reduce((acc, w) => acc + w, 0);
+    const startPhi = centerPhi + inscriptionTotalArc * 0.5;
 
-    if (ch === ' ') continue;
+    let accumWeight = 0;
+    for (let i = 0; i < phrase.length; i++) {
+      const ch = phrase[i];
+      const w = charWeights[i];
+      const charCenterWeight = accumWeight + w * 0.5;
+      accumWeight += w;
 
-    const u = charCenterWeight / totalWeight;
-    const phi = startPhi - u * inscriptionTotalArc;
-    const lxPos = Math.cos(phi) * inscriptionRadius;
-    const lzPos = Math.sin(phi) * inscriptionRadius;
+      if (ch === ' ') continue;
 
-    // Right-handed basis on the floor so the viewer standing outside the fountain looking inward
-    // reads "YESHWANTH LOVES HARSHA" left-to-right with letter tops pointing inward toward the fountain:
-    //   local +X (letter width left->right) = (+sin(phi), 0, -cos(phi))
-    //   local +Y (letter height bottom->top) = (-cos(phi), 0, -sin(phi))
-    //   local +Z (extrusion height)          = (0, 1, 0)
-    _rightAxis.set(Math.sin(phi), 0, -Math.cos(phi));
-    _forwardAxis.set(-Math.cos(phi), 0, -Math.sin(phi));
-    _letterBasisMat.makeBasis(_rightAxis, _forwardAxis, _upAxis);
+      const u = charCenterWeight / totalWeight;
+      const phi = startPhi - u * inscriptionTotalArc;
+      const lxPos = Math.cos(phi) * inscriptionRadius;
+      const lzPos = Math.sin(phi) * inscriptionRadius;
 
-    const { goldGeo, shadowGeo } = getExtrudedLetterGeometries(ch);
+      // Right-handed basis on the floor so a viewer standing outside the fountain looking inward
+      // reads the phrase left-to-right with letter tops pointing inward toward the fountain:
+      //   local +X (letter width left->right) = (+sin(phi), 0, -cos(phi))
+      //   local +Y (letter height bottom->top) = (-cos(phi), 0, -sin(phi))
+      //   local +Z (extrusion height)          = (0, 1, 0)
+      _rightAxis.set(Math.sin(phi), 0, -Math.cos(phi));
+      _forwardAxis.set(-Math.cos(phi), 0, -Math.sin(phi));
+      _letterBasisMat.makeBasis(_rightAxis, _forwardAxis, _upAxis);
 
-    const shadowMesh = new THREE.Mesh(shadowGeo, inlaidLetterShadowMat);
-    shadowMesh.rotation.setFromRotationMatrix(_letterBasisMat);
-    shadowMesh.position.set(lxPos, 0.012, lzPos);
+      const { goldGeo, shadowGeo } = getExtrudedLetterGeometries(ch);
 
-    const goldMesh = new THREE.Mesh(goldGeo, inlaidLetterGoldMat);
-    goldMesh.rotation.setFromRotationMatrix(_letterBasisMat);
-    goldMesh.position.set(lxPos, 0.018, lzPos);
-    goldMesh.castShadow = true;
-    goldMesh.receiveShadow = true;
+      const shadowMesh = new THREE.Mesh(shadowGeo, inlaidLetterShadowMat);
+      shadowMesh.rotation.setFromRotationMatrix(_letterBasisMat);
+      shadowMesh.position.set(lxPos, 0.012, lzPos);
 
-    plazaFountainGroup.add(shadowMesh, goldMesh);
-  }
+      const goldMesh = new THREE.Mesh(goldGeo, inlaidLetterGoldMat);
+      goldMesh.rotation.setFromRotationMatrix(_letterBasisMat);
+      goldMesh.position.set(lxPos, 0.018, lzPos);
+      goldMesh.castShadow = true;
+      goldMesh.receiveShadow = true;
 
-  // Single Small Inlaid Heart Motif on the Opposite Side of the Band (Antipode of the Inscription Arc)
-  // (Leaves the entire "YESHWANTH LOVES HARSHA" arc 100% clean and free of overlapping decorations)
-  const antipodePhi = inscriptionCenterPhi - Math.PI;
+      plazaFountainGroup.add(shadowMesh, goldMesh);
+    }
+  };
+
+  placeArcInscription('YESHWANTH LOVES HARSHA', primaryCenterPhi);
+  placeArcInscription('HARSHA LOVES YESHWANTH', oppositeCenterPhi);
+
+  // Two Inlaid Heart Motifs in between both texts (at primaryCenterPhi ± Math.PI * 0.5)
   const floorHeartBezelGeo = buildExtrudedHeartGeometry(tracker, 0.28, 0.022, 0.008);
   floorHeartBezelGeo.rotateX(-Math.PI / 2);
   const floorHeartCrystalGeo = buildExtrudedHeartGeometry(tracker, 0.21, 0.026, 0.008);
   floorHeartCrystalGeo.rotateX(-Math.PI / 2);
 
-  const antipodeBezel = new THREE.Mesh(floorHeartBezelGeo, fountainGoldMat);
-  antipodeBezel.position.set(
-    Math.cos(antipodePhi) * inscriptionRadius,
-    0.015,
-    Math.sin(antipodePhi) * inscriptionRadius,
-  );
-  antipodeBezel.rotation.y = -antipodePhi + Math.PI * 0.5;
+  [primaryCenterPhi - Math.PI * 0.5, primaryCenterPhi + Math.PI * 0.5].forEach((heartPhi) => {
+    const heartBezel = new THREE.Mesh(floorHeartBezelGeo, fountainGoldMat);
+    heartBezel.position.set(
+      Math.cos(heartPhi) * inscriptionRadius,
+      0.015,
+      Math.sin(heartPhi) * inscriptionRadius,
+    );
+    heartBezel.rotation.y = -heartPhi + Math.PI * 0.5;
 
-  const antipodeCrystal = new THREE.Mesh(floorHeartCrystalGeo, floatingHeartCrystalMat);
-  antipodeCrystal.position.set(
-    Math.cos(antipodePhi) * inscriptionRadius,
-    0.018,
-    Math.sin(antipodePhi) * inscriptionRadius,
-  );
-  antipodeCrystal.rotation.y = -antipodePhi + Math.PI * 0.5;
-  plazaFountainGroup.add(antipodeBezel, antipodeCrystal);
+    const heartCrystal = new THREE.Mesh(floorHeartCrystalGeo, floatingHeartCrystalMat);
+    heartCrystal.position.set(
+      Math.cos(heartPhi) * inscriptionRadius,
+      0.018,
+      Math.sin(heartPhi) * inscriptionRadius,
+    );
+    heartCrystal.rotation.y = -heartPhi + Math.PI * 0.5;
+    plazaFountainGroup.add(heartBezel, heartCrystal);
+  });
 
   // --- 0.2 SHALLOW CIRCULAR POLISHED BLUSH-MARBLE BASIN (Diameter = 2.68m, Radius = 1.34m) ---
   const basinBaseStepGeo = tracker.trackGeo(new THREE.CylinderGeometry(1.48, 1.54, 0.09, 48));
@@ -3347,42 +3379,73 @@ export function createCastleFloor3Rooms(
   }
 
   // --- 1.12 ROSE PETAL DOME CEILING (REFERENCE-LOCKED ROYAL ARCHITECTURAL DOME) ---
-  // Constructed from layered curved translucent blush-rose petals with champagne-gold structural ribs,
-  // warm glowing seams, perimeter crystal drops, ornate corner rose-vine spandrels, and a central
-  // royal gold crown chandelier suspending a faceted glowing pink crystal heart above the gallery court.
+  // Recreates the exact Rose Petal Dome reference ceiling inside the Heart Gallery:
+  // - Placed below the Floor 4 slab (bottom at y0 + 4.55m) with the backing plane at the very TOP (y0 + 4.53m)
+  //   so zero flat geometry ever blocks or occludes the upward-arching 3D petals when viewed from below.
+  // - Concentric 6-petal inner bloom + 6 alternating middle petals + 6 outer vault petals with 3D champagne-gold
+  //   tubular ribs, warm glowing seam light, faceted crystal drop sconces at every petal tip, and the central
+  //   Royal Gold Crown Chandelier suspending a multi-faceted glowing pink crystal heart with 5 bottom crystal drops.
   const rosePetalDomeGroup = new THREE.Group();
   rosePetalDomeGroup.name = 'HeartGalleryRosePetalDomeCeiling';
-  const domeCenterX = 9.82;
-  const domeCenterZ = -3.55;
-  const domeBaseY = y0 + 4.32; // Aligns cleanly with top of 4.35m gallery walls & cornice cove light
-  rosePetalDomeGroup.position.set(domeCenterX, domeBaseY, domeCenterZ);
+  const domeBaseY = y0 + 4.34; // Cornice level at top of 4.35m Heart Gallery walls
+  rosePetalDomeGroup.position.set(0, domeBaseY, 0);
   heartGalleryGroup.add(rosePetalDomeGroup);
 
-  // Subtle upward-facing radial silk gradient texture for the sculpted petal vaults
+  // 1.12A Silky Rose-Petal Vault Texture with Baked Seam Cove Glow & Delicate Petal Striations
+  // UV mapping: u in [0, 1] across petal width (0 and 1 are the gold rib seams, 0.5 is petal center),
+  //             v in [0, 1] along petal length (0 is inner crown ring, 1 is pointed petal tip).
   const createRosePetalSilkTexture = (): THREE.CanvasTexture => {
     const canvas = document.createElement('canvas');
     canvas.width = 512;
     canvas.height = 512;
     const ctx = canvas.getContext('2d');
     if (ctx) {
-      const grad = ctx.createLinearGradient(0, 0, 0, 512);
-      grad.addColorStop(0.0, '#fff1f2'); // Luminous warm pearl-blush near central crown
-      grad.addColorStop(0.28, '#fbcfe8'); // Soft pastel rose-pink mid-vault
-      grad.addColorStop(0.68, '#f472b6'); // Rich romantic rose-petal blush
-      grad.addColorStop(0.92, '#fbcfe8'); // Warm edge glow transition
-      grad.addColorStop(1.0, '#fef08a'); // Golden-blush rim highlight
-      ctx.fillStyle = grad;
+      // Base rich romantic rose-pink silk fill
+      const baseGrad = ctx.createLinearGradient(0, 0, 0, 512);
+      baseGrad.addColorStop(0.0, '#fff1f2'); // Bright warm glow near central crown
+      baseGrad.addColorStop(0.18, '#f9a8d4'); // Soft blush-pink upper vault
+      baseGrad.addColorStop(0.55, '#ec4899'); // Deep romantic rose-pink center belly
+      baseGrad.addColorStop(0.84, '#f472b6'); // Soft rose taper
+      baseGrad.addColorStop(1.0, '#fef08a'); // Luminous warm tip glow at crystal finial
+      ctx.fillStyle = baseGrad;
       ctx.fillRect(0, 0, 512, 512);
 
-      // Delicate longitudinal silk petal veins
-      for (let v = 0; v < 28; v++) {
-        const vx = (v / 27) * 512;
+      // Soft darker rose-magenta depth in the central hollow of the petal
+      const bellyGrad = ctx.createRadialGradient(256, 250, 20, 256, 250, 220);
+      bellyGrad.addColorStop(0.0, 'rgba(219, 39, 119, 0.42)');
+      bellyGrad.addColorStop(0.6, 'rgba(244, 114, 182, 0.15)');
+      bellyGrad.addColorStop(1.0, 'rgba(255, 241, 242, 0.0)');
+      ctx.fillStyle = bellyGrad;
+      ctx.fillRect(0, 0, 512, 512);
+
+      // Warm luminous cove-light rim along left & right petal seams (u near 0 and u near 1)
+      const leftSeamGlow = ctx.createLinearGradient(0, 0, 115, 0);
+      leftSeamGlow.addColorStop(0.0, 'rgba(254, 249, 195, 0.96)');
+      leftSeamGlow.addColorStop(0.28, 'rgba(253, 230, 138, 0.68)');
+      leftSeamGlow.addColorStop(0.65, 'rgba(251, 207, 232, 0.28)');
+      leftSeamGlow.addColorStop(1.0, 'rgba(251, 207, 232, 0.0)');
+      ctx.fillStyle = leftSeamGlow;
+      ctx.fillRect(0, 0, 115, 512);
+
+      const rightSeamGlow = ctx.createLinearGradient(512, 0, 397, 0);
+      rightSeamGlow.addColorStop(0.0, 'rgba(254, 249, 195, 0.96)');
+      rightSeamGlow.addColorStop(0.28, 'rgba(253, 230, 138, 0.68)');
+      rightSeamGlow.addColorStop(0.65, 'rgba(251, 207, 232, 0.28)');
+      rightSeamGlow.addColorStop(1.0, 'rgba(251, 207, 232, 0.0)');
+      ctx.fillStyle = rightSeamGlow;
+      ctx.fillRect(397, 0, 115, 512);
+
+      // Delicate curved silk petal veins radiating from crown (v=0) to tip (v=1)
+      for (let s = -12; s <= 12; s++) {
+        const uNorm = s / 12;
         ctx.strokeStyle =
-          v % 2 === 0 ? 'rgba(255, 241, 242, 0.24)' : 'rgba(219, 39, 119, 0.12)';
-        ctx.lineWidth = 2.5;
+          Math.abs(s) % 2 === 0
+            ? 'rgba(255, 241, 242, 0.22)'
+            : 'rgba(157, 23, 77, 0.12)';
+        ctx.lineWidth = 2.2;
         ctx.beginPath();
-        ctx.moveTo(256 + (vx - 256) * 0.25, 0);
-        ctx.quadraticCurveTo(vx, 256, 256 + (vx - 256) * 0.85, 512);
+        ctx.moveTo(256 + uNorm * 60, 0);
+        ctx.quadraticCurveTo(256 + uNorm * 235, 260, 256 + uNorm * 45, 512);
         ctx.stroke();
       }
     }
@@ -3392,22 +3455,77 @@ export function createCastleFloor3Rooms(
     return tex;
   };
 
+  // Multi-faceted pink diamond jewel texture for the central suspended crystal heart
+  const createFacetedHeartJewelTexture = (): THREE.CanvasTexture => {
+    const canvas = document.createElement('canvas');
+    canvas.width = 512;
+    canvas.height = 512;
+    const ctx = canvas.getContext('2d');
+    if (ctx) {
+      const bg = ctx.createRadialGradient(256, 256, 20, 256, 256, 260);
+      bg.addColorStop(0.0, '#ffffff');
+      bg.addColorStop(0.25, '#fbcfe8');
+      bg.addColorStop(0.6, '#ec4899');
+      bg.addColorStop(1.0, '#be185d');
+      ctx.fillStyle = bg;
+      ctx.fillRect(0, 0, 512, 512);
+
+      // Geometric diamond facets matching the reference crystal heart
+      const facetColors = [
+        'rgba(255, 255, 255, 0.75)',
+        'rgba(251, 207, 232, 0.65)',
+        'rgba(244, 114, 182, 0.55)',
+        'rgba(219, 39, 119, 0.52)',
+        'rgba(253, 164, 175, 0.6)',
+        'rgba(255, 241, 242, 0.82)',
+      ];
+      const rings = [55, 125, 195, 260];
+      const sectors = 12;
+      for (let rIdx = 0; rIdx < rings.length; rIdx++) {
+        const rIn = rIdx === 0 ? 0 : rings[rIdx - 1];
+        const rOut = rings[rIdx];
+        for (let s = 0; s < sectors; s++) {
+          const a0 = (s / sectors) * Math.PI * 2;
+          const a1 = ((s + 1) / sectors) * Math.PI * 2;
+          const aMid = (a0 + a1) * 0.5 + (rIdx % 2) * 0.18;
+
+          ctx.beginPath();
+          ctx.moveTo(256 + Math.cos(a0) * rIn, 256 + Math.sin(a0) * rIn);
+          ctx.lineTo(256 + Math.cos(a1) * rIn, 256 + Math.sin(a1) * rIn);
+          ctx.lineTo(256 + Math.cos(aMid) * rOut, 256 + Math.sin(aMid) * rOut);
+          ctx.closePath();
+          ctx.fillStyle = facetColors[(s + rIdx * 2) % facetColors.length];
+          ctx.fill();
+          ctx.strokeStyle = 'rgba(255, 255, 255, 0.55)';
+          ctx.lineWidth = 1.8;
+          ctx.stroke();
+        }
+      }
+    }
+    const tex = tracker.trackTex(new THREE.CanvasTexture(canvas));
+    tex.colorSpace = THREE.SRGBColorSpace;
+    tex.needsUpdate = true;
+    return tex;
+  };
+
   const rosePetalSilkTex = createRosePetalSilkTexture();
+  const facetedHeartJewelTex = createFacetedHeartJewelTexture();
+
   const rosePetalVaultMat = tracker.trackMat(
     new THREE.MeshPhysicalMaterial({
       map: rosePetalSilkTex,
-      color: new THREE.Color('#fbcfe8'),
+      color: new THREE.Color('#fce7f3'),
       emissive: new THREE.Color('#f472b6'),
       emissiveMap: rosePetalSilkTex,
-      emissiveIntensity: 0.28,
+      emissiveIntensity: 0.56,
       roughness: 0.24,
-      metalness: 0.04,
-      transmission: 0.32,
+      metalness: 0.05,
+      transmission: 0.34,
       transparent: true,
       opacity: 0.94,
       sheen: 0.9,
       sheenColor: new THREE.Color('#fff1f2'),
-      clearcoat: 0.35,
+      clearcoat: 0.38,
       side: THREE.DoubleSide,
     }),
   );
@@ -3415,13 +3533,13 @@ export function createCastleFloor3Rooms(
   const rosePetalInnerTierMat = tracker.trackMat(
     new THREE.MeshPhysicalMaterial({
       map: rosePetalSilkTex,
-      color: new THREE.Color('#fce7f3'),
+      color: new THREE.Color('#fff1f2'),
       emissive: new THREE.Color('#f9a8d4'),
       emissiveMap: rosePetalSilkTex,
-      emissiveIntensity: 0.34,
+      emissiveIntensity: 0.64,
       roughness: 0.2,
-      metalness: 0.05,
-      transmission: 0.36,
+      metalness: 0.06,
+      transmission: 0.38,
       transparent: true,
       opacity: 0.96,
       sheen: 1.0,
@@ -3431,393 +3549,280 @@ export function createCastleFloor3Rooms(
     }),
   );
 
-  // 1.12A Architectural Ceiling Backing Coffer & Spandrel Frame (spans the Heart Gallery ceiling footprint)
-  // Leaves the North-East elevator/stair corner untouched while covering the main gallery bay cleanly.
-  const ceilingSpandrelGeo = tracker.trackGeo(new THREE.BoxGeometry(10.05, 0.08, 22.65));
-  const ceilingSpandrelMesh = new THREE.Mesh(ceilingSpandrelGeo, galleryBlushWallMat);
-  ceilingSpandrelMesh.position.set(0, 0.02, 0);
-  rosePetalDomeGroup.add(ceilingSpandrelMesh);
-
-  // Outer Rectangular Perimeter Gold Ceiling Molding & Recessed Warm Cove Strip
-  const ceilPerimLongGeo = tracker.trackGeo(new THREE.BoxGeometry(0.16, 0.12, 22.5));
-  const ceilPerimShortGeo = tracker.trackGeo(new THREE.BoxGeometry(9.9, 0.12, 0.16));
-  const ceilWestMold = new THREE.Mesh(ceilPerimLongGeo, galleryRoyalGoldMat);
-  ceilWestMold.position.set(-4.88, -0.02, 0);
-  const ceilEastMold = new THREE.Mesh(ceilPerimLongGeo, galleryRoyalGoldMat);
-  ceilEastMold.position.set(4.88, -0.02, 0);
-  const ceilSouthMold = new THREE.Mesh(ceilPerimShortGeo, galleryRoyalGoldMat);
-  ceilSouthMold.position.set(0, -0.02, -11.15);
-  const ceilNorthMold = new THREE.Mesh(ceilPerimShortGeo, galleryRoyalGoldMat);
-  ceilNorthMold.position.set(0, -0.02, 11.15);
-  rosePetalDomeGroup.add(ceilWestMold, ceilEastMold, ceilSouthMold, ceilNorthMold);
-
-  // 1.12B Elliptical / Radial Grand Dome Cornice Ring & Warm Cove Halo
-  // Scaled along Z (scaleZ = 1.85) so the circular petal dome harmonizes with the elongated gallery hall
-  const domeOuterRadiusX = 4.55;
-  const domeStretchZ = 1.88; // Spans ~9.1m E-W by ~17.1m N-S inside the 10m x 22.6m gallery
-
-  const domeEllipticalContainer = new THREE.Group();
-  domeEllipticalContainer.scale.set(1.0, 1.0, domeStretchZ);
-  rosePetalDomeGroup.add(domeEllipticalContainer);
-
-  // Outer Molded Champagne-Gold Cornice Ring + Warm Glowing Cove Ring
-  const outerDrumRingGeo = tracker.trackGeo(
-    new THREE.TorusGeometry(domeOuterRadiusX, 0.11, 14, 72),
+  const facetedHeartJewelMat = tracker.trackMat(
+    new THREE.MeshPhysicalMaterial({
+      map: facetedHeartJewelTex,
+      color: new THREE.Color('#fbcfe8'),
+      emissive: new THREE.Color('#f472b6'),
+      emissiveMap: facetedHeartJewelTex,
+      emissiveIntensity: 0.72,
+      roughness: 0.08,
+      metalness: 0.12,
+      transmission: 0.35,
+      transparent: true,
+      opacity: 0.96,
+      clearcoat: 1.0,
+      clearcoatRoughness: 0.05,
+    }),
   );
-  outerDrumRingGeo.rotateX(Math.PI / 2);
-  const outerDrumRing = new THREE.Mesh(outerDrumRingGeo, galleryRoyalGoldMat);
-  outerDrumRing.position.y = -0.02;
 
-  const outerCoveGlowRingGeo = tracker.trackGeo(
-    new THREE.TorusGeometry(domeOuterRadiusX - 0.12, 0.042, 10, 72),
-  );
-  outerCoveGlowRingGeo.rotateX(Math.PI / 2);
-  const outerCoveGlowRing = new THREE.Mesh(outerCoveGlowRingGeo, galleryWarmLinearGlowMat);
-  outerCoveGlowRing.position.y = 0.01;
+  // 1.12B Upper Recessed Ceiling Backing Plane (Placed at y = domeBaseY + 0.195 = y0 + 4.535m,
+  // right beneath the Floor 4 slab bottom at y0 + 4.55m so it NEVER blocks any petal vaults below it!)
+  const ceilingTopBackingGeo = tracker.trackGeo(new THREE.BoxGeometry(10.05, 0.025, 22.65));
+  const ceilingTopBackingMesh = new THREE.Mesh(ceilingTopBackingGeo, galleryBlushWallMat);
+  ceilingTopBackingMesh.position.set(9.825, 0.195, -3.525);
+  rosePetalDomeGroup.add(ceilingTopBackingMesh);
 
-  const secondTierGoldRingGeo = tracker.trackGeo(
-    new THREE.TorusGeometry(domeOuterRadiusX * 0.76, 0.055, 12, 64),
-  );
-  secondTierGoldRingGeo.rotateX(Math.PI / 2);
-  const secondTierGoldRing = new THREE.Mesh(secondTierGoldRingGeo, galleryRoyalGoldMat);
-  secondTierGoldRing.position.y = 0.24;
+  // Recessed Upper Perimeter Cove Molding & Warm Golden Cove Strip above the Gallery Walls
+  const ceilPerimLongGoldGeo = tracker.trackGeo(new THREE.BoxGeometry(0.18, 0.09, 22.65));
+  const ceilPerimShortGoldGeo = tracker.trackGeo(new THREE.BoxGeometry(10.05, 0.09, 0.18));
+  const ceilPerimLongGlowGeo = tracker.trackGeo(new THREE.BoxGeometry(0.06, 0.045, 22.45));
+  const ceilPerimShortGlowGeo = tracker.trackGeo(new THREE.BoxGeometry(9.85, 0.045, 0.06));
 
-  domeEllipticalContainer.add(outerDrumRing, outerCoveGlowRing, secondTierGoldRing);
-
-  // 1.12C Custom 3D Sculpted Rose Petal Vault Geometry Builder
-  // Builds a true 3D double-curved vault surface (radial arch + transverse billow + scalloped rose-petal tip)
-  // along with its matching 3D champagne-gold structural edge rib and warm glowing seam tube.
-  const buildCurvedRosePetalSegment = (
-    innerR: number,
-    outerR: number,
-    innerY: number,
-    outerY: number,
-    peakVaultY: number,
-    halfAngleSpan: number,
-    mat: THREE.Material,
-  ): THREE.Group => {
-    const petalGrp = new THREE.Group();
-    const radialSteps = 18;
-    const angularSteps = 16;
-    const positions: number[] = [];
-    const uvs: number[] = [];
-    const indices: number[] = [];
-
-    const leftEdgePts: THREE.Vector3[] = [];
-    const rightEdgePts: THREE.Vector3[] = [];
-    const leftSeamPts: THREE.Vector3[] = [];
-    const rightSeamPts: THREE.Vector3[] = [];
-
-    for (let ir = 0; ir <= radialSteps; ir++) {
-      const u = ir / radialSteps; // 0 at inner crown ring -> 1 at outer petal tip
-      // Rounded rose-petal width profile: blossoms wide at u ~ 0.68 and tapers to a delicate pointed tip at u = 1.0
-      const widthEnvelope = Math.sin(Math.pow(u, 0.72) * Math.PI * 0.94);
-      const currentHalfAng = halfAngleSpan * (0.22 + 0.86 * widthEnvelope);
-      const r = THREE.MathUtils.lerp(innerR, outerR, Math.pow(u, 0.92));
-
-      // Radial dome elevation curve arching upward from outer cornice into the dome vault
-      const baseArchY =
-        THREE.MathUtils.lerp(innerY, outerY, u) + Math.sin(u * Math.PI) * peakVaultY;
-
-      for (let ia = 0; ia <= angularSteps; ia++) {
-        const v = (ia / angularSteps) * 2 - 1; // -1 (left rib) .. 0 (petal spine) .. +1 (right rib)
-        const theta = v * currentHalfAng;
-
-        // Transverse concave/convex petal billow (pillow-soft vaulting between the gold ribs)
-        const pillowLift = (1 - v * v) * (0.11 * Math.sin(u * Math.PI) + 0.035);
-        const px = Math.cos(theta) * r;
-        const pz = Math.sin(theta) * r;
-        const py = baseArchY + pillowLift;
-
-        positions.push(px, py, pz);
-        uvs.push((v + 1) * 0.5, u);
-
-        if (ia === 0) {
-          leftEdgePts.push(new THREE.Vector3(px, py - 0.012, pz));
-          leftSeamPts.push(new THREE.Vector3(px * 0.995, py + 0.015, pz * 0.995));
-        } else if (ia === angularSteps) {
-          rightEdgePts.push(new THREE.Vector3(px, py - 0.012, pz));
-          rightSeamPts.push(new THREE.Vector3(px * 0.995, py + 0.015, pz * 0.995));
-        }
-      }
-    }
-
-    const stride = angularSteps + 1;
-    for (let ir = 0; ir < radialSteps; ir++) {
-      for (let ia = 0; ia < angularSteps; ia++) {
-        const a = ir * stride + ia;
-        const b = (ir + 1) * stride + ia;
-        const c = (ir + 1) * stride + (ia + 1);
-        const d = ir * stride + (ia + 1);
-        indices.push(a, b, d);
-        indices.push(b, c, d);
-      }
-    }
-
-    const petalGeo = new THREE.BufferGeometry();
-    petalGeo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
-    petalGeo.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
-    petalGeo.setIndex(indices);
-    petalGeo.computeVertexNormals();
-    tracker.trackGeo(petalGeo);
-
-    const petalMesh = new THREE.Mesh(petalGeo, mat);
-    petalGrp.add(petalMesh);
-
-    // Molded Champagne-Gold Rib Piping along both curved edges of the petal
-    const leftCurve = new THREE.CatmullRomCurve3(leftEdgePts);
-    const rightCurve = new THREE.CatmullRomCurve3(rightEdgePts);
-    const leftRibGeo = tracker.trackGeo(new THREE.TubeGeometry(leftCurve, 20, 0.028, 8, false));
-    const rightRibGeo = tracker.trackGeo(new THREE.TubeGeometry(rightCurve, 20, 0.028, 8, false));
-    petalGrp.add(
-      new THREE.Mesh(leftRibGeo, galleryRoyalGoldMat),
-      new THREE.Mesh(rightRibGeo, galleryRoyalGoldMat),
+  [
+    { x: 4.92, z: -3.525, isLong: true },
+    { x: 14.73, z: -3.525, isLong: true },
+    { x: 9.825, z: -14.74, isLong: false },
+    { x: 9.825, z: 7.69, isLong: false },
+  ].forEach(({ x, z, isLong }) => {
+    const mold = new THREE.Mesh(
+      isLong ? ceilPerimLongGoldGeo : ceilPerimShortGoldGeo,
+      galleryRoyalGoldMat,
     );
-
-    // Luminous Warm Glowing Seam Curves nestled immediately beside the gold ribs
-    const leftSeamCurve = new THREE.CatmullRomCurve3(leftSeamPts);
-    const rightSeamCurve = new THREE.CatmullRomCurve3(rightSeamPts);
-    const leftSeamGeo = tracker.trackGeo(new THREE.TubeGeometry(leftSeamCurve, 18, 0.016, 6, false));
-    const rightSeamGeo = tracker.trackGeo(
-      new THREE.TubeGeometry(rightSeamCurve, 18, 0.016, 6, false),
+    mold.position.set(x, 0.14, z);
+    const glow = new THREE.Mesh(
+      isLong ? ceilPerimLongGlowGeo : ceilPerimShortGlowGeo,
+      galleryWarmLinearGlowMat,
     );
-    petalGrp.add(
-      new THREE.Mesh(leftSeamGeo, galleryWarmLinearGlowMat),
-      new THREE.Mesh(rightSeamGeo, galleryWarmLinearGlowMat),
-    );
+    glow.position.set(x, 0.08, z);
+    rosePetalDomeGroup.add(mold, glow);
+  });
 
-    return petalGrp;
-  };
-
-  // Shared Crystal Teardrop Finial Builder (placed at petal tip junctions around the dome)
-  const finialCapGeo = tracker.trackGeo(new THREE.CylinderGeometry(0.045, 0.065, 0.06, 12));
-  const finialCrystalTopGeo = tracker.trackGeo(new THREE.ConeGeometry(0.085, 0.14, 8));
-  const finialCrystalBotGeo = tracker.trackGeo(new THREE.ConeGeometry(0.085, 0.18, 8));
-  finialCrystalBotGeo.rotateX(Math.PI);
-  const finialSparkCoreGeo = tracker.trackGeo(new THREE.SphereGeometry(0.048, 8, 8));
+  // 1.12C Shared Sparkling Faceted Crystal Drop Finial Sconce Builder (mounted at every petal tip junction)
+  const finialMountCapGeo = tracker.trackGeo(new THREE.CylinderGeometry(0.055, 0.085, 0.065, 12));
+  const finialGoldCollarGeo = tracker.trackGeo(new THREE.TorusGeometry(0.078, 0.018, 8, 16));
+  finialGoldCollarGeo.rotateX(Math.PI / 2);
+  const finialUpperFacetGeo = tracker.trackGeo(new THREE.ConeGeometry(0.115, 0.16, 8));
+  const finialLowerFacetGeo = tracker.trackGeo(new THREE.ConeGeometry(0.115, 0.22, 8));
+  finialLowerFacetGeo.rotateX(Math.PI);
+  const finialInnerBulbGeo = tracker.trackGeo(new THREE.SphereGeometry(0.068, 10, 10));
 
   const buildPetalCrystalFinial = (scale = 1.0): THREE.Group => {
     const finGrp = new THREE.Group();
     finGrp.scale.setScalar(scale);
-    const cap = new THREE.Mesh(finialCapGeo, galleryRoyalGoldMat);
-    cap.position.y = 0.05;
-    const topCone = new THREE.Mesh(finialCrystalTopGeo, crystalArchMat);
-    topCone.position.y = -0.04;
-    const botCone = new THREE.Mesh(finialCrystalBotGeo, crystalArchMat);
-    botCone.position.y = -0.2;
-    const core = new THREE.Mesh(finialSparkCoreGeo, galleryWarmLinearGlowMat);
-    core.position.y = -0.11;
-    finGrp.add(cap, topCone, botCone, core);
+
+    const cap = new THREE.Mesh(finialMountCapGeo, galleryRoyalGoldMat);
+    cap.position.y = 0.04;
+    const collar = new THREE.Mesh(finialGoldCollarGeo, galleryRoyalGoldMat);
+    collar.position.y = 0.0;
+    const topCrystal = new THREE.Mesh(finialUpperFacetGeo, crystalArchMat);
+    topCrystal.position.y = -0.05;
+    const botCrystal = new THREE.Mesh(finialLowerFacetGeo, crystalArchMat);
+    botCrystal.position.y = -0.24;
+    const warmCore = new THREE.Mesh(finialInnerBulbGeo, galleryWarmLinearGlowMat);
+    warmCore.position.y = -0.12;
+
+    finGrp.add(cap, collar, topCrystal, botCrystal, warmCore);
     return finGrp;
   };
 
-  // Instantiate Outer Ring of 8 Overlapping Sculpted Rose Petals + 8 Outer Crystal Finial Drops
-  const PETAL_COUNT = 8;
-  const outerPetalTemplate = buildCurvedRosePetalSegment(
-    1.15,
-    domeOuterRadiusX - 0.1,
-    0.42,
-    0.04,
-    0.26,
-    (Math.PI / PETAL_COUNT) * 1.06,
-    rosePetalVaultMat,
-  );
+  const domeRadius = 4.62;
 
-  // Instantiate Inner Concentric Layer of 8 Overlapping Rose Petals (rotated by half-step for authentic rose-bloom layering)
-  const innerPetalTemplate = buildCurvedRosePetalSegment(
-    0.68,
-    domeOuterRadiusX * 0.75,
-    0.52,
-    0.24,
-    0.22,
-    (Math.PI / PETAL_COUNT) * 1.08,
-    rosePetalInnerTierMat,
-  );
+  const outerDrumRingGeo = tracker.trackGeo(new THREE.TorusGeometry(domeRadius, 0.12, 16, 72));
+  outerDrumRingGeo.rotateX(Math.PI / 2);
+  const outerDrumInnerLipGeo = tracker.trackGeo(new THREE.TorusGeometry(domeRadius - 0.14, 0.045, 10, 72));
+  outerDrumInnerLipGeo.rotateX(Math.PI / 2);
+  const outerCoveHaloRingGeo = tracker.trackGeo(new THREE.TorusGeometry(domeRadius + 0.14, 0.048, 10, 72));
+  outerCoveHaloRingGeo.rotateX(Math.PI / 2);
 
-  for (let p = 0; p < PETAL_COUNT; p++) {
-    const angOuter = (p / PETAL_COUNT) * Math.PI * 2;
-    const outerInstance = p === 0 ? outerPetalTemplate : outerPetalTemplate.clone();
-    outerInstance.rotation.y = angOuter;
-    domeEllipticalContainer.add(outerInstance);
+  // Shared geometries for the Central Royal Crown Chandelier & Faceted Pink Crystal Heart
+  const crownUpperPlateGeo = tracker.trackGeo(new THREE.CylinderGeometry(0.68, 0.76, 0.07, 32));
+  const crownInnerSunDiskGeo = tracker.trackGeo(new THREE.CylinderGeometry(0.46, 0.46, 0.04, 28));
+  const crownInnerGoldTorusGeo = tracker.trackGeo(new THREE.TorusGeometry(0.44, 0.042, 10, 32));
+  crownInnerGoldTorusGeo.rotateX(Math.PI / 2);
+  const crownRoyalBandGeo = tracker.trackGeo(new THREE.CylinderGeometry(0.58, 0.48, 0.22, 32, 1, true));
+  const crownLowerRimGeo = tracker.trackGeo(new THREE.TorusGeometry(0.49, 0.035, 10, 32));
+  crownLowerRimGeo.rotateX(Math.PI / 2);
+  const crownPointSpikeGeo = tracker.trackGeo(new THREE.ConeGeometry(0.11, 0.26, 4));
+  const crownPointTipBallGeo = tracker.trackGeo(new THREE.SphereGeometry(0.028, 8, 8));
+  const crownDiamondGemGeo = tracker.trackGeo(new THREE.OctahedronGeometry(0.062, 0));
 
-    const angInner = angOuter + Math.PI / PETAL_COUNT;
-    const innerInstance = p === 0 ? innerPetalTemplate : innerPetalTemplate.clone();
-    innerInstance.rotation.y = angInner;
-    domeEllipticalContainer.add(innerInstance);
+  const chandelierMainRingGeo = tracker.trackGeo(new THREE.TorusGeometry(0.92, 0.038, 12, 48));
+  chandelierMainRingGeo.rotateX(Math.PI / 2);
+  const chandelierInnerRingGeo = tracker.trackGeo(new THREE.TorusGeometry(0.62, 0.024, 10, 40));
+  chandelierInnerRingGeo.rotateX(Math.PI / 2);
+  const chandelierRingStudGeo = tracker.trackGeo(new THREE.SphereGeometry(0.028, 8, 8));
 
-    // Outer perimeter crystal drop finial at each outer petal tip
-    const tipR = domeOuterRadiusX - 0.14;
-    const outerFinial = buildPetalCrystalFinial(1.05);
-    // Un-stretch Z on the finial so crystal drops remain circular in world space
-    outerFinial.scale.set(1.05, 1.05, 1.05 / domeStretchZ);
-    outerFinial.position.set(Math.cos(angOuter) * tipR, -0.02, Math.sin(angOuter) * tipR);
-    domeEllipticalContainer.add(outerFinial);
+  const pendantChainBeadGeo = tracker.trackGeo(new THREE.OctahedronGeometry(0.03, 0));
+  const pendantTeardropGeo = tracker.trackGeo(new THREE.OctahedronGeometry(0.076, 0));
+  pendantTeardropGeo.scale(0.72, 1.75, 0.72);
 
-    // Mid-tier crystal drop finial at each inner petal tip
-    const innerTipR = domeOuterRadiusX * 0.74;
-    const innerFinial = buildPetalCrystalFinial(0.88);
-    innerFinial.scale.set(0.88, 0.88, 0.88 / domeStretchZ);
-    innerFinial.position.set(Math.cos(angInner) * innerTipR, 0.19, Math.sin(angInner) * innerTipR);
-    domeEllipticalContainer.add(innerFinial);
-  }
+  const domeHeartGoldFrameGeo = buildExtrudedHeartGeometry(tracker, 1.02, 0.14, 0.042);
+  const domeHeartFacetedBodyGeo = buildExtrudedHeartGeometry(tracker, 0.9, 0.22, 0.058);
+  const domeHeartBrightCoreGeo = buildExtrudedHeartGeometry(tracker, 0.56, 0.26, 0.03);
 
-  // 1.12D Four Ornate Corner Spandrel Rose-Vine Filigree Reliefs (matching the reference ceiling corners)
-  const cornerScrollArcGeo = tracker.trackGeo(
-    new THREE.TorusGeometry(0.42, 0.024, 8, 24, Math.PI * 1.35),
-  );
-  cornerScrollArcGeo.rotateX(Math.PI / 2);
-  const cornerMinorArcGeo = tracker.trackGeo(
-    new THREE.TorusGeometry(0.24, 0.018, 8, 18, Math.PI * 1.45),
-  );
-  cornerMinorArcGeo.rotateX(Math.PI / 2);
+  const domeCenterHeartPivots: THREE.Group[] = [];
 
-  [
-    { sx: -1, sz: -1 },
-    { sx: 1, sz: -1 },
-    { sx: -1, sz: 1 },
-    { sx: 1, sz: 1 },
-  ].forEach(({ sx, sz }) => {
-    const spandrelGrp = new THREE.Group();
-    spandrelGrp.position.set(sx * 3.75, -0.02, sz * 8.65);
-    spandrelGrp.rotation.y = Math.atan2(-sx, -sz);
+  // Builder for a complete 8-Petal Rose Petal Dome Bay using the modular `RosePetalGeometry` class
+  const buildRosePetalDomeBay = (bayCenterX: number, bayCenterZ: number, stretchZ = 1.08) => {
+    const bayGroup = new THREE.Group();
+    bayGroup.position.set(bayCenterX, 0, bayCenterZ);
+    rosePetalDomeGroup.add(bayGroup);
 
-    // Central Sculpted Pink Rose Blossom in the Corner Spandrel
-    for (let l = 0; l < 7; l++) {
-      const lAng = (l / 7) * Math.PI * 2;
-      const petal = new THREE.Mesh(
-        roseBloomGeo,
-        l % 2 === 0 ? galleryRoseSoftPinkMat : galleryRoseDeepPinkMat,
-      );
-      petal.position.set(Math.cos(lAng) * 0.12, -0.02, Math.sin(lAng) * 0.12);
-      petal.scale.set(1.6, 0.65, 1.2);
-      petal.rotation.y = -lAng;
-      spandrelGrp.add(petal);
+    // 1. Modular 8-Petal Translucent Curved Dome Assembly with Champagne-Gold Trim (via RosePetalGeometry)
+    const {
+      group: petalVaultContainer,
+      outerTipPositions,
+      innerTipPositions,
+    } = RosePetalGeometry.createEightPetalDomeAssembly(
+      tracker,
+      rosePetalVaultMat,
+      rosePetalInnerTierMat,
+      galleryRoyalGoldMat,
+      galleryWarmLinearGlowMat,
+      {
+        outerRadius: domeRadius,
+        stretchZ,
+        petalCount: 8,
+        includeInnerTier: true,
+      },
+    );
+    bayGroup.add(petalVaultContainer);
+
+    // 2. Outer Molded Champagne-Gold Circular/Elliptical Cornice Ring & Warm Cove Halo
+    const drumRing = new THREE.Mesh(outerDrumRingGeo, galleryRoyalGoldMat);
+    drumRing.position.y = -0.02;
+    const drumInnerLip = new THREE.Mesh(outerDrumInnerLipGeo, galleryWarmLinearGlowMat);
+    drumInnerLip.position.y = 0.0;
+    const drumOuterHalo = new THREE.Mesh(outerCoveHaloRingGeo, galleryWarmLinearGlowMat);
+    drumOuterHalo.position.y = 0.03;
+    petalVaultContainer.add(drumRing, drumInnerLip, drumOuterHalo);
+
+    // Attach Faceted Crystal Drop Finials at all 8 outer petal tips and 8 inner petal tips
+    for (let i = 0; i < outerTipPositions.length; i++) {
+      const tip = outerTipPositions[i];
+      const fOut = buildPetalCrystalFinial(1.02);
+      fOut.scale.set(1.02, 1.02, 1.02 / stretchZ);
+      fOut.position.copy(tip);
+      petalVaultContainer.add(fOut);
     }
-    const centerBud = new THREE.Mesh(roseBloomGeo, galleryRoseCreamMat);
-    centerBud.position.set(0, -0.035, 0);
-    centerBud.scale.setScalar(1.35);
-    spandrelGrp.add(centerBud);
+    for (let i = 0; i < innerTipPositions.length; i++) {
+      const tip = innerTipPositions[i];
+      const fIn = buildPetalCrystalFinial(1.08);
+      fIn.scale.set(1.08, 1.08, 1.08 / stretchZ);
+      fIn.position.copy(tip);
+      petalVaultContainer.add(fIn);
+    }
 
-    // Flanking Gold Filigree Vine Scrolls & Leaves
-    [-1, 1].forEach((branchSide) => {
-      const majorVine = new THREE.Mesh(cornerScrollArcGeo, galleryRoyalGoldMat);
-      majorVine.position.set(branchSide * 0.45, -0.01, 0.12);
-      majorVine.rotation.y = branchSide * 0.65;
-      const minorVine = new THREE.Mesh(cornerMinorArcGeo, galleryRoyalGoldMat);
-      minorVine.position.set(branchSide * 0.82, -0.01, 0.28);
-      minorVine.rotation.y = -branchSide * 0.85;
-      spandrelGrp.add(majorVine, minorVine);
+    // 3. Central Royal Gold Crown Mount, Chandelier Ring & Faceted Pink Crystal Heart
+    const crownAssembly = new THREE.Group();
+    crownAssembly.position.set(0, 0.02, 0);
+    bayGroup.add(crownAssembly);
 
-      const subRose = new THREE.Mesh(roseBloomGeo, galleryRoseSoftPinkMat);
-      subRose.position.set(branchSide * 0.62, -0.02, 0.22);
-      subRose.scale.set(1.2, 0.55, 1.2);
-      spandrelGrp.add(subRose);
+    const upperPlate = new THREE.Mesh(crownUpperPlateGeo, galleryRoyalGoldMat);
+    upperPlate.position.y = 0.02;
+    const innerSunDisk = new THREE.Mesh(crownInnerSunDiskGeo, galleryWarmLinearGlowMat);
+    innerSunDisk.position.y = -0.14;
+    const innerGoldTorus = new THREE.Mesh(crownInnerGoldTorusGeo, galleryRoyalGoldMat);
+    innerGoldTorus.position.y = -0.16;
+    const royalBand = new THREE.Mesh(crownRoyalBandGeo, galleryRoyalGoldMat);
+    royalBand.position.y = -0.08;
+    const lowerRim = new THREE.Mesh(crownLowerRimGeo, galleryRoyalGoldMat);
+    lowerRim.position.y = -0.19;
+    crownAssembly.add(upperPlate, innerSunDisk, innerGoldTorus, royalBand, lowerRim);
+
+    // 8 Sculpted Royal Crown Points flaring upward/outward + 8 Pink Crystal Gems in the Crown Band
+    for (let cs = 0; cs < 8; cs++) {
+      const cAng = (cs / 8) * Math.PI * 2;
+      const crownPt = new THREE.Mesh(crownPointSpikeGeo, galleryRoyalGoldMat);
+      crownPt.position.set(Math.cos(cAng) * 0.56, 0.06, Math.sin(cAng) * 0.56);
+      crownPt.rotation.y = -cAng;
+      crownPt.rotation.z = -Math.cos(cAng) * 0.28;
+      crownPt.rotation.x = Math.sin(cAng) * 0.28;
+
+      const tipBall = new THREE.Mesh(crownPointTipBallGeo, galleryWarmLinearGlowMat);
+      tipBall.position.set(Math.cos(cAng) * 0.62, 0.19, Math.sin(cAng) * 0.62);
+
+      const bandGem = new THREE.Mesh(crownDiamondGemGeo, floatingHeartCrystalMat);
+      bandGem.position.set(Math.cos(cAng) * 0.54, -0.08, Math.sin(cAng) * 0.54);
+      bandGem.rotation.y = -cAng;
+      crownAssembly.add(crownPt, tipBall, bandGem);
+    }
+
+    // Suspended Circular Gold Chandelier Ring below the Royal Crown
+    const chandelierRingY = -0.38;
+    const mainRing = new THREE.Mesh(chandelierMainRingGeo, galleryRoyalGoldMat);
+    mainRing.position.y = chandelierRingY;
+    const innerRing = new THREE.Mesh(chandelierInnerRingGeo, galleryRoyalGoldMat);
+    innerRing.position.y = chandelierRingY + 0.08;
+    crownAssembly.add(mainRing, innerRing);
+
+    // 6 Curved Gold Scrollwork Struts connecting the Crown Rim to the Chandelier Ring
+    for (let st = 0; st < 6; st++) {
+      const sAng = (st / 6) * Math.PI * 2;
+      const strutCurve = new THREE.QuadraticBezierCurve3(
+        new THREE.Vector3(Math.cos(sAng) * 0.46, -0.18, Math.sin(sAng) * 0.46),
+        new THREE.Vector3(Math.cos(sAng) * 0.78, -0.22, Math.sin(sAng) * 0.78),
+        new THREE.Vector3(Math.cos(sAng) * 0.92, chandelierRingY, Math.sin(sAng) * 0.92),
+      );
+      const strutGeo = tracker.trackGeo(new THREE.TubeGeometry(strutCurve, 12, 0.018, 6, false));
+      crownAssembly.add(new THREE.Mesh(strutGeo, galleryRoyalGoldMat));
+    }
+
+    // 14 Hanging Faceted Crystal Teardrop Pendants around the Chandelier Ring
+    const ringPendantCount = 14;
+    for (let pd = 0; pd < ringPendantCount; pd++) {
+      const pAng = (pd / ringPendantCount) * Math.PI * 2;
+      const rx = Math.cos(pAng) * 0.92;
+      const rz = Math.sin(pAng) * 0.92;
+      const dropLen = pd % 2 === 0 ? 0.28 : 0.22;
+
+      const stud = new THREE.Mesh(chandelierRingStudGeo, galleryWarmLinearGlowMat);
+      stud.position.set(rx, chandelierRingY - 0.02, rz);
+      const bead1 = new THREE.Mesh(pendantChainBeadGeo, galleryWarmLinearGlowMat);
+      bead1.position.set(rx, chandelierRingY - 0.09, rz);
+      const bead2 = new THREE.Mesh(pendantChainBeadGeo, crystalArchMat);
+      bead2.position.set(rx, chandelierRingY - 0.16, rz);
+      const teardrop = new THREE.Mesh(pendantTeardropGeo, crystalArchMat);
+      teardrop.position.set(rx, chandelierRingY - dropLen, rz);
+      crownAssembly.add(stud, bead1, bead2, teardrop);
+    }
+
+    // Central Suspended Multi-Faceted Glowing Pink Crystal Heart inside Champagne-Gold Heart Frame
+    const heartPivot = new THREE.Group();
+    heartPivot.position.set(0, -0.66, 0);
+
+    const goldHeartFrame = new THREE.Mesh(domeHeartGoldFrameGeo, galleryRoyalGoldMat);
+    const facetedHeartBody = new THREE.Mesh(domeHeartFacetedBodyGeo, facetedHeartJewelMat);
+    const brightHeartCore = new THREE.Mesh(domeHeartBrightCoreGeo, galleryWarmLinearGlowMat);
+    heartPivot.add(goldHeartFrame, facetedHeartBody, brightHeartCore);
+
+    // 5 Hanging Crystal Teardrop Pendants in a V-Cascade along the lower contour of the Heart Frame
+    [
+      { hx: -0.34, hy: -0.22, drop: 0.22, scale: 0.88 },
+      { hx: -0.18, hy: -0.35, drop: 0.26, scale: 0.96 },
+      { hx: 0.0, hy: -0.46, drop: 0.3, scale: 1.12 },
+      { hx: 0.18, hy: -0.35, drop: 0.26, scale: 0.96 },
+      { hx: 0.34, hy: -0.22, drop: 0.22, scale: 0.88 },
+    ].forEach(({ hx, hy, drop, scale }) => {
+      const b1 = new THREE.Mesh(pendantChainBeadGeo, galleryWarmLinearGlowMat);
+      b1.position.set(hx, hy - 0.06, 0);
+      const b2 = new THREE.Mesh(pendantChainBeadGeo, crystalArchMat);
+      b2.position.set(hx, hy - 0.13, 0);
+      const td = new THREE.Mesh(pendantTeardropGeo, crystalArchMat);
+      td.position.set(hx, hy - drop, 0);
+      td.scale.setScalar(scale);
+      heartPivot.add(b1, b2, td);
     });
 
-    rosePetalDomeGroup.add(spandrelGrp);
-  });
+    crownAssembly.add(heartPivot);
+    domeCenterHeartPivots.push(heartPivot);
+  };
 
-  // 1.12E Central Royal Crown Mount, Concentric Crystal Chandelier Ring & Suspended Faceted Pink Heart Crystal
-  // Placed in un-stretched world coordinates at the center of the dome (comfortably > 3.1m above floor y0)
-  const centralCrownAssembly = new THREE.Group();
-  centralCrownAssembly.position.set(0, 0.46, 0); // Apex inside the petal convergence
-  rosePetalDomeGroup.add(centralCrownAssembly);
-
-  // Upper Gold Medallion Plate & Warm Halo Ring
-  const crownMedallionGeo = tracker.trackGeo(new THREE.CylinderGeometry(0.76, 0.84, 0.08, 36));
-  const crownMedallion = new THREE.Mesh(crownMedallionGeo, galleryRoyalGoldMat);
-  crownMedallion.position.y = 0.02;
-
-  const crownInnerGlowRingGeo = tracker.trackGeo(new THREE.TorusGeometry(0.58, 0.038, 10, 40));
-  crownInnerGlowRingGeo.rotateX(Math.PI / 2);
-  const crownInnerGlowRing = new THREE.Mesh(crownInnerGlowRingGeo, galleryWarmLinearGlowMat);
-  crownInnerGlowRing.position.y = -0.03;
-
-  // Sculpted Royal Coronet Crown (8 Gold Crown Spikes with Pink Crystal Heart/Gem Insets)
-  const crownBandGeo = tracker.trackGeo(new THREE.CylinderGeometry(0.52, 0.46, 0.18, 28, 1, true));
-  const crownBand = new THREE.Mesh(crownBandGeo, galleryRoyalGoldMat);
-  crownBand.position.y = -0.1;
-  centralCrownAssembly.add(crownMedallion, crownInnerGlowRing, crownBand);
-
-  const crownSpikeGeo = tracker.trackGeo(new THREE.ConeGeometry(0.085, 0.22, 4));
-  const crownGemGeo = tracker.trackGeo(new THREE.OctahedronGeometry(0.048, 0));
-  for (let cs = 0; cs < 8; cs++) {
-    const cAng = (cs / 8) * Math.PI * 2;
-    const spike = new THREE.Mesh(crownSpikeGeo, galleryRoyalGoldMat);
-    spike.position.set(Math.cos(cAng) * 0.49, -0.22, Math.sin(cAng) * 0.49);
-    spike.rotation.x = Math.PI;
-    spike.rotation.y = -cAng;
-
-    const gem = new THREE.Mesh(crownGemGeo, floatingHeartCrystalMat);
-    gem.position.set(Math.cos(cAng) * 0.51, -0.12, Math.sin(cAng) * 0.51);
-    centralCrownAssembly.add(spike, gem);
-  }
-
-  // Suspended Outer Circular Gold Chandelier Ring with 12 Hanging Faceted Crystal Prism Drops
-  const chandelierRingY = -0.44;
-  const chandelierOuterRingGeo = tracker.trackGeo(new THREE.TorusGeometry(0.96, 0.036, 12, 48));
-  chandelierOuterRingGeo.rotateX(Math.PI / 2);
-  const chandelierOuterRing = new THREE.Mesh(chandelierOuterRingGeo, galleryRoyalGoldMat);
-  chandelierOuterRing.position.y = chandelierRingY;
-
-  const chandelierInnerRingGeo = tracker.trackGeo(new THREE.TorusGeometry(0.66, 0.026, 10, 40));
-  chandelierInnerRingGeo.rotateX(Math.PI / 2);
-  const chandelierInnerRing = new THREE.Mesh(chandelierInnerRingGeo, galleryRoyalGoldMat);
-  chandelierInnerRing.position.y = chandelierRingY + 0.08;
-  centralCrownAssembly.add(chandelierOuterRing, chandelierInnerRing);
-
-  // 4 Curved Gold Struts connecting the Coronet Crown to the Chandelier Ring
-  const strutGeo = tracker.trackGeo(new THREE.CylinderGeometry(0.018, 0.018, 0.56, 8));
-  for (let st = 0; st < 4; st++) {
-    const sAng = (st / 4) * Math.PI * 2 + Math.PI / 4;
-    const strut = new THREE.Mesh(strutGeo, galleryRoyalGoldMat);
-    strut.position.set(Math.cos(sAng) * 0.68, -0.26, Math.sin(sAng) * 0.68);
-    strut.rotation.z = Math.cos(sAng) * 0.72;
-    strut.rotation.x = -Math.sin(sAng) * 0.72;
-    centralCrownAssembly.add(strut);
-  }
-
-  // 16 Hanging Crystal Teardrop Pendants around the Chandelier Rings
-  const pendantBeadGeo = tracker.trackGeo(new THREE.OctahedronGeometry(0.032, 0));
-  const pendantDropGeo = tracker.trackGeo(new THREE.OctahedronGeometry(0.068, 0));
-  pendantDropGeo.scale(0.75, 1.65, 0.75);
-
-  for (let pd = 0; pd < 16; pd++) {
-    const pAng = (pd / 16) * Math.PI * 2;
-    const rad = pd % 2 === 0 ? 0.96 : 0.66;
-    const baseRingY = pd % 2 === 0 ? chandelierRingY : chandelierRingY + 0.08;
-    const dropLen = pd % 2 === 0 ? 0.28 : 0.36;
-
-    const bead1 = new THREE.Mesh(pendantBeadGeo, galleryWarmLinearGlowMat);
-    bead1.position.set(Math.cos(pAng) * rad, baseRingY - 0.08, Math.sin(pAng) * rad);
-    const bead2 = new THREE.Mesh(pendantBeadGeo, crystalArchMat);
-    bead2.position.set(Math.cos(pAng) * rad, baseRingY - 0.16, Math.sin(pAng) * rad);
-    const prism = new THREE.Mesh(pendantDropGeo, crystalArchMat);
-    prism.position.set(Math.cos(pAng) * rad, baseRingY - dropLen, Math.sin(pAng) * rad);
-    centralCrownAssembly.add(bead1, bead2, prism);
-  }
-
-  // Central Suspended Faceted Glowing Pink Crystal Heart inside Gold Heart Bezel (at y0 + 3.82m, > 2.0m above player head)
-  const domeCenterHeartPivot = new THREE.Group();
-  domeCenterHeartPivot.position.set(0, -0.68, 0);
-  const domeHeartOuterBezelGeo = buildExtrudedHeartGeometry(tracker, 0.94, 0.14, 0.038);
-  const domeHeartOuterBezel = new THREE.Mesh(domeHeartOuterBezelGeo, galleryRoyalGoldMat);
-  const domeHeartCrystalGeo = buildExtrudedHeartGeometry(tracker, 0.82, 0.22, 0.052);
-  const domeHeartCrystal = new THREE.Mesh(domeHeartCrystalGeo, floatingHeartCrystalMat);
-  const domeHeartInnerCoreGeo = buildExtrudedHeartGeometry(tracker, 0.48, 0.26, 0.025);
-  const domeHeartInnerCore = new THREE.Mesh(domeHeartInnerCoreGeo, galleryWarmLinearGlowMat);
-
-  // Bottom central crystal finial drop below the heart point
-  const bottomHeartFinial = buildPetalCrystalFinial(0.95);
-  bottomHeartFinial.position.set(0, -0.46, 0);
-
-  domeCenterHeartPivot.add(
-    domeHeartOuterBezel,
-    domeHeartCrystal,
-    domeHeartInnerCore,
-    bottomHeartFinial,
-  );
-  centralCrownAssembly.add(domeCenterHeartPivot);
+  // Instantiate the South Portrait Room Rose Petal Dome (exact bay shown in the reference screenshot)
+  // and the companion North Portrait Room Rose Petal Dome so the entire Heart Gallery ceiling is vaulted!
+  buildRosePetalDomeBay(9.825, -9.25, 1.08);
+  buildRosePetalDomeBay(9.825, 1.95, 1.08);
 
   // ==========================================================================
   // 2. ICE SKATING PALACE (PRIORITY #2 — SECOND-LARGEST SPACE ON FLOOR 3)
@@ -4117,14 +4122,26 @@ export function createCastleFloor3Rooms(
   puppyPlayGroup.add(rampGroup);
 
   // --- PERIMETER ACTIVITY ZONE 3: INTERACTIVE BALL AREA (lx = +2.6, lz = -11.8) ---
+  type PlayBallState =
+    | 'ON_GROUND'
+    | 'HELD_BY_PLAYER'
+    | 'THROWN'
+    | 'CARRIED_BY_PUPPY';
   const playBalls: Array<{
     mesh: THREE.Mesh;
     homeLx: number;
     homeLz: number;
     lx: number;
+    ly: number;
     lz: number;
     vx: number;
+    vy: number;
     vz: number;
+    state: PlayBallState;
+    claimedByPuppy: number;
+    bouncePuffTimer: number;
+    bouncePuffLx: number;
+    bouncePuffLz: number;
   }> = [];
   const ballGeo = tracker.trackGeo(new THREE.SphereGeometry(0.16, 16, 14));
   const ballConfigs = [
@@ -4142,11 +4159,39 @@ export function createCastleFloor3Rooms(
       homeLx: bc.lx,
       homeLz: bc.lz,
       lx: bc.lx,
+      ly: 0.17,
       lz: bc.lz,
       vx: 0,
+      vy: 0,
       vz: 0,
+      state: 'ON_GROUND',
+      claimedByPuppy: -1,
+      bouncePuffTimer: 0,
+      bouncePuffLx: bc.lx,
+      bouncePuffLz: bc.lz,
     });
   });
+
+  // Ground dust / grass puff motes for ball bounce & puppy play-bow heart sparkles (InstancedMesh, Zero Allocations)
+  const BALL_PUFF_COUNT = 12;
+  const ballPuffGeo = tracker.trackGeo(new THREE.SphereGeometry(0.045, 8, 8));
+  const ballPuffInstanced = new THREE.InstancedMesh(
+    ballPuffGeo,
+    mats.pearlWhite,
+    BALL_PUFF_COUNT,
+  );
+  ballPuffInstanced.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+  puppyPlayGroup.add(ballPuffInstanced);
+
+  const PUPPY_SPARKLE_COUNT = 12;
+  const puppySparkleGeo = buildExtrudedHeartGeometry(tracker, 0.11, 0.04, 0.012);
+  const puppySparkleInstanced = new THREE.InstancedMesh(
+    puppySparkleGeo,
+    floatingHeartCrystalMat,
+    PUPPY_SPARKLE_COUNT,
+  );
+  puppySparkleInstanced.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+  puppyPlayGroup.add(puppySparkleInstanced);
 
   // --- PERIMETER ACTIVITY ZONE 4: TOY GARDEN (lx = -2.35, lz = -11.8) ---
   const toyGardenGroup = new THREE.Group();
@@ -4254,7 +4299,7 @@ export function createCastleFloor3Rooms(
     const legBL = makeLeg(-0.08, -0.11);
     const legBR = makeLeg(0.08, -0.11);
 
-    return { root, headPivot, tailPivot, legFL, legFR, legBL, legBR };
+    return { root, bodyMesh: body, headPivot, tailPivot, legFL, legFR, legBL, legBR, collarBow };
   };
 
   const puppies: PuppyNpc[] = [];
@@ -4325,6 +4370,10 @@ export function createCastleFloor3Rooms(
       speed: spec.personality === 'energetic' ? 1.55 : 1.15,
       hopPhase: idx * 1.5,
       barkSparkleBoost: 0,
+      retrievePhase: 'NONE',
+      playBowTimer: 0,
+      carryingBallIdx: -1,
+      followDisengageTimer: 0,
     });
   });
 
@@ -4422,9 +4471,99 @@ export function createCastleFloor3Rooms(
   );
   groomHangingHeart.position.set(0, 1.32, 0);
 
-  // Salon Puppy "Lulu" being pampered on the Grooming Table
-  const salonPuppyModel = createPuppyModel(puppySnowMat, floatingHeartCrystalMat);
+  // Salon Puppy "Lulu" being pampered on the Grooming Table (dedicated coat material for wet/fluffy sheen)
+  const salonPuppyCoatMat = tracker.trackMat(
+    new THREE.MeshStandardMaterial({
+      color: new THREE.Color('#fff9fb'),
+      roughness: 0.48,
+      metalness: 0.04,
+      emissive: new THREE.Color('#fbcfe8'),
+      emissiveIntensity: 0.04,
+    }),
+  );
+  const salonPuppyModel = createPuppyModel(salonPuppyCoatMat, floatingHeartCrystalMat);
   salonPuppyModel.root.position.set(0, 0.86, 0);
+
+  // 3D Royal Grooming Brush (visible during Stage 2 — Brush)
+  const salonBrushGroup = new THREE.Group();
+  salonBrushGroup.position.set(0, 1.32, 0.05);
+  salonBrushGroup.visible = false;
+  const brushHeadMesh = new THREE.Mesh(
+    tracker.trackGeo(new THREE.BoxGeometry(0.16, 0.036, 0.095)),
+    mats.champagneGold,
+  );
+  const brushPadMesh = new THREE.Mesh(
+    tracker.trackGeo(new THREE.BoxGeometry(0.14, 0.025, 0.08)),
+    mats.velvetPlum,
+  );
+  brushPadMesh.position.y = -0.025;
+  const brushHandleStem = new THREE.Mesh(
+    tracker.trackGeo(new THREE.CylinderGeometry(0.018, 0.024, 0.14, 10)).rotateZ(Math.PI / 2),
+    mats.champagneGold,
+  );
+  brushHandleStem.position.set(0.13, 0.01, 0);
+  salonBrushGroup.add(brushHeadMesh, brushPadMesh, brushHandleStem);
+
+  // 3 Cycling 3D Royal Accessories for Stage 3 — Style (never duplicated on replays)
+  // Accessory 0: Glossy Barbie-Pink Satin Bow atop Lulu's head
+  const accBowGroup = new THREE.Group();
+  accBowGroup.position.set(0, 0.145, 0.02);
+  accBowGroup.visible = false;
+  const bowLobeGeo = tracker.trackGeo(new THREE.TorusGeometry(0.052, 0.018, 8, 14));
+  const bowLeft = new THREE.Mesh(bowLobeGeo, mats.velvetPlum);
+  bowLeft.position.set(-0.045, 0, 0);
+  bowLeft.rotation.z = 0.25;
+  const bowRight = new THREE.Mesh(bowLobeGeo, mats.velvetPlum);
+  bowRight.position.set(0.045, 0, 0);
+  bowRight.rotation.z = -0.25;
+  const bowCenterKnot = new THREE.Mesh(
+    tracker.trackGeo(new THREE.SphereGeometry(0.024, 8, 8)),
+    mats.champagneGold,
+  );
+  accBowGroup.add(bowLeft, bowRight, bowCenterKnot);
+  salonPuppyModel.headPivot.add(accBowGroup);
+
+  // Accessory 1: Miniature Champagne-Gold Crown Tiara with Ruby Heart Gem
+  const accCrownGroup = new THREE.Group();
+  accCrownGroup.position.set(0, 0.15, 0.01);
+  accCrownGroup.visible = false;
+  const miniCrownBand = new THREE.Mesh(
+    tracker.trackGeo(new THREE.TorusGeometry(0.062, 0.012, 8, 18)).rotateX(Math.PI / 2),
+    mats.champagneGold,
+  );
+  const miniCrownPeakGeo = tracker.trackGeo(new THREE.ConeGeometry(0.018, 0.055, 5));
+  for (let cp = 0; cp < 5; cp++) {
+    const ang = (cp / 5) * Math.PI * 2;
+    const pk = new THREE.Mesh(miniCrownPeakGeo, mats.champagneGold);
+    pk.position.set(Math.cos(ang) * 0.058, 0.028, Math.sin(ang) * 0.058);
+    accCrownGroup.add(pk);
+  }
+  const miniCrownGem = new THREE.Mesh(
+    buildExtrudedHeartGeometry(tracker, 0.055, 0.025, 0.008),
+    floatingHeartCrystalMat,
+  );
+  miniCrownGem.position.set(0, 0.032, 0.064);
+  accCrownGroup.add(miniCrownBand, miniCrownGem);
+  salonPuppyModel.headPivot.add(accCrownGroup);
+
+  // Accessory 2: Ruby-Heart Collar Charm & Silk Ribbon
+  const accCollarGroup = new THREE.Group();
+  accCollarGroup.position.set(0, 0.27, 0.08);
+  accCollarGroup.visible = false;
+  const silkCollarRing = new THREE.Mesh(
+    tracker.trackGeo(new THREE.TorusGeometry(0.115, 0.02, 8, 20)).rotateX(Math.PI / 2 - 0.35),
+    mats.velvetPlum,
+  );
+  const collarCharmHeart = new THREE.Mesh(
+    buildExtrudedHeartGeometry(tracker, 0.14, 0.05, 0.015),
+    floatingHeartCrystalMat,
+  );
+  collarCharmHeart.position.set(0, -0.02, 0.11);
+  accCollarGroup.add(silkCollarRing, collarCharmHeart);
+  salonPuppyModel.root.add(accCollarGroup);
+
+  const salonAccessoryGroups = [accBowGroup, accCrownGroup, accCollarGroup];
+
   groomTableGroup.add(
     groomBase,
     groomPillar,
@@ -4433,6 +4572,7 @@ export function createCastleFloor3Rooms(
     groomArm,
     groomHangingHeart,
     salonPuppyModel.root,
+    salonBrushGroup,
   );
   petSalonGroup.add(groomTableGroup);
   registerLocalCollider(groomX, groomZ, 0.82, 1.8);
@@ -4583,16 +4723,82 @@ export function createCastleFloor3Rooms(
   registerLocalCollider(-10.45, 12.2, 0.68, 1.6);
 
   // ==========================================================================
-  // INTERACTION, SKATING, PUPPY PLAY & CAMERA STATE MACHINE
+  // ICE SKATING BLADE MARKS & LANDING CRYSTAL BURST (Ring Buffer InstancedMeshes)
+  // ==========================================================================
+  const SKATE_BLADE_MARK_COUNT = 28;
+  const skateBladeMarkGeo = tracker.trackGeo(new THREE.BoxGeometry(0.032, 0.008, 0.24));
+  const skateBladeMarkMat = tracker.trackMat(
+    new THREE.MeshBasicMaterial({
+      color: new THREE.Color('#e0f2fe'),
+      transparent: true,
+      opacity: 0.72,
+      depthWrite: false,
+    }),
+  );
+  const skateBladeMarkInstanced = new THREE.InstancedMesh(
+    skateBladeMarkGeo,
+    skateBladeMarkMat,
+    SKATE_BLADE_MARK_COUNT,
+  );
+  skateBladeMarkInstanced.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+  icePalaceGroup.add(skateBladeMarkInstanced);
+
+  const skateBladeMarks: Array<{
+    lx: number;
+    lz: number;
+    yaw: number;
+    age: number;
+    active: boolean;
+  }> = [];
+  for (let i = 0; i < SKATE_BLADE_MARK_COUNT; i++) {
+    skateBladeMarks.push({ lx: 0, lz: 0, yaw: 0, age: 99, active: false });
+    _dummy.position.set(0, -100, 0);
+    _dummy.scale.setScalar(0.0001);
+    _dummy.updateMatrix();
+    skateBladeMarkInstanced.setMatrixAt(i, _dummy.matrix);
+  }
+  skateBladeMarkInstanced.instanceMatrix.needsUpdate = true;
+  let skateBladeWriteIdx = 0;
+  let skateBladeSampleDist = 0;
+  let lastSkateSampleLx = rinkCenterX;
+  let lastSkateSampleLz = rinkCenterZ;
+  let skateBladeSideToggle = 1;
+
+  const SKATE_JUMP_CRYSTAL_COUNT = 12;
+  const skateJumpCrystalInstanced = new THREE.InstancedMesh(
+    iceDropletGeo,
+    floatingHeartCrystalMat,
+    SKATE_JUMP_CRYSTAL_COUNT,
+  );
+  skateJumpCrystalInstanced.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+  icePalaceGroup.add(skateJumpCrystalInstanced);
+  let skateJumpBurstLx = rinkCenterX;
+  let skateJumpBurstLz = rinkCenterZ;
+
+  // ==========================================================================
+  // INTERACTION, SKATING, PUPPY PLAY, PET SALON & CAMERA STATE MACHINE
   // ==========================================================================
   let activeMode: Floor3ActiveCameraMode = 'none';
   let lookYawOffset = 0.0;
   let lookPitchOffset = 0.0;
   let currentGalleryIndex = 0;
   let gallerySwitchCooldown = 0.0;
+
+  // Ice Skating State
   let isSkatingExplicitlyActive = false;
   let skatingJumpSpinBoost = 0.0;
+
+  // Puppy Play Area State (Petting & Ball Retrieve Loop)
+  let heldBallIndex = -1;
+  let activePettingPuppyIndex = -1;
+  let pettingTimer = 0.0;
   let puppyPlayCelebrationTimer = 0.0;
+
+  // Pet Salon 4-Stage Grooming State Machine
+  // Stage 0 = Idle, Stage 1 = Wash, Stage 2 = Brush, Stage 3 = Style, Stage 4 = Finish ("All Done! ❤️")
+  let groomStage: 0 | 1 | 2 | 3 | 4 = 0;
+  let groomAnimTimer = 0.0;
+  let groomCompletedCount = 0;
   let salonGroomCelebrationTimer = 0.0;
 
   const camState: Floor3CameraState = {
@@ -4608,8 +4814,8 @@ export function createCastleFloor3Rooms(
     Math.abs(playerPos.y - floor3WorldY) <= 2.35;
 
   const isPointInsideIceRink = (lx: number, lz: number): boolean => {
-    const dx = (lx - rinkCenterX) / (rinkRadiusX - 0.15);
-    const dz = (lz - rinkCenterZ) / (rinkRadiusZ - 0.15);
+    const dx = (lx - rinkCenterX) / (rinkRadiusX - 0.12);
+    const dz = (lz - rinkCenterZ) / (rinkRadiusZ - 0.12);
     return dx * dx + dz * dz <= 1.0;
   };
 
@@ -4618,6 +4824,98 @@ export function createCastleFloor3Rooms(
     const lx = playerPos.x - originX;
     const lz = playerPos.z - originZ;
     return isPointInsideIceRink(lx, lz);
+  };
+
+  const isNearIceRinkEdge = (playerPos: THREE.Vector3): boolean => {
+    if (!isPlayerOnIceRink(playerPos)) return false;
+    const lx = playerPos.x - originX;
+    const lz = playerPos.z - originZ;
+    const normDist = Math.hypot(
+      (lx - rinkCenterX) / (rinkRadiusX - 0.12),
+      (lz - rinkCenterZ) / (rinkRadiusZ - 0.12),
+    );
+    return normDist >= 0.62;
+  };
+
+  const constrainSkatingToRinkCurb = (
+    playerPos: THREE.Vector3,
+    playerVel: THREE.Vector3,
+  ) => {
+    if (!isSkatingExplicitlyActive) return;
+    if (!isOnFloor3(playerPos)) {
+      isSkatingExplicitlyActive = false;
+      return;
+    }
+    const lx = playerPos.x - originX;
+    const lz = playerPos.z - originZ;
+    const rx = rinkRadiusX - 0.36;
+    const rz = rinkRadiusZ - 0.36;
+    const nx = (lx - rinkCenterX) / rx;
+    const nz = (lz - rinkCenterZ) / rz;
+    const ellipDist = Math.hypot(nx, nz);
+
+    // Softly slide along the inner oval rink curb so the player doesn't launch out the gate at speed
+    if (ellipDist > 1.0 && ellipDist > 0.0001) {
+      const clampedLx = rinkCenterX + (nx / ellipDist) * rx;
+      const clampedLz = rinkCenterZ + (nz / ellipDist) * rz;
+      playerPos.x = originX + clampedLx;
+      playerPos.z = originZ + clampedLz;
+
+      // Normal vector of ellipse at boundary: (nx / rx, nz / rz)
+      let gradX = nx / rx;
+      let gradZ = nz / rz;
+      const gradLen = Math.hypot(gradX, gradZ) || 1;
+      gradX /= gradLen;
+      gradZ /= gradLen;
+
+      const outVel = playerVel.x * gradX + playerVel.z * gradZ;
+      if (outVel > 0) {
+        // Remove outward velocity component + gentle inward rebound so carving along the barrier feels smooth
+        playerVel.x -= gradX * outVel * 1.12;
+        playerVel.z -= gradZ * outVel * 1.12;
+      }
+    }
+
+    // Also smoothly slide around the North-Center Ice Crystal Fountain (fountainX = -9.4, fountainZ = 1.45)
+    const fdx = playerPos.x - (originX + fountainX);
+    const fdz = playerPos.z - (originZ + fountainZ);
+    const fDist = Math.hypot(fdx, fdz);
+    const minFDist = 1.88;
+    if (fDist < minFDist && fDist > 0.0001) {
+      const fnx = fdx / fDist;
+      const fnz = fdz / fDist;
+      playerPos.x = originX + fountainX + fnx * minFDist;
+      playerPos.z = originZ + fountainZ + fnz * minFDist;
+      const inVel = playerVel.x * fnx + playerVel.z * fnz;
+      if (inVel < 0) {
+        playerVel.x -= fnx * inVel * 1.1;
+        playerVel.z -= fnz * inVel * 1.1;
+      }
+    }
+  };
+
+  const recordSkateBladeMark = (wx: number, wz: number, yaw: number, speed: number) => {
+    if (!isSkatingExplicitlyActive || speed < 0.45) return;
+    const lx = wx - originX;
+    const lz = wz - originZ;
+    const stepD = Math.hypot(lx - lastSkateSampleLx, lz - lastSkateSampleLz);
+    skateBladeSampleDist += stepD;
+    lastSkateSampleLx = lx;
+    lastSkateSampleLz = lz;
+
+    if (skateBladeSampleDist >= 0.26) {
+      skateBladeSampleDist = 0;
+      skateBladeSideToggle = -skateBladeSideToggle;
+      const rightX = Math.cos(yaw) * 0.11 * skateBladeSideToggle;
+      const rightZ = -Math.sin(yaw) * 0.11 * skateBladeSideToggle;
+      const slot = skateBladeMarks[skateBladeWriteIdx];
+      slot.lx = lx + rightX;
+      slot.lz = lz + rightZ;
+      slot.yaw = yaw + skateBladeSideToggle * 0.08;
+      slot.age = 0;
+      slot.active = true;
+      skateBladeWriteIdx = (skateBladeWriteIdx + 1) % SKATE_BLADE_MARK_COUNT;
+    }
   };
 
   const findNearestGalleryExhibitIndex = (lx: number, lz: number): { index: number; dist: number } => {
@@ -4636,48 +4934,161 @@ export function createCastleFloor3Rooms(
     return { index: bestIdx, dist: bestDist };
   };
 
-  const getNearestZoneInteraction = (
+  const findNearestPickupBall = (lx: number, lz: number): { index: number; dist: number } => {
+    let bestIdx = -1;
+    let bestDist = Infinity;
+    for (let b = 0; b < playBalls.length; b++) {
+      const ball = playBalls[b];
+      if (
+        ball.state === 'HELD_BY_PLAYER' ||
+        ball.state === 'CARRIED_BY_PUPPY' ||
+        (ball.state === 'THROWN' && Math.hypot(ball.vx, ball.vz) > 1.6)
+      ) {
+        continue;
+      }
+      const d = Math.hypot(lx - ball.lx, lz - ball.lz);
+      if (d < bestDist) {
+        bestDist = d;
+        bestIdx = b;
+      }
+    }
+    return { index: bestIdx, dist: bestDist };
+  };
+
+  const findNearestPuppy = (lx: number, lz: number): { index: number; dist: number } => {
+    let bestIdx = -1;
+    let bestDist = Infinity;
+    for (let p = 0; p < puppies.length; p++) {
+      const pup = puppies[p];
+      if (pup.carryingBallIdx !== -1 || pup.retrievePhase === 'CHASE_BALL') continue;
+      const d = Math.hypot(lx - pup.lx, lz - pup.lz);
+      if (d < bestDist) {
+        bestDist = d;
+        bestIdx = p;
+      }
+    }
+    return { index: bestIdx, dist: bestDist };
+  };
+
+  type ResolvedFloor3Action =
+    | { type: 'exit_gallery'; prompt: string }
+    | { type: 'groom_stage'; prompt: string }
+    | { type: 'throw_ball'; prompt: string }
+    | { type: 'exit_skating'; prompt: string }
+    | { type: 'skating_active'; prompt: string }
+    | { type: 'pickup_ball'; ballIdx: number; prompt: string }
+    | { type: 'pet_puppy'; puppyIdx: number; prompt: string }
+    | { type: 'start_skating'; prompt: string }
+    | { type: 'start_groom'; prompt: string }
+    | { type: 'view_gallery'; exhibitIdx: number; prompt: string };
+
+  const resolvePriorityFloor3Action = (
     playerPos: THREE.Vector3,
-  ): 'heart_gallery' | 'ice_palace' | 'puppy_play' | 'pet_salon' | null => {
+  ): ResolvedFloor3Action | null => {
+    // Priority 0: Active Heart Gallery inspection camera
+    if (activeMode === 'heart_gallery') {
+      const mem = galleryMemories[currentGalleryIndex];
+      return {
+        type: 'exit_gallery',
+        prompt: `Heart Gallery (Frame ${currentGalleryIndex}: ${mem.title}) · Select [0-10] or [A/D] · [E] Exit`,
+      };
+    }
+
     if (!isOnFloor3(playerPos)) return null;
     const lx = playerPos.x - originX;
     const lz = playerPos.z - originZ;
 
-    // 1. Heart Gallery (East & South-East Grand Wing: lx in [4.2, 15.5], lz in [-15.5, +8.0])
+    // Priority 1: Active Pet Salon Grooming Stage
+    if (groomStage > 0 && Math.hypot(lx - groomX, lz - groomZ) <= 3.4) {
+      if (groomStage === 1) {
+        return { type: 'groom_stage', prompt: '[E] Wash' };
+      }
+      if (groomStage === 2) {
+        return { type: 'groom_stage', prompt: '[E] Brush' };
+      }
+      if (groomStage === 3) {
+        return { type: 'groom_stage', prompt: '[E] Style' };
+      }
+      return { type: 'groom_stage', prompt: 'All Done! ❤️' };
+    }
+
+    // Priority 2: Holding a Ball -> ALWAYS "[E] Throw Ball" (never overridden by Pet Puppy)
+    if (heldBallIndex !== -1) {
+      return { type: 'throw_ball', prompt: '[E] Throw Ball' };
+    }
+
+    // Priority 3: Active Ice Skating Mode
+    if (isSkatingExplicitlyActive && isPlayerOnIceRink(playerPos)) {
+      if (isNearIceRinkEdge(playerPos)) {
+        return { type: 'exit_skating', prompt: '[E] Exit Skating' };
+      }
+      return { type: 'skating_active', prompt: '[Space] Spin Jump · [E] Exit Skating' };
+    }
+
+    // Priority 4: Closest Valid Proximity Activity on Floor 3
+    let bestAction: ResolvedFloor3Action | null = null;
+    let bestScoreDist = Infinity;
+
+    // Candidate A: Pick Up Ball (within 1.85m)
+    const nearBall = findNearestPickupBall(lx, lz);
+    if (nearBall.index !== -1 && nearBall.dist <= 1.85) {
+      bestScoreDist = nearBall.dist;
+      bestAction = {
+        type: 'pickup_ball',
+        ballIdx: nearBall.index,
+        prompt: '[E] Pick Up Ball',
+      };
+    }
+
+    // Candidate B: Pet Puppy (within 1.95m)
+    const nearPup = findNearestPuppy(lx, lz);
+    if (nearPup.index !== -1 && nearPup.dist <= 1.95 && nearPup.dist < bestScoreDist) {
+      bestScoreDist = nearPup.dist;
+      bestAction = {
+        type: 'pet_puppy',
+        puppyIdx: nearPup.index,
+        prompt: '[E] Pet Puppy',
+      };
+    }
+
+    // Candidate C: Start Skating (when standing on the Ice Rink surface)
+    if (isPlayerOnIceRink(playerPos)) {
+      const rinkScore = 0.5;
+      if (rinkScore < bestScoreDist) {
+        bestScoreDist = rinkScore;
+        bestAction = {
+          type: 'start_skating',
+          prompt: '[E] Start Skating',
+        };
+      }
+    }
+
+    // Candidate D: Pet Salon Grooming Table (within 2.85m)
+    const distGroom = Math.hypot(lx - groomX, lz - groomZ);
+    if (lx <= -9.2 && lz >= 4.0 && distGroom <= 2.85 && distGroom < bestScoreDist) {
+      bestScoreDist = distGroom;
+      bestAction = {
+        type: 'start_groom',
+        prompt: groomCompletedCount > 0 ? '[E] Groom Puppy Again' : '[E] Groom Puppy',
+      };
+    }
+
+    // Candidate E: Heart Gallery Portrait Inspection
     if (lx >= 4.2 && lx <= 15.5 && lz >= -15.5 && lz <= 8.0) {
       const nearestEx = findNearestGalleryExhibitIndex(lx, lz);
       const distCourt = Math.hypot(lx - courtCenterX, lz - courtCenterZ);
-      if (nearestEx.dist <= 4.8 || distCourt <= 4.5) {
-        return 'heart_gallery';
+      const galleryDist = Math.min(nearestEx.dist, distCourt);
+      if ((nearestEx.dist <= 4.8 || distCourt <= 4.5) && galleryDist < bestScoreDist) {
+        bestScoreDist = galleryDist;
+        bestAction = {
+          type: 'view_gallery',
+          exhibitIdx: nearestEx.index,
+          prompt: 'Heart Gallery · [E] View Memory',
+        };
       }
     }
 
-    // 2. Pet Salon (North-West Suite: lx <= -9.2, lz >= 4.0)
-    if (lx <= -9.2 && lz >= 4.0) {
-      if (Math.hypot(lx - groomX, lz - groomZ) <= 3.6) {
-        return 'pet_salon';
-      }
-    }
-
-    // 3. Ice Skating Palace (West Wing: lx <= -3.5, lz <= 4.2)
-    if (lx <= -3.5 && lz <= 4.2) {
-      const normDist = Math.hypot(
-        (lx - rinkCenterX) / (rinkRadiusX + 1.8),
-        (lz - rinkCenterZ) / (rinkRadiusZ + 1.8),
-      );
-      if (normDist <= 1.08) {
-        return 'ice_palace';
-      }
-    }
-
-    // 4. Puppy Play Area (South-Central Garden: lx in [-4.0, +4.8], lz <= -4.0)
-    if (lx >= -4.0 && lx <= 4.8 && lz <= -4.0) {
-      if (Math.hypot(lx - playCenterX, lz - playCenterZ) <= 5.4) {
-        return 'puppy_play';
-      }
-    }
-
-    return null;
+    return bestAction;
   };
 
   const selectGalleryFrame = (index: number) => {
@@ -4710,36 +5121,61 @@ export function createCastleFloor3Rooms(
     playChime(523.25, 392.0);
   };
 
-  const triggerPuppyPlayAction = (playerPos: THREE.Vector3) => {
-    puppyPlayCelebrationTimer = 7.5;
-    const lx = playerPos.x - originX;
-    const lz = playerPos.z - originZ;
+  const throwHeldBall = (playerPos: THREE.Vector3): boolean => {
+    if (heldBallIndex < 0 || heldBallIndex >= playBalls.length) return false;
+    const ball = playBalls[heldBallIndex];
+    heldBallIndex = -1;
 
-    // Give the interactive pastel play balls a gentle playful bounce across the lawn
-    for (let b = 0; b < playBalls.length; b++) {
-      const ball = playBalls[b];
-      const ang = (b / playBalls.length) * Math.PI * 2 + Math.random() * 0.6;
-      ball.vx = Math.cos(ang) * 2.2;
-      ball.vz = Math.sin(ang) * 2.2;
+    const playerLx = playerPos.x - originX;
+    const playerLz = playerPos.z - originZ;
+    let yaw = avatarCallbacks?.getPlayerFacingYaw?.() ?? 0;
+
+    // If player is standing near the edge of the Puppy Play Area facing outward, bias throw toward the garden interior
+    let dirX = Math.sin(yaw);
+    let dirZ = Math.cos(yaw);
+    const projLx = playerLx + dirX * 3.0;
+    const projLz = playerLz + dirZ * 3.0;
+    if (projLx < -2.6 || projLx > 3.4 || projLz < -13.5 || projLz > -5.2) {
+      const toCenterYaw = Math.atan2(playCenterX - playerLx, playCenterZ - playerLz);
+      dirX = Math.sin(toCenterYaw);
+      dirZ = Math.cos(toCenterYaw);
     }
 
-    // Transition all 4 puppies into excited PLAY / FOLLOW_PLAYER states
+    ball.lx = THREE.MathUtils.clamp(playerLx + dirX * 0.45, -2.6, 3.4);
+    ball.ly = 0.88;
+    ball.lz = THREE.MathUtils.clamp(playerLz + dirZ * 0.45, -13.4, -5.3);
+    ball.vx = dirX * 5.4;
+    ball.vy = 2.45;
+    ball.vz = dirZ * 5.4;
+    ball.state = 'THROWN';
+
+    // Single-Puppy Claim: select the nearest available puppy to chase & retrieve this ball
+    let bestPup = -1;
+    let bestPupDist = Infinity;
     for (let p = 0; p < puppies.length; p++) {
+      if (p === activePettingPuppyIndex) continue;
       const pup = puppies[p];
-      pup.state = p % 2 === 0 ? 'FOLLOW_PLAYER' : 'PLAY';
-      pup.stateTimer = 6.5;
-      pup.barkSparkleBoost = 1.0;
-      pup.targetLx = THREE.MathUtils.clamp(lx + Math.cos(p * 1.57) * 1.25, -2.8, 3.6);
-      pup.targetLz = THREE.MathUtils.clamp(lz + Math.sin(p * 1.57) * 1.25, -13.8, -5.2);
+      if (pup.carryingBallIdx !== -1 || pup.retrievePhase === 'CHASE_BALL') continue;
+      const d = Math.hypot(pup.lx - ball.lx, pup.lz - ball.lz);
+      if (d < bestPupDist) {
+        bestPupDist = d;
+        bestPup = p;
+      }
     }
+    if (bestPup === -1) bestPup = 0;
 
+    ball.claimedByPuppy = bestPup;
+    const claimingPup = puppies[bestPup];
+    claimingPup.state = 'PLAY';
+    claimingPup.retrievePhase = 'CHASE_BALL';
+    claimingPup.playBowTimer = 0;
+    claimingPup.stateTimer = 8.0;
+    claimingPup.barkSparkleBoost = 1.0;
+    claimingPup.targetLx = ball.lx;
+    claimingPup.targetLz = ball.lz;
+
+    puppyPlayCelebrationTimer = 4.5;
     playChime(659.25, 987.77);
-    return true;
-  };
-
-  const triggerPetSalonGroomAction = () => {
-    salonGroomCelebrationTimer = 5.5;
-    playChime(783.99, 1046.5);
     return true;
   };
 
@@ -4760,53 +5196,122 @@ export function createCastleFloor3Rooms(
     },
 
     getProximityPrompt: (playerPos: THREE.Vector3) => {
-      if (activeMode === 'heart_gallery') {
-        const mem = galleryMemories[currentGalleryIndex];
-        return `Heart Gallery (Frame ${currentGalleryIndex}: ${mem.title}) · Select [0-10] or [A/D] · [E] Exit`;
-      }
-
-      if (isPlayerOnIceRink(playerPos)) {
-        return 'Ice Palace · [Space] Spin Jump · [E] Exit Ice';
-      }
-
-      const zone = getNearestZoneInteraction(playerPos);
-      if (zone === 'heart_gallery') {
-        return 'Heart Gallery · [E] View Memory';
-      }
-      if (zone === 'ice_palace') {
-        return 'Ice Palace · [E] Enter Ice';
-      }
-      if (zone === 'puppy_play') {
-        return 'Puppy Play Area · [E] Play';
-      }
-      if (zone === 'pet_salon') {
-        return 'Pet Salon · [E] Groom';
-      }
-      return null;
+      const resolved = resolvePriorityFloor3Action(playerPos);
+      return resolved ? resolved.prompt : null;
     },
 
     interact: (playerPos: THREE.Vector3) => {
-      if (activeMode !== 'none') {
+      const resolved = resolvePriorityFloor3Action(playerPos);
+      if (!resolved) return false;
+
+      if (resolved.type === 'exit_gallery') {
         exitActiveCameraMode();
         return true;
       }
 
-      // If currently on the Ice Rink, pressing [E] cleanly steps onto the East Promenade Gate
-      if (isPlayerOnIceRink(playerPos)) {
+      if (resolved.type === 'groom_stage') {
+        // Trigger current stage animation if not already animating
+        if (groomAnimTimer > 0 || groomStage === 4) {
+          return true;
+        }
+        if (groomStage === 1) {
+          // STAGE 1: WASH
+          groomAnimTimer = 1.8;
+          salonGroomCelebrationTimer = 2.2;
+          salonPuppyCoatMat.roughness = 0.18;
+          salonPuppyCoatMat.emissiveIntensity = 0.14;
+          avatarCallbacks?.setActivityPose('groom_wash');
+          playChime(587.33, 880.0);
+          return true;
+        }
+        if (groomStage === 2) {
+          // STAGE 2: BRUSH
+          groomAnimTimer = 1.8;
+          salonBrushGroup.visible = true;
+          salonGroomCelebrationTimer = 2.2;
+          salonPuppyCoatMat.roughness = 0.32;
+          salonPuppyCoatMat.emissiveIntensity = 0.18;
+          avatarCallbacks?.setActivityPose('groom_brush');
+          playChime(659.25, 987.77);
+          return true;
+        }
+        if (groomStage === 3) {
+          // STAGE 3: STYLE -> Attaches 1 of 3 cycling 3D accessories
+          groomAnimTimer = 1.8;
+          salonGroomCelebrationTimer = 3.2;
+          const accIdx = groomCompletedCount % salonAccessoryGroups.length;
+          for (let a = 0; a < salonAccessoryGroups.length; a++) {
+            salonAccessoryGroups[a].visible = a === accIdx;
+          }
+          avatarCallbacks?.setActivityPose('groom_style');
+          playChime(783.99, 1174.66);
+          return true;
+        }
+        return true;
+      }
+
+      if (resolved.type === 'throw_ball') {
+        return throwHeldBall(playerPos);
+      }
+
+      if (resolved.type === 'exit_skating' || resolved.type === 'skating_active') {
         isSkatingExplicitlyActive = false;
-        playerPos.x = originX - 5.1;
-        playerPos.z = originZ - 5.4;
+        avatarCallbacks?.resetNeutralPose();
         playChime(587.33, 440.0);
         return true;
       }
 
-      const zone = getNearestZoneInteraction(playerPos);
-      if (!zone) return false;
+      if (resolved.type === 'pickup_ball') {
+        const ball = playBalls[resolved.ballIdx];
+        // Clear any previous puppy claim on this ball
+        for (let p = 0; p < puppies.length; p++) {
+          if (puppies[p].carryingBallIdx === resolved.ballIdx) {
+            puppies[p].carryingBallIdx = -1;
+            puppies[p].retrievePhase = 'NONE';
+          }
+        }
+        ball.state = 'HELD_BY_PLAYER';
+        ball.claimedByPuppy = -1;
+        ball.vx = 0;
+        ball.vy = 0;
+        ball.vz = 0;
+        heldBallIndex = resolved.ballIdx;
+        playChime(587.33, 783.99);
+        return true;
+      }
 
-      if (zone === 'heart_gallery') {
-        const lx = playerPos.x - originX;
-        const lz = playerPos.z - originZ;
-        const nearest = findNearestGalleryExhibitIndex(lx, lz);
+      if (resolved.type === 'pet_puppy') {
+        const pup = puppies[resolved.puppyIdx];
+        activePettingPuppyIndex = resolved.puppyIdx;
+        pettingTimer = 2.4;
+        pup.state = 'FOLLOW_PLAYER';
+        pup.stateTimer = 6.0;
+        pup.retrievePhase = 'NONE';
+        pup.barkSparkleBoost = 1.0;
+        const playerLx = playerPos.x - originX;
+        const playerLz = playerPos.z - originZ;
+        pup.yaw = Math.atan2(playerLx - pup.lx, playerLz - pup.lz);
+        avatarCallbacks?.setActivityPose('pet_puppy');
+        playChime(659.25, 880.0);
+        return true;
+      }
+
+      if (resolved.type === 'start_skating') {
+        isSkatingExplicitlyActive = true;
+        playChime(659.25, 880.0);
+        return true;
+      }
+
+      if (resolved.type === 'start_groom') {
+        groomStage = 1;
+        groomAnimTimer = 0.0;
+        salonBrushGroup.visible = false;
+        salonGroomCelebrationTimer = 1.5;
+        playChime(659.25, 880.0);
+        return true;
+      }
+
+      if (resolved.type === 'view_gallery') {
         activeMode = 'heart_gallery';
         camState.active = true;
         camState.mode = 'heart_gallery';
@@ -4816,24 +5321,8 @@ export function createCastleFloor3Rooms(
         camState.seatYaw = undefined;
         lookYawOffset = 0.0;
         lookPitchOffset = 0.0;
-        selectGalleryFrame(nearest.index);
+        selectGalleryFrame(resolved.exhibitIdx);
         return true;
-      }
-
-      if (zone === 'ice_palace') {
-        isSkatingExplicitlyActive = true;
-        playerPos.x = originX - 7.4;
-        playerPos.z = originZ - 5.4;
-        playChime(659.25, 880.0);
-        return true;
-      }
-
-      if (zone === 'puppy_play') {
-        return triggerPuppyPlayAction(playerPos);
-      }
-
-      if (zone === 'pet_salon') {
-        return triggerPetSalonGroomAction();
       }
 
       return false;
@@ -4921,8 +5410,22 @@ export function createCastleFloor3Rooms(
 
     isPlayerOnIceRink,
 
+    isSkatingModeActive: () => isSkatingExplicitlyActive,
+
+    exitSkatingMode: () => {
+      isSkatingExplicitlyActive = false;
+    },
+
+    constrainSkatingToRinkCurb,
+
+    recordSkateBladeMark,
+
+    isHoldingPuppyBall: () => heldBallIndex !== -1,
+
     triggerSkatingJump: () => {
       skatingJumpSpinBoost = 1.0;
+      skateJumpBurstLx = lastSkateSampleLx;
+      skateJumpBurstLz = lastSkateSampleLz;
       playChime(783.99, 1174.66);
     },
 
@@ -4935,11 +5438,16 @@ export function createCastleFloor3Rooms(
       const distToCastle = Math.hypot(playerPos.x - originX, playerPos.z - originZ);
       if (distToCastle > 60.0) return;
 
+      // Auto-disengage skating mode immediately if player steps off the ice rink
+      if (isSkatingExplicitlyActive && !isPlayerOnIceRink(playerPos)) {
+        isSkatingExplicitlyActive = false;
+      }
+
       if (gallerySwitchCooldown > 0) {
         gallerySwitchCooldown = Math.max(0, gallerySwitchCooldown - delta);
       }
       if (skatingJumpSpinBoost > 0) {
-        skatingJumpSpinBoost = Math.max(0, skatingJumpSpinBoost - delta * 1.4);
+        skatingJumpSpinBoost = Math.max(0, skatingJumpSpinBoost - delta * 1.45);
       }
       if (puppyPlayCelebrationTimer > 0) {
         puppyPlayCelebrationTimer = Math.max(0, puppyPlayCelebrationTimer - delta);
@@ -4948,17 +5456,70 @@ export function createCastleFloor3Rooms(
         salonGroomCelebrationTimer = Math.max(0, salonGroomCelebrationTimer - delta);
       }
 
-      // 0. Animate Floor 3 Central Plaza Romantic Crystal Fountain (Water Shaders, Suspended Heart & Clear Impact Droplets)
+      const playerLx = playerPos.x - originX;
+      const playerLz = playerPos.z - originZ;
+
+      // Update Puppy Petting Sequence (~2.4s)
+      if (activePettingPuppyIndex !== -1) {
+        const petPup = puppies[activePettingPuppyIndex];
+        const dPet = Math.hypot(playerLx - petPup.lx, playerLz - petPup.lz);
+        pettingTimer -= delta;
+        if (pettingTimer <= 0 || dPet > 2.5 || heldBallIndex !== -1) {
+          activePettingPuppyIndex = -1;
+          pettingTimer = 0;
+          if (groomStage === 0) {
+            avatarCallbacks?.resetNeutralPose();
+          }
+        }
+      }
+
+      // Update Pet Salon 4-Stage Grooming Progression
+      if (groomStage > 0) {
+        const distGroom = Math.hypot(playerLx - groomX, playerLz - groomZ);
+        if (distGroom > 3.4) {
+          groomStage = 0;
+          groomAnimTimer = 0;
+          salonBrushGroup.visible = false;
+          avatarCallbacks?.resetNeutralPose();
+        } else if (groomAnimTimer > 0) {
+          groomAnimTimer = Math.max(0, groomAnimTimer - delta);
+          if (groomAnimTimer <= 0) {
+            if (groomStage === 1) {
+              // Wash complete -> Advance directly to Stage 2 ([E] Brush)
+              groomStage = 2;
+              avatarCallbacks?.resetNeutralPose();
+            } else if (groomStage === 2) {
+              // Brush complete -> Advance directly to Stage 3 ([E] Style)
+              salonBrushGroup.visible = false;
+              groomStage = 3;
+              avatarCallbacks?.resetNeutralPose();
+            } else if (groomStage === 3) {
+              // Style complete -> Auto-trigger Stage 4 ("All Done! ❤️")
+              groomStage = 4;
+              groomAnimTimer = 1.65;
+              groomCompletedCount += 1;
+              salonGroomCelebrationTimer = 2.0;
+              avatarCallbacks?.resetNeutralPose();
+              playChime(880.0, 1318.51);
+            } else if (groomStage === 4) {
+              // Finish complete -> Return cleanly to idle exploration
+              groomStage = 0;
+              salonBrushGroup.visible = false;
+            }
+          }
+        }
+      }
+
+      // 0. Animate Floor 3 Central Plaza Romantic Crystal Fountain
       plazaFountainWaterUniforms.uTime.value = elapsedTime;
       plazaFountainHeartPivot.position.y = 1.46 + Math.sin(elapsedTime * 1.6) * 0.035;
       plazaFountainHeartPivot.rotation.y = Math.sin(elapsedTime * 0.85) * 0.22;
 
       for (let sm = 0; sm < PLAZA_FOUNTAIN_DROPLET_COUNT; sm++) {
-        const streamIdx = sm >> 1; // 2 tiny droplets per lower stream impact (8 streams total)
+        const streamIdx = sm >> 1;
         const subIdx = sm & 1;
         const sCycle = (elapsedTime * 1.35 + streamIdx * 0.19 + subIdx * 0.47) % 1.0;
         const baseAng = (streamIdx / 8) * Math.PI * 2 + (subIdx === 0 ? -0.035 : 0.035);
-        // Parabolic mini-splash hop near the basin impact point (r = 1.04m, y = 0.40m)
         const sRad = 1.01 + sCycle * 0.09 * (subIdx === 0 ? 1 : -0.6);
         const sY = 0.402 + Math.sin(sCycle * Math.PI) * (subIdx === 0 ? 0.075 : 0.052);
         _dummy.position.set(Math.cos(baseAng) * sRad, sY, Math.sin(baseAng) * sRad);
@@ -4975,8 +5536,10 @@ export function createCastleFloor3Rooms(
       floatingHeartHalo.rotation.x = Math.sin(elapsedTime * 1.2) * 0.35;
       floatingHeartHalo.rotation.z = elapsedTime * 0.45;
 
-      domeCenterHeartPivot.rotation.y = Math.sin(elapsedTime * 0.75) * 0.28;
-      domeCenterHeartPivot.position.y = -0.68 + Math.sin(elapsedTime * 1.6) * 0.025;
+      for (let hp = 0; hp < domeCenterHeartPivots.length; hp++) {
+        domeCenterHeartPivots[hp].rotation.y = Math.sin(elapsedTime * 0.75 + hp) * 0.25;
+        domeCenterHeartPivots[hp].position.y = -0.66 + Math.sin(elapsedTime * 1.6 + hp) * 0.02;
+      }
 
       for (let m = 0; m < HEART_MOTE_COUNT; m++) {
         const ang = elapsedTime * 0.75 + (m / HEART_MOTE_COUNT) * Math.PI * 2;
@@ -4995,7 +5558,7 @@ export function createCastleFloor3Rooms(
       }
       heartMoteInstanced.instanceMatrix.needsUpdate = true;
 
-      // 2. Animate Ice Skating Palace Crystal Heart Fountain & Ascending Ice Droplets
+      // 2. Animate Ice Skating Palace Crystal Heart Fountain, Droplets, Fading Blade Marks & Spin Jump Burst
       const rinkActiveBoost = isSkatingExplicitlyActive || isPlayerOnIceRink(playerPos) ? 1.35 : 1.0;
       iceFountainHeartPivot.position.y = 1.75 + Math.sin(elapsedTime * 2.1) * 0.08;
       iceFountainHeartPivot.rotation.y =
@@ -5018,9 +5581,51 @@ export function createCastleFloor3Rooms(
       }
       iceDropletInstanced.instanceMatrix.needsUpdate = true;
 
-      // 3. Animate Puppy Play Area Interactive Balls & 4 Puppy NPCs (REST -> WANDER -> PLAY -> FOLLOW_PLAYER)
-      const playerLx = playerPos.x - originX;
-      const playerLz = playerPos.z - originZ;
+      // Update Fading Skate Blade Marks (0.8s lifetime)
+      for (let bm = 0; bm < SKATE_BLADE_MARK_COUNT; bm++) {
+        const slot = skateBladeMarks[bm];
+        if (slot.active) {
+          slot.age += delta;
+          if (slot.age >= 0.8) {
+            slot.active = false;
+            _dummy.position.set(0, -100, 0);
+            _dummy.scale.setScalar(0.0001);
+          } else {
+            const fade = 1.0 - slot.age / 0.8;
+            _dummy.position.set(slot.lx, y0 + 0.031, slot.lz);
+            _dummy.rotation.set(0, slot.yaw, 0);
+            _dummy.scale.set(fade, 1.0, fade);
+          }
+          _dummy.updateMatrix();
+          skateBladeMarkInstanced.setMatrixAt(bm, _dummy.matrix);
+        }
+      }
+      skateBladeMarkInstanced.instanceMatrix.needsUpdate = true;
+
+      // Update Skating Jump Crystal Burst
+      for (let jc = 0; jc < SKATE_JUMP_CRYSTAL_COUNT; jc++) {
+        if (skatingJumpSpinBoost > 0.01) {
+          const prog = 1.0 - skatingJumpSpinBoost;
+          const ang = (jc / SKATE_JUMP_CRYSTAL_COUNT) * Math.PI * 2 + prog * 3.2;
+          const rad = 0.22 + prog * 0.85;
+          const cy = y0 + 0.12 + Math.sin(prog * Math.PI) * 0.55;
+          _dummy.position.set(
+            skateJumpBurstLx + Math.cos(ang) * rad,
+            cy,
+            skateJumpBurstLz + Math.sin(ang) * rad,
+          );
+          _dummy.rotation.set(prog * 5.0, ang, prog * 3.0);
+          _dummy.scale.setScalar(skatingJumpSpinBoost * 0.65);
+        } else {
+          _dummy.position.set(0, -100, 0);
+          _dummy.scale.setScalar(0.0001);
+        }
+        _dummy.updateMatrix();
+        skateJumpCrystalInstanced.setMatrixAt(jc, _dummy.matrix);
+      }
+      skateJumpCrystalInstanced.instanceMatrix.needsUpdate = true;
+
+      // 3. Animate Puppy Play Area Interactive Balls & 4 Puppy NPCs
       const isPlayerInPuppyGarden =
         isOnFloor3(playerPos) &&
         playerLx >= -3.8 &&
@@ -5028,88 +5633,342 @@ export function createCastleFloor3Rooms(
         playerLz >= -15.0 &&
         playerLz <= -4.2;
 
-      // Update rolling play balls
+      // Update Interactive Balls (Held in Player Hand, Thrown with Gravity/Bounce/Roll, or Carried in Puppy Mouth)
       for (let b = 0; b < playBalls.length; b++) {
         const ball = playBalls[b];
-        if (Math.abs(ball.vx) > 0.01 || Math.abs(ball.vz) > 0.01) {
+        if (ball.bouncePuffTimer > 0) {
+          ball.bouncePuffTimer = Math.max(0, ball.bouncePuffTimer - delta * 2.2);
+        }
+
+        if (ball.state === 'HELD_BY_PLAYER') {
+          if (avatarCallbacks?.getRightHandWorldPos) {
+            avatarCallbacks.getRightHandWorldPos(_handWorldScratch);
+            ball.lx = _handWorldScratch.x - originX;
+            ball.ly = _handWorldScratch.y - floor3WorldY - 0.04;
+            ball.lz = _handWorldScratch.z - originZ;
+          } else {
+            const yaw = avatarCallbacks?.getPlayerFacingYaw?.() ?? 0;
+            ball.lx = playerLx + Math.sin(yaw + 0.45) * 0.35;
+            ball.ly = 0.88;
+            ball.lz = playerLz + Math.cos(yaw + 0.45) * 0.35;
+          }
+          ball.mesh.position.set(ball.lx, y0 + ball.ly, ball.lz);
+          continue;
+        }
+
+        if (ball.state === 'CARRIED_BY_PUPPY') {
+          // Positioned by the carrying puppy below
+          continue;
+        }
+
+        // Thrown or rolling on ground
+        const isMoving =
+          Math.abs(ball.vx) > 0.015 ||
+          Math.abs(ball.vz) > 0.015 ||
+          ball.ly > 0.175 ||
+          Math.abs(ball.vy) > 0.05;
+
+        if (isMoving) {
           ball.lx += ball.vx * delta;
           ball.lz += ball.vz * delta;
-          ball.vx *= Math.exp(-2.4 * delta);
-          ball.vz *= Math.exp(-2.4 * delta);
 
-          if (ball.lx < -2.6 || ball.lx > 3.5) {
-            ball.vx = -ball.vx * 0.75;
-            ball.lx = THREE.MathUtils.clamp(ball.lx, -2.6, 3.5);
+          if (ball.ly > 0.17 || Math.abs(ball.vy) > 0.01) {
+            ball.vy -= 12.5 * delta;
+            ball.ly += ball.vy * delta;
+            if (ball.ly <= 0.17) {
+              ball.ly = 0.17;
+              if (Math.abs(ball.vy) > 0.55) {
+                ball.vy = -ball.vy * 0.52;
+                ball.bouncePuffTimer = 1.0;
+                ball.bouncePuffLx = ball.lx;
+                ball.bouncePuffLz = ball.lz;
+              } else {
+                ball.vy = 0;
+              }
+            }
           }
-          if (ball.lz < -13.4 || ball.lz > -5.4) {
-            ball.vz = -ball.vz * 0.75;
-            ball.lz = THREE.MathUtils.clamp(ball.lz, -13.4, -5.4);
+
+          const drag = ball.ly <= 0.18 ? 1.95 : 0.45;
+          ball.vx *= Math.exp(-drag * delta);
+          ball.vz *= Math.exp(-drag * delta);
+
+          // Strictly clamp & bounce within Puppy Play Area walkable bounds
+          if (ball.lx < -2.65 || ball.lx > 3.45) {
+            ball.vx = -ball.vx * 0.72;
+            ball.lx = THREE.MathUtils.clamp(ball.lx, -2.65, 3.45);
           }
-          ball.mesh.position.set(
-            ball.lx,
-            y0 + 0.17 + Math.abs(Math.sin(elapsedTime * 8.0 + b)) * 0.08 * Math.hypot(ball.vx, ball.vz),
-            ball.lz,
-          );
-          ball.mesh.rotation.x += ball.vz * delta * 4.0;
-          ball.mesh.rotation.z -= ball.vx * delta * 4.0;
+          if (ball.lz < -13.45 || ball.lz > -5.25) {
+            ball.vz = -ball.vz * 0.72;
+            ball.lz = THREE.MathUtils.clamp(ball.lz, -13.45, -5.25);
+          }
+
+          // Deflect off the Agility Tunnel (-2.35, -7.8) and Bridge Ramp (2.6, -7.8)
+          const obstacles = [
+            { ox: -2.35, oz: -7.8, r: 0.75 },
+            { ox: 2.6, oz: -7.8, r: 0.85 },
+          ];
+          for (let ob = 0; ob < obstacles.length; ob++) {
+            const o = obstacles[ob];
+            const odx = ball.lx - o.ox;
+            const odz = ball.lz - o.oz;
+            const od = Math.hypot(odx, odz);
+            if (od < o.r && od > 0.0001) {
+              const onx = odx / od;
+              const onz = odz / od;
+              ball.lx = o.ox + onx * o.r;
+              ball.lz = o.oz + onz * o.r;
+              const dot = ball.vx * onx + ball.vz * onz;
+              if (dot < 0) {
+                ball.vx -= 1.7 * dot * onx;
+                ball.vz -= 1.7 * dot * onz;
+              }
+            }
+          }
+
+          ball.mesh.position.set(ball.lx, y0 + ball.ly, ball.lz);
+          ball.mesh.rotation.x += ball.vz * delta * 4.2;
+          ball.mesh.rotation.z -= ball.vx * delta * 4.2;
+        } else if (ball.state === 'THROWN' && ball.claimedByPuppy === -1) {
+          ball.state = 'ON_GROUND';
         }
       }
 
-      // Update 4 Puppy NPCs
+      // Animate Ball Bounce Grass/Dust Puff Motes
+      for (let pf = 0; pf < BALL_PUFF_COUNT; pf++) {
+        const bIdx = pf % playBalls.length;
+        const subIdx = Math.floor(pf / playBalls.length);
+        const ball = playBalls[bIdx];
+        if (ball.bouncePuffTimer > 0.01) {
+          const prog = 1.0 - ball.bouncePuffTimer;
+          const ang = (subIdx / 4) * Math.PI * 2 + bIdx;
+          const rad = 0.08 + prog * 0.34;
+          _dummy.position.set(
+            ball.bouncePuffLx + Math.cos(ang) * rad,
+            y0 + 0.04 + Math.sin(prog * Math.PI) * 0.14,
+            ball.bouncePuffLz + Math.sin(ang) * rad,
+          );
+          _dummy.scale.setScalar(ball.bouncePuffTimer * 0.85);
+        } else {
+          _dummy.position.set(0, -100, 0);
+          _dummy.scale.setScalar(0.0001);
+        }
+        _dummy.updateMatrix();
+        ballPuffInstanced.setMatrixAt(pf, _dummy.matrix);
+      }
+      ballPuffInstanced.instanceMatrix.needsUpdate = true;
+
+      // Update 4 Puppy NPCs (Petting, Single-Puppy Retrieve-to-Feet, Play-Bow & Hysteresis AI)
       for (let p = 0; p < puppies.length; p++) {
         const pup = puppies[p];
         pup.stateTimer -= delta;
         if (pup.barkSparkleBoost > 0) {
-          pup.barkSparkleBoost = Math.max(0, pup.barkSparkleBoost - delta * 0.6);
+          pup.barkSparkleBoost = Math.max(0, pup.barkSparkleBoost - delta * 0.55);
         }
 
-        if (pup.stateTimer <= 0) {
-          if (isPlayerInPuppyGarden && (pup.personality === 'energetic' || pup.personality === 'curious')) {
-            pup.state = 'FOLLOW_PLAYER';
-            pup.stateTimer = 4.5 + p * 0.8;
-          } else if (pup.state === 'REST') {
-            pup.state = 'WANDER';
-            pup.stateTimer = 4.0 + p * 0.9;
-            pup.targetLx = playCenterX + Math.sin(elapsedTime * 1.3 + p * 2.1) * 2.2;
-            pup.targetLz = playCenterZ + Math.cos(elapsedTime * 1.1 + p * 1.7) * 2.6;
-          } else if (pup.state === 'WANDER') {
-            pup.state = 'PLAY';
-            pup.stateTimer = 4.2 + p * 0.7;
-            const targetBall = playBalls[p % playBalls.length];
-            pup.targetLx = targetBall.lx;
-            pup.targetLz = targetBall.lz;
+        const distToPlayer = Math.hypot(playerLx - pup.lx, playerLz - pup.lz);
+
+        // A. Active Petting Override
+        if (p === activePettingPuppyIndex) {
+          const toPlayerYaw = Math.atan2(playerLx - pup.lx, playerLz - pup.lz);
+          let yawDiff = toPlayerYaw - pup.yaw;
+          while (yawDiff > Math.PI) yawDiff -= Math.PI * 2;
+          while (yawDiff < -Math.PI) yawDiff += Math.PI * 2;
+          pup.yaw += yawDiff * Math.min(1, delta * 10.0);
+
+          pup.root.position.set(
+            pup.lx,
+            y0 + Math.abs(Math.sin(elapsedTime * 7.5)) * 0.045,
+            pup.lz,
+          );
+          pup.root.rotation.y = pup.yaw;
+          pup.bodyMesh.rotation.x = 0;
+          pup.headPivot.rotation.y = 0;
+          pup.headPivot.rotation.x = -0.18 + Math.sin(elapsedTime * 6.0) * 0.08;
+          pup.headPivot.rotation.z = 0.26 * Math.sin(elapsedTime * 3.5);
+          pup.tailPivot.rotation.z = Math.sin(elapsedTime * 18.0) * 0.58;
+          pup.legFL.rotation.x = 0;
+          pup.legFR.rotation.x = 0;
+          pup.legBL.rotation.x = -0.25;
+          pup.legBR.rotation.x = -0.25;
+          continue;
+        }
+
+        // B. Single-Puppy Ball Retrieve-to-Feet State Machine
+        if (pup.retrievePhase === 'CHASE_BALL') {
+          let claimedBallIdx = -1;
+          for (let b = 0; b < playBalls.length; b++) {
+            if (playBalls[b].claimedByPuppy === p) {
+              claimedBallIdx = b;
+              break;
+            }
+          }
+          if (claimedBallIdx === -1) {
+            pup.retrievePhase = 'NONE';
           } else {
-            pup.state = pup.personality === 'sleepy' ? 'REST' : 'WANDER';
-            pup.stateTimer = 3.8 + p;
-            pup.targetLx = pup.homeLx;
-            pup.targetLz = pup.homeLz;
+            const ball = playBalls[claimedBallIdx];
+            pup.targetLx = ball.lx;
+            pup.targetLz = ball.lz;
+            const dBall = Math.hypot(ball.lx - pup.lx, ball.lz - pup.lz);
+            if (dBall <= 0.44 && ball.ly <= 0.48) {
+              // Pick up ball in mouth & trot back to player's feet!
+              ball.state = 'CARRIED_BY_PUPPY';
+              ball.vx = 0;
+              ball.vy = 0;
+              ball.vz = 0;
+              pup.carryingBallIdx = claimedBallIdx;
+              pup.retrievePhase = 'RETURN_TO_PLAYER';
+              pup.barkSparkleBoost = 1.0;
+              playChime(783.99, 1046.5);
+            }
+          }
+        } else if (pup.retrievePhase === 'RETURN_TO_PLAYER') {
+          const bIdx = pup.carryingBallIdx;
+          if (bIdx < 0 || bIdx >= playBalls.length) {
+            pup.retrievePhase = 'NONE';
+          } else {
+            const ball = playBalls[bIdx];
+            const playerYaw = avatarCallbacks?.getPlayerFacingYaw?.() ?? 0;
+            const dropLx = isPlayerInPuppyGarden
+              ? THREE.MathUtils.clamp(playerLx + Math.sin(playerYaw) * 1.15, -2.5, 3.3)
+              : playCenterX;
+            const dropLz = isPlayerInPuppyGarden
+              ? THREE.MathUtils.clamp(playerLz + Math.cos(playerYaw) * 1.15, -13.2, -5.4)
+              : playCenterZ;
+            pup.targetLx = dropLx;
+            pup.targetLz = dropLz;
+
+            // Keep ball attached to puppy's mouth offset while trotting back
+            ball.lx = pup.lx + Math.sin(pup.yaw) * 0.34;
+            ball.ly = 0.28 + Math.abs(Math.sin(elapsedTime * 11.0)) * 0.06;
+            ball.lz = pup.lz + Math.cos(pup.yaw) * 0.34;
+            ball.mesh.position.set(ball.lx, y0 + ball.ly, ball.lz);
+
+            const dDrop = Math.hypot(dropLx - pup.lx, dropLz - pup.lz);
+            if (dDrop <= 0.38 || (isPlayerInPuppyGarden && distToPlayer <= 1.35)) {
+              // Drop ball cleanly on floor at player's feet & enter Play-Bow!
+              ball.state = 'ON_GROUND';
+              ball.claimedByPuppy = -1;
+              ball.ly = 0.17;
+              ball.vx = 0;
+              ball.vy = 0;
+              ball.vz = 0;
+              ball.mesh.position.set(ball.lx, y0 + 0.17, ball.lz);
+              pup.carryingBallIdx = -1;
+              pup.retrievePhase = 'PLAY_BOW';
+              pup.playBowTimer = 1.25;
+              pup.barkSparkleBoost = 1.0;
+              playChime(659.25, 987.77);
+            }
+          }
+        } else if (pup.retrievePhase === 'PLAY_BOW') {
+          pup.playBowTimer -= delta;
+          const toPlayerYaw = Math.atan2(playerLx - pup.lx, playerLz - pup.lz);
+          let yawDiff = toPlayerYaw - pup.yaw;
+          while (yawDiff > Math.PI) yawDiff -= Math.PI * 2;
+          while (yawDiff < -Math.PI) yawDiff += Math.PI * 2;
+          pup.yaw += yawDiff * Math.min(1, delta * 10.0);
+
+          // Play-Bow Pose: front legs lowered, chest dipped, head looking up happily, rapid tail wag
+          pup.root.position.set(pup.lx, y0 - 0.04, pup.lz);
+          pup.root.rotation.y = pup.yaw;
+          pup.bodyMesh.rotation.x = 0.26;
+          pup.legFL.rotation.x = -0.68;
+          pup.legFR.rotation.x = -0.68;
+          pup.legBL.rotation.x = 0.15;
+          pup.legBR.rotation.x = 0.15;
+          pup.headPivot.rotation.x = -0.32;
+          pup.headPivot.rotation.z = Math.sin(elapsedTime * 6.0) * 0.16;
+          pup.tailPivot.rotation.z = Math.sin(elapsedTime * 19.0) * 0.62;
+
+          if (pup.playBowTimer <= 0) {
+            pup.retrievePhase = 'NONE';
+            pup.bodyMesh.rotation.x = 0;
+            pup.state = isPlayerInPuppyGarden ? 'FOLLOW_PLAYER' : 'WANDER';
+            pup.stateTimer = 5.0;
+          }
+          continue;
+        }
+
+        // C. Standard Puppy AI State Transitions with Hysteresis (REST -> FOLLOW_PLAYER -> WANDER)
+        if (pup.retrievePhase === 'NONE') {
+          // REST -> player approaches within 2.6m -> FOLLOW_PLAYER
+          if (pup.state === 'REST' && isPlayerInPuppyGarden && distToPlayer <= 2.6) {
+            pup.state = 'FOLLOW_PLAYER';
+            pup.stateTimer = 5.5;
+            pup.followDisengageTimer = 0;
+          }
+
+          // FOLLOW_PLAYER -> player walks away (> 4.5m or leaves garden for > 1.5s) -> WANDER
+          if (pup.state === 'FOLLOW_PLAYER') {
+            if (!isPlayerInPuppyGarden || distToPlayer > 4.5) {
+              pup.followDisengageTimer += delta;
+              if (pup.followDisengageTimer >= 1.5) {
+                pup.state = 'WANDER';
+                pup.stateTimer = 4.5 + p * 0.8;
+                pup.followDisengageTimer = 0;
+                pup.targetLx = playCenterX + Math.sin(elapsedTime + p * 1.7) * 2.1;
+                pup.targetLz = playCenterZ + Math.cos(elapsedTime + p * 1.3) * 2.4;
+              }
+            } else {
+              pup.followDisengageTimer = 0;
+            }
+          }
+
+          if (pup.stateTimer <= 0) {
+            if (isPlayerInPuppyGarden && distToPlayer <= 3.2) {
+              pup.state = 'FOLLOW_PLAYER';
+              pup.stateTimer = 4.8 + p * 0.7;
+            } else if (pup.state === 'REST') {
+              pup.state = 'WANDER';
+              pup.stateTimer = 4.2 + p * 0.9;
+              pup.targetLx = playCenterX + Math.sin(elapsedTime * 1.3 + p * 2.1) * 2.2;
+              pup.targetLz = playCenterZ + Math.cos(elapsedTime * 1.1 + p * 1.7) * 2.5;
+            } else if (pup.state === 'WANDER' && pup.personality === 'sleepy') {
+              pup.state = 'REST';
+              pup.stateTimer = 4.5;
+              pup.targetLx = pup.homeLx;
+              pup.targetLz = pup.homeLz;
+            } else {
+              pup.state = 'WANDER';
+              pup.stateTimer = 4.0 + p * 0.8;
+              pup.targetLx = playCenterX + Math.cos(elapsedTime * 0.9 + p * 1.9) * 2.2;
+              pup.targetLz = playCenterZ + Math.sin(elapsedTime * 1.1 + p * 1.5) * 2.5;
+            }
+          }
+
+          if (pup.state === 'FOLLOW_PLAYER' && isPlayerInPuppyGarden) {
+            const offsetAng = (p / puppies.length) * Math.PI * 2 + elapsedTime * 0.3;
+            pup.targetLx = THREE.MathUtils.clamp(playerLx + Math.cos(offsetAng) * 1.35, -2.6, 3.4);
+            pup.targetLz = THREE.MathUtils.clamp(playerLz + Math.sin(offsetAng) * 1.35, -13.4, -5.3);
           }
         }
 
-        if (pup.state === 'FOLLOW_PLAYER' && isPlayerInPuppyGarden) {
-          const offsetAng = (p / puppies.length) * Math.PI * 2 + elapsedTime * 0.35;
-          pup.targetLx = THREE.MathUtils.clamp(playerLx + Math.cos(offsetAng) * 1.35, -2.6, 3.4);
-          pup.targetLz = THREE.MathUtils.clamp(playerLz + Math.sin(offsetAng) * 1.35, -13.6, -5.2);
-        }
-
+        pup.bodyMesh.rotation.x = THREE.MathUtils.damp(pup.bodyMesh.rotation.x, 0, 10, delta);
         _scratchDir.set(pup.targetLx - pup.lx, pup.targetLz - pup.lz);
         const distToTarget = _scratchDir.length();
         const isMoving = pup.state !== 'REST' && distToTarget > 0.14;
 
         if (isMoving) {
           _scratchDir.divideScalar(distToTarget);
-          const stepSpeed =
-            pup.speed * (pup.state === 'PLAY' || puppyPlayCelebrationTimer > 0 ? 1.35 : 1.0);
-          pup.lx = THREE.MathUtils.clamp(pup.lx + _scratchDir.x * stepSpeed * delta, -2.8, 3.5);
-          pup.lz = THREE.MathUtils.clamp(pup.lz + _scratchDir.y * stepSpeed * delta, -13.8, -5.0);
+          const speedMult =
+            pup.retrievePhase === 'CHASE_BALL'
+              ? 1.85
+              : pup.retrievePhase === 'RETURN_TO_PLAYER'
+                ? 1.55
+                : pup.state === 'PLAY' || puppyPlayCelebrationTimer > 0
+                  ? 1.35
+                  : 1.0;
+          const stepSpeed = pup.speed * speedMult;
+          pup.lx = THREE.MathUtils.clamp(pup.lx + _scratchDir.x * stepSpeed * delta, -2.75, 3.45);
+          pup.lz = THREE.MathUtils.clamp(pup.lz + _scratchDir.y * stepSpeed * delta, -13.6, -5.1);
 
           const desiredYaw = Math.atan2(_scratchDir.x, _scratchDir.y);
           let yawDiff = desiredYaw - pup.yaw;
           while (yawDiff > Math.PI) yawDiff -= Math.PI * 2;
           while (yawDiff < -Math.PI) yawDiff += Math.PI * 2;
-          pup.yaw += yawDiff * Math.min(1, delta * 8.0);
+          pup.yaw += yawDiff * Math.min(1, delta * 9.0);
+          pup.headPivot.rotation.y = THREE.MathUtils.damp(pup.headPivot.rotation.y, 0, 8, delta);
         } else if (isPlayerInPuppyGarden) {
-          // Turn head gently toward player when nearby
           const toPlayerYaw = Math.atan2(playerLx - pup.lx, playerLz - pup.lz);
           let hDiff = toPlayerYaw - pup.yaw;
           while (hDiff > Math.PI) hDiff -= Math.PI * 2;
@@ -5117,24 +5976,27 @@ export function createCastleFloor3Rooms(
           pup.headPivot.rotation.y = THREE.MathUtils.clamp(hDiff * 0.55, -0.55, 0.55);
         }
 
-        const wagSpeed = pup.state === 'PLAY' || puppyPlayCelebrationTimer > 0 ? 14.0 : 7.5;
+        const wagSpeed =
+          pup.retrievePhase !== 'NONE' || pup.state === 'PLAY' || puppyPlayCelebrationTimer > 0
+            ? 15.0
+            : 7.5;
         pup.tailPivot.rotation.z = Math.sin(elapsedTime * wagSpeed + p) * 0.45;
+        pup.headPivot.rotation.z = THREE.MathUtils.damp(pup.headPivot.rotation.z, 0, 8, delta);
 
         if (isMoving || pup.state === 'PLAY') {
-          const trot = elapsedTime * 11.0 + p * 1.5;
+          const trot = elapsedTime * 11.5 + p * 1.5;
           const legSwing = Math.sin(trot) * 0.48;
           pup.legFL.rotation.x = legSwing;
           pup.legBR.rotation.x = legSwing;
           pup.legFR.rotation.x = -legSwing;
           pup.legBL.rotation.x = -legSwing;
           const hopY =
-            pup.state === 'PLAY' || puppyPlayCelebrationTimer > 0
-              ? Math.abs(Math.sin(trot * 0.85)) * 0.09
+            pup.retrievePhase !== 'NONE' || pup.state === 'PLAY' || puppyPlayCelebrationTimer > 0
+              ? Math.abs(Math.sin(trot * 0.85)) * 0.085
               : 0;
           pup.root.position.set(pup.lx, y0 + hopY, pup.lz);
-          pup.headPivot.rotation.x = Math.sin(trot * 0.5) * 0.12;
+          pup.headPivot.rotation.x = Math.sin(trot * 0.5) * 0.1;
         } else {
-          // Resting / sitting pose
           pup.legFL.rotation.x = 0;
           pup.legFR.rotation.x = 0;
           pup.legBL.rotation.x = -0.35;
@@ -5145,27 +6007,105 @@ export function createCastleFloor3Rooms(
         pup.root.rotation.y = pup.yaw;
       }
 
-      // 4. Animate Pet Salon Puppy "Lulu" & Floating Iridescent Bath Bubbles
-      const salonSpinRate = salonGroomCelebrationTimer > 0 ? 2.8 : 0.45;
-      salonPuppyModel.root.rotation.y = Math.sin(elapsedTime * salonSpinRate) * 0.65;
-      salonPuppyModel.tailPivot.rotation.z = Math.sin(elapsedTime * 10.5) * 0.42;
-      salonPuppyModel.headPivot.rotation.z = Math.sin(elapsedTime * 2.4) * 0.12;
+      // Animate Floating Heart Sparkles above Petted / Play-Bowing Puppies
+      for (let hs = 0; hs < PUPPY_SPARKLE_COUNT; hs++) {
+        const pupIdx = hs % puppies.length;
+        const subIdx = Math.floor(hs / puppies.length);
+        const pup = puppies[pupIdx];
+        const isSparkling =
+          pupIdx === activePettingPuppyIndex ||
+          pup.retrievePhase === 'PLAY_BOW' ||
+          pup.barkSparkleBoost > 0.05;
+        if (isSparkling) {
+          const cycle = (elapsedTime * 0.85 + subIdx * 0.33 + pupIdx * 0.2) % 1.0;
+          const ang = subIdx * 2.1 + elapsedTime * 2.2;
+          const rad = 0.16 + cycle * 0.22;
+          _dummy.position.set(
+            pup.lx + Math.cos(ang) * rad,
+            y0 + 0.48 + cycle * 0.55,
+            pup.lz + Math.sin(ang) * rad,
+          );
+          _dummy.rotation.set(0, elapsedTime * 2.5 + hs, 0);
+          _dummy.scale.setScalar(Math.sin(cycle * Math.PI) * 0.95);
+        } else {
+          _dummy.position.set(0, -100, 0);
+          _dummy.scale.setScalar(0.0001);
+        }
+        _dummy.updateMatrix();
+        puppySparkleInstanced.setMatrixAt(hs, _dummy.matrix);
+      }
+      puppySparkleInstanced.instanceMatrix.needsUpdate = true;
 
-      const bubbleBoost = salonGroomCelebrationTimer > 0 ? 1.6 : 1.0;
+      // 4. Animate Pet Salon Puppy "Lulu", 3D Brush & Iridescent Wash/Sparkle Bubbles
+      if (groomStage === 1 && groomAnimTimer > 0) {
+        // STAGE 1: WASH — Happy wiggle under pink soap bubbles
+        salonPuppyModel.root.position.set(0, 0.86 + Math.abs(Math.sin(elapsedTime * 8.0)) * 0.03, 0);
+        salonPuppyModel.root.rotation.y = Math.sin(elapsedTime * 5.0) * 0.35;
+        salonPuppyModel.headPivot.rotation.x = -0.12 + Math.sin(elapsedTime * 7.0) * 0.1;
+        salonPuppyModel.tailPivot.rotation.z = Math.sin(elapsedTime * 16.0) * 0.55;
+      } else if (groomStage === 2 && groomAnimTimer > 0) {
+        // STAGE 2: BRUSH — 3D Royal Brush sweeps across Lulu + fluffy coat bounce + head tilt
+        const sweep = Math.sin(elapsedTime * 9.5);
+        salonBrushGroup.visible = true;
+        salonBrushGroup.position.set(
+          sweep * 0.16,
+          1.26 + Math.cos(elapsedTime * 9.5) * 0.03,
+          Math.cos(elapsedTime * 4.75) * 0.12,
+        );
+        salonBrushGroup.rotation.z = sweep * 0.22;
+        const bounce = 1.0 + Math.abs(sweep) * 0.08;
+        salonPuppyModel.bodyMesh.scale.set(bounce, bounce, 1.0);
+        salonPuppyModel.headPivot.rotation.z = 0.24 * Math.sin(elapsedTime * 4.5);
+        salonPuppyModel.tailPivot.rotation.z = Math.sin(elapsedTime * 17.0) * 0.55;
+      } else if (groomStage === 3 && groomAnimTimer > 0) {
+        // STAGE 3: STYLE — Proud pose as accessory is placed
+        salonPuppyModel.bodyMesh.scale.set(1, 1, 1);
+        salonPuppyModel.root.position.set(0, 0.86, 0);
+        salonPuppyModel.root.rotation.y = Math.sin(elapsedTime * 3.0) * 0.25;
+        salonPuppyModel.headPivot.rotation.x = -0.22;
+        salonPuppyModel.tailPivot.rotation.z = Math.sin(elapsedTime * 18.0) * 0.58;
+      } else if (groomStage === 4) {
+        // STAGE 4: ALL DONE! ❤️ — Stands, shakes slightly, sparkles, wags tail happily
+        salonPuppyModel.bodyMesh.scale.set(1, 1, 1);
+        salonPuppyModel.root.position.set(
+          0,
+          0.86 + Math.abs(Math.sin(elapsedTime * 10.0)) * 0.055,
+          0,
+        );
+        salonPuppyModel.root.rotation.z = Math.sin(elapsedTime * 22.0) * 0.12;
+        salonPuppyModel.root.rotation.y = Math.sin(elapsedTime * 4.5) * 0.45;
+        salonPuppyModel.headPivot.rotation.x = -0.18;
+        salonPuppyModel.tailPivot.rotation.z = Math.sin(elapsedTime * 20.0) * 0.65;
+      } else {
+        salonPuppyModel.bodyMesh.scale.set(1, 1, 1);
+        salonPuppyModel.root.position.set(0, 0.86, 0);
+        salonPuppyModel.root.rotation.z = 0;
+        salonPuppyModel.root.rotation.y = Math.sin(elapsedTime * 0.65) * 0.45;
+        salonPuppyModel.tailPivot.rotation.z = Math.sin(elapsedTime * 9.5) * 0.38;
+        salonPuppyModel.headPivot.rotation.z = Math.sin(elapsedTime * 2.2) * 0.1;
+      }
+
+      const isWashingOrCelebrating =
+        (groomStage === 1 && groomAnimTimer > 0) ||
+        groomStage === 4 ||
+        salonGroomCelebrationTimer > 0;
+      const bubbleBoost = isWashingOrCelebrating ? 1.75 : 1.0;
       for (let b = 0; b < SALON_BUBBLE_COUNT; b++) {
-        const bCycle = (elapsedTime * 0.38 * bubbleBoost + b * 0.19) % 1.0;
-        const isGroomSparkle = salonGroomCelebrationTimer > 0 && b % 2 === 0;
-        const baseX = isGroomSparkle ? groomX : -13.95;
-        const baseZ = isGroomSparkle ? groomZ : 12.8;
-        const baseY = isGroomSparkle ? y0 + 0.95 : y0 + 0.58;
-        const bAng = b * 1.3 + elapsedTime * 0.8;
-        const bRad = (isGroomSparkle ? 0.55 : 0.46) * (0.4 + bCycle * 0.7);
+        const bCycle = (elapsedTime * 0.42 * bubbleBoost + b * 0.19) % 1.0;
+        const onGroomTable =
+          (groomStage === 1 && groomAnimTimer > 0) ||
+          (isWashingOrCelebrating && b % 2 === 0);
+        const baseX = onGroomTable ? groomX : -13.95;
+        const baseZ = onGroomTable ? groomZ : 12.8;
+        const baseY = onGroomTable ? y0 + 0.92 : y0 + 0.58;
+        const bAng = b * 1.3 + elapsedTime * (onGroomTable ? 2.2 : 0.8);
+        const bRad = (onGroomTable ? 0.42 : 0.46) * (0.35 + bCycle * 0.65);
         _dummy.position.set(
           baseX + Math.cos(bAng) * bRad,
-          baseY + bCycle * 1.25,
+          baseY + bCycle * (onGroomTable ? 0.95 : 1.25),
           baseZ + Math.sin(bAng) * bRad,
         );
-        _dummy.scale.setScalar((1.0 - bCycle * 0.65) * (isGroomSparkle ? 1.15 : 0.9));
+        _dummy.scale.setScalar((1.0 - bCycle * 0.6) * (onGroomTable ? 1.25 : 0.9));
         _dummy.updateMatrix();
         salonBubbleInstanced.setMatrixAt(b, _dummy.matrix);
       }
