@@ -32,6 +32,7 @@ import {
   CastleLegoWorkshopBundle,
   LegoWorkshopUiState,
 } from './dreamscape/CastleLegoWorkshop';
+import { HeartlinePrecinctManager } from './heartline/HeartlinePrecinctManager';
 import {
   BROOM_STAND_POS,
   CASTLE_KEEP_POS,
@@ -173,6 +174,7 @@ const _shakeOffset = new THREE.Vector3();
 const _cameraRaycaster = new THREE.Raycaster();
 const _camRayDir = new THREE.Vector3();
 const _camRayIntersects: THREE.Intersection[] = [];
+const _heartlineExitPos = new THREE.Vector3();
 const MIN_CAMERA_DISTANCE = 1.2;
 
 function wrapAnglePi(a: number): number {
@@ -194,6 +196,7 @@ export function createPlayerController(
   onTelemetryChange?: (telemetry: PlayerTelemetry) => void,
   dreamCastle?: DreamCastleBundle,
   brickWorkshop?: CastleLegoWorkshopBundle,
+  heartline?: HeartlinePrecinctManager,
 ): PlayerControllerBundle {
   if (brickWorkshop) {
     brickWorkshop.setAvatarBridge({
@@ -792,13 +795,9 @@ export function createPlayerController(
    */
   function handleInteractSchool(): boolean {
     if (locomotionState !== 'walk') return false;
-    const gState = mysteryBox.getGateState();
-    const isGateOpenOrUnlocking =
-      gState === 'OPEN' || gState === 'UNLOCKING';
     const res = wizardingSchool.triggerInteractable(
       playerPos,
       true,
-      isGateOpenOrUnlocking,
     );
     if (res.triggeredId !== 'none') {
       onTelemetryChange?.(buildTelemetry());
@@ -891,6 +890,27 @@ export function createPlayerController(
 
   function triggerCastleAction(): boolean {
     if (locomotionState !== 'walk') return false;
+    if (heartline) {
+      if (heartline.isRiding()) {
+        heartline.handleKeyAction('Escape', playerPos);
+        if (heartline.consumeExitDisembark(_heartlineExitPos)) {
+          playerPos.copy(_heartlineExitPos);
+          camera.up.set(0, 1, 0);
+          camera.fov = 60.0;
+          camera.updateProjectionMatrix();
+          restoreExplorationControls();
+        }
+        onTelemetryChange?.(buildTelemetry());
+        return true;
+      }
+      if (heartline.interact(playerPos)) {
+        playerVelocity.set(0, 0, 0);
+        verticalVel = 0;
+        isGrounded = true;
+        onTelemetryChange?.(buildTelemetry());
+        return true;
+      }
+    }
     if (brickWorkshop) {
       const wasBrickActive = brickWorkshop.isActive();
       if (brickWorkshop.interact(playerPos)) {
@@ -964,50 +984,139 @@ export function createPlayerController(
   }
 
   /**
+   * Deterministically dispatches player interaction to the single active prompt at their position.
+   * Ensures Hogwarts interaction NEVER triggers Barbie Castle gate unlock or vice versa.
+   */
+  function dispatchActivePromptAction(): boolean {
+    if (locomotionState !== 'walk') {
+      if (locomotionState === 'flight') {
+        dismountBroomAndReturnToStand();
+        return true;
+      }
+      return false;
+    }
+
+    // 1. Advance active dialogue/cinematic if running
+    if (
+      wizardingSchool.isDialogueActive() ||
+      mysteryBox.isDialogueActive() ||
+      auroraCinematic.isActive() ||
+      carnivalDistrict.isActive() ||
+      (dreamCastle && dreamCastle.nav.activeCameraFocus) ||
+      flightDialogueActive
+    ) {
+      handleAdvanceDialogue();
+      return true;
+    }
+
+    // 2. Hogwarts / Wizarding School Prompt (Highest Priority when near Hogwarts/Forest)
+    const isNearSchoolOrForest =
+      (playerPos.z > 8.0 && playerPos.x < 35.0) ||
+      wizardingSchool.isDialogueActive();
+    if (isNearSchoolOrForest) {
+      const schoolPrompt = wizardingSchool.getPromptInfo(playerPos, true);
+      if (schoolPrompt.id !== 'none') {
+        return handleInteractSchool();
+      }
+    }
+
+    // 2B. Heartline Coaster Precinct (Northeast Spectacular Thrill Zone)
+    if (heartline && playerPos.x > 42.0 && playerPos.z > 40.0) {
+      const hp = heartline.getProximityPrompt(playerPos);
+      if (hp) {
+        if (heartline.interact(playerPos)) {
+          playerVelocity.set(0, 0, 0);
+          verticalVel = 0;
+          isGrounded = true;
+          onTelemetryChange?.(buildTelemetry());
+          return true;
+        }
+      }
+    }
+
+    // 3. LEGO Brick Workshop & Rocky / Hail Mary Exhibit Prompt
+    if (brickWorkshop) {
+      const distToBrickDistrict = Math.hypot(playerPos.x - -80.0, playerPos.z - 5.0);
+      if (distToBrickDistrict <= 35.0 || brickWorkshop.isActive()) {
+        const bp = brickWorkshop.getProximityPrompt(playerPos);
+        if (bp?.prompt) {
+          if (
+            brickWorkshop.handleKeyAction('Enter', playerPos) ||
+            brickWorkshop.handleKeyAction('e', playerPos) ||
+            brickWorkshop.interact(playerPos)
+          ) {
+            onTelemetryChange?.(buildTelemetry());
+            return true;
+          }
+        }
+      }
+    }
+
+    // 4. Pastel Dream Castle Prompt (East District at 88.0, 18.0 — completely independent of Hogwarts/MysteryBox)
+    const distToDreamCastle = Math.hypot(playerPos.x - 88.0, playerPos.z - 18.0);
+    if (dreamCastle && distToDreamCastle <= 52.0) {
+      if (triggerCastleAction()) {
+        return true;
+      }
+    }
+
+    // 5. Mystery Box & Castle Gate on NW Terrace (-77.54, 67.54 / -80.08, 70.08)
+    const distToTerrace = Math.hypot(
+      playerPos.x - CASTLE_TERRACE_POS.x,
+      playerPos.z - CASTLE_TERRACE_POS.z,
+    );
+    if (distToTerrace <= 16.0) {
+      const mysteryMode = mysteryBox.getPromptMode(playerPos, true);
+      if (mysteryMode === 'open_box' || mysteryMode === 'unlock_gate') {
+        return handleInteractMystery();
+      }
+    }
+
+    // 6. Aurora Sanctuary
+    const distToAurora = Math.hypot(playerPos.x - 0.0, playerPos.z - 58.0);
+    if (distToAurora <= 28.0 && auroraCinematic.isNearStone(playerPos)) {
+      return triggerAuroraAction();
+    }
+
+    // 7. Carnival District
+    const distToCarnival = Math.hypot(playerPos.x - 2.0, playerPos.z - (-62.0));
+    if (distToCarnival <= 58.0 && !auroraCinematic.isActive()) {
+      if (triggerCarnivalAction()) {
+        return true;
+      }
+    }
+
+    // 8. Broom Stand Mounting
+    if (magicFlight.isWithinStandProximity(playerPos)) {
+      locomotionState = 'mounting';
+      flightDialogueActive = true;
+      flightDialogueStep = 0;
+      playerVelocity.set(0, 0, 0);
+      verticalVel = 0;
+
+      const castleAimYaw = Math.atan2(
+        CASTLE_KEEP_POS.x - playerPos.x,
+        CASTLE_KEEP_POS.z - playerPos.z,
+      );
+      facingYaw = castleAimYaw;
+      flightYaw = castleAimYaw;
+      cameraYaw = castleAimYaw;
+      cameraPitch = 0.08;
+
+      magicFlight.startMounting(playerPos, facingYaw);
+      avatar.setShadowVisible(false);
+      onTelemetryChange?.(buildTelemetry());
+      return true;
+    }
+
+    return false;
+  }
+
+  /**
    * Initiates mounting when within 3.2m of the Travel Stand, or dismounting when flying.
    */
   function handleInteractBroom() {
-    if (locomotionState === 'walk') {
-      if (auroraCinematic.isNearStone(playerPos)) {
-        triggerAuroraAction();
-        return;
-      }
-      if (triggerCarnivalAction()) {
-        return;
-      }
-      if (triggerCastleAction()) {
-        return;
-      }
-      if (handleInteractMystery()) {
-        return;
-      }
-      if (handleInteractSchool()) {
-        return;
-      }
-      if (magicFlight.isWithinStandProximity(playerPos)) {
-        locomotionState = 'mounting';
-        flightDialogueActive = true;
-        flightDialogueStep = 0;
-        playerVelocity.set(0, 0, 0);
-        verticalVel = 0;
-
-        // Orient player toward the NW Castle crag (-85, +75) for a dramatic launch sightline
-        const castleAimYaw = Math.atan2(
-          CASTLE_KEEP_POS.x - playerPos.x,
-          CASTLE_KEEP_POS.z - playerPos.z,
-        );
-        facingYaw = castleAimYaw;
-        flightYaw = castleAimYaw;
-        cameraYaw = castleAimYaw;
-        cameraPitch = 0.08;
-
-        magicFlight.startMounting(playerPos, facingYaw);
-        avatar.setShadowVisible(false);
-        onTelemetryChange?.(buildTelemetry());
-      }
-    } else if (locomotionState === 'flight') {
-      dismountBroomAndReturnToStand();
-    }
+    dispatchActivePromptAction();
   }
 
   const onKeyDown = (e: KeyboardEvent) => {
@@ -1089,12 +1198,35 @@ export function createPlayerController(
         onTelemetryChange?.(buildTelemetry());
         return;
       }
-      handleAdvanceDialogue();
+      if (
+        wizardingSchool.isDialogueActive() ||
+        mysteryBox.isDialogueActive() ||
+        auroraCinematic.isActive() ||
+        carnivalDistrict.isActive() ||
+        flightDialogueActive
+      ) {
+        handleAdvanceDialogue();
+        return;
+      }
+      dispatchActivePromptAction();
       return;
     }
 
     if (e.code === 'Escape') {
       if (!e.repeat) {
+        if (heartline?.isRiding()) {
+          e.preventDefault();
+          heartline.handleKeyAction('Escape', playerPos);
+          if (heartline.consumeExitDisembark(_heartlineExitPos)) {
+            playerPos.copy(_heartlineExitPos);
+            camera.up.set(0, 1, 0);
+            camera.fov = 60.0;
+            camera.updateProjectionMatrix();
+            restoreExplorationControls();
+          }
+          onTelemetryChange?.(buildTelemetry());
+          return;
+        }
         if (brickWorkshop?.isActive()) {
           e.preventDefault();
           brickWorkshop.handleKeyAction('Escape', playerPos);
@@ -1482,6 +1614,12 @@ export function createPlayerController(
 
     if (Math.abs(lookDx) < 0.0001 && Math.abs(lookDy) < 0.0001) return;
 
+    if (heartline?.isRiding()) {
+      heartline.applyLookDelta(lookDx * yawSensitivity, lookDy * pitchSensitivity);
+      lastMouseMoveElapsed = currentElapsedTime;
+      return;
+    }
+
     if (isFloor1CamActive) {
       dreamCastle?.floor1Rooms.applySeatedLookDelta(
         lookDx * 0.0044,
@@ -1670,6 +1808,14 @@ export function createPlayerController(
     if (locomotionState === 'mystery_cinematic') {
       return;
     }
+    if (heartline?.isRiding()) {
+      heartline.handleKeyAction('Escape', playerPos);
+      heartline.consumeExitDisembark(_heartlineExitPos);
+      camera.up.set(0, 1, 0);
+      camera.fov = 60.0;
+      camera.updateProjectionMatrix();
+      restoreExplorationControls();
+    }
     if (carnivalDistrict.isActive()) {
       carnivalDistrict.skipActiveAttraction();
     }
@@ -1724,7 +1870,7 @@ export function createPlayerController(
       playerPos.z - CASTLE_TERRACE_POS.z,
     );
     const mysteryPromptMode: MysteryPromptMode =
-      isWalk && distToTerrace <= 30.0
+      isWalk && distToTerrace <= 16.0
         ? mysteryBox.getPromptMode(playerPos, true)
         : 'none';
 
@@ -1737,7 +1883,6 @@ export function createPlayerController(
         ? wizardingSchool.getPromptInfo(
             playerPos,
             true,
-            gState === 'OPEN' || gState === 'UNLOCKING',
           )
         : _emptySchoolPrompt;
 
@@ -1755,16 +1900,22 @@ export function createPlayerController(
 
     const distToBrickDistrict = Math.hypot(playerPos.x - -80.0, playerPos.z - 5.0);
     const brickPrompt =
-      isWalk && brickWorkshop && (distToBrickDistrict <= 24.0 || brickWorkshop.isActive())
+      isWalk && brickWorkshop && (distToBrickDistrict <= 30.0 || brickWorkshop.isActive())
         ? brickWorkshop.getProximityPrompt(playerPos)?.prompt ?? null
         : null;
     const brickCaption =
-      isWalk && brickWorkshop && (distToBrickDistrict <= 24.0 || brickWorkshop.isActive())
+      isWalk && brickWorkshop && (distToBrickDistrict <= 30.0 || brickWorkshop.isActive())
         ? brickWorkshop.getActiveCaption()
+        : null;
+
+    const heartlinePrompt =
+      isWalk && heartline && (heartline.isRiding() || (playerPos.x > 42.0 && playerPos.z > 40.0))
+        ? heartline.getProximityPrompt(playerPos)
         : null;
 
     const distToDreamCastle = Math.hypot(playerPos.x - 88.0, playerPos.z - 18.0);
     const castlePrompt =
+      heartlinePrompt ??
       brickPrompt ??
       (isWalk && dreamCastle && distToDreamCastle <= 52.0
         ? dreamCastle.getProximityPrompt(playerPos)?.prompt ?? null
@@ -2078,6 +2229,44 @@ export function createPlayerController(
 
       auroraCinematic.update(smoothDt, elapsedTime);
       carnivalDistrict.update(smoothDt, elapsedTime, playerPos, camera, keys);
+      if (heartline) {
+        heartline.update(dt, elapsedTime, playerPos);
+        if (heartline.consumeExitDisembark(_heartlineExitPos)) {
+          playerPos.copy(_heartlineExitPos);
+          playerVelocity.set(0, 0, 0);
+          verticalVel = 0;
+          isGrounded = true;
+          facingYaw = Math.PI; // Face South toward Exit Garden & Plaza
+          cameraYaw = Math.PI;
+          cameraPitch = 0.14;
+          camera.up.set(0, 1, 0);
+          camera.fov = 60.0;
+          camera.updateProjectionMatrix();
+          restoreExplorationControls();
+          avatar.group.position.copy(playerPos);
+          avatar.group.rotation.set(0, facingYaw, 0);
+          onTelemetryChange?.(buildTelemetry());
+        }
+        if (heartline.isRiding()) {
+          const hCam = heartline.getCameraState();
+          camera.up.copy(hCam.up);
+          camera.position.copy(hCam.position);
+          camera.lookAt(hCam.lookTarget);
+          if (Math.abs(camera.fov - hCam.fov) > 0.05) {
+            camera.fov = hCam.fov;
+            camera.updateProjectionMatrix();
+          }
+          currentCamPos.copy(hCam.position);
+          currentLookAt.copy(hCam.lookTarget);
+          playerPos.copy(hCam.position);
+          avatar.setFirstPersonVisibility(true);
+          avatar.setShadowVisible(false);
+          currentRegion = getRegionAtPosition(playerPos.x, playerPos.z);
+          emitTelemetryIfDiscreteChanged();
+          return;
+        }
+      }
+      camera.up.set(0, 1, 0);
 
       const activeDialNow = getActiveAuroraDialogue();
       dialogueController.syncActiveDialogue(activeDialNow);

@@ -2036,6 +2036,15 @@ export function createCastleLegoWorkshop(
   const ROCKY_LX = -3.2;
   const ROCKY_LZ = -6.8;
 
+  // ============================================================================
+  // EXHIBIT LIGHTING & NAME BOARD INTENSITY CONTROLS
+  // Modify these values to manually adjust lighting and board illumination:
+  // ============================================================================
+  const ROCKY_EXHIBIT_DIFFUSE_INTENSITY = 0.18; // Mild wide diffused illumination across Rocky's habitat
+  const HAIL_MARY_SHIP_DIFFUSE_INTENSITY = 0.18; // Mild wide diffused illumination across Hail Mary cradle
+  const ROCKY_BOARD_ILLUMINATION = 0.16; // Mild, soft, even, glare-free self-illumination of Rocky's nameplate
+  const HAIL_MARY_BOARD_ILLUMINATION = 0.16; // Mild, soft, even, glare-free self-illumination of Project Hail Mary plaques
+
   let hailMaryCelebrationTimer = 0;
   let rockyBodyRig: THREE.Group | null = null;
   const rockyFrontClawPivots: THREE.Group[] = [];
@@ -2263,43 +2272,63 @@ export function createCastleLegoWorkshop(
       new THREE.MeshStandardMaterial({
         map: hullTex,
         emissiveMap: hullTex,
-        emissive: new THREE.Color('#e0f2fe'),
-        emissiveIntensity: 0.22,
-        roughness: 0.55,
-        metalness: 0.18,
+        emissive: new THREE.Color('#ffffff'),
+        emissiveIntensity: HAIL_MARY_BOARD_ILLUMINATION * 0.85,
+        roughness: 0.95, // Fully matte - zero glare hot spots
+        metalness: 0.0,
         side: THREE.DoubleSide,
       }),
     );
-    const hullSignNorth = new THREE.Mesh(hullNamePlaneGeo, hullNameMat);
-    hullSignNorth.position.set(-1.8, -0.22, 1.455);
-    const hullSignSouth = new THREE.Mesh(hullNamePlaneGeo, hullNameMat);
-    hullSignSouth.position.set(-1.8, -0.22, -1.455);
-    hullSignSouth.rotation.y = Math.PI;
-    shipGroup.add(hullSignNorth, hullSignSouth);
+    const hullBackGeo = tracker.trackGeo(new THREE.BoxGeometry(2.44, 0.62, 0.03));
+    const hullBackNorth = new THREE.Mesh(hullBackGeo, aerospaceTitaniumMat);
+    hullBackNorth.position.set(-1.8, -0.22, 1.44);
+    const hullBackSouth = new THREE.Mesh(hullBackGeo, aerospaceTitaniumMat);
+    hullBackSouth.position.set(-1.8, -0.22, -1.44);
+    hullBackSouth.rotation.y = Math.PI;
 
-    // Twin Sconce Floodlights above the Starship Hull Nameplates
+    const hullSignNorth = new THREE.Mesh(hullNamePlaneGeo, hullNameMat);
+    hullSignNorth.position.set(-1.8, -0.22, 1.458);
+    const hullSignSouth = new THREE.Mesh(hullNamePlaneGeo, hullNameMat);
+    hullSignSouth.position.set(-1.8, -0.22, -1.458);
+    hullSignSouth.rotation.y = Math.PI;
+    shipGroup.add(hullBackNorth, hullBackSouth, hullSignNorth, hullSignSouth);
+
+    // Architectural Trim Cowl and Soft Recessed Halo Wash behind the Nameplates
     const cowlLightGeo = tracker.trackGeo(new THREE.BoxGeometry(0.72, 0.065, 0.14));
     const cowlLensGeo = tracker.trackGeo(new THREE.BoxGeometry(0.66, 0.02, 0.08));
     const ledGlowMat = tracker.trackMat(
       new THREE.MeshStandardMaterial({
         color: new THREE.Color('#f8fafc'),
         emissive: new THREE.Color('#38bdf8'),
-        emissiveIntensity: 1.25,
-        roughness: 0.2,
+        emissiveIntensity: 0.06, // Mild diffused accent line, no bloom glare
+        roughness: 0.85,
       }),
     );
     for (const side of [1, -1]) {
       const cowl = new THREE.Mesh(cowlLightGeo, aerospaceTitaniumMat);
-      cowl.position.set(-1.8, 0.18, side * 1.5);
+      cowl.position.set(-1.8, 0.18, side * 1.48);
       const lens = new THREE.Mesh(cowlLensGeo, ledGlowMat);
       lens.position.set(0, -0.03, 0);
       cowl.add(lens);
       shipGroup.add(cowl);
-
-      const hullLight = new THREE.PointLight(0xe0f2fe, 1.25, 3.8, 2.0);
-      hullLight.position.set(-1.8, 0.14, side * 1.68);
-      shipGroup.add(hullLight);
     }
+
+    // Wide, mild diffused ambient fill spread softly across the launch apron and starship cradle (no focused spot!)
+    const shipCradleFillL = new THREE.PointLight(
+      0x38bdf8,
+      HAIL_MARY_SHIP_DIFFUSE_INTENSITY,
+      11.0,
+      1.0, // Linear decay spreads light smoothly across wide area without central hotspot
+    );
+    shipCradleFillL.position.set(SHIP_LX - 3.8, y0 + 1.8, SHIP_LZ + 2.2);
+    const shipCradleFillR = new THREE.PointLight(
+      0xfef08a,
+      HAIL_MARY_SHIP_DIFFUSE_INTENSITY,
+      11.0,
+      1.0,
+    );
+    shipCradleFillR.position.set(SHIP_LX + 3.8, y0 + 1.8, SHIP_LZ + 2.2);
+    hailMaryDistrictGroup.add(shipCradleFillL, shipCradleFillR);
 
     // Dedicated Museum Exhibition Plaque on the Promenade Apron in front of the Spacecraft
     const shipPlaqueCanvas = document.createElement('canvas');
@@ -2336,33 +2365,49 @@ export function createCastleLegoWorkshop(
       new THREE.MeshStandardMaterial({
         map: shipPlaqueTex,
         emissiveMap: shipPlaqueTex,
-        emissive: new THREE.Color('#f8fafc'),
-        emissiveIntensity: 0.22,
-        roughness: 0.55,
-        metalness: 0.18,
+        emissive: new THREE.Color('#ffffff'),
+        emissiveIntensity: HAIL_MARY_BOARD_ILLUMINATION,
+        roughness: 0.95, // Fully matte - zero glare hotspot
+        metalness: 0.0,
         side: THREE.DoubleSide,
       }),
     );
-    const shipPlaqueStandGeo = tracker.trackGeo(new THREE.CylinderGeometry(0.06, 0.08, 0.72, 10));
-    const shipPlaqueStandMesh = new THREE.Mesh(shipPlaqueStandGeo, mats.champagneGold);
-    shipPlaqueStandMesh.position.set(SHIP_LX - 0.8, y0 + 0.36, SHIP_LZ + 2.7);
-    const shipPlaqueMesh = new THREE.Mesh(shipPlaqueGeo, shipPlaqueMat);
-    shipPlaqueMesh.position.set(SHIP_LX - 0.8, y0 + 0.76, SHIP_LZ + 2.65);
-    shipPlaqueMesh.rotation.x = -0.32; // Angled comfortably toward arriving visitors
 
-    // Museum Light Fixture Hood & Soft Spotlight over the Promenade Plaque
+    // Promenade Exhibition Plaque Assembly Group (all elements locked to the same tilt and space)
+    const shipPlaqueGroup = new THREE.Group();
+    shipPlaqueGroup.position.set(SHIP_LX - 0.8, y0 + 0.76, SHIP_LZ + 2.65);
+    shipPlaqueGroup.rotation.x = -0.32; // Angled comfortably toward arriving visitors
+
+    const shipPlaqueBackGeo = tracker.trackGeo(new THREE.BoxGeometry(2.04, 0.56, 0.04));
+    const shipPlaqueBackMesh = new THREE.Mesh(shipPlaqueBackGeo, aerospaceTitaniumMat);
+    shipPlaqueBackMesh.position.set(0, 0, 0);
+
+    const shipPlaqueMesh = new THREE.Mesh(shipPlaqueGeo, shipPlaqueMat);
+    shipPlaqueMesh.position.set(0, 0, 0.022);
+
+    // Museum Light Fixture Hood & Soft Light Strip perfectly aligned along top rim of plaque
     const hoodGeo = tracker.trackGeo(new THREE.BoxGeometry(2.08, 0.055, 0.16));
     const hoodMesh = new THREE.Mesh(hoodGeo, mats.champagneGold);
-    hoodMesh.position.set(SHIP_LX - 0.8, y0 + 1.05, SHIP_LZ + 2.58);
-    hoodMesh.rotation.x = -0.32;
+    hoodMesh.position.set(0, 0.305, 0.06);
     const hoodLensGeo = tracker.trackGeo(new THREE.BoxGeometry(1.98, 0.02, 0.08));
     const hoodLensMesh = new THREE.Mesh(hoodLensGeo, ledGlowMat);
-    hoodLensMesh.position.set(0, -0.03, 0);
+    hoodLensMesh.position.set(0, -0.026, 0.02);
     hoodMesh.add(hoodLensMesh);
 
-    const shipPlaqueLight = new THREE.PointLight(0xfef08a, 1.45, 3.8, 2.0);
-    shipPlaqueLight.position.set(SHIP_LX - 0.8, y0 + 1.08, SHIP_LZ + 2.78);
-    hailMaryDistrictGroup.add(shipPlaqueStandMesh, shipPlaqueMesh, hoodMesh, shipPlaqueLight);
+    // Golden Stand Column supporting behind the backplate
+    const shipPlaqueStandGeo = tracker.trackGeo(new THREE.CylinderGeometry(0.06, 0.08, 0.72, 10));
+    const shipPlaqueStandMesh = new THREE.Mesh(shipPlaqueStandGeo, mats.champagneGold);
+    shipPlaqueStandMesh.position.set(SHIP_LX - 0.8, y0 + 0.36, SHIP_LZ + 2.58);
+
+    shipPlaqueGroup.add(
+      shipPlaqueBackMesh,
+      shipPlaqueMesh,
+      hoodMesh,
+    );
+
+    hailMaryDistrictGroup.add(shipPlaqueStandMesh, shipPlaqueGroup);
+
+    hailMaryDistrictGroup.add(shipPlaqueStandMesh, shipPlaqueGroup);
 
     // 2D. Centrifuge Separation Coupler & Extendable Cable Tether Winch Assembly (local X = 0.1 .. 1.45)
     const spineCoreGeo = tracker.trackGeo(new THREE.CylinderGeometry(0.68, 0.68, 4.8, 20));
@@ -2485,7 +2530,14 @@ export function createCastleLegoWorkshop(
     rockyPadTopGeo.translate(0, 0.32, 0);
     const rockyPadBase = new THREE.Mesh(rockyPadBaseGeo, xenoniteSolidMat);
     rockyPadBase.receiveShadow = true;
-    const rockyPadTop = new THREE.Mesh(rockyPadTopGeo, mats.champagneGold);
+    const rockyPadTopMat = tracker.trackMat(
+      new THREE.MeshStandardMaterial({
+        color: new THREE.Color('#d97706'),
+        roughness: 0.90, // Fully matte warm mineral stone - zero specular glare
+        metalness: 0.0,
+      }),
+    );
+    const rockyPadTop = new THREE.Mesh(rockyPadTopGeo, rockyPadTopMat);
     rockyPadTop.receiveShadow = true;
     rockyHabitatGroup.add(rockyPadBase, rockyPadTop);
 
@@ -2516,18 +2568,27 @@ export function createCastleLegoWorkshop(
 
     const rockyCarapaceMat = tracker.trackMat(
       new THREE.MeshStandardMaterial({
-        color: new THREE.Color('#3f342b'),
-        roughness: 0.72,
-        metalness: 0.28,
+        color: new THREE.Color('#322920'),
+        roughness: 0.95, // Pure matte mineral stone carapace - completely eliminates metallic reflection and glare
+        metalness: 0.0,
       }),
     );
     const rockyVeinMat = tracker.trackMat(
       new THREE.MeshStandardMaterial({
         color: new THREE.Color('#d97706'),
-        emissive: new THREE.Color('#92400e'),
-        emissiveIntensity: 0.38,
-        roughness: 0.32,
-        metalness: 0.75,
+        emissive: new THREE.Color('#78350f'),
+        emissiveIntensity: 0.18,
+        roughness: 0.92, // Soft diffuse joint surfaces - zero specular hotspot
+        metalness: 0.0,
+      }),
+    );
+    const rockyClawMat = tracker.trackMat(
+      new THREE.MeshStandardMaterial({
+        color: new THREE.Color('#d97706'),
+        emissive: new THREE.Color('#78350f'),
+        emissiveIntensity: 0.16,
+        roughness: 0.74, // Organic mineral claw texture, no harsh chrome/gold specular highlights
+        metalness: 0.08,
       }),
     );
     const rockySashMat = tracker.trackMat(
@@ -2535,7 +2596,8 @@ export function createCastleLegoWorkshop(
         color: new THREE.Color('#10b981'),
         emissive: new THREE.Color('#047857'),
         emissiveIntensity: 0.24,
-        roughness: 0.4,
+        roughness: 0.65,
+        metalness: 0.05,
       }),
     );
 
@@ -2627,7 +2689,7 @@ export function createCastleLegoWorkshop(
         handGroup.position.set(0.14, -0.62, 0);
       }
       for (let f = -1; f <= 1; f++) {
-        const finger = new THREE.Mesh(clawFingerGeo, foilGoldMat);
+        const finger = new THREE.Mesh(clawFingerGeo, rockyClawMat);
         finger.rotation.z = f * 0.48;
         finger.rotation.x = 0.25;
         handGroup.add(finger);
@@ -2688,40 +2750,67 @@ export function createCastleLegoWorkshop(
       new THREE.MeshStandardMaterial({
         map: rockyPlaqueTex,
         emissiveMap: rockyPlaqueTex,
-        emissive: new THREE.Color('#fef08a'),
-        emissiveIntensity: 0.22,
-        roughness: 0.55,
-        metalness: 0.15,
+        emissive: new THREE.Color('#ffffff'),
+        emissiveIntensity: ROCKY_BOARD_ILLUMINATION,
+        roughness: 0.98, // Fully matte diffuse - zero specular glare
+        metalness: 0.0,
         side: THREE.DoubleSide,
       }),
     );
-    const rockyPlaqueMesh = new THREE.Mesh(rockyPlaqueGeo, rockyPlaqueMat);
-    rockyPlaqueMesh.position.set(0.65, 0.62, 1.85);
-    rockyPlaqueMesh.rotation.y = 0.35;
-    rockyHabitatGroup.add(rockyPlaqueMesh);
 
-    // Museum Exhibition Light Hood & Warm Spotlight over Rocky's Plaque
-    const rockyHoodGeo = tracker.trackGeo(new THREE.BoxGeometry(1.62, 0.05, 0.14));
+    // Rocky Exhibition Plaque Assembly Group (all elements locked to the same local coordinate space)
+    const rockyPlaqueGroup = new THREE.Group();
+    rockyPlaqueGroup.position.set(0.65, 0.62, 1.85);
+    rockyPlaqueGroup.rotation.y = 0.35; // Angled toward approaching visitors
+
+    // 1. Backing casing plate
+    const rockyPlaqueBackGeo = tracker.trackGeo(new THREE.BoxGeometry(1.58, 0.42, 0.04));
+    const rockyPlaqueBackMesh = new THREE.Mesh(rockyPlaqueBackGeo, aerospaceTitaniumMat);
+    rockyPlaqueBackMesh.position.set(0, 0, 0);
+
+    // 2. Front Decal with Rocky's titles & quotes
+    const rockyPlaqueMesh = new THREE.Mesh(rockyPlaqueGeo, rockyPlaqueMat);
+    rockyPlaqueMesh.position.set(0, 0, 0.022);
+
+    // 3. Supporting Gold Post connecting behind the plate (does not poke through front face!)
+    const rockyStandGeo = tracker.trackGeo(new THREE.CylinderGeometry(0.045, 0.06, 0.62, 10));
+    const rockyStandMesh = new THREE.Mesh(rockyStandGeo, mats.champagneGold);
+    rockyStandMesh.position.set(0, -0.31, -0.04);
+
+    // 4. Architectural Visor Hood & Light Strip (mounted squarely atop plaque frame, perfectly aligned!)
+    const rockyHoodGeo = tracker.trackGeo(new THREE.BoxGeometry(1.60, 0.048, 0.14));
     const rockyHoodMesh = new THREE.Mesh(rockyHoodGeo, mats.champagneGold);
-    rockyHoodMesh.position.set(0.65, 0.84, 1.78);
-    rockyHoodMesh.rotation.y = 0.35;
-    rockyHoodMesh.rotation.x = -0.22;
-    const rockyLensGeo = tracker.trackGeo(new THREE.BoxGeometry(1.52, 0.02, 0.06));
+    rockyHoodMesh.position.set(0, 0.234, 0.05); // Flush directly above the 0.42m high plaque, cantilevered slightly forward
+    const rockyLensGeo = tracker.trackGeo(new THREE.BoxGeometry(1.52, 0.018, 0.06));
     const warmAmberGlowMat = tracker.trackMat(
       new THREE.MeshStandardMaterial({
         color: new THREE.Color('#fef08a'),
         emissive: new THREE.Color('#f59e0b'),
-        emissiveIntensity: 1.35,
-        roughness: 0.2,
+        emissiveIntensity: 0.06, // Soft, non-glare lens accent
+        roughness: 0.85,
       }),
     );
     const rockyLensMesh = new THREE.Mesh(rockyLensGeo, warmAmberGlowMat);
-    rockyLensMesh.position.set(0, -0.026, 0);
+    rockyLensMesh.position.set(0, -0.022, 0.02);
     rockyHoodMesh.add(rockyLensMesh);
 
-    const rockyPlaqueLight = new THREE.PointLight(0xfde047, 1.35, 3.4, 2.0);
-    rockyPlaqueLight.position.set(0.65, 0.86, 1.95);
-    rockyHabitatGroup.add(rockyHoodMesh, rockyPlaqueLight);
+    // Soft wide ambient fill spread behind the plaque onto Rocky's xenonite dome & habitat (decay = 1.0, wide smooth spread)
+    const rockyPlaqueBacklight = new THREE.PointLight(
+      0xfde047,
+      ROCKY_EXHIBIT_DIFFUSE_INTENSITY,
+      8.0,
+      1.0,
+    );
+    rockyPlaqueBacklight.position.set(0, 0.28, -0.35);
+
+    rockyPlaqueGroup.add(
+      rockyStandMesh,
+      rockyPlaqueBackMesh,
+      rockyPlaqueMesh,
+      rockyHoodMesh,
+      rockyPlaqueBacklight,
+    );
+    rockyHabitatGroup.add(rockyPlaqueGroup);
 
     hailMaryDistrictGroup.add(rockyHabitatGroup);
     group.add(hailMaryDistrictGroup);
@@ -2792,7 +2881,7 @@ export function createCastleLegoWorkshop(
     if (!isOutdoorBrickDistrict) return false;
     const dRocky = Math.hypot(lx - ROCKY_LX, lz - ROCKY_LZ);
     const dShip = Math.hypot((lx - SHIP_LX) * 0.45, lz - SHIP_LZ);
-    return dRocky < 3.6 || dShip < 3.8;
+    return dRocky < 6.2 || dShip < 6.5;
   };
 
   const triggerHailMaryAndRockyCelebration = (): boolean => {
@@ -2885,8 +2974,8 @@ export function createCastleLegoWorkshop(
       const lz = playerWorldPos.z - originZ;
       const ly = playerWorldPos.y - baseY;
 
-      if (Math.abs(ly - y0) > 3.2) return null;
-      if (Math.abs(lx) > 12.5 || lz < -16.5 || lz > 8.5) return null;
+      if (Math.abs(ly - y0) > 4.5) return null;
+      if (Math.abs(lx) > 18.0 || lz < -22.0 || lz > 12.0) return null;
 
       if (mode === 'lego_build') {
         if (isChoosingBlueprint) {
@@ -2998,8 +3087,8 @@ export function createCastleLegoWorkshop(
         return true;
       }
 
-      if (Math.abs(ly - y0) > 3.2) return false;
-      if (Math.abs(lx) > 12.5 || lz < -16.5 || lz > 8.5) return false;
+      if (Math.abs(ly - y0) > 4.5) return false;
+      if (Math.abs(lx) > 18.0 || lz < -22.0 || lz > 12.0) return false;
 
       // 0. Project Hail Mary & Rocky's Replica -> [E] "Fist My Bump!" Jazz Hands & Spin Drive Pulse
       if (isNearHailMaryOrRocky(lx, lz)) {
@@ -3183,7 +3272,10 @@ export function createCastleLegoWorkshop(
         const lx = playerWorldPos.x - originX;
         const lz = playerWorldPos.z - originZ;
         const ly = playerWorldPos.y - baseY;
-        if (Math.abs(ly - y0) <= 3.2 && Math.abs(lx) <= 12.5 && lz >= -16.5 && lz <= 8.5) {
+        if (Math.abs(ly - y0) <= 4.5 && Math.abs(lx) <= 18.0 && lz >= -22.0 && lz <= 12.0) {
+          if ((k === 'e' || k === 'enter' || k === ' ') && isNearHailMaryOrRocky(lx, lz)) {
+            return triggerHailMaryAndRockyCelebration();
+          }
           if (k === 'p' && Math.abs(lx) <= 8.5 && Math.abs(lz) <= 8.5) {
             return startBringToLife();
           }

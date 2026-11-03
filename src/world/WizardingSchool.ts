@@ -65,12 +65,12 @@ export interface WizardingSchoolBundle {
   getPromptInfo: (
     playerWorldPos: THREE.Vector3,
     isWalking: boolean,
-    isGateOpenOrUnlocking: boolean,
+    isGateOpenOrUnlocking?: boolean,
   ) => SchoolPromptInfo;
   triggerInteractable: (
     playerWorldPos: THREE.Vector3,
     isWalking: boolean,
-    isGateOpenOrUnlocking: boolean,
+    isGateOpenOrUnlocking?: boolean,
   ) => {
     triggeredId: SchoolInteractableId;
     openCompendiumModal: boolean;
@@ -3158,9 +3158,9 @@ export function createWizardingSchoolSystem(): WizardingSchoolBundle {
   function findClosestInteractable(
     playerWorldPos: THREE.Vector3,
     isWalking: boolean,
-    isGateOpenOrUnlocking: boolean,
+    _isGateOpenOrUnlocking?: boolean,
   ): InteractableSpec | null {
-    if (!isWalking || !isGateOpenOrUnlocking || activeStation !== 'none') {
+    if (!isWalking || activeStation !== 'none') {
       return null;
     }
 
@@ -3214,7 +3214,7 @@ export function createWizardingSchoolSystem(): WizardingSchoolBundle {
   }
 
   /**
-   * Gentle, non-locking camera focus for the Sorting Hat, Compendium Lectern, and Mirror of Desire.
+   * Gentle, non-locking camera focus for the Hogwarts Entrance, Sorting Hat, Compendium Lectern, and Mirror of Desire.
    */
   function getCameraFocus(): SchoolCameraFocus | null {
     if (activeStation === 'sorting_hat') {
@@ -3289,12 +3289,11 @@ export function createWizardingSchoolSystem(): WizardingSchoolBundle {
     getPromptInfo(
       playerWorldPos: THREE.Vector3,
       isWalking: boolean,
-      isGateOpenOrUnlocking: boolean,
+      _isGateOpenOrUnlocking?: boolean,
     ): SchoolPromptInfo {
       const found = findClosestInteractable(
         playerWorldPos,
         isWalking,
-        isGateOpenOrUnlocking,
       );
       if (found) {
         return {
@@ -3334,12 +3333,11 @@ export function createWizardingSchoolSystem(): WizardingSchoolBundle {
     triggerInteractable(
       playerWorldPos: THREE.Vector3,
       isWalking: boolean,
-      isGateOpenOrUnlocking: boolean,
+      _isGateOpenOrUnlocking?: boolean,
     ) {
       const found = findClosestInteractable(
         playerWorldPos,
         isWalking,
-        isGateOpenOrUnlocking,
       );
       if (!found) {
         if (isWalking && activeStation === 'none' && linkedMagicalPlantSystem) {

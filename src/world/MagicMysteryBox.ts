@@ -1998,8 +1998,8 @@ export function createMagicMysteryBoxSystem(): MagicMysteryBoxBundle {
         playerPos.x - CASTLE_GATE_POS.x,
         playerPos.z - CASTLE_GATE_POS.z,
       );
-      // Generous 6.5m radius once the player has the HARSHA key so the Unlock Gate prompt is immediately visible after the box opens
-      const gatePromptRadius = hasHarshaKey ? 6.5 : 4.35;
+      // 4.35m radius at the Hogwarts Castle Gate so the Unlock Gate prompt is only active at the gate
+      const gatePromptRadius = hasHarshaKey ? 4.35 : 3.85;
       if (gateState === 'LOCKED' && distToGate <= gatePromptRadius) {
         return hasHarshaKey ? 'unlock_gate' : 'locked_gate';
       }
@@ -2056,7 +2056,7 @@ export function createMagicMysteryBoxSystem(): MagicMysteryBoxBundle {
       camera.getWorldDirection(camDir);
       savedStartLookAt.copy(camera.position).addScaledVector(camDir, 4.0);
 
-      // Position Harsha 2.25m in front (+Z) of the Castle Gate, facing the Brass Heart Lock Escutcheon (-Z)
+      // Position Harsha 2.25m in front of the Castle Gate facing the Brass Heart Lock Escutcheon
       castleGateLocalToWorld(0, 0, 2.25, outTargetPlayerPos);
       outTargetPlayerYaw.value = terraceToCastleYaw;
 

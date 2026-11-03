@@ -1,0 +1,1114 @@
+Yes. Let’s make the coaster feel like a **complete flagship attraction**, not just a track placed in the park. 💙🎢
+
+# 💙 HEARTLINE COASTER
+### Complete Attraction Design
+
+The coaster occupies the **northeast Spectacular Thrill Zone**. The entire attraction is one cohesive environment: **entrance → ticketing → queue → station → blue coaster → landscaped garden → signature reveals → return station**.
+
+The overall visual language is:
+
+**Deep blue + sapphire + cyan crystal + pearl white + tiny champagne-gold accents**
+
+Pink should only appear as a romantic accent, not the main coaster color.
+
+---
+
+# 1. Overall Layout
+
+Think of the attraction as a large landscaped loop.
+
+```text
+                         NORTH
+                           ↑
+
+                 ┌───────────────────┐
+                 │   HIGH CREST      │
+                 │        ↓          │
+                 │   I LOVE YOU ❤️   │
+                 │        ↓          │
+                 │    MAJOR DROP     │
+                 │        ╲          │
+                 │         ╲         │
+       CRYSTAL    │          ╲        │
+       TUNNEL ←───┤           ╲       │
+                 │            CASTLE │
+                 │             FLYBY │
+                 │                  ╲ │
+                 │    HEARTLINE      ╲
+                 │       ELEMENT      │
+                 │                    │
+                 │    GARDEN RUN      │
+                 │         ╲          │
+                 │       HELIX        │
+                 │         ╲          │
+                 └────── BRAKE ───────┘
+                           │
+                        STATION
+                           │
+                    QUEUE / EXIT
+                           │
+                   TICKET ENTRANCE
+```
+
+The important part is that **the coaster does not simply circle the castle**.
+
+It has its own territory.
+
+The castle can appear dramatically in the distance, but the coaster never physically cuts through or collides with Dream Castle.
+
+---
+
+# 2. Attraction Entrance
+
+The entrance should be visible from the main park path.
+
+### Entrance architecture
+
+A large but elegant gateway:
+
+- Two tall blue crystal pillars
+- Pearl-white structural frame
+- Sapphire glass panels
+- Small champagne-gold details
+- Large heart-shaped coaster emblem
+- Blue illuminated lettering:
+
+**HEARTLINE**
+
+Underneath:
+
+**THE SKY OF OUR DREAMS**
+
+Keep the signage relatively restrained.
+
+No giant theme-park clutter.
+
+### Entrance shape
+
+The gateway should have a slightly curved architectural profile.
+
+```text
+        ╭──────────────╮
+      ╱                  ╲
+     │      ♥            │
+     │    HEARTLINE      │
+     │  THE SKY OF OUR   │
+     │      DREAMS       │
+      ╲                  ╱
+        ╰──────────────╯
+```
+
+The heart isn't pink neon.
+
+It is a **small glowing sapphire crystal heart**.
+
+---
+
+# 3. Ticket Entrance Plaza
+
+Immediately after the gateway:
+
+### Small forecourt
+
+Use:
+
+- blue stone paving
+- pearl marble borders
+- low manicured hedges
+- blue flowers
+- tiny crystal lamps
+- benches
+- decorative water channel
+- coaster visible above the trees
+
+The player should immediately understand:
+
+> "This is where I enter the coaster."
+
+---
+
+# 4. Ticket Booth
+
+Instead of a huge ticket building, create a compact luxury pavilion.
+
+### Architecture
+
+A small circular/octagonal structure:
+
+- pearl stone base
+- curved blue-glass roof
+- sapphire crystal central ornament
+- champagne-gold trim
+- transparent windows
+
+Inside:
+
+- ticket counter
+- small screen
+- ticket scanner
+- staff area
+- decorative coaster model
+
+### Interaction
+
+Player approaches:
+
+**[E] Ride Heartline**
+
+Then:
+
+**Ticket confirmed**
+
+Then the queue opens.
+
+No giant UI.
+
+---
+
+# 5. Queue
+
+The queue should itself be an attraction.
+
+Don't make:
+
+> giant empty snake-shaped barriers.
+
+Instead create a **beautiful garden queue**.
+
+### Queue path
+
+```text
+Entrance
+   ↓
+Ticket
+   ↓
+Garden path
+   ↓
+Crystal arch
+   ↓
+Coaster viewing platform
+   ↓
+Blue garden
+   ↓
+Station
+```
+
+Use short sections of queue rather than endless zigzags.
+
+---
+
+# 6. Queue Garden
+
+This is the first major garden.
+
+### Plants
+
+Use:
+
+- blue hydrangea-style flowers
+- white roses
+- lavender flowers
+- small pink flowers
+- trimmed green shrubs
+- ornamental grasses
+- small flowering trees
+- low hedges
+
+### Important
+
+The garden should remain mostly:
+
+**green + blue + white**
+
+Pink is only occasional.
+
+---
+
+# 7. Queue Viewing Deck
+
+Create a small elevated viewing platform.
+
+From here the player can see:
+
+- coaster train
+- station
+- high track
+- first climb
+- distant castle
+- garden below
+
+A section of blue track passes overhead.
+
+This gives the player a preview of the attraction before riding.
+
+---
+
+# 8. Station
+
+The station should feel premium.
+
+### Station architecture
+
+Large open structure with:
+
+- pearl-white columns
+- dark blue structural beams
+- sapphire glass
+- cyan crystal lighting
+- champagne-gold details
+- translucent canopy
+
+No giant enclosed building.
+
+The coaster should remain visually exposed.
+
+---
+
+# 9. Station Platform
+
+Two platforms:
+
+### Boarding side
+
+Train arrives.
+
+### Exit side
+
+Passengers leave after the ride.
+
+Keep the physical layout extremely clear.
+
+```text
+QUEUE
+  ↓
+┌──────────────────────────────┐
+│       BOARDING PLATFORM      │
+├──────────────────────────────┤
+│        BLUE TRAIN            │
+├──────────────────────────────┤
+│        TRACK                 │
+└──────────────────────────────┘
+             ↓
+            EXIT
+```
+
+---
+
+# 10. Roller-Coaster Train
+
+This is where the blue identity becomes strongest.
+
+### Overall shape
+
+A sleek fantasy coaster train.
+
+Not bulky.
+
+Not futuristic spaceship-like.
+
+More like an elegant high-speed vehicle.
+
+### Colors
+
+**70% deep/sapphire blue**
+
+**20% pearl white**
+
+**10% cyan/crystal + tiny gold accents**
+
+---
+
+## Front car
+
+The nose is aerodynamic.
+
+At the center:
+
+### Crystal heart emblem
+
+Small sapphire heart.
+
+It glows softly.
+
+Two narrow blue light strips run toward the sides.
+
+---
+
+## Seats
+
+Each car:
+
+**2 seats**
+
+Total:
+
+**4 cars**
+
+**8 riders**
+
+Each seat has:
+
+- pearl-white shell
+- blue upholstery
+- blue shoulder restraints
+- small crystal side accents
+
+---
+
+# 11. Train Undercarriage
+
+Do not leave the train floating above the track.
+
+Show:
+
+- wheels
+- wheel housings
+- suspension
+- undercarriage
+- blue mechanical chassis
+
+The wheels should visibly follow the rails.
+
+This makes the train feel physically connected to the coaster.
+
+---
+
+# 12. Track Design
+
+The track itself is the star.
+
+### Rails
+
+Two main rails:
+
+- deep sapphire-blue structural rail
+- metallic blue highlight
+
+### Cross members
+
+Dark blue/blue-gray.
+
+### Supports
+
+Mostly:
+
+**deep navy blue**
+
+with occasional:
+
+**pearl-white support sections**
+
+Avoid rainbow-colored supports.
+
+---
+
+# 13. Track Geometry
+
+The ride needs several distinct zones.
+
+### Zone 1
+Station
+
+### Zone 2
+Acceleration
+
+### Zone 3
+Lift
+
+### Zone 4
+Love Reveal
+
+### Zone 5
+Major Drop
+
+### Zone 6
+Castle Flyby
+
+### Zone 7
+Crystal Tunnel
+
+### Zone 8
+Heartline Element
+
+### Zone 9
+Garden Speed Run
+
+### Zone 10
+Final Helix
+
+### Zone 11
+Brake Run
+
+### Zone 12
+Station
+
+---
+
+# 14. Departure
+
+Train leaves station slowly.
+
+Blue station lights activate progressively.
+
+Then:
+
+**3... 2... 1...**
+
+The train accelerates.
+
+Don't display a countdown UI.
+
+The environment itself provides the anticipation.
+
+---
+
+# 15. Lift Hill
+
+The first major vertical structure.
+
+Large blue supports.
+
+Track climbs above the surrounding gardens.
+
+As the train rises, the player gradually sees:
+
+1. garden
+2. coaster
+3. park
+4. castle
+5. island
+6. horizon
+
+The climb should feel like the world is opening underneath them.
+
+---
+
+# 16. The Crest
+
+This is the most important physical moment.
+
+The train reaches the highest point.
+
+Instead of immediately dropping:
+
+**slow down.**
+
+Almost creep forward.
+
+Then the camera naturally looks downward.
+
+---
+
+# 17. The Garden Below
+
+This is the signature landscape.
+
+Directly below the crest:
+
+### Giant landscaped meadow
+
+Not a flat green plane.
+
+Use:
+
+- gently rolling terrain
+- grass
+- flowers
+- bushes
+- trees
+- curved flower borders
+- small paths
+- decorative rocks
+
+And hidden inside the landscaping:
+
+# I LOVE YOU ❤️
+
+But **not as floating text**.
+
+The words are physically created through the landscape.
+
+---
+
+# 18. How "I LOVE YOU ❤️" Is Built
+
+The letters should be created through:
+
+- shorter grass
+- darker/lighter grass regions
+- carefully shaped terrain
+- flower borders
+- trimmed vegetation
+- subtle soil variation
+
+From normal ground level it looks like landscaping.
+
+From the coaster crest it becomes readable.
+
+Example:
+
+```text
+      I   LOVE   YOU
+
+             ♥
+```
+
+The heart should also be made from landscaping.
+
+No billboard.
+
+No hologram.
+
+No giant particle text.
+
+No UI.
+
+No floating letters.
+
+---
+
+# 19. Love Reveal Camera
+
+The train slows.
+
+Camera gradually tilts downward.
+
+First:
+
+**grass**
+
+Then:
+
+**patterns**
+
+Then:
+
+**letters**
+
+Then:
+
+# I LOVE YOU ❤️
+
+Hold approximately **1.5 to 2 seconds**.
+
+No dialogue.
+
+No fireworks.
+
+No giant effects.
+
+Just the landscape.
+
+Then the train rolls over the crest.
+
+---
+
+# 20. Major Drop
+
+Immediately after the emotional pause:
+
+**DROP.**
+
+The track dives dramatically.
+
+The train accelerates down toward the lower park.
+
+Use:
+
+- strong wind
+- subtle camera vibration
+- increasing FOV
+- blue track streaks
+- environmental motion
+
+No excessive screen shake.
+
+---
+
+# 21. Low Turn
+
+At the bottom:
+
+A fast sweeping blue track turn.
+
+The train passes:
+
+- flowers
+- trees
+- blue crystal structures
+- small bridges
+
+The track should feel close to the environment.
+
+---
+
+# 22. Castle Flyby
+
+This is the biggest architectural reveal.
+
+The train exits the turn.
+
+Dream Castle appears.
+
+First:
+
+**one tower**
+
+Then:
+
+**multiple towers**
+
+Then:
+
+**the whole castle**
+
+The coaster passes close enough to feel spectacular, but remains outside the castle's collision/exclusion zone.
+
+The castle should visually dominate the horizon.
+
+The coaster then banks away.
+
+---
+
+# 23. Castle-Side Garden
+
+Between the coaster and castle:
+
+- manicured lawn
+- roses
+- blue flowers
+- crystal trees
+- small fountains
+- decorative pathways
+
+This creates a visual buffer.
+
+It also prevents the coaster from looking like it is cutting through the castle.
+
+---
+
+# 24. Crystal Approach
+
+The environment gradually changes.
+
+First:
+
+small crystals
+
+Then:
+
+larger crystal clusters
+
+Then:
+
+crystal arches
+
+Then:
+
+a complete crystal corridor.
+
+Colors:
+
+**blue → cyan → lavender**
+
+---
+
+# 25. Crystal Tunnel
+
+The train enters the tunnel.
+
+This should be one of the most visually beautiful parts.
+
+The walls are made from translucent crystals.
+
+As the train passes:
+
+```text
+Train
+ ↓
+Crystal 1 → ON
+Crystal 2 → ON
+Crystal 3 → ON
+Crystal 4 → ON
+Crystal 5 → ON
+```
+
+Lighting appears to travel with the train.
+
+The blue train reflects in the crystal surfaces.
+
+Small floating particles are allowed, but keep them subtle.
+
+---
+
+# 26. Heartline Element
+
+After exiting the crystal tunnel:
+
+The track forms the coaster's signature shape.
+
+From outside:
+
+A subtle **heart-inspired silhouette**.
+
+Inside the ride:
+
+It feels like:
+
+- banking
+- rising
+- turning
+- diving
+- changing elevation
+
+Don't make a literal giant heart-shaped track that feels gimmicky.
+
+It should be elegant.
+
+---
+
+# 27. Garden Speed Run
+
+Now the coaster becomes extremely fast.
+
+Track stays relatively low.
+
+The train races through a carefully designed garden.
+
+Sequence:
+
+**Blue arch**
+
+↓
+
+**flower garden**
+
+↓
+
+**small bridge**
+
+↓
+
+**crystal garden**
+
+↓
+
+**trees**
+
+↓
+
+**water feature**
+
+↓
+
+**stone garden**
+
+↓
+
+**blue crystal arch**
+
+This gives the ride visual rhythm.
+
+---
+
+# 28. Water Feature
+
+A small stream runs underneath part of the coaster.
+
+The track crosses over it.
+
+Water should reflect:
+
+- blue train
+- blue track
+- crystal lighting
+
+Keep it physically plausible.
+
+---
+
+# 29. Coaster Bridge
+
+Create one signature bridge.
+
+Blue structural frame.
+
+Pearl stone foundations.
+
+The track crosses above a garden path.
+
+Players elsewhere in the park can see the train passing overhead.
+
+This makes the attraction feel alive even when you're not riding it.
+
+---
+
+# 30. Final Helix
+
+The track begins climbing again.
+
+Large sweeping spiral.
+
+The train slows gradually.
+
+The environment opens.
+
+Now the player sees:
+
+- entire coaster
+- garden
+- park
+- Dream Castle
+- island
+- sky
+
+This is the final panoramic moment.
+
+---
+
+# 31. Second View of the Message
+
+From the helix, the landscaped:
+
+**I LOVE YOU ❤️**
+
+can appear far away.
+
+It should not be emphasized as strongly as the first reveal.
+
+It's simply a beautiful callback.
+
+---
+
+# 32. Final World Reveal
+
+At the highest point of the helix:
+
+The train looks outward.
+
+The whole park becomes visible.
+
+The camera should remain physically attached to the train.
+
+No camera teleport.
+
+No cinematic cut.
+
+The world simply unfolds naturally.
+
+---
+
+# 33. Brake Run
+
+After the helix:
+
+Track straightens.
+
+Train gradually slows.
+
+Lighting becomes calmer.
+
+Audio decreases.
+
+Mechanical coaster sounds become more noticeable.
+
+Then:
+
+**station.**
+
+---
+
+# 34. Station Arrival
+
+Train enters the station.
+
+Blue lights pulse softly.
+
+Train stops.
+
+Restraints release.
+
+Player regains normal movement.
+
+No giant:
+
+> 🎉 YOU WON!
+
+screen.
+
+The attraction simply returns control to the player.
+
+---
+
+# 35. Exit Garden
+
+After leaving the station:
+
+Create a separate garden path.
+
+It should pass beside the coaster.
+
+Players can see trains arriving and departing.
+
+Add:
+
+- benches
+- flowers
+- blue crystal lamps
+- small viewing points
+
+---
+
+# 36. Exit Plaza
+
+The exit returns naturally to the main park.
+
+Include a small sign:
+
+**HEARTLINE**
+
+with an arrow pointing back toward the attraction.
+
+No giant advertising wall.
+
+---
+
+# 37. Attraction at Night
+
+At night, the coaster becomes a major landmark.
+
+The track glows subtly blue.
+
+Not neon everywhere.
+
+Use:
+
+- sapphire edge lights
+- cyan crystal highlights
+- blue station lighting
+- occasional white accents
+
+The train has tiny blue running lights.
+
+From far away, the coaster becomes a glowing blue ribbon through the park.
+
+---
+
+# 38. Garden Lighting
+
+The gardens should remain darker than the coaster.
+
+Use small:
+
+- ground lights
+- crystal lamps
+- flower illumination
+- path lights
+
+This creates hierarchy:
+
+**Coaster = brightest**
+
+**Garden = supporting**
+
+**Castle = major distant landmark**
+
+---
+
+# 39. What Players See From Outside
+
+This is important.
+
+The coaster must still feel alive when the player isn't riding.
+
+From the park:
+
+- train periodically travels the track
+- lift hill is visible
+- drop is visible
+- crystal tunnel glows
+- helix is visible
+- station is active
+- garden is alive
+
+The coaster becomes part of the park's ambient movement.
+
+---
+
+# 40. Complete Physical Layout
+
+The final attraction hierarchy:
+
+```text
+                 🌳🌳🌳🌳🌳
+                    HIGH
+                 CREST
+                    │
+              I LOVE YOU ❤️
+                    │
+                    ↓
+                 DROP
+                    │
+             ╭──────╯
+             │
+       CASTLE FLYBY
+             │
+             ↓
+      💎 CRYSTAL TUNNEL
+             │
+             ↓
+       💙 HEARTLINE
+             │
+             ↓
+        🌸 GARDEN RUN
+             │
+             ↓
+        🌀 FINAL HELIX
+             │
+             ↓
+          BRAKES
+             │
+             ↓
+       ┌─────────────┐
+       │   STATION   │
+       └─────────────┘
+             ↑
+           QUEUE
+             ↑
+        TICKET PLAZA
+             ↑
+        PARK ENTRANCE
+```
+
+# 🎨 Final Color Palette
+
+| Element | Color |
+|---|---|
+| Main track | Sapphire / royal blue |
+| Track highlights | Electric blue |
+| Supports | Deep navy |
+| Train | Pearl white + blue |
+| Train glass | Cyan |
+| Station | Pearl + sapphire |
+| Crystal tunnel | Cyan / lavender |
+| Garden | Natural green |
+| Flowers | Blue / white / small pink |
+| Gold | Champagne, very limited |
+| Castle | Pink/lavender/gold |
+| Love heart | Natural red |
+| Night coaster | Blue glow |
+
+### The key visual rule
+
+**The coaster itself is BLUE.**
+
+The **garden is green and natural.**
+
+The **castle remains pink/lavender/gold.**
+
+The **crystal section is cyan/lavender.**
+
+That separation will make the entire park much easier to read visually. 💙
+
+And most importantly, the coaster should feel like a **real attraction physically embedded into the landscape**, rather than a decorative track floating above the park.
+

@@ -411,8 +411,8 @@ export const ISLAND_ZONES: ZonePlateau[] = [
   },
   {
     id: 'coaster-ridge',
-    name: 'Spectacular Thrill Zone',
-    subtitle: 'North-East Coaster Ridge',
+    name: 'Heartline — The Sky of Our Dreams',
+    subtitle: 'Flagship Sky Coaster & Botanical Precinct',
     x: 85,
     z: 75,
     radius: 36,
@@ -665,6 +665,13 @@ export function isInsideSightlineCorridor(x: number, z: number): boolean {
   if (Math.hypot(x - CASTLE_TERRACE_POS.x, z - CASTLE_TERRACE_POS.z) < 15.0) {
     return true;
   }
+  // Protect the Heartline Coaster Precinct, Queue Garden, Station & "I LOVE YOU ❤️" Meadow from random trees
+  if (
+    Math.hypot(x - 72.0, z - 65.0) < 35.0 ||
+    Math.hypot(x - 98.0, z - 96.0) < 32.0
+  ) {
+    return true;
+  }
 
   // Protect the Wizarding School Great Hall, Library/Potions Wings, Conservatory & Village Vista
   const { localX, localZ } = worldToCastleLocal(x, z);
@@ -839,6 +846,13 @@ export function getTerrainHeight(x: number, z: number): number {
   if (distFromBrickDistrict < 22.0) {
     const brickFlatWeight = 1.0 - smoothstep(15.0, 22.0, distFromBrickDistrict);
     height = THREE.MathUtils.lerp(height, 8.2, brickFlatWeight);
+  }
+
+  // Level shelf at the Heartline Coaster Precinct (Entrance -> Ticket Booth -> Queue Garden -> Station) at Y = 12.5m
+  const distFromHeartlinePrecinct = Math.hypot(x - 72.0, z - 65.0);
+  if (distFromHeartlinePrecinct < 35.0) {
+    const heartlineFlatWeight = 1.0 - smoothstep(26.0, 35.0, distFromHeartlinePrecinct);
+    height = THREE.MathUtils.lerp(height, 12.5, heartlineFlatWeight);
   }
 
   const shoreTaper = smoothstep(0.0, 0.09, mask);
@@ -1024,6 +1038,10 @@ export function isWalkablePosition(x: number, z: number): boolean {
   }
   // Always walkable inside and immediately around the Pastel Dream Castle grounds (88, 18)
   if (Math.hypot(x - 88.0, z - 18.0) <= 22.0) {
+    return true;
+  }
+  // Always walkable throughout the Heartline Coaster Precinct (Entrance, Ticket Plaza, Queue Garden, Viewing Deck, Station)
+  if (Math.hypot(x - 72.0, z - 65.0) <= 35.0) {
     return true;
   }
   const normal = getTerrainNormal(x, z);

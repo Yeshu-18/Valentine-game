@@ -5236,7 +5236,7 @@ export function createDreamCastle(): DreamCastleBundle {
           return nav.triggerFountainRipple();
         }
       }
-      if (nav.doorState === 'CLOSED') {
+      if (!playerPos && nav.doorState === 'CLOSED') {
         return nav.openEntranceDoors();
       }
       return false;

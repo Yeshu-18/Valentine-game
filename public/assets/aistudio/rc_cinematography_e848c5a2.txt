@@ -1,0 +1,702 @@
+Absolutely. Let's make the coaster cinematography feel like a **short film that happens to be physically playable**.
+
+The key is that the camera should never feel like it is randomly shaking or being dragged around. Every camera movement has a reason: **anticipation, discovery, emotion, speed, or spectacle**.
+
+# 🎢 HEARTLINE COASTER
+## Complete Cinematography Plan
+
+### The cinematic language
+
+The ride has one visual rule:
+
+> **Slow when something deserves to be seen. Fast when something deserves to be felt.**
+
+The entire experience should move through:
+
+**Wonder → Anticipation → Discovery → Emotion → Adrenaline → Beauty → Finale**
+
+And the biggest emotional reveal is:
+
+> **At the highest point, the player looks down and discovers “I LOVE YOU ❤️” carved into the grass below.**
+
+---
+
+# ACT 0: THE APPROACH
+
+### Camera state: `PRE_RIDE`
+
+Before boarding, we should already establish that this is the park's legendary attraction.
+
+The coaster is visible from a distance.
+
+We don't need a giant cinematic here.
+
+Instead:
+
+- train occasionally passes overhead
+- track casts shadows across the terrain
+- distant supports disappear into trees
+- crystal elements catch sunlight
+- the highest point is visible against the sky
+- Dream Castle can be seen beyond the ride
+
+The player approaches normally.
+
+No forced camera.
+
+This keeps the attraction physically believable.
+
+---
+
+# ACT 1: BOARDING
+
+### Camera state: `BOARDING`
+
+Player enters the train.
+
+Camera stays at the player's actual seat.
+
+No cinematic teleport.
+
+The restraints lock.
+
+The train settles slightly.
+
+Tiny mechanical details:
+
+- wheel movement
+- restraint click
+- subtle vibration
+- brake release
+- track mechanism engaging
+
+Then silence for a moment.
+
+The train begins moving.
+
+### Camera
+
+Very stable.
+
+Slight forward anticipation.
+
+No dramatic FOV effects yet.
+
+We want the player thinking:
+
+> "Something big is about to happen."
+
+---
+
+# ACT 2: THE DEPARTURE
+
+### 0–8 seconds
+
+The train leaves the station slowly.
+
+Camera looks forward.
+
+The station begins disappearing behind.
+
+The park opens ahead.
+
+We use:
+
+- soft depth of field
+- subtle sunlight
+- moving shadows
+- track vibration
+- environmental audio
+
+As the train accelerates toward the climb, the camera gradually widens.
+
+Not dramatically.
+
+Just enough for the world to begin opening.
+
+---
+
+# ACT 3: THE CLIMB
+
+### 8–20 seconds
+
+This is **not** just "camera looking forward while going uphill."
+
+The climb should reveal the world in layers.
+
+### Lower climb
+
+Camera:
+
+**forward + slightly upward**
+
+You see:
+
+- track
+- supports
+- trees
+- park structures
+
+### Mid climb
+
+Camera gradually becomes more panoramic.
+
+You start seeing:
+
+- Central Plaza
+- carnival district
+- other attractions
+- water features
+- distant terrain
+
+### Higher climb
+
+The camera begins slightly rotating with the train.
+
+The player realizes:
+
+> We're really high.
+
+The music should become progressively more spacious.
+
+---
+
+# ACT 4: THE CREST
+
+This is the most important camera sequence in the entire ride.
+
+### Camera state: `CREST_REVEAL`
+
+The train reaches the top.
+
+But instead of immediately dropping...
+
+**it slows.**
+
+Not necessarily a complete stop.
+
+Just enough to create anticipation.
+
+### Camera movement
+
+The camera starts looking downward.
+
+Very slowly.
+
+Something like:
+
+```text
+NORMAL
+   ↓
+FORWARD
+   ↓
+FORWARD + DOWN
+   ↓
+DOWNWARD
+   ↓
+LAND REVEAL
+```
+
+No snap.
+
+No artificial orbit.
+
+The camera remains attached to the player's physical position.
+
+---
+
+# 🌿 ACT 5: THE DISCOVERY
+
+Now the player sees the land below.
+
+At first:
+
+just grass.
+
+Then the composition becomes clear.
+
+### `I LOVE YOU ❤️`
+
+The message is enormous.
+
+But it isn't floating.
+
+It is physically created through:
+
+- grass height variation
+- cut grass
+- subtle terrain shaping
+- darker/lighter vegetation
+- landscaped borders
+
+The player sees the entire message from above.
+
+### Camera composition
+
+The coaster should sit near the **top edge of the screen**.
+
+The land occupies most of the frame.
+
+Something like:
+
+```text
+┌──────────────────────────────────────┐
+│             🎢                       │
+│                                      │
+│                                      │
+│          I LOVE YOU ❤️               │
+│                                      │
+│        🌿 landscaped field           │
+│                                      │
+└──────────────────────────────────────┘
+```
+
+The castle can sit somewhere in the distant background, but **the grass message is the subject**.
+
+### Important:
+
+Do NOT add:
+
+- giant floating hearts
+- giant UI
+- dialogue
+- captions
+- confetti
+- excessive particles
+
+Let the discovery breathe.
+
+---
+
+# ACT 6: THE EMOTIONAL HOLD
+
+### 1.5–2 seconds
+
+This is one of the rare moments where the coaster almost feels still.
+
+Camera remains pointed down.
+
+The train continues creeping forward.
+
+The music becomes extremely restrained.
+
+The player gets enough time to actually read:
+
+> **I LOVE YOU ❤️**
+
+Then...
+
+A subtle wind sound.
+
+A tiny camera lift.
+
+The track ahead comes back into view.
+
+---
+
+# ACT 7: THE DROP
+
+### Camera state: `DROP`
+
+This transition must be spectacular.
+
+Camera moves from:
+
+**looking down**
+
+to:
+
+**looking forward**
+
+while the train simultaneously commits to the descent.
+
+Then:
+
+# WHOOSH.
+
+The train drops.
+
+### Camera behavior
+
+During the first portion:
+
+- FOV expands
+- camera stays relatively stable
+- horizon remains readable
+
+As speed increases:
+
+- subtle camera vibration
+- controlled motion blur impression
+- environmental objects move rapidly through peripheral vision
+- track banking becomes more noticeable
+
+Don't make the camera shake violently.
+
+The **world itself should communicate speed**.
+
+---
+
+# ACT 8: THE FIRST MAJOR TURN
+
+At the bottom of the drop:
+
+The track banks hard.
+
+The camera follows the train's banking.
+
+But we add a small cinematic horizon correction.
+
+This gives:
+
+**roller-coaster physicality + cinematic readability.**
+
+You should feel the banking without losing orientation.
+
+---
+
+# ACT 9: THE CASTLE FLYBY
+
+Now we introduce the Dream Castle.
+
+The track curves around the castle's safe exclusion zone.
+
+From the player's perspective:
+
+**the castle suddenly appears huge.**
+
+The camera naturally points toward the castle during the curve.
+
+No forced cut.
+
+The castle grows rapidly in frame.
+
+You see:
+
+- towers
+- balconies
+- crystal windows
+- pink/gold architecture
+- flags
+- surrounding gardens
+
+Then the track sweeps away.
+
+The castle disappears behind.
+
+That gives us a genuine:
+
+> **"We just flew past the castle."**
+
+moment.
+
+---
+
+# ACT 10: THE CRYSTAL TUNNEL
+
+The train enters a crystal tunnel.
+
+This is our visual transition.
+
+Outside:
+
+**bright park**
+
+Inside:
+
+**pink/lavender crystal environment**
+
+The lighting changes progressively as the train enters.
+
+### Camera
+
+Slightly narrower FOV.
+
+Very smooth.
+
+Crystal reflections move across the camera.
+
+Lights pulse along the walls according to train movement.
+
+The tunnel shouldn't feel like a generic theme-park tunnel.
+
+It should feel like the train is passing through a giant gemstone.
+
+---
+
+# ACT 11: EMERGENCE
+
+The train exits the tunnel.
+
+Instant contrast.
+
+Bright sky.
+
+Huge environment.
+
+The camera briefly stabilizes.
+
+The player gets another panoramic view.
+
+This is our second breathing moment.
+
+But much shorter than the `I LOVE YOU` reveal.
+
+---
+
+# ACT 12: THE HEARTLINE ELEMENT
+
+Now the coaster becomes aggressive.
+
+Track enters a large heart-inspired element.
+
+The camera follows the physical banking.
+
+As the train moves through:
+
+- lighting traces the track
+- subtle particles follow the train
+- nearby crystal elements react
+- speed increases
+
+The heart shape should be readable from outside the coaster, but from inside the ride it should primarily feel like a spectacular sequence of banking and inversion.
+
+---
+
+# ACT 13: LOW-LEVEL SPEED RUN
+
+Now we go close to the ground.
+
+This is where the camera becomes extremely immersive.
+
+The train races through:
+
+- flowers
+- grass
+- rock formations
+- crystal arches
+- trees
+- park lighting
+- small bridges
+
+Objects pass close to the peripheral vision.
+
+Camera:
+
+**low + forward + stable**
+
+No giant camera effects.
+
+The environment provides the speed.
+
+---
+
+# ACT 14: THE HELIX
+
+The train enters the final major helix.
+
+The camera follows the banking.
+
+The world rotates gradually around the player.
+
+We can see:
+
+- coaster structure
+- park below
+- castle in the distance
+- sky
+
+The helix should progressively slow.
+
+The music begins resolving.
+
+---
+
+# ACT 15: THE FINAL REVEAL
+
+This is the **second major emotional composition**.
+
+As the train exits the helix, the camera looks outward.
+
+The entire Dream World opens up.
+
+You can see:
+
+**park → island → castle → sky**
+
+And potentially, from this angle:
+
+**the “I LOVE YOU ❤️” field again in the distance.**
+
+But now it is small.
+
+The first time we discovered the message.
+
+The second time we understand where it belongs in the world.
+
+That creates visual storytelling without dialogue.
+
+---
+
+# ACT 16: BRAKING
+
+The train enters the brake run.
+
+Everything becomes calmer.
+
+Camera returns almost completely to natural player camera behavior.
+
+The mechanical sounds become audible again.
+
+The train slows.
+
+Station approaches.
+
+---
+
+# ACT 17: ARRIVAL
+
+Train enters station.
+
+No huge cinematic ending.
+
+That would actually weaken the experience.
+
+Instead:
+
+- lights settle
+- train stops
+- restraints release
+- ambient park audio returns
+
+The player can get out normally.
+
+And the coaster is still physically there.
+
+The player can immediately look back at the track and think:
+
+> "I just went through all of that."
+
+---
+
+# 🎥 Camera system architecture
+
+I would implement this as a **cinematic layer**, not another camera controller.
+
+```text
+PlayerController
+       │
+       ▼
+Coaster Train Transform
+       │
+       ├── position
+       ├── rotation
+       ├── velocity
+       ├── track tangent
+       └── banking
+              │
+              ▼
+      RollerCoasterCamera
+              │
+       ┌──────┴──────┐
+       ▼             ▼
+  Physical Base   Cinematic Offset
+       │             │
+       └──────┬──────┘
+              ▼
+        Final Camera
+```
+
+The physical train always wins.
+
+The cinematic layer only modifies:
+
+- look direction
+- FOV
+- smoothing
+- small positional offsets
+- controlled vibration
+- look-ahead
+- horizon stabilization
+
+This prevents the cinematic system from fighting the existing player controller.
+
+---
+
+# 🎞️ Cinematic state machine
+
+```text
+STATION
+   ↓
+BOARDING
+   ↓
+DEPARTURE
+   ↓
+CLIMB
+   ↓
+CREST_APPROACH
+   ↓
+LOVE_REVEAL
+   ↓
+DROP
+   ↓
+HIGH_SPEED
+   ↓
+CASTLE_FLYBY
+   ↓
+CRYSTAL_TUNNEL
+   ↓
+HEARTLINE
+   ↓
+LOW_SPEED_RUN
+   ↓
+FINAL_HELIX
+   ↓
+WORLD_REVEAL
+   ↓
+BRAKE
+   ↓
+STATION
+```
+
+Each state controls:
+
+```ts
+cameraLookTarget
+cameraLookStrength
+fov
+lookAhead
+horizonStabilization
+shakeStrength
+transitionDuration
+```
+
+No hard-coded camera teleports.
+
+---
+
+# 🌟 The three shots I would make absolutely unforgettable
+
+### 1. The grass reveal
+
+**Highest point → camera looks down → I LOVE YOU ❤️**
+
+This is the emotional shot.
+
+### 2. The castle flyby
+
+**High-speed banking → Dream Castle suddenly fills the frame**
+
+This is the spectacle shot.
+
+### 3. The final world reveal
+
+**After the helix → entire Dream World opens beneath the player**
+
+This is the ending shot.
+
+Together they give the ride a story:
+
+> **He built something beautiful → he tells her he loves her → then he takes her through the dream world.**
+
+And crucially, none of this requires a traditional cutscene. **The coaster itself is the camera movement.** 🎢🌿❤️

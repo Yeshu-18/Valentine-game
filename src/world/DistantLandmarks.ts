@@ -556,9 +556,9 @@ export function createDistantLandmarks(): DistantLandmarksBundle {
     {
       spokeIdx: 3,
       url: '/assets/vistas/art_thrill_zone.jpg',
-      title: 'Spectacular Thrill Zone',
-      subtitle: 'Northeast Vista • Sky Coaster',
-      accent: '#f97316',
+      title: 'Heartline Coaster',
+      subtitle: 'Northeast Vista • The Sky of Our Dreams',
+      accent: '#38bdf8',
       w: 4.8,
       h: 2.4,
     },
@@ -608,24 +608,26 @@ export function createDistantLandmarks(): DistantLandmarksBundle {
     );
 
     // 2) Distant Zone Overlook 2D Vista Display Board near the end of each radial boulevard
-    // On the NW Ancient Realm spoke (spokeIdx === 1), offset further right so the Castle Landing Terrace (-74, +64) and sightline are 100% clear
-    const farLat = cfg.spokeIdx === 1 ? 13.5 : 7.8;
-    const farScale = cfg.spokeIdx === 1 ? 0.78 : 0.82;
-    const farX = spoke.bx * farScale + cosA * farLat;
-    const farZ = spoke.bz * farScale - sinA * farLat;
-    addPdfVistaDisplayPortal(
-      farX,
-      farZ,
-      0,
-      0,
-      cfg.url,
-      cfg.title,
-      cfg.subtitle,
-      cfg.accent,
-      cfg.w,
-      cfg.h,
-      1.25,
-    );
+    // Skip spokeIdx === 3 because the full walkable Heartline Precinct & Curved Entrance Arch occupy the NE plateau
+    if (cfg.spokeIdx !== 3) {
+      const farLat = cfg.spokeIdx === 1 ? 13.5 : 7.8;
+      const farScale = cfg.spokeIdx === 1 ? 0.78 : 0.82;
+      const farX = spoke.bx * farScale + cosA * farLat;
+      const farZ = spoke.bz * farScale - sinA * farLat;
+      addPdfVistaDisplayPortal(
+        farX,
+        farZ,
+        0,
+        0,
+        cfg.url,
+        cfg.title,
+        cfg.subtitle,
+        cfg.accent,
+        cfg.w,
+        cfg.h,
+        1.25,
+      );
+    }
   });
 
   // Special Gate 2D Vista Display Board at the Far South Tip Overlook (-6.5, -103)
@@ -1198,98 +1200,9 @@ export function createDistantLandmarks(): DistantLandmarksBundle {
   cranePivot.add(craneMast, craneJib, suspendedBrick);
 
   // ============================================================================
-  // 3. NORTHEAST (+85, +75): SPECTACULAR THRILL ZONE & ROLLER COASTER (PAGE 7)
+  // 3. NORTHEAST (+85, +75): "HEARTLINE — THE SKY OF OUR DREAMS"
+  // Built as a dedicated 5-module attraction in src/world/heartline/
   // ============================================================================
-  const coasterGroup = new THREE.Group();
-  group.add(coasterGroup);
-
-  const coasterSupportMat = tracker.trackMat(
-    new THREE.MeshStandardMaterial({
-      color: new THREE.Color('#e2e8f0'),
-      roughness: 0.35,
-      metalness: 0.42,
-    }),
-  );
-
-  // Sweeping High-Altitude Coaster Track Spline Silhouette (Apex at Y = +56m!)
-  const coasterPts = [
-    new THREE.Vector3(52, 16, 44),
-    new THREE.Vector3(68, 34, 62),
-    new THREE.Vector3(88, 56, 82),
-    new THREE.Vector3(106, 26, 74),
-    new THREE.Vector3(104, 44, 52),
-    new THREE.Vector3(84, 22, 34),
-    new THREE.Vector3(64, 31, 28),
-    new THREE.Vector3(46, 18, 34),
-  ];
-  const coasterCurve = new THREE.CatmullRomCurve3(coasterPts, true);
-
-  const spineTrackGeo = tracker.trackGeo(
-    new THREE.TubeGeometry(coasterCurve, 150, 0.45, 8, true),
-  );
-  const spineTrackMesh = new THREE.Mesh(spineTrackGeo, coasterSupportMat);
-  spineTrackMesh.castShadow = true;
-  coasterGroup.add(spineTrackMesh);
-
-  const upperPts = coasterPts.map(
-    (p) => new THREE.Vector3(p.x, p.y + 0.68, p.z),
-  );
-  const upperCurve = new THREE.CatmullRomCurve3(upperPts, true);
-  const upperRailGeo = tracker.trackGeo(
-    new THREE.TubeGeometry(upperCurve, 150, 0.24, 6, true),
-  );
-  const upperRailMesh = new THREE.Mesh(upperRailGeo, sapphireHeartMat);
-  coasterGroup.add(upperRailMesh);
-
-  // Coaster Vertical Support Columns
-  const supportSamples = 26;
-  for (let i = 0; i < supportSamples; i++) {
-    const pt = coasterCurve.getPointAt(i / supportSamples);
-    const groundY = getTerrainHeight(pt.x, pt.z);
-    const colH = Math.max(1, pt.y - groundY);
-    const colGeo = tracker.trackGeo(
-      new THREE.CylinderGeometry(0.25, 0.38, colH, 8),
-    );
-    colGeo.translate(pt.x, groundY + colH / 2, pt.z);
-    const colMesh = new THREE.Mesh(colGeo, coasterSupportMat);
-    colMesh.castShadow = true;
-    coasterGroup.add(colMesh);
-  }
-
-  // Animated 4-Car Royal-Blue & Gold Coaster Train riding the spline (Page 7!)
-  const coasterCarGeo = tracker.trackGeo(new THREE.BoxGeometry(1.6, 1.0, 2.3));
-  const coasterCars: THREE.Mesh[] = [];
-  for (let c = 0; c < 4; c++) {
-    const car = new THREE.Mesh(
-      coasterCarGeo,
-      c === 0 ? goldMat : sapphireHeartMat,
-    );
-    coasterGroup.add(car);
-    coasterCars.push(car);
-  }
-
-  // Grand Golden Armillary Star-Sphere Monument in the Coaster Plaza (+54, +46) (Page 7!)
-  const thrillGateGroup = new THREE.Group();
-  const thrillGateY = getTerrainHeight(54, 46);
-  thrillGateGroup.position.set(54, thrillGateY, 46);
-  thrillGateGroup.rotation.y = Math.atan2(-54, -46);
-  coasterGroup.add(thrillGateGroup);
-
-  const armillaryGroup = new THREE.Group();
-  armillaryGroup.position.set(0, 9.5, 0);
-  thrillGateGroup.add(armillaryGroup);
-  const armRing1Geo = tracker.trackGeo(
-    new THREE.TorusGeometry(4.4, 0.24, 10, 36),
-  );
-  const armRing2Geo = tracker.trackGeo(
-    new THREE.TorusGeometry(3.4, 0.2, 10, 36),
-  );
-  const armCoreGeo = tracker.trackGeo(new THREE.SphereGeometry(1.15, 14, 14));
-  const armRing1 = new THREE.Mesh(armRing1Geo, goldMat);
-  const armRing2 = new THREE.Mesh(armRing2Geo, goldMat);
-  armRing2.rotation.x = Math.PI / 3;
-  const armCore = new THREE.Mesh(armCoreGeo, warmWindowGlowMat);
-  armillaryGroup.add(armRing1, armRing2, armCore);
 
   // ============================================================================
   // 4. EAST (+80, +5): PASTEL DREAMSCAPE / DOLL WORLD
@@ -1507,18 +1420,6 @@ export function createDistantLandmarks(): DistantLandmarksBundle {
 
       // 2. Slowly swing the yellow Brick Construction Crane jib in West Brick Valley
       cranePivot.rotation.y = Math.sin(elapsedTime * 0.45) * 0.35;
-
-      // 3. Rotate the Golden Armillary Star-Sphere & advance the 4-Car Coaster Train in NE Thrill Zone
-      armRing1.rotation.y = elapsedTime * 0.5;
-      armRing2.rotation.z = -elapsedTime * 0.65;
-      for (let c = 0; c < coasterCars.length; c++) {
-        const t = (elapsedTime * 0.065 - c * 0.018 + 1.0) % 1.0;
-        const pos = coasterCurve.getPointAt(t);
-        const tangent = coasterCurve.getTangentAt(t);
-        coasterCars[c].position.copy(pos);
-        coasterCars[c].position.y += 0.75;
-        coasterCars[c].lookAt(pos.clone().add(tangent));
-      }
 
       // 4. Shimmer the Northern Aurora Lake Sky Curtain & pulse the Aurora Heart
       auroraCurtainMat.uniforms.uTime.value = elapsedTime;

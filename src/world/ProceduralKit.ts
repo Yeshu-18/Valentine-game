@@ -8,6 +8,7 @@ export class ResourceTracker {
   private geometries = new Set<THREE.BufferGeometry>();
   private materials = new Set<THREE.Material>();
   private textures = new Set<THREE.Texture>();
+  private instancedMeshes = new Set<THREE.InstancedMesh>();
 
   trackGeo<T extends THREE.BufferGeometry>(geo: T): T {
     this.geometries.add(geo);
@@ -24,10 +25,31 @@ export class ResourceTracker {
     return tex;
   }
 
+  track<
+    T extends
+      | THREE.BufferGeometry
+      | THREE.Material
+      | THREE.Texture
+      | THREE.InstancedMesh,
+  >(res: T): T {
+    if (res instanceof THREE.BufferGeometry) {
+      this.geometries.add(res);
+    } else if (res instanceof THREE.Material) {
+      this.materials.add(res);
+    } else if (res instanceof THREE.Texture) {
+      this.textures.add(res);
+    } else if (res instanceof THREE.InstancedMesh) {
+      this.instancedMeshes.add(res);
+    }
+    return res;
+  }
+
   dispose(): void {
+    this.instancedMeshes.forEach((im) => im.dispose());
     this.geometries.forEach((g) => g.dispose());
     this.materials.forEach((m) => m.dispose());
     this.textures.forEach((t) => t.dispose());
+    this.instancedMeshes.clear();
     this.geometries.clear();
     this.materials.clear();
     this.textures.clear();

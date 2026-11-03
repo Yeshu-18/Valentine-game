@@ -1,0 +1,737 @@
+Yes. Cinematography defines **what the player sees**. Choreography defines **what physically happens around them, when it happens, and how every element enters and exits the scene**.
+
+For this coaster, I would choreograph the entire ride like a **theme-park spectacle staged in real 3D space**. Nothing should feel randomly spawned.
+
+# 🎢 HEARTLINE COASTER
+## Complete Ride Choreography
+
+### The choreography rule
+
+Every major moment follows:
+
+**Prepare → Reveal → Peak → Release → Transition**
+
+And the environment participates in the ride.
+
+The train isn't simply travelling along a track. The **track, castle, lighting, landscape, particles, sound, scenery and train are all performers**.
+
+---
+
+# ACT 0: THE WORLD IS ALREADY MOVING
+
+Before the player even boards:
+
+### Background choreography
+
+Every 15–25 seconds:
+
+- distant coaster train crosses a visible section
+- station lights subtly animate
+- flags move with wind
+- crystal structures shimmer
+- distant park attractions animate
+- environmental particles drift
+- occasional birds/floating particles cross the skyline
+
+Nothing should be synchronized to the player's arrival.
+
+This makes the park feel alive.
+
+---
+
+# ACT 1: BOARDING
+
+### Player enters train
+
+The train is physically stationary.
+
+### Choreography
+
+**T+0**
+
+Player enters.
+
+**T+1**
+
+Seat settles slightly.
+
+**T+1.5**
+
+Restraint mechanism closes.
+
+**T+2**
+
+Small mechanical light activates.
+
+**T+3**
+
+Station audio lowers.
+
+**T+4**
+
+Brake releases.
+
+**T+5**
+
+Train begins rolling.
+
+The important thing:
+
+### No immediate acceleration.
+
+We let anticipation build.
+
+---
+
+# ACT 2: STATION DEPARTURE
+
+The train leaves the station.
+
+As it crosses the first track section:
+
+### Environmental choreography
+
+Nearby lights turn on progressively:
+
+```text
+LIGHT 1
+   ↓
+LIGHT 2
+   ↓
+LIGHT 3
+   ↓
+LIGHT 4
+   ↓
+LIGHT 5
+```
+
+Not all at once.
+
+This creates the feeling that the ride is **awakening as the train moves through it**.
+
+---
+
+# ACT 3: THE CLIMB
+
+The train enters the lift.
+
+This is where the environment begins revealing itself.
+
+### Lower climb
+
+Nearby trees pass slowly.
+
+### Mid climb
+
+The player begins seeing the park.
+
+As elevation increases:
+
+```text
+ground
+ ↓
+park
+ ↓
+castle
+ ↓
+island
+ ↓
+horizon
+ ↓
+sky
+```
+
+The choreography is essentially **vertical storytelling**.
+
+---
+
+# ACT 4: THE WORLD OPENS
+
+Around 60–70% of the climb:
+
+The train passes a scenic overlook section.
+
+Here we deliberately choreograph distant elements.
+
+### Central Plaza
+
+Visible below.
+
+### Carnival
+
+Small moving lights.
+
+### Water
+
+Reflective movement.
+
+### Castle
+
+Beginning to dominate the skyline.
+
+### Other attractions
+
+Small animations provide scale.
+
+The player realizes:
+
+> This entire world was built below this coaster.
+
+---
+
+# ACT 5: CREST PREPARATION
+
+Now everything slows.
+
+The lift reaches the final few meters.
+
+### Environmental choreography stops becoming busy.
+
+Instead:
+
+- fewer particles
+- less visual clutter
+- cleaner sky
+- longer sightlines
+- softer lighting
+
+The world becomes quiet.
+
+This is deliberate.
+
+We're clearing the stage.
+
+---
+
+# ACT 6: THE I LOVE YOU REVEAL
+
+### This is the centerpiece.
+
+The train reaches the crest.
+
+The train rolls forward extremely slowly.
+
+The camera begins looking down.
+
+But the choreography isn't only camera movement.
+
+### The landscape itself participates.
+
+The grass field below is already there.
+
+Nothing suddenly appears.
+
+The player first sees:
+
+**grass.**
+
+Then:
+
+**a shape.**
+
+Then:
+
+**letters.**
+
+Then:
+
+# I LOVE YOU ❤️
+
+The recognition should happen progressively.
+
+### No giant particle explosion.
+
+### No floating text.
+
+### No UI.
+
+### No dialogue.
+
+Just the landscape.
+
+---
+
+# ACT 7: THE HOLD
+
+The train creeps across the crest.
+
+For approximately 2 seconds:
+
+**nothing spectacular happens.**
+
+That's important.
+
+The player gets to actually look.
+
+The grass moves in the wind.
+
+Maybe a few tiny butterflies or drifting particles cross the field.
+
+The message remains completely physical.
+
+Then...
+
+The camera begins returning toward the track.
+
+---
+
+# ACT 8: THE DROP TRIGGER
+
+The train crosses a specific track marker:
+
+```ts
+CREST_EXIT_TRIGGER
+```
+
+This triggers the next choreography sequence.
+
+### Simultaneously:
+
+- train acceleration begins
+- camera transitions forward
+- music begins rising
+- environmental wind increases
+- subtle track vibration increases
+- nearby lighting becomes brighter
+
+Then:
+
+# DROP.
+
+---
+
+# ACT 9: THE FIRST DROP
+
+This is pure physical spectacle.
+
+The train accelerates rapidly.
+
+### Choreographed environmental elements
+
+At the bottom of the drop:
+
+- nearby trees whip past
+- ground becomes closer
+- supports pass rapidly
+- grass reacts subtly
+- particles trail behind the train
+- lighting streaks become stronger
+
+Nothing is spawned directly in front of the player.
+
+Everything is **already physically placed**.
+
+---
+
+# ACT 10: THE CASTLE REVEAL
+
+After the bottom of the drop:
+
+The train begins a huge sweeping turn.
+
+This is where the castle enters the choreography.
+
+At first:
+
+**one tower.**
+
+Then:
+
+**two towers.**
+
+Then:
+
+**the entire castle.**
+
+The curve naturally brings the castle into view.
+
+No camera cut.
+
+No artificial teleport.
+
+The player physically passes around it.
+
+---
+
+# ACT 11: CASTLE FLYBY
+
+This should be one of the biggest moments.
+
+The train reaches maximum visual proximity to the castle while remaining outside its collision envelope.
+
+### Castle choreography
+
+As the train approaches:
+
+- castle windows become brighter
+- crystal surfaces catch moving reflections
+- flags react to wind
+- subtle decorative lights activate
+- nearby fountains become visible
+- castle silhouette dominates the frame
+
+Then the train banks away.
+
+The castle disappears behind the player.
+
+The entire event should last perhaps **4–6 seconds**.
+
+Long enough to appreciate.
+
+Short enough that it feels fast.
+
+---
+
+# ACT 12: CRYSTAL APPROACH
+
+The train heads toward the crystal tunnel.
+
+The tunnel should not suddenly appear.
+
+We establish it beforehand.
+
+First:
+
+small crystal fragments.
+
+Then:
+
+larger formations.
+
+Then:
+
+crystal arches.
+
+Then:
+
+the full tunnel entrance.
+
+The lighting becomes increasingly lavender/pink.
+
+The player knows something is coming.
+
+---
+
+# ACT 13: CRYSTAL TUNNEL
+
+Inside the tunnel:
+
+### Choreography follows the train.
+
+Every track section activates lighting sequentially.
+
+```text
+TRAIN
+  ↓
+💡
+  ↓
+💡
+  ↓
+💡
+  ↓
+💡
+```
+
+The lights appear to run along the tunnel.
+
+Crystal surfaces reflect them.
+
+This creates the sensation that the coaster is **charging the tunnel with energy**.
+
+---
+
+# ACT 14: CRYSTAL EXPLOSION
+
+The train exits.
+
+We go from:
+
+**dark crystal interior**
+
+to:
+
+**open sky**
+
+The sudden brightness becomes its own cinematic beat.
+
+For roughly one second:
+
+No complicated effects.
+
+Just the world opening.
+
+---
+
+# ACT 15: HEARTLINE ELEMENT
+
+Now the choreography becomes faster.
+
+The train enters the heart-shaped track element.
+
+As the train moves through:
+
+### Track lights
+
+Follow the train.
+
+### Crystal accents
+
+Pulse sequentially.
+
+### Particle trails
+
+Increase slightly.
+
+### Nearby landscaping
+
+Creates a visual rhythm.
+
+The environment essentially "dances" with the train.
+
+---
+
+# ACT 16: LOW-LEVEL RUN
+
+Now we go extremely close to the ground.
+
+This section should feel playful and dangerous without actually being dangerous.
+
+The train passes:
+
+- beneath arches
+- alongside water
+- between landscaped gardens
+- beside crystal formations
+- under bridges
+- through narrow clearances
+
+But all clearances are validated.
+
+The choreography here is:
+
+**object → pass → object → pass → object → pass**
+
+creating a rapid visual rhythm.
+
+---
+
+# ACT 17: THE FINAL HELIX
+
+The train enters the final large helix.
+
+The environment begins opening again.
+
+The camera rises naturally with the track.
+
+The player gradually sees more of the park.
+
+The speed begins decreasing.
+
+---
+
+# ACT 18: THE SECOND I LOVE YOU REVEAL
+
+This is subtle.
+
+From the helix, the player can see the field again.
+
+But now it is far away.
+
+The first time:
+
+> **I LOVE YOU ❤️ was the discovery.**
+
+Now:
+
+> **I LOVE YOU ❤️ is part of the world.**
+
+That's a beautiful visual callback.
+
+Don't zoom toward it.
+
+Don't force the camera.
+
+Let the player notice it naturally.
+
+---
+
+# ACT 19: GRAND WORLD REVEAL
+
+The final curve opens toward the entire park.
+
+The choreography synchronizes several things:
+
+### Train
+
+Slowing.
+
+### Music
+
+Resolving.
+
+### Castle
+
+Visible.
+
+### Park
+
+Visible.
+
+### Sky
+
+Open.
+
+### Grass message
+
+Visible in the distance.
+
+### Other attractions
+
+Still alive.
+
+The entire world becomes the final tableau.
+
+---
+
+# ACT 20: BRAKE RUN
+
+The train enters the brake run.
+
+The spectacle gradually disappears.
+
+Effects decrease.
+
+Lighting returns to normal.
+
+Particles decrease.
+
+Camera returns toward natural player behavior.
+
+The mechanical sound of the train becomes prominent again.
+
+This is important because the ride needs an **exhale**.
+
+---
+
+# ACT 21: STATION RETURN
+
+Train enters the station.
+
+Stops.
+
+Restraints release.
+
+Player exits.
+
+No forced ending.
+
+No "THE END."
+
+No giant UI.
+
+The world simply continues.
+
+---
+
+# 🌟 The choreography rhythm
+
+The entire ride should follow this pattern:
+
+```text
+QUIET
+  ↓
+ANTICIPATION
+  ↓
+REVEAL
+  ↓
+SPECTACLE
+  ↓
+SPEED
+  ↓
+QUIET
+  ↓
+EMOTION
+  ↓
+EXPLOSION
+  ↓
+SPEED
+  ↓
+BEAUTY
+  ↓
+SPECTACLE
+  ↓
+QUIET
+```
+
+That variation is critical.
+
+If everything is spectacular, **nothing feels spectacular**.
+
+---
+
+# 🎭 The five major choreography beats
+
+I'd make these the non-negotiable anchors:
+
+### 🌿 01. The Message
+**Crest → downward reveal → I LOVE YOU ❤️**
+
+Emotional.
+
+### 🏰 02. The Castle
+**High-speed sweeping flyby**
+
+Grand.
+
+### 💎 03. The Crystal Tunnel
+**Train activates the environment as it passes**
+
+Magical.
+
+### ❤️ 04. The Heartline
+**Physical heart-shaped coaster element**
+
+Playful + thrilling.
+
+### 🌎 05. The World
+**Final panoramic reveal**
+
+Satisfying.
+
+---
+
+## One important implementation principle
+
+We should **not script every frame**.
+
+Instead, build choreography around **physical trigger volumes and track markers**:
+
+```text
+TrackMarker
+    ↓
+Event
+    ↓
+Environmental Response
+    ↓
+Camera Response
+    ↓
+Audio Response
+```
+
+For example:
+
+```ts
+CREST_REVEAL
+CASTLE_APPROACH
+CASTLE_FLYBY
+CRYSTAL_ENTRY
+CRYSTAL_EXIT
+HEARTLINE_ENTRY
+FINAL_HELIX
+WORLD_REVEAL
+BRAKE_RUN
+```
+
+That way the choreography remains synchronized with the **actual train position**, even if we later modify the coaster track.
+
+And that is the direction I'd lock before we touch implementation: **the coaster should feel choreographed, but never feel scripted.**

@@ -48,6 +48,7 @@ import { AuroraDialogueLine } from './world/cinematics/auroraDialogueData';
 import { createCarnivalDistrict } from './world/carnival/CarnivalDistrict';
 import { createDreamCastle } from './world/dreamscape/DreamCastle';
 import { createPlayfulBrickWorkshop } from './world/dreamscape/CastleLegoWorkshop';
+import { createHeartlinePrecinct } from './world/heartline/HeartlinePrecinctManager';
 import {
   createHeartGalleryPlacementTool,
   HeartGalleryPlacementTool,
@@ -316,6 +317,9 @@ export default function App() {
     const brickWorkshop = createPlayfulBrickWorkshop();
     scene.add(brickWorkshop.group);
 
+    const heartlinePrecinct = createHeartlinePrecinct();
+    scene.add(heartlinePrecinct.group);
+
     const galleryPlacementTool = createHeartGalleryPlacementTool({
       scene,
       camera,
@@ -394,6 +398,7 @@ export default function App() {
       },
       dreamCastle,
       brickWorkshop,
+      heartlinePrecinct,
     );
     controllerRef.current = playerController;
 
@@ -571,6 +576,7 @@ export default function App() {
       carnivalDistrict.dispose();
       dreamCastle.dispose();
       brickWorkshop.dispose();
+      heartlinePrecinct.dispose();
       avatar.dispose();
       magicFlight.dispose();
       mysteryBox.dispose();
@@ -939,9 +945,8 @@ export default function App() {
         </div>
       )}
 
-      {/* Floating Wizarding School [E] Interaction Prompts (7 Sanctuary Stations) */}
-      {telemetry.schoolPrompt.id !== 'none' &&
-        telemetry.mysteryPromptMode === 'none' && (
+      {/* Floating Wizarding School [E] Interaction Prompts */}
+      {telemetry.schoolPrompt.id !== 'none' && (
           <div className="pointer-events-auto absolute bottom-32 left-1/2 -translate-x-1/2 z-20 flex items-center gap-3 bg-slate-950/92 border border-amber-300/45 rounded-xl px-4 py-2.5 text-white shadow-xl">
             {telemetry.schoolPrompt.id === 'compendium_book' ? (
               <BookOpen className="w-4 h-4 text-amber-300 shrink-0" />
@@ -1488,13 +1493,15 @@ export default function App() {
           {!(telemetry.castlePrompt.includes('Freestyle Dance') || telemetry.castlePrompt.includes('Choose Song')) && (
             <div className="flex flex-col">
               <span className="text-xs font-semibold text-pink-200">
-                {telemetry.regionName === 'Playful Brick District' ||
-                telemetry.castlePrompt.includes('LEGO') ||
-                telemetry.castlePrompt.includes('Build Studio') ||
-                telemetry.castlePrompt.includes('Guidebook') ||
-                telemetry.castlePrompt.includes('Bring to Life')
-                  ? 'Playful Brick District • LEGO Workshop'
-                  : 'Pastel Dream Castle'}
+                {telemetry.castlePrompt.includes('Heartline')
+                  ? 'Heartline — The Sky of Our Dreams'
+                  : telemetry.regionName === 'Playful Brick District' ||
+                    telemetry.castlePrompt.includes('LEGO') ||
+                    telemetry.castlePrompt.includes('Build Studio') ||
+                    telemetry.castlePrompt.includes('Guidebook') ||
+                    telemetry.castlePrompt.includes('Bring to Life')
+                    ? 'Playful Brick District • LEGO Workshop'
+                    : 'Pastel Dream Castle'}
               </span>
               <span className="text-xs text-slate-200 whitespace-nowrap">
                 {telemetry.castlePrompt}
@@ -1906,9 +1913,13 @@ export default function App() {
                     type="button"
                     onClick={() =>
                       handleTeleport(
-                        zone.x,
-                        zone.z,
-                        zone.id === 'brick-valley' ? 0 : undefined,
+                        zone.id === 'coaster-ridge' ? 50.5 : zone.x,
+                        zone.id === 'coaster-ridge' ? 44.5 : zone.z,
+                        zone.id === 'coaster-ridge'
+                          ? Math.PI / 4
+                          : zone.id === 'brick-valley'
+                            ? 0
+                            : undefined,
                       )
                     }
                     className="px-2.5 py-1 text-xs font-medium rounded-md bg-slate-900 hover:bg-slate-800 text-slate-200 border border-white/10 transition-colors whitespace-nowrap shrink-0 cursor-pointer"
