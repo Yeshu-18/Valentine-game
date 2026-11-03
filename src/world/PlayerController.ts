@@ -883,6 +883,7 @@ export function createPlayerController(
     verticalVel = 0;
     isGrounded = true;
     cameraPitch = THREE.MathUtils.clamp(cameraPitch, -0.58, 0.85);
+    avatar.group.visible = true;
     avatar.setFirstPersonVisibility(cameraMode === 'first-person');
     avatar.setShadowVisible(true);
     avatar.resetNeutralPose?.();
@@ -903,10 +904,15 @@ export function createPlayerController(
         onTelemetryChange?.(buildTelemetry());
         return true;
       }
-      if (heartline.interact(playerPos)) {
+      if (playerPos.x > 36.0 && playerPos.z > 60.0 && heartline.interact(playerPos)) {
         playerVelocity.set(0, 0, 0);
         verticalVel = 0;
         isGrounded = true;
+        if (heartline.isRiding()) {
+          avatar.group.visible = false;
+          avatar.setFirstPersonVisibility(true);
+          avatar.setShadowVisible(false);
+        }
         onTelemetryChange?.(buildTelemetry());
         return true;
       }
@@ -1020,14 +1026,19 @@ export function createPlayerController(
       }
     }
 
-    // 2B. Heartline Coaster Precinct (Northeast Spectacular Thrill Zone)
-    if (heartline && playerPos.x > 42.0 && playerPos.z > 40.0) {
+    // 2B. Heartline Coaster Precinct (Northeast Spectacular Thrill Zone, strictly z > 60.0)
+    if (heartline && playerPos.x > 36.0 && playerPos.z > 60.0) {
       const hp = heartline.getProximityPrompt(playerPos);
       if (hp) {
         if (heartline.interact(playerPos)) {
           playerVelocity.set(0, 0, 0);
           verticalVel = 0;
           isGrounded = true;
+          if (heartline.isRiding()) {
+            avatar.group.visible = false;
+            avatar.setFirstPersonVisibility(true);
+            avatar.setShadowVisible(false);
+          }
           onTelemetryChange?.(buildTelemetry());
           return true;
         }
@@ -1784,7 +1795,11 @@ export function createPlayerController(
       );
     }
     cameraMode = mode;
-    if (locomotionState !== 'mystery_cinematic') {
+    if (heartline?.isRiding()) {
+      avatar.group.visible = false;
+      avatar.setFirstPersonVisibility(true);
+      avatar.setShadowVisible(false);
+    } else if (locomotionState !== 'mystery_cinematic') {
       avatar.setFirstPersonVisibility(mode === 'first-person');
     }
   }
@@ -1909,20 +1924,21 @@ export function createPlayerController(
         : null;
 
     const heartlinePrompt =
-      isWalk && heartline && (heartline.isRiding() || (playerPos.x > 42.0 && playerPos.z > 40.0))
+      isWalk && heartline && (heartline.isRiding() || (playerPos.x > 36.0 && playerPos.z > 60.0))
         ? heartline.getProximityPrompt(playerPos)
         : null;
 
     const distToDreamCastle = Math.hypot(playerPos.x - 88.0, playerPos.z - 18.0);
+    const isWithinDreamCastleTerritory = distToDreamCastle <= 44.0 && playerPos.z <= 59.0;
     const castlePrompt =
       heartlinePrompt ??
       brickPrompt ??
-      (isWalk && dreamCastle && distToDreamCastle <= 52.0
+      (isWalk && dreamCastle && isWithinDreamCastleTerritory
         ? dreamCastle.getProximityPrompt(playerPos)?.prompt ?? null
         : null);
     const castleFountainCaption =
       brickCaption ??
-      (isWalk && dreamCastle && distToDreamCastle <= 52.0
+      (isWalk && dreamCastle && isWithinDreamCastleTerritory
         ? dreamCastle.nav.getActiveFountainCaption() ??
           dreamCastle.floor2CreativeWing.getActiveRoomCaption() ??
           dreamCastle.floor2Rooms.getActiveRoomCaption() ??
@@ -2046,6 +2062,19 @@ export function createPlayerController(
   }
 
   function getFastHudState() {
+    if (heartline?.isRiding()) {
+      const hCam = heartline.getCameraState();
+      const groundY = getTerrainHeight(hCam.position.x, hCam.position.z);
+      return {
+        x: hCam.position.x,
+        y: hCam.position.y,
+        z: hCam.position.z,
+        speed: 14.0,
+        altitudeAboveGround: Math.max(0, hCam.position.y - groundY),
+        statusLabel: `Riding Heartline (${hCam.zoneLabel})`,
+        isFlyingOrMounting: false,
+      };
+    }
     const groundY = getTerrainHeight(playerPos.x, playerPos.z);
     const altitudeAboveGround = Math.max(0, playerPos.y - groundY);
     const horizSpeed =
@@ -2248,6 +2277,7 @@ export function createPlayerController(
           onTelemetryChange?.(buildTelemetry());
         }
         if (heartline.isRiding()) {
+          idleTimer = 0;
           const hCam = heartline.getCameraState();
           camera.up.copy(hCam.up);
           camera.position.copy(hCam.position);
@@ -2258,10 +2288,10 @@ export function createPlayerController(
           }
           currentCamPos.copy(hCam.position);
           currentLookAt.copy(hCam.lookTarget);
-          playerPos.copy(hCam.position);
+          avatar.group.visible = false;
           avatar.setFirstPersonVisibility(true);
           avatar.setShadowVisible(false);
-          currentRegion = getRegionAtPosition(playerPos.x, playerPos.z);
+          currentRegion = getRegionAtPosition(hCam.position.x, hCam.position.z);
           emitTelemetryIfDiscreteChanged();
           return;
         }
@@ -3150,9 +3180,11 @@ export function createPlayerController(
               : 0.0;
           avatar.group.rotation.set(0, facingYaw + spinYawOffset, 0);
         }
+        avatar.group.visible = true;
         avatar.setFirstPersonVisibility(
           cameraMode === 'first-person' ||
             isElevatorFpv ||
+            isCastleSitting ||
             Boolean(castleFocusNow?.isFirstPersonSeated),
         );
         if (dreamCastle?.nav.activeCameraFocus?.mode === 'entrance') {

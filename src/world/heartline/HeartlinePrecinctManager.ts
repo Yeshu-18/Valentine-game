@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { ResourceTracker } from '../ProceduralKit';
+import { getTerrainHeight } from '../terrainMath';
 import {
   createHeartlineTrackSpline,
   createEmptyTrackFrame,
@@ -96,6 +97,58 @@ function createSignBannerTexture(
   }
   const tex = tracker.track(new THREE.CanvasTexture(canvas));
   tex.colorSpace = THREE.SRGBColorSpace;
+  tex.needsUpdate = true;
+  return tex;
+}
+
+function createSapphirePathwayTexture(tracker: ResourceTracker): THREE.CanvasTexture {
+  const canvas = document.createElement('canvas');
+  canvas.width = 512;
+  canvas.height = 512;
+  const ctx = canvas.getContext('2d');
+  if (ctx) {
+    // Rich Royal/Sapphire Blue Stone Flagstone Base
+    const grad = ctx.createLinearGradient(0, 0, 512, 0);
+    grad.addColorStop(0.0, '#1e3a8a');
+    grad.addColorStop(0.12, '#1d4ed8');
+    grad.addColorStop(0.5, '#2563eb');
+    grad.addColorStop(0.88, '#1d4ed8');
+    grad.addColorStop(1.0, '#1e3a8a');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, 512, 512);
+
+    // Subtle Ashlar Blue-Stone Tile Grid
+    ctx.strokeStyle = 'rgba(147, 197, 253, 0.32)';
+    ctx.lineWidth = 3;
+    for (let y = 0; y < 512; y += 64) {
+      ctx.beginPath();
+      ctx.moveTo(0, y);
+      ctx.lineTo(512, y);
+      ctx.stroke();
+      const offset = (y / 64) % 2 === 0 ? 0 : 64;
+      for (let x = offset; x < 512; x += 128) {
+        ctx.beginPath();
+        ctx.moveTo(x, y);
+        ctx.lineTo(x, y + 64);
+        ctx.stroke();
+      }
+    }
+
+    // Luminous Cyan-Blue Wayfinding Center Strip & Gold Border Lines
+    ctx.fillStyle = '#38bdf8';
+    ctx.fillRect(244, 0, 24, 512);
+    ctx.fillStyle = '#e0f2fe';
+    ctx.fillRect(252, 0, 8, 512);
+
+    ctx.fillStyle = '#d8b467';
+    ctx.fillRect(14, 0, 12, 512);
+    ctx.fillRect(486, 0, 12, 512);
+  }
+  const tex = tracker.track(new THREE.CanvasTexture(canvas));
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.wrapS = THREE.RepeatWrapping;
+  tex.wrapT = THREE.RepeatWrapping;
+  tex.repeat.set(1, 6);
   tex.needsUpdate = true;
   return tex;
 }
@@ -207,11 +260,18 @@ export function createHeartlinePrecinct(): HeartlinePrecinctManager {
       metalness: 0.08,
     })
   );
+  const sapphirePathwayTex = createSapphirePathwayTexture(tracker);
   const warmPlazaTileMat = tracker.track(
     new THREE.MeshStandardMaterial({
-      color: 0xe2e8f0,
-      roughness: 0.45,
-      metalness: 0.06,
+      map: sapphirePathwayTex,
+      color: 0xbfdbfe,
+      emissive: 0x1e3a8a,
+      emissiveIntensity: 0.28,
+      roughness: 0.34,
+      metalness: 0.14,
+      polygonOffset: true,
+      polygonOffsetFactor: -1,
+      polygonOffsetUnits: -1,
     })
   );
   const champagneGoldMat = tracker.track(
@@ -367,12 +427,12 @@ export function createHeartlinePrecinct(): HeartlinePrecinctManager {
     // Skip support columns inside the Station canopy (0..0.04, 0.96..1.0) and Crystal Tunnel interior (0.55..0.63)
     if (u < 0.04 || u > 0.965 || (u > 0.555 && u < 0.625)) continue;
     spline.evaluateAtU(u, sampleFrame);
-    // Avoid blocking the Queue Garden bridge walkway near (74..85, 72..78)
+    // Avoid blocking the Queue Garden bridge walkway near (64..76, 80..89)
     if (
-      sampleFrame.pos.x > 73 &&
-      sampleFrame.pos.x < 83 &&
-      sampleFrame.pos.z > 71 &&
-      sampleFrame.pos.z < 79
+      sampleFrame.pos.x > 64 &&
+      sampleFrame.pos.x < 76 &&
+      sampleFrame.pos.z > 80 &&
+      sampleFrame.pos.z < 89
     ) {
       continue;
     }
@@ -395,7 +455,7 @@ export function createHeartlinePrecinct(): HeartlinePrecinctManager {
 
   for (let i = 0; i < supportPositions.length; i++) {
     const sp = supportPositions[i];
-    const groundY = 12.45;
+    const groundY = getTerrainHeight(sp.x, sp.z);
     const h = Math.max(0.5, sp.topY - groundY);
     _scratchPos.set(sp.x, groundY + h * 0.5, sp.z);
     _scratchQuat.identity();
@@ -414,31 +474,77 @@ export function createHeartlinePrecinct(): HeartlinePrecinctManager {
   group.add(collarsInstanced);
 
   // ============================================================================
-  // 2. WALKABLE PRECINCT GROUND PAVING & CURVED ENTRANCE GATEWAY
+  // 2. WALKABLE BLUISH PATHWAY FROM ENTRANCE TO COASTER & CURVED ENTRANCE GATEWAY
   // ============================================================================
-  // Precinct Terrace Slab at Y = 12.48m
-  const precinctPlazaGeo = tracker.track(new THREE.CylinderGeometry(34, 35, 0.36, 48));
-  const precinctPlaza = new THREE.Mesh(precinctPlazaGeo, warmPlazaTileMat);
-  precinctPlaza.position.set(72.0, 12.32, 65.0);
-  precinctPlaza.receiveShadow = true;
-  group.add(precinctPlaza);
+  function addBluePathwaySegment(
+    ax: number,
+    az: number,
+    bx: number,
+    bz: number,
+    width = 5.4,
+    elevY = 12.56
+  ): void {
+    const dx = bx - ax;
+    const dz = bz - az;
+    const len = Math.hypot(dx, dz);
+    const segGeo = tracker.track(new THREE.BoxGeometry(width, 0.14, len + 1.2));
+    const segMesh = new THREE.Mesh(segGeo, warmPlazaTileMat);
+    segMesh.position.set((ax + bx) * 0.5, elevY, (az + bz) * 0.5);
+    segMesh.rotation.y = Math.atan2(dx, dz);
+    segMesh.receiveShadow = true;
+    group.add(segMesh);
 
-  // Entrance Boulevard Apron connecting (50, 44) -> Ticket Booth (63, 57) -> Station (78, 68)
-  const boulevardWalkGeo = tracker.track(new THREE.BoxGeometry(10.5, 0.14, 34.0));
-  const boulevardWalk = new THREE.Mesh(boulevardWalkGeo, pearlStoneMat);
-  boulevardWalk.position.set(61.5, 12.46, 55.5);
-  boulevardWalk.rotation.y = Math.PI / 4;
-  boulevardWalk.receiveShadow = true;
-  group.add(boulevardWalk);
+    // Glowing Cyan-Blue Edge Curbs along both sides of the bluish pathway
+    for (const side of [-1, 1]) {
+      const curbGeo = tracker.track(new THREE.BoxGeometry(0.22, 0.20, len + 1.0));
+      const curb = new THREE.Mesh(curbGeo, cyanSpineMat);
+      const nx = (dz / (len || 1)) * side * (width * 0.5 + 0.12);
+      const nz = (-dx / (len || 1)) * side * (width * 0.5 + 0.12);
+      curb.position.set((ax + bx) * 0.5 + nx, elevY + 0.04, (az + bz) * 0.5 + nz);
+      curb.rotation.y = Math.atan2(dx, dz);
+      group.add(curb);
+    }
+  }
 
-  // Reflective Sapphire Water Feature along the Ticket Forecourt
-  const waterChannelGeo = tracker.track(new THREE.BoxGeometry(3.2, 0.16, 16.0));
+  // Segment A: Approach Apron (40, 59) -> Attraction Entrance Gateway (46, 65) -> Octagonal Ticket Booth (55, 71)
+  addBluePathwaySegment(40.0, 59.0, 46.0, 65.0, 6.8, 12.55);
+  addBluePathwaySegment(46.0, 65.0, 55.0, 71.0, 6.8, 12.56);
+
+  // Segment B: Direct Sapphire Promenade from Ticket Booth (55, 71) -> Coaster Station Boarding Platform (70, 80.8)
+  addBluePathwaySegment(55.0, 71.0, 70.0, 80.8, 5.8, 12.57);
+
+  // Segment C: Scenic Wisteria Queue Garden Bluish Pathway (55, 71) -> Viewing Deck (65.5, 86.5) -> Station Boarding (70, 80.8)
+  addBluePathwaySegment(55.0, 71.0, 60.5, 78.0, 4.4, 12.56);
+  addBluePathwaySegment(60.5, 78.0, 65.5, 86.5, 4.4, 12.57);
+  addBluePathwaySegment(65.5, 86.5, 70.0, 80.8, 4.4, 12.58);
+
+  // Circular Sapphire Forecourt Medallion under the Octagonal Ticket Booth (55, 71) and Station Apron (70, 78)
+  const boothPlazaDiskGeo = tracker.track(new THREE.CylinderGeometry(6.8, 7.0, 0.15, 32));
+  const boothPlazaDisk = new THREE.Mesh(boothPlazaDiskGeo, warmPlazaTileMat);
+  boothPlazaDisk.position.set(TICKET_BOOTH_POS.x, 12.56, TICKET_BOOTH_POS.z);
+  boothPlazaDisk.receiveShadow = true;
+  group.add(boothPlazaDisk);
+
+  const stationPlazaGeo = tracker.track(new THREE.BoxGeometry(22.0, 0.15, 13.5));
+  const stationPlaza = new THREE.Mesh(stationPlazaGeo, warmPlazaTileMat);
+  stationPlaza.position.set(70.0, 12.55, 78.0);
+  stationPlaza.receiveShadow = true;
+  group.add(stationPlaza);
+
+  // Reflective Sapphire Water Feature alongside the Entrance-to-Booth Bluish Promenade
+  const waterChannelCurbGeo = tracker.track(new THREE.BoxGeometry(3.2, 0.22, 12.0));
+  const waterChannelCurb = new THREE.Mesh(waterChannelCurbGeo, pearlStoneMat);
+  waterChannelCurb.position.set(48.5, 12.55, 71.5);
+  waterChannelCurb.rotation.y = Math.atan2(9.0, 6.0);
+  group.add(waterChannelCurb);
+
+  const waterChannelGeo = tracker.track(new THREE.BoxGeometry(2.6, 0.26, 11.4));
   const waterChannel = new THREE.Mesh(waterChannelGeo, reflectiveWaterMat);
-  waterChannel.position.set(57.5, 12.47, 59.5);
-  waterChannel.rotation.y = Math.PI / 4;
+  waterChannel.position.set(48.5, 12.56, 71.5);
+  waterChannel.rotation.y = Math.atan2(9.0, 6.0);
   group.add(waterChannel);
 
-  // Curved Attraction Entrance Gateway at ENTRANCE_ARCH_POS (54.0, 12.5, 48.0) facing SW (-X, -Z)
+  // Curved Attraction Entrance Gateway at ENTRANCE_ARCH_POS (46.0, 12.5, 65.0) facing SW (-X, -Z)
   const entranceGroup = new THREE.Group();
   entranceGroup.position.copy(ENTRANCE_ARCH_POS);
   entranceGroup.rotation.y = -Math.PI * 0.75; // Faces approaching player walking up the NE Boulevard spoke
@@ -610,14 +716,14 @@ export function createHeartlinePrecinct(): HeartlinePrecinctManager {
 
   group.add(deckGroup);
 
-  // 6 White Wisteria Pergola Arches along the Queue Garden Path ((66, 61) -> (73.5, 76) -> (78, 71))
+  // 6 White Wisteria Pergola Arches along the Queue Garden Path ((58.5, 74.5) -> (65.5, 86.5) -> (70.0, 81.8))
   const queueWaypoints = [
-    new THREE.Vector3(66.5, 12.5, 61.5),
-    new THREE.Vector3(69.0, 12.65, 66.5),
-    new THREE.Vector3(71.2, 12.85, 71.5),
-    new THREE.Vector3(73.5, 13.15, 75.5),
-    new THREE.Vector3(76.0, 13.0, 74.0),
-    new THREE.Vector3(77.5, 12.85, 71.8),
+    new THREE.Vector3(58.5, 12.5, 74.5),
+    new THREE.Vector3(61.0, 12.65, 78.5),
+    new THREE.Vector3(63.2, 12.85, 83.0),
+    new THREE.Vector3(65.5, 13.15, 86.5),
+    new THREE.Vector3(68.0, 13.0, 84.5),
+    new THREE.Vector3(69.5, 12.85, 81.8),
   ];
 
   const pergolaPillarGeo = tracker.track(new THREE.CylinderGeometry(0.14, 0.18, 3.4, 8));
@@ -671,12 +777,12 @@ export function createHeartlinePrecinct(): HeartlinePrecinctManager {
   }
 
   // ============================================================================
-  // 5. OPEN-AIR SAPPHIRE & PEARL STATION AT (78.0, 12.85, 68.0)
+  // 5. OPEN-AIR SAPPHIRE & PEARL STATION AT (70.0, 12.5, 78.0)
   // ============================================================================
   const stationGroup = new THREE.Group();
-  stationGroup.position.set(78.0, 12.5, 68.0);
+  stationGroup.position.set(70.0, 12.5, 78.0);
 
-  // North Boarding Platform (Z = +2.8 -> World Z = 70.8) & South Exit Platform (Z = -2.8 -> World Z = 65.2)
+  // North Boarding Platform (Z = +2.8 -> World Z = 80.8) & South Exit Platform (Z = -2.8 -> World Z = 75.2)
   const platformSlabGeo = tracker.track(new THREE.BoxGeometry(16.5, 0.72, 3.4));
   const boardingSlab = new THREE.Mesh(platformSlabGeo, pearlStoneMat);
   boardingSlab.position.set(0, 0.36, 2.8);
@@ -760,12 +866,12 @@ export function createHeartlinePrecinct(): HeartlinePrecinctManager {
   group.add(stationGroup);
 
   // ============================================================================
-  // 6. 45M SUMMIT BOTANICAL "I LOVE YOU ❤️" MEADOW AT (98.0, 13.2, 96.0)
+  // 6. 45M SUMMIT BOTANICAL "I LOVE YOU ❤️" MEADOW AT (90.0, 17.6, 110.0)
   // ============================================================================
   const meadowGroup = new THREE.Group();
   meadowGroup.position.copy(LOVE_MEADOW_CENTER);
-  // Tilted 18° Northward (+Z) so the 45m Summit Crest at Z = 121.8 looks perpendicularly at the face!
-  meadowGroup.rotation.x = THREE.MathUtils.degToRad(18);
+  // Tilted 14° Northward (+Z) and elevated at Y = 17.6m so the entire hillside berm sits cleanly above Y = 12.5m terrain!
+  meadowGroup.rotation.x = THREE.MathUtils.degToRad(14);
 
   const deepTurfMat = tracker.track(
     new THREE.MeshStandardMaterial({
@@ -791,38 +897,38 @@ export function createHeartlinePrecinct(): HeartlinePrecinctManager {
     new THREE.MeshStandardMaterial({
       color: 0xfef08a,
       emissive: 0xfde047,
-      emissiveIntensity: 0.28,
-      roughness: 0.45,
+      emissiveIntensity: 0.45,
+      roughness: 0.38,
     })
   );
   const crimsonRoseMat = tracker.track(
     new THREE.MeshStandardMaterial({
       color: 0xe11d48,
-      emissive: 0xbe123c,
-      emissiveIntensity: 0.32,
-      roughness: 0.42,
+      emissive: 0xf43f5e,
+      emissiveIntensity: 0.42,
+      roughness: 0.38,
     })
   );
 
-  // Sculpted Oval Hillside Berm + Pearl Stone Rim
-  const bermRimGeo = tracker.track(new THREE.CylinderGeometry(23.5, 25.0, 1.4, 40));
-  bermRimGeo.scale(1.32, 1.0, 0.78);
+  // Sculpted Oval Hillside Berm + Pearl Stone Rim (deep 6.8m foundation so the tilted North edge never dips below ground)
+  const bermRimGeo = tracker.track(new THREE.CylinderGeometry(20.5, 23.0, 6.8, 40));
+  bermRimGeo.scale(1.28, 1.0, 0.74);
   const bermRim = new THREE.Mesh(bermRimGeo, pearlStoneMat);
-  bermRim.position.y = -0.65;
+  bermRim.position.y = -3.35;
   meadowGroup.add(bermRim);
 
-  const bermLawnGeo = tracker.track(new THREE.CylinderGeometry(22.2, 23.2, 1.52, 40));
-  bermLawnGeo.scale(1.32, 1.0, 0.78);
+  const bermLawnGeo = tracker.track(new THREE.CylinderGeometry(19.4, 21.6, 6.95, 40));
+  bermLawnGeo.scale(1.28, 1.0, 0.74);
   const bermLawn = new THREE.Mesh(bermLawnGeo, deepTurfMat);
-  bermLawn.position.y = -0.52;
+  bermLawn.position.y = -3.22;
   bermLawn.receiveShadow = true;
   meadowGroup.add(bermLawn);
 
   // Inner Bright-Cut Lawn Oval Framing the Topiary Message
-  const innerLawnGeo = tracker.track(new THREE.CylinderGeometry(19.5, 20.0, 0.25, 36));
-  innerLawnGeo.scale(1.32, 1.0, 0.74);
+  const innerLawnGeo = tracker.track(new THREE.CylinderGeometry(17.5, 18.2, 0.35, 36));
+  innerLawnGeo.scale(1.28, 1.0, 0.70);
   const innerLawn = new THREE.Mesh(innerLawnGeo, brightTurfMat);
-  innerLawn.position.y = 0.22;
+  innerLawn.position.y = 0.28;
   meadowGroup.add(innerLawn);
 
   // Pixel-Grid Bitmap for 3D Sculpted Topiary Letters "I LOVE YOU"
@@ -1053,10 +1159,15 @@ export function createHeartlinePrecinct(): HeartlinePrecinctManager {
   if (crystalTunnelRibsMesh.instanceColor) crystalTunnelRibsMesh.instanceColor.needsUpdate = true;
   group.add(crystalTunnelRibsMesh);
 
-  // Arched Stone Pedestrian Bridge & Reflective Pond beneath the Crystal Tunnel
-  const tunnelPondGeo = tracker.track(new THREE.CylinderGeometry(12.5, 13.0, 0.18, 32));
+  // Arched Stone Pedestrian Bridge & Reflective Pond beneath the Crystal Tunnel (raised with stone rim so zero Z-fighting)
+  const tunnelPondRimGeo = tracker.track(new THREE.CylinderGeometry(11.8, 12.2, 0.24, 32));
+  const tunnelPondRim = new THREE.Mesh(tunnelPondRimGeo, pearlStoneMat);
+  tunnelPondRim.position.set(CRYSTAL_TUNNEL_CENTER.x, 12.52, CRYSTAL_TUNNEL_CENTER.z - 1.5);
+  group.add(tunnelPondRim);
+
+  const tunnelPondGeo = tracker.track(new THREE.CylinderGeometry(11.2, 11.4, 0.28, 32));
   const tunnelPond = new THREE.Mesh(tunnelPondGeo, reflectiveWaterMat);
-  tunnelPond.position.set(CRYSTAL_TUNNEL_CENTER.x, 12.44, CRYSTAL_TUNNEL_CENTER.z - 2.0);
+  tunnelPond.position.set(CRYSTAL_TUNNEL_CENTER.x, 12.55, CRYSTAL_TUNNEL_CENTER.z - 1.5);
   group.add(tunnelPond);
 
   const stoneBridgeArchGeo = tracker.track(new THREE.TorusGeometry(6.8, 0.85, 10, 24, Math.PI * 0.65));
@@ -1142,28 +1253,28 @@ export function createHeartlinePrecinct(): HeartlinePrecinctManager {
   // 9. BOTANICAL TREES, BLUE HYDRANGEAS & CASTLE-SIDE GARDEN BUFFER (INSTANCED)
   // ============================================================================
   const gardenSpots: { x: number; z: number; scale: number }[] = [
-    // Entrance & Ticket Forecourt Borders
-    { x: 49.5, z: 52.0, scale: 1.1 },
-    { x: 58.5, z: 44.5, scale: 1.15 },
-    { x: 55.0, z: 61.0, scale: 1.25 },
-    { x: 67.5, z: 52.0, scale: 1.1 },
-    // Castle-Side Garden Buffer (framing the Dream Castle Flyby at z = 44..52)
-    { x: 89.0, z: 45.5, scale: 1.3 },
-    { x: 95.0, z: 44.0, scale: 1.4 },
-    { x: 102.0, z: 43.0, scale: 1.35 },
-    { x: 109.0, z: 44.0, scale: 1.45 },
-    { x: 115.5, z: 47.0, scale: 1.3 },
-    { x: 121.0, z: 51.0, scale: 1.25 },
+    // Entrance & Ticket Forecourt Borders (all strictly z >= 65.0)
+    { x: 41.5, z: 68.0, scale: 1.1 },
+    { x: 50.5, z: 65.5, scale: 1.15 },
+    { x: 47.0, z: 75.0, scale: 1.25 },
+    { x: 59.5, z: 67.0, scale: 1.1 },
+    // Southern Thrill Zone Border (framing the Dream Castle Flyby at z = 65..69, well clear of Castle Rear Garden z <= 56.5)
+    { x: 81.0, z: 65.5, scale: 1.25 },
+    { x: 88.0, z: 65.0, scale: 1.3 },
+    { x: 95.0, z: 65.0, scale: 1.3 },
+    { x: 103.0, z: 65.5, scale: 1.35 },
+    { x: 110.5, z: 66.5, scale: 1.3 },
+    { x: 116.0, z: 69.0, scale: 1.25 },
     // Meadow Perimeter Grove (North & East rim behind the Love Meadow)
-    { x: 75.0, z: 102.0, scale: 1.4 },
-    { x: 82.0, z: 112.0, scale: 1.5 },
-    { x: 92.0, z: 115.0, scale: 1.45 },
-    { x: 105.0, z: 114.0, scale: 1.5 },
-    { x: 116.0, z: 106.0, scale: 1.4 },
-    { x: 122.0, z: 92.0, scale: 1.35 },
+    { x: 67.0, z: 114.0, scale: 1.4 },
+    { x: 74.0, z: 124.0, scale: 1.5 },
+    { x: 84.0, z: 127.0, scale: 1.45 },
+    { x: 97.0, z: 126.0, scale: 1.5 },
+    { x: 108.0, z: 118.0, scale: 1.4 },
+    { x: 114.0, z: 104.0, scale: 1.35 },
     // Final Helix Interior Garden
-    { x: 56.0, z: 76.0, scale: 1.3 },
-    { x: 60.5, z: 79.0, scale: 1.2 },
+    { x: 48.0, z: 86.0, scale: 1.3 },
+    { x: 52.5, z: 89.0, scale: 1.2 },
   ];
 
   const trunkGeo = tracker.track(new THREE.CylinderGeometry(0.22, 0.34, 2.4, 8));
@@ -1188,17 +1299,18 @@ export function createHeartlinePrecinct(): HeartlinePrecinctManager {
   for (let i = 0; i < gardenSpots.length; i++) {
     const gs = gardenSpots[i];
     const s = gs.scale;
-    _scratchPos.set(gs.x, 12.5 + 1.2 * s, gs.z);
+    const gY = getTerrainHeight(gs.x, gs.z);
+    _scratchPos.set(gs.x, gY + 1.2 * s, gs.z);
     _scratchQuat.identity();
     _scratchScale.set(s, s, s);
     _scratchMat4.compose(_scratchPos, _scratchQuat, _scratchScale);
     trunksInst.setMatrixAt(i, _scratchMat4);
 
-    _scratchPos.set(gs.x, 12.5 + 3.1 * s, gs.z);
+    _scratchPos.set(gs.x, gY + 3.1 * s, gs.z);
     _scratchMat4.compose(_scratchPos, _scratchQuat, _scratchScale);
     canopiesInst.setMatrixAt(i, _scratchMat4);
 
-    _scratchPos.set(gs.x + 1.4, 12.5 + 0.35 * s, gs.z - 0.8);
+    _scratchPos.set(gs.x + 1.4, gY + 0.35 * s, gs.z - 0.8);
     _scratchScale.set(s * 0.9, s * 0.55, s * 0.9);
     _scratchMat4.compose(_scratchPos, _scratchQuat, _scratchScale);
     hydrangeasInst.setMatrixAt(i, _scratchMat4);
@@ -1210,12 +1322,12 @@ export function createHeartlinePrecinct(): HeartlinePrecinctManager {
   group.add(canopiesInst);
   group.add(hydrangeasInst);
 
-  // Castle-Side Crystal Fountain Beacon
+  // Castle-Side Crystal Fountain Beacon (at z = 65.5, well clear of Castle Rear Garden)
   const castleFountainCrystal = new THREE.Mesh(
     tracker.track(new THREE.OctahedronGeometry(1.1, 1)),
     castleGardenGlowMat
   );
-  castleFountainCrystal.position.set(102.0, 14.8, 46.5);
+  castleFountainCrystal.position.set(94.0, 14.8, 65.5);
   group.add(castleFountainCrystal);
 
   // ============================================================================
@@ -1282,24 +1394,16 @@ export function createHeartlinePrecinct(): HeartlinePrecinctManager {
     if (playerIsRiding) return false;
 
     const distStation = playerPos.distanceTo(STATION_BOARDING_POS);
-    if (distStation <= 5.8) {
+    if (distStation <= 6.2) {
       boardPlayerOntoTrain();
       return true;
     }
 
     const distBooth = playerPos.distanceTo(TICKET_BOOTH_POS);
-    if (distBooth <= 5.6) {
-      if (!ticketConfirmed) {
-        // First press at Ticket Booth: confirm ticket, chime, illuminate queue garden & dock train
-        ticketConfirmed = true;
-        director.playTicketConfirmationCue();
-        train.requestDockForTicket();
-        return true;
-      } else {
-        // Second press at Ticket Booth (or direct boarding): board immediately
-        boardPlayerOntoTrain();
-        return true;
-      }
+    if (distBooth <= 6.0) {
+      director.playTicketConfirmationCue();
+      boardPlayerOntoTrain();
+      return true;
     }
 
     return false;

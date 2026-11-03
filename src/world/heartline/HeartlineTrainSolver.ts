@@ -33,6 +33,12 @@ export interface HeartlineTrainSolver {
   getBoardingTimer: () => number;
   getSeatSettleOffset: () => number;
   getSeatEyeWorldPosition: (outPos: THREE.Vector3) => THREE.Vector3;
+  setRiderViewMode: (isRiding: boolean) => void;
+  syncRiderNoseToCamera: (
+    camPos: THREE.Vector3,
+    lookTarget: THREE.Vector3,
+    camUp: THREE.Vector3
+  ) => void;
   requestDockForTicket: () => void;
   startBoarding: () => void;
   cancelRideToStation: () => void;
@@ -406,6 +412,60 @@ export function createHeartlineTrainSolver(
     carGroups.push(car);
   }
 
+  // Dedicated First-Person Tiny Blue Nose Tip (shown ONLY while riding, anchored at the very bottom-center of the camera view
+  // so zero seats, headrests, restraints, or side panels can ever block the view — even when looking straight down at Love Reveal!)
+  const riderNoseTipGroup = new THREE.Group();
+  riderNoseTipGroup.name = 'HeartlineRiderTinyNoseTip';
+  riderNoseTipGroup.visible = false;
+
+  const tinyNoseGeo = tracker.track(new THREE.CylinderGeometry(0.18, 0.36, 0.62, 16));
+  tinyNoseGeo.scale(1.0, 0.42, 1.0);
+  tinyNoseGeo.rotateX(Math.PI / 2 - 0.18);
+  const tinyNoseMesh = new THREE.Mesh(tinyNoseGeo, sapphireShellMat);
+  tinyNoseMesh.position.set(0, -0.44, 0.88);
+  riderNoseTipGroup.add(tinyNoseMesh);
+
+  const tinyHeartShape = createHeartEmblemShape(0.38);
+  const tinyHeartGeo = tracker.track(
+    new THREE.ExtrudeGeometry(tinyHeartShape, {
+      depth: 0.025,
+      bevelEnabled: true,
+      bevelThickness: 0.008,
+      bevelSize: 0.008,
+      bevelSegments: 2,
+    })
+  );
+  tinyHeartGeo.rotateX(-Math.PI / 2 + 0.25);
+  const tinyHeartMesh = new THREE.Mesh(tinyHeartGeo, cyanCrystalMat);
+  tinyHeartMesh.position.set(0, -0.37, 0.92);
+  riderNoseTipGroup.add(tinyHeartMesh);
+
+  group.add(riderNoseTipGroup);
+
+  function setRiderViewMode(isRiding: boolean): void {
+    // When the player sits/rides, hide all 4 cars' seats, headrests, restraints, side walls & bogies
+    // so NOTHING can ever obstruct the camera view, leaving ONLY the tiny blue nose tip!
+    for (let c = 0; c < CAR_COUNT; c++) {
+      carGroups[c].visible = !isRiding;
+    }
+    riderNoseTipGroup.visible = isRiding;
+  }
+
+  function syncRiderNoseToCamera(
+    camPos: THREE.Vector3,
+    lookTarget: THREE.Vector3,
+    camUp: THREE.Vector3
+  ): void {
+    if (!riderNoseTipGroup.visible) return;
+    riderNoseTipGroup.position.copy(camPos);
+    _scratchForward.copy(lookTarget).sub(camPos).normalize();
+    _scratchUp.copy(camUp).normalize();
+    _scratchRight.crossVectors(_scratchUp, _scratchForward).normalize();
+    _scratchUp.crossVectors(_scratchForward, _scratchRight).normalize();
+    _scratchBasisMat.makeBasis(_scratchRight, _scratchUp, _scratchForward);
+    riderNoseTipGroup.quaternion.setFromRotationMatrix(_scratchBasisMat);
+  }
+
   // Kinematics State
   let phase: HeartlineRidePhase = 'PRE_RIDE_PARKED';
   let leadS = 0; // Station center is s = 0
@@ -552,6 +612,7 @@ export function createHeartlineTrainSolver(
     firedConsoleChime = false;
     firedBrakeRelease = false;
     firedDispatch = false;
+    setRiderViewMode(true);
     updateCarTransforms();
   }
 
@@ -563,6 +624,7 @@ export function createHeartlineTrainSolver(
     seatSettleOffset = 0;
     restraintOpenAngle = -0.78;
     preRideTimer = 18.0;
+    setRiderViewMode(false);
     updateCarTransforms();
   }
 
@@ -583,8 +645,9 @@ export function createHeartlineTrainSolver(
   }
 
   function getSeatEyeWorldPosition(outPos: THREE.Vector3): THREE.Vector3 {
-    // Player sits in Lead Car (Car 0), front- center/left bucket seat eye-point
-    _scratchEyeLocal.set(0.0, 1.56 + seatSettleOffset, -0.05);
+    // Player sits in Lead Car (Car 0): positioned cleanly above/ahead of the seat headrest and shoulder restraint
+    // so only the sleek sculpted sapphire nose cone & crystal heart emblem frame the lower peripheral horizon
+    _scratchEyeLocal.set(0.0, 1.82 + seatSettleOffset, 0.42);
     outPos.copy(_scratchEyeLocal).applyQuaternion(carGroups[0].quaternion).add(carGroups[0].position);
     return outPos;
   }
@@ -676,6 +739,7 @@ export function createHeartlineTrainSolver(
         if (finished) {
           phase = 'UNBOARDING';
           boardingTimer = 0;
+          setRiderViewMode(false);
           cueEvents.rideCompleteJustNow = true;
         }
         break;
@@ -712,6 +776,8 @@ export function createHeartlineTrainSolver(
     getBoardingTimer: () => boardingTimer,
     getSeatSettleOffset: () => seatSettleOffset,
     getSeatEyeWorldPosition,
+    setRiderViewMode,
+    syncRiderNoseToCamera,
     requestDockForTicket,
     startBoarding,
     cancelRideToStation,

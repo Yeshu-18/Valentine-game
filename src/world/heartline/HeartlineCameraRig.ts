@@ -133,9 +133,9 @@ export function createHeartlineCameraRig(
       userYawOffset = THREE.MathUtils.lerp(userYawOffset, 0, Math.min(1, clampedDt * 8.0));
       userPitchOffset = THREE.MathUtils.lerp(userPitchOffset, 0, Math.min(1, clampedDt * 8.0));
 
-      // Aim directly at LOVE_MEADOW_CENTER so the blue nose cone sits in the top 15% and the meadow fills the lower 85%
+      // Aim directly at LOVE_MEADOW_CENTER so the meadow fills the screen and only the tiny blue nose tip sits at the bottom edge
       _scratchPoiDir.copy(LOVE_MEADOW_CENTER).sub(_scratchSeatEye).normalize();
-      _scratchBlendedDir.lerp(_scratchPoiDir, revealWeight * 0.92).normalize();
+      _scratchBlendedDir.lerp(_scratchPoiDir, revealWeight * 0.98).normalize();
     } else if (u >= 0.43 && u <= 0.545) {
       // ACT 10–11: Sweeping Dream Castle Flyby (soft 0.42 look blend toward Castle spires)
       let castleWeight = 0;
@@ -190,6 +190,9 @@ export function createHeartlineCameraRig(
 
     up.copy(smoothedUp);
     lookTarget.copy(position).addScaledVector(smoothedDir, 20.0);
+
+    // Anchor the tiny sleek blue nose tip to the bottom-center of the rider's camera view
+    train.syncRiderNoseToCamera(position, lookTarget, up);
 
     return state;
   }

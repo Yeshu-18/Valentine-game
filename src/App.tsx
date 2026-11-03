@@ -1913,8 +1913,8 @@ export default function App() {
                     type="button"
                     onClick={() =>
                       handleTeleport(
-                        zone.id === 'coaster-ridge' ? 50.5 : zone.x,
-                        zone.id === 'coaster-ridge' ? 44.5 : zone.z,
+                        zone.id === 'coaster-ridge' ? 42.0 : zone.x,
+                        zone.id === 'coaster-ridge' ? 61.0 : zone.z,
                         zone.id === 'coaster-ridge'
                           ? Math.PI / 4
                           : zone.id === 'brick-valley'

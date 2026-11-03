@@ -156,15 +156,15 @@ export const HEARTLINE_TRACK_ZONES: readonly TrackZoneDescriptor[] = [
   },
 ];
 
-// Canonical World Anchor Coordinates for the Northeast Spectacular Thrill Zone Precinct
-export const LOVE_MEADOW_CENTER = new THREE.Vector3(98.0, 13.2, 96.0);
+// Canonical World Anchor Coordinates for the Northeast Spectacular Thrill Zone Precinct (strictly z >= 65.0, clear of Castle Rear Garden z <= 56.5)
+export const LOVE_MEADOW_CENTER = new THREE.Vector3(90.0, 17.6, 110.0);
 export const DREAM_CASTLE_SPIRE_TARGET = new THREE.Vector3(88.0, 28.0, 18.0);
-export const STATION_BOARDING_POS = new THREE.Vector3(78.0, 12.85, 70.8);
-export const STATION_EXIT_POS = new THREE.Vector3(78.0, 12.85, 65.2);
-export const TICKET_BOOTH_POS = new THREE.Vector3(63.0, 12.5, 57.0);
-export const ENTRANCE_ARCH_POS = new THREE.Vector3(54.0, 12.5, 48.0);
-export const VIEWING_DECK_POS = new THREE.Vector3(73.5, 13.3, 77.5);
-export const CRYSTAL_TUNNEL_CENTER = new THREE.Vector3(96.0, 14.2, 69.5);
+export const STATION_BOARDING_POS = new THREE.Vector3(70.0, 12.85, 80.8);
+export const STATION_EXIT_POS = new THREE.Vector3(70.0, 12.85, 75.2);
+export const TICKET_BOOTH_POS = new THREE.Vector3(55.0, 12.5, 71.0);
+export const ENTRANCE_ARCH_POS = new THREE.Vector3(46.0, 12.5, 65.0);
+export const VIEWING_DECK_POS = new THREE.Vector3(65.5, 13.3, 86.5);
+export const CRYSTAL_TUNNEL_CENTER = new THREE.Vector3(88.0, 14.2, 81.5);
 
 export interface ControlPointSpec {
   x: number;
@@ -175,72 +175,72 @@ export interface ControlPointSpec {
 
 /**
  * 36 surveyed 3D control points matching the "Track Layout (Top View)" and "Full Attraction Overview" blueprints:
- * - Station at (78, 13.15, 68) oriented East-West.
+ * - Station at (70, 13.15, 78) oriented East-West.
  * - Sweeping Lift Hill ascending to 45m above the meadow (Y = 57.5m) along the Northern ridge.
- * - Love Reveal Crest directly overlooking the oval "I LOVE YOU ❤️" meadow at (98, 13.2, 96).
- * - Steep 62° Major Drop + camelback wave sweeping into the elevated Castle Flyby (safe outside Dream Castle (88, 18)).
- * - Arched Gemstone Crystal Tunnel over the stone bridge & reflective stream at (96, 14.2, 69.5).
+ * - Love Reveal Crest directly overlooking the oval "I LOVE YOU ❤️" meadow at (90, 17.6, 110).
+ * - Steep 62° Major Drop + camelback wave sweeping into the elevated Castle Flyby (strictly z >= 65.5, clear of Castle Rear Garden).
+ * - Arched Gemstone Crystal Tunnel over the stone bridge & reflective stream at (88, 14.2, 81.5).
  * - Iconic upright 3D Heartline Element silhouette (twin upper lobes + central heart cusp dip).
  * - Low Garden Speed Run slalom leading into the rising Final Helix on the West flank and straight Magnetic Brake Run.
  */
 const CONTROL_POINT_SPECS: readonly ControlPointSpec[] = [
-  // Zone 1: Station (collinear along +X at Z = 68.0, Y = 13.15)
-  { x: 78.0, y: 13.15, z: 68.0, rollDeg: 0 }, // 0: Station Center (s = 0)
-  { x: 85.0, y: 13.15, z: 68.0, rollDeg: 0 }, // 1: Station Departure Threshold
+  // Zone 1: Station (collinear along +X at Z = 78.0, Y = 13.15)
+  { x: 70.0, y: 13.15, z: 78.0, rollDeg: 0 }, // 0: Station Center (s = 0)
+  { x: 77.0, y: 13.15, z: 78.0, rollDeg: 0 }, // 1: Station Departure Threshold
 
-  // Zone 2: Departure Curve (sweeping out and around toward the West/North-West Lift Hill base)
-  { x: 92.0, y: 13.6, z: 70.5, rollDeg: 10 }, // 2: Departure Beacon 1-3
-  { x: 93.5, y: 14.8, z: 78.5, rollDeg: 14 }, // 3: Departure Beacon 4-5
-  { x: 84.0, y: 17.5, z: 86.0, rollDeg: 10 }, // 4: Turn toward Lift Hill Base
+  // Zone 2: Departure Curve (sweeping out and around toward the West/North-West Lift Hill base, staying South/West of Love Meadow)
+  { x: 83.0, y: 13.6, z: 79.5, rollDeg: 10 }, // 2: Departure Beacon 1-3
+  { x: 82.0, y: 14.8, z: 85.0, rollDeg: 14 }, // 3: Departure Beacon 4-5
+  { x: 70.0, y: 17.5, z: 91.5, rollDeg: 10 }, // 4: Turn toward Lift Hill Base
 
-  // Zone 3: 45m Lift Hill Climb (ascending along the NW -> North perimeter)
-  { x: 70.0, y: 24.5, z: 94.0, rollDeg: 4 }, // 5: Lower Lift Hill
-  { x: 66.0, y: 35.0, z: 106.0, rollDeg: 0 }, // 6: Mid Lift Hill (Scenic Overlook)
-  { x: 72.0, y: 46.5, z: 116.0, rollDeg: -5 }, // 7: Upper Lift Hill
-  { x: 82.0, y: 55.2, z: 121.0, rollDeg: -8 }, // 8: Crest Approach (u ~ 0.22)
+  // Zone 3: 45m Lift Hill Climb (ascending along the NW -> North perimeter around the Love Meadow)
+  { x: 58.0, y: 24.5, z: 102.0, rollDeg: 4 }, // 5: Lower Lift Hill
+  { x: 56.0, y: 35.0, z: 116.0, rollDeg: 0 }, // 6: Mid Lift Hill (Scenic Overlook)
+  { x: 63.0, y: 46.5, z: 127.0, rollDeg: -5 }, // 7: Upper Lift Hill
+  { x: 74.0, y: 55.2, z: 132.5, rollDeg: -8 }, // 8: Crest Approach (u ~ 0.22)
 
-  // Zone 4: 45m Love Reveal Crest (Y = 57.5m, looking down South at "I LOVE YOU ❤️" Meadow (98, 13.2, 96))
-  { x: 91.0, y: 57.4, z: 122.0, rollDeg: -7 }, // 9: Crest Reveal Start
-  { x: 99.0, y: 57.6, z: 121.8, rollDeg: -6 }, // 10: Crest Reveal Center (45m above Meadow)
-  { x: 108.0, y: 56.8, z: 119.5, rollDeg: -9 }, // 11: Crest Exit Trigger
+  // Zone 4: 45m Love Reveal Crest (Y = 57.5m, looking down South at "I LOVE YOU ❤️" Meadow (90, 17.6, 110))
+  { x: 83.0, y: 57.4, z: 133.5, rollDeg: -7 }, // 9: Crest Reveal Start
+  { x: 91.0, y: 57.6, z: 133.5, rollDeg: -6 }, // 10: Crest Reveal Center (45m above Meadow)
+  { x: 100.0, y: 56.8, z: 131.5, rollDeg: -9 }, // 11: Crest Exit Trigger
 
   // Zone 5: 62° Major Drop & Camelback Wave
-  { x: 118.0, y: 41.5, z: 110.0, rollDeg: -16 }, // 12: Steep 62° First Drop Dive
-  { x: 126.0, y: 21.0, z: 96.0, rollDeg: -26 }, // 13: Drop Valley Pullout
-  { x: 128.0, y: 28.5, z: 83.0, rollDeg: -14 }, // 14: Secondary Airtime Crest (per Overview image)
-  { x: 127.0, y: 17.0, z: 69.0, rollDeg: -34 }, // 15: High-Speed Banked Valley
+  { x: 112.0, y: 41.5, z: 122.0, rollDeg: -16 }, // 12: Steep 62° First Drop Dive
+  { x: 120.0, y: 21.0, z: 108.0, rollDeg: -26 }, // 13: Drop Valley Pullout
+  { x: 121.0, y: 28.5, z: 94.0, rollDeg: -14 }, // 14: Secondary Airtime Crest (per Overview image)
+  { x: 119.0, y: 17.0, z: 80.0, rollDeg: -34 }, // 15: High-Speed Banked Valley
 
-  // Zone 6: Dream Castle Approach & Sweeping Elevated Flyby (Dream Castle is at (88, 18))
-  { x: 120.0, y: 24.5, z: 54.0, rollDeg: 28 }, // 16: Castle Approach Ascent
-  { x: 106.0, y: 27.5, z: 46.5, rollDeg: 35 }, // 17: Castle Flyby Apex (grand vista of Castle spires)
-  { x: 92.0, y: 21.0, z: 50.0, rollDeg: 22 }, // 18: Castle Flyby Sweep Away
+  // Zone 6: Dream Castle Approach & Sweeping Elevated Flyby (strictly z >= 65.5 so it never overlaps Castle Rear Garden)
+  { x: 112.0, y: 24.5, z: 68.5, rollDeg: 28 }, // 16: Castle Approach Ascent
+  { x: 98.0, y: 27.5, z: 65.5, rollDeg: 35 }, // 17: Castle Flyby Apex (grand vista of Castle spires)
+  { x: 84.0, y: 21.0, z: 67.0, rollDeg: 22 }, // 18: Castle Flyby Sweep Away
 
   // Zone 7: Gemstone Crystal Tunnel (curving across the stone bridge & reflective pond)
-  { x: 87.5, y: 14.8, z: 60.5, rollDeg: -10 }, // 19: Crystal Tunnel West Portal
-  { x: 96.0, y: 14.2, z: 69.5, rollDeg: 8 }, // 20: Crystal Tunnel Gemstone Heart
-  { x: 105.5, y: 15.0, z: 77.5, rollDeg: -12 }, // 21: Crystal Tunnel East Emergence
+  { x: 79.5, y: 14.8, z: 73.5, rollDeg: -10 }, // 19: Crystal Tunnel West Portal
+  { x: 88.0, y: 14.2, z: 81.5, rollDeg: 8 }, // 20: Crystal Tunnel Gemstone Heart
+  { x: 97.5, y: 15.0, z: 88.5, rollDeg: -12 }, // 21: Crystal Tunnel East Emergence
 
   // Zone 8: Signature 3D Heartline Element (sculpted upright tilted Heart Loop silhouette!)
-  { x: 115.0, y: 17.5, z: 73.0, rollDeg: 24 }, // 22: Heartline Bottom Stem Entry
-  { x: 123.5, y: 26.5, z: 78.5, rollDeg: 38 }, // 23: Heartline Left/North Upper Lobe Rise
-  { x: 120.0, y: 32.5, z: 72.0, rollDeg: 28 }, // 24: Heartline Left/North Lobe Peak
-  { x: 117.5, y: 27.8, z: 66.0, rollDeg: 0 }, // 25: Heartline Top Center Cusp Dip (Heart Indentation!)
-  { x: 120.5, y: 32.8, z: 59.5, rollDeg: -28 }, // 26: Heartline Right/South Lobe Peak
-  { x: 124.0, y: 25.5, z: 54.5, rollDeg: -38 }, // 27: Heartline Right/South Lobe Descent
-  { x: 114.5, y: 16.5, z: 56.5, rollDeg: 18 }, // 28: Heartline Bottom Point Exit
+  { x: 107.0, y: 17.5, z: 85.0, rollDeg: 24 }, // 22: Heartline Bottom Stem Entry
+  { x: 115.5, y: 26.5, z: 90.5, rollDeg: 38 }, // 23: Heartline Left/North Upper Lobe Rise
+  { x: 112.0, y: 32.5, z: 84.0, rollDeg: 28 }, // 24: Heartline Left/North Lobe Peak
+  { x: 109.5, y: 27.8, z: 78.0, rollDeg: 0 }, // 25: Heartline Top Center Cusp Dip (Heart Indentation!)
+  { x: 112.5, y: 32.8, z: 71.5, rollDeg: -28 }, // 26: Heartline Right/South Lobe Peak
+  { x: 116.0, y: 25.5, z: 67.5, rollDeg: -38 }, // 27: Heartline Right/South Lobe Descent
+  { x: 106.5, y: 16.5, z: 68.5, rollDeg: 18 }, // 28: Heartline Bottom Point Exit
 
-  // Zone 9: Low-Level Botanical Garden Speed Run (passing over Queue Bridge & Reflective Stream)
-  { x: 101.0, y: 14.2, z: 59.0, rollDeg: -16 }, // 29: Flower & Crystal Garden Slalom
-  { x: 84.0, y: 16.4, z: 75.0, rollDeg: 16 }, // 30: Signature Coaster Bridge over Queue Garden
-  { x: 70.0, y: 15.2, z: 84.0, rollDeg: -20 }, // 31: Reflective Stream & Stone Garden Run
+  // Zone 9: Low-Level Botanical Garden Speed Run (passing over Queue Bridge & Reflective Stream, South of Love Meadow)
+  { x: 93.0, y: 14.2, z: 71.0, rollDeg: -16 }, // 29: Flower & Crystal Garden Slalom
+  { x: 76.0, y: 16.4, z: 84.0, rollDeg: 16 }, // 30: Signature Coaster Bridge over Queue Garden
+  { x: 62.0, y: 15.2, z: 89.5, rollDeg: -20 }, // 31: Reflective Stream & Stone Garden Run
 
   // Zone 10: Final Rising Panoramic Helix (with distant callback view of Love Meadow)
-  { x: 56.5, y: 20.5, z: 85.0, rollDeg: -30 }, // 32: Final Helix North Entry
-  { x: 49.5, y: 24.8, z: 75.5, rollDeg: -32 }, // 33: Final Helix West Apex (Panoramic World Reveal)
-  { x: 54.5, y: 18.2, z: 68.0, rollDeg: -15 }, // 34: Final Helix Exit
+  { x: 48.5, y: 20.5, z: 92.0, rollDeg: -30 }, // 32: Final Helix North Entry
+  { x: 41.5, y: 24.8, z: 84.5, rollDeg: -32 }, // 33: Final Helix West Apex (Panoramic World Reveal)
+  { x: 46.5, y: 18.2, z: 78.0, rollDeg: -15 }, // 34: Final Helix Exit
 
-  // Zone 11 & 12: Magnetic Brake Run & Station Return (collinear along +X at Z = 68.0, Y = 13.15)
-  { x: 66.0, y: 13.15, z: 68.0, rollDeg: 0 }, // 35: Straight Magnetic Brake Run
+  // Zone 11 & 12: Magnetic Brake Run & Station Return (collinear along +X at Z = 78.0, Y = 13.15)
+  { x: 58.0, y: 13.15, z: 78.0, rollDeg: 0 }, // 35: Straight Magnetic Brake Run
 ];
 
 const LUT_SAMPLES = 2048;

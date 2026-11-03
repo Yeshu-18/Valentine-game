@@ -413,11 +413,11 @@ export const ISLAND_ZONES: ZonePlateau[] = [
     id: 'coaster-ridge',
     name: 'Heartline — The Sky of Our Dreams',
     subtitle: 'Flagship Sky Coaster & Botanical Precinct',
-    x: 85,
-    z: 75,
-    radius: 36,
+    x: 74,
+    z: 98,
+    radius: 52,
     targetElevation: 12.5,
-    blendRadius: 36,
+    blendRadius: 28,
   },
   {
     id: 'doll-hills',
@@ -522,7 +522,19 @@ export function getHeartIslandMask(x: number, z: number): number {
   const forestLobeZ = smoothstep(56, 84, z) * (1.0 - smoothstep(218, 242, z));
   const forestHighlandBoost = forestLobeX * forestLobeZ * 0.68;
 
-  return 1.0 - Math.sqrt(heartDistSq) - coastalWobble + forestHighlandBoost;
+  // Broadened Northeast Spectacular Thrill Zone Highland lobe extension (strictly away from Aurora Lake x < 28)
+  const thrillLobeX =
+    smoothstep(28, 48, x) * (1.0 - smoothstep(138, 162, x));
+  const thrillLobeZ = smoothstep(56, 82, z) * (1.0 - smoothstep(148, 174, z));
+  const thrillHighlandBoost = thrillLobeX * thrillLobeZ * 0.68;
+
+  return (
+    1.0 -
+    Math.sqrt(heartDistSq) -
+    coastalWobble +
+    forestHighlandBoost +
+    thrillHighlandBoost
+  );
 }
 
 /**
@@ -665,10 +677,10 @@ export function isInsideSightlineCorridor(x: number, z: number): boolean {
   if (Math.hypot(x - CASTLE_TERRACE_POS.x, z - CASTLE_TERRACE_POS.z) < 15.0) {
     return true;
   }
-  // Protect the Heartline Coaster Precinct, Queue Garden, Station & "I LOVE YOU ❤️" Meadow from random trees
+  // Protect the Pastel Dream Castle & Rear Garden (x: 68..108, z: -2..60) and Heartline Precinct & Meadow (x: 36..132, z: 62..140)
   if (
-    Math.hypot(x - 72.0, z - 65.0) < 35.0 ||
-    Math.hypot(x - 98.0, z - 96.0) < 32.0
+    (x >= 68.0 && x <= 108.0 && z >= -2.0 && z <= 60.0) ||
+    (x >= 36.0 && x <= 132.0 && z >= 62.0 && z <= 140.0)
   ) {
     return true;
   }
@@ -764,7 +776,9 @@ export function getTerrainHeight(x: number, z: number): number {
       const isFlatCore =
         zone.id === 'central-plaza' ||
         zone.id === 'carnival-midway' ||
-        zone.id === 'brick-valley';
+        zone.id === 'brick-valley' ||
+        zone.id === 'coaster-ridge' ||
+        zone.id === 'doll-hills';
       const zoneMicro = isFlatCore
         ? 0
         : noise2D(x * 0.04, z * 0.04) * 0.4 * (1.0 - plateauWeight * 0.7);
@@ -787,7 +801,7 @@ export function getTerrainHeight(x: number, z: number): number {
   const ramps: Array<[number, number, number, number, number, number]> = [
     [-80, 10, -84, 68, 8.2, 27.8], // West Valley -> NW Highlands
     [-22, 22, -74, 64, 4.2, CASTLE_TERRACE_POS.y], // Central Plaza NW Spoke -> Castle Landing Terrace
-    [22, 22, 78, 68, 4.2, 12.5], // Central Plaza NE Spoke -> NE Coaster Ridge
+    [22, 22, 48, 66, 4.2, 12.5], // Central Plaza NE Spoke -> NE Coaster Ridge Entrance
   ];
 
   for (let i = 0; i < ramps.length; i++) {
@@ -834,10 +848,12 @@ export function getTerrainHeight(x: number, z: number): number {
     height = THREE.MathUtils.lerp(height, 4.2, flatWeight);
   }
 
-  // Level shelf at the Pastel Dream Castle podium (88, 18) at Y = 10.0m
-  const distFromDreamCastle = Math.hypot(x - 88.0, z - 18.0);
-  if (distFromDreamCastle < 24.0) {
-    const castleFlatWeight = 1.0 - smoothstep(18.0, 24.0, distFromDreamCastle);
+  // Level shelf at the Pastel Dream Castle podium (88, 18) AND its entire Rear Garden (x: 70..106, z: -2..57.5) at Y = 10.0m
+  const castleBoxDx = Math.max(0, 70.0 - x, x - 106.0);
+  const castleBoxDz = Math.max(0, -2.0 - z, z - 57.5);
+  const distFromDreamCastleBox = Math.hypot(castleBoxDx, castleBoxDz);
+  if (distFromDreamCastleBox < 6.0) {
+    const castleFlatWeight = 1.0 - smoothstep(0.0, 6.0, distFromDreamCastleBox);
     height = THREE.MathUtils.lerp(height, 10.0, castleFlatWeight);
   }
 
@@ -848,10 +864,12 @@ export function getTerrainHeight(x: number, z: number): number {
     height = THREE.MathUtils.lerp(height, 8.2, brickFlatWeight);
   }
 
-  // Level shelf at the Heartline Coaster Precinct (Entrance -> Ticket Booth -> Queue Garden -> Station) at Y = 12.5m
-  const distFromHeartlinePrecinct = Math.hypot(x - 72.0, z - 65.0);
-  if (distFromHeartlinePrecinct < 35.0) {
-    const heartlineFlatWeight = 1.0 - smoothstep(26.0, 35.0, distFromHeartlinePrecinct);
+  // Level shelf at the Heartline Coaster Precinct, Station, Love Meadow & Track Footprint (x: 38..124, z: 64.5..134) at Y = 12.5m
+  const heartlineBoxDx = Math.max(0, 38.0 - x, x - 124.0);
+  const heartlineBoxDz = Math.max(0, 64.5 - z, z - 134.0);
+  const distFromHeartlineBox = Math.hypot(heartlineBoxDx, heartlineBoxDz);
+  if (distFromHeartlineBox < 6.5 && z > 58.0) {
+    const heartlineFlatWeight = 1.0 - smoothstep(0.0, 6.5, distFromHeartlineBox);
     height = THREE.MathUtils.lerp(height, 12.5, heartlineFlatWeight);
   }
 
@@ -1036,12 +1054,12 @@ export function isWalkablePosition(x: number, z: number): boolean {
   ) {
     return true;
   }
-  // Always walkable inside and immediately around the Pastel Dream Castle grounds (88, 18)
-  if (Math.hypot(x - 88.0, z - 18.0) <= 22.0) {
+  // Always walkable inside and immediately around the Pastel Dream Castle & Rear Garden grounds (x: 70..106, z: -2..57.5)
+  if (x >= 70.0 && x <= 106.0 && z >= -2.0 && z <= 57.5) {
     return true;
   }
   // Always walkable throughout the Heartline Coaster Precinct (Entrance, Ticket Plaza, Queue Garden, Viewing Deck, Station)
-  if (Math.hypot(x - 72.0, z - 65.0) <= 35.0) {
+  if (x >= 38.0 && x <= 124.0 && z >= 63.0 && z <= 134.0) {
     return true;
   }
   const normal = getTerrainNormal(x, z);
@@ -1053,12 +1071,20 @@ export function getRegionAtPosition(x: number, z: number): {
   name: string;
   subtitle: string;
 } {
-  // Pastel Dreamscape: Dream Castle Area
-  if (Math.hypot(x - 88.0, z - 18.0) <= 22.0) {
+  // Pastel Dreamscape: Dream Castle & Rear Garden Area
+  if (x >= 70.0 && x <= 106.0 && z >= -2.0 && z <= 57.5) {
     return {
       id: 'dream-castle',
       name: 'Pastel Dream Castle',
       subtitle: '5-Level Grand Palace & Couture Sanctuary',
+    };
+  }
+  // Northeast Spectacular Thrill Zone: Heartline Coaster Precinct
+  if (x >= 38.0 && x <= 126.0 && z >= 63.0 && z <= 136.0) {
+    return {
+      id: 'coaster-ridge',
+      name: 'Heartline — The Sky of Our Dreams',
+      subtitle: 'Flagship Sky Coaster & Botanical Precinct',
     };
   }
 
