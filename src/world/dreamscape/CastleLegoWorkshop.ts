@@ -682,33 +682,101 @@ export function createCastleLegoWorkshop(
   pavilionGroup.add(new THREE.Mesh(headerBeamGeo, mats.champagneGold));
 
   const bannerCanvas = document.createElement('canvas');
-  bannerCanvas.width = 512;
-  bannerCanvas.height = 96;
+  bannerCanvas.width = 1024;
+  bannerCanvas.height = 144;
   const bCtx = bannerCanvas.getContext('2d');
   if (bCtx) {
-    bCtx.fillStyle = '#831843';
-    bCtx.fillRect(0, 0, 512, 96);
-    bCtx.strokeStyle = '#fde047';
+    bCtx.fillStyle = '#701a35'; // Deep royal rosewood / burgundy
+    bCtx.fillRect(0, 0, 1024, 144);
+    // Outer golden filigree rim
+    bCtx.strokeStyle = '#f59e0b';
     bCtx.lineWidth = 6;
-    bCtx.strokeRect(6, 6, 500, 84);
-    bCtx.fillStyle = '#fef08a';
-    bCtx.font = 'bold 24px Georgia, serif';
+    bCtx.strokeRect(8, 8, 1008, 128);
+    // Inner delicate gold accent line
+    bCtx.strokeStyle = '#fde047';
+    bCtx.lineWidth = 2.5;
+    bCtx.strokeRect(16, 16, 992, 112);
+
+    // Decorative corner diamonds
+    const drawDiamond = (cx: number, cy: number, r: number) => {
+      bCtx.beginPath();
+      bCtx.moveTo(cx, cy - r);
+      bCtx.lineTo(cx + r, cy);
+      bCtx.lineTo(cx, cy + r);
+      bCtx.lineTo(cx - r, cy);
+      bCtx.closePath();
+      bCtx.fillStyle = '#fde047';
+      bCtx.fill();
+    };
+    drawDiamond(32, 32, 6);
+    drawDiamond(992, 32, 6);
+    drawDiamond(32, 112, 6);
+    drawDiamond(992, 112, 6);
+
+    // Drop shadow for crisp readability
+    bCtx.font = 'bold 30px Georgia, serif';
     bCtx.textAlign = 'center';
     bCtx.textBaseline = 'middle';
-    bCtx.fillText('🧱 PLAYFUL BRICK WORKSHOP • YESHWANTH & HARSHA', 256, 48);
+    bCtx.fillStyle = 'rgba(0, 0, 0, 0.65)';
+    bCtx.fillText('🧱 PLAYFUL BRICK WORKSHOP • YESHWANTH & HARSHA', 513, 73);
+    bCtx.fillStyle = '#fef08a';
+    bCtx.fillText('🧱 PLAYFUL BRICK WORKSHOP • YESHWANTH & HARSHA', 512, 72);
   }
   const bannerTex = tracker.trackTex(new THREE.CanvasTexture(bannerCanvas));
   bannerTex.colorSpace = THREE.SRGBColorSpace;
-  const bannerPlaneGeo = tracker.trackGeo(new THREE.PlaneGeometry(4.8, 0.72));
-  const bannerMat = tracker.trackMat(
-    new THREE.MeshBasicMaterial({ map: bannerTex, side: THREE.DoubleSide }),
+
+  // Sturdy Architectural Signboard Assembly (7.8m wide x 0.62m tall x 0.44m deep)
+  // Framing the header beam with gold collar, maroon backing, and zero awkward clipping!
+  const signCollarGeo = tracker.trackGeo(new THREE.BoxGeometry(8.0, 0.62, 0.44));
+  const signCollarMesh = new THREE.Mesh(signCollarGeo, mats.champagneGold);
+  signCollarMesh.position.set(0.4, y0 + 3.25, 5.8);
+  signCollarMesh.castShadow = true;
+
+  const signPlaqueGeo = tracker.trackGeo(new THREE.BoxGeometry(7.76, 0.52, 0.48));
+  const signPlaqueMat = tracker.trackMat(
+    new THREE.MeshStandardMaterial({
+      color: new THREE.Color('#701a35'),
+      roughness: 0.38,
+      metalness: 0.15,
+    }),
   );
-  const bannerMesh = new THREE.Mesh(bannerPlaneGeo, bannerMat);
-  bannerMesh.position.set(0.4, y0 + 3.25, 5.58);
-  bannerMesh.rotation.y = Math.PI; // Faces South (-Z) toward arriving player
+  const signPlaqueMesh = new THREE.Mesh(signPlaqueGeo, signPlaqueMat);
+  signPlaqueMesh.position.set(0.4, y0 + 3.25, 5.8);
+
+  const bannerPlaneGeo = tracker.trackGeo(new THREE.PlaneGeometry(7.68, 0.48));
+  const bannerMat = tracker.trackMat(
+    new THREE.MeshStandardMaterial({
+      map: bannerTex,
+      roughness: 0.45,
+      metalness: 0.12,
+      side: THREE.DoubleSide,
+    }),
+  );
+
+  // Front Decal facing South toward the courtyard (-Z)
   const bannerMeshSouth = new THREE.Mesh(bannerPlaneGeo, bannerMat);
-  bannerMeshSouth.position.set(0.4, y0 + 3.25, 6.02);
-  pavilionGroup.add(bannerMesh, bannerMeshSouth);
+  bannerMeshSouth.position.set(0.4, y0 + 3.25, 5.555);
+  bannerMeshSouth.rotation.y = Math.PI;
+
+  // Back Decal facing North (+Z)
+  const bannerMeshNorth = new THREE.Mesh(bannerPlaneGeo, bannerMat);
+  bannerMeshNorth.position.set(0.4, y0 + 3.25, 6.045);
+
+  // Twin Gold End Brackets (left & right)
+  const bracketGeo = tracker.trackGeo(new THREE.BoxGeometry(0.24, 0.72, 0.5));
+  const bracketL = new THREE.Mesh(bracketGeo, mats.champagneGold);
+  bracketL.position.set(0.4 - 3.94, y0 + 3.25, 5.8);
+  const bracketR = new THREE.Mesh(bracketGeo, mats.champagneGold);
+  bracketR.position.set(0.4 + 3.94, y0 + 3.25, 5.8);
+
+  pavilionGroup.add(
+    signCollarMesh,
+    signPlaqueMesh,
+    bannerMeshSouth,
+    bannerMeshNorth,
+    bracketL,
+    bracketR,
+  );
 
   group.add(pavilionGroup);
 
@@ -2129,9 +2197,11 @@ export function createCastleLegoWorkshop(
     shipGroup.add(crewCylMesh);
 
     // Circumferential Structural Rings & LEGO Stud Collar Accents along the Hull
+    // Circumferential Structural Bulkhead Rings framing the Crew Module from the outside (at the forward & aft collars)
+    // NOTE: Rings are at x = -3.68 and x = 0.08 so they frame the cabin cleanly and NEVER enclose or slice across the nameplate!
     const hullRingGeo = tracker.trackGeo(new THREE.TorusGeometry(1.46, 0.055, 10, 32));
     hullRingGeo.rotateY(Math.PI / 2);
-    for (const rx of [-3.65, -2.4, -1.15, 0.05]) {
+    for (const rx of [-3.68, 0.08]) {
       const ring = new THREE.Mesh(hullRingGeo, foilGoldMat);
       ring.position.set(rx, 0, 0);
       shipGroup.add(ring);
@@ -2148,39 +2218,151 @@ export function createCastleLegoWorkshop(
       }
     }
 
-    // "HAIL MARY" Hull Decal Plates on Both Sides of the Crew Module
+    // "PROJECT HAIL MARY" Hull Decal Plates on Both Sides of the Crew Module
+    // Positioned cleanly in the open central hull bay between the bulkheads with ZERO ring enclosure!
     const hullCanvas = document.createElement('canvas');
-    hullCanvas.width = 512;
-    hullCanvas.height = 128;
+    hullCanvas.width = 1024;
+    hullCanvas.height = 256;
     const hCtx = hullCanvas.getContext('2d');
     if (hCtx) {
-      hCtx.fillStyle = '#f8fafc';
-      hCtx.fillRect(0, 0, 512, 128);
+      // Matte dark aerospace composite slate (prevents blinding glare & bloom blowout!)
       hCtx.fillStyle = '#0f172a';
-      hCtx.fillRect(0, 10, 512, 14);
-      hCtx.fillStyle = '#dc2626';
-      hCtx.fillRect(0, 104, 512, 14);
-      hCtx.fillStyle = '#0f172a';
-      hCtx.font = 'bold 44px Georgia, serif';
+      hCtx.fillRect(0, 0, 1024, 256);
+
+      // Outer aerospace titanium border & accent stripes
+      hCtx.strokeStyle = '#f59e0b';
+      hCtx.lineWidth = 8;
+      hCtx.strokeRect(10, 10, 1004, 236);
+
+      // Top cyan sensor line & bottom red telemetry stripe
+      hCtx.fillStyle = '#0284c7';
+      hCtx.fillRect(18, 18, 988, 12);
+      hCtx.fillStyle = '#e11d48';
+      hCtx.fillRect(18, 226, 988, 12);
+
+      // Inner plate background
+      hCtx.fillStyle = '#1e293b';
+      hCtx.fillRect(20, 32, 984, 192);
+
+      // Soft white title (crisp, clear, elegant, ZERO glare)
+      hCtx.font = 'bold 54px Georgia, serif';
       hCtx.textAlign = 'center';
       hCtx.textBaseline = 'middle';
-      hCtx.fillText('🚀 HAIL MARY', 256, 56);
-      hCtx.fillStyle = '#b45309';
-      hCtx.font = 'bold 18px sans-serif';
-      hCtx.fillText('PETROVA LINE ENVOY • GRACE & ROCKY', 256, 88);
+      hCtx.fillStyle = '#f8fafc';
+      hCtx.fillText('🚀 PROJECT HAIL MARY', 512, 104);
+
+      // Golden subtitle
+      hCtx.font = 'bold 24px sans-serif';
+      hCtx.fillStyle = '#fbbf24';
+      hCtx.fillText('PETROVA LINE ENVOY • GRACE & ROCKY', 512, 168);
     }
     const hullTex = tracker.trackTex(new THREE.CanvasTexture(hullCanvas));
     hullTex.colorSpace = THREE.SRGBColorSpace;
-    const hullNamePlaneGeo = tracker.trackGeo(new THREE.PlaneGeometry(2.65, 0.66));
+    const hullNamePlaneGeo = tracker.trackGeo(new THREE.PlaneGeometry(2.4, 0.58));
     const hullNameMat = tracker.trackMat(
-      new THREE.MeshBasicMaterial({ map: hullTex, side: THREE.DoubleSide }),
+      new THREE.MeshStandardMaterial({
+        map: hullTex,
+        emissiveMap: hullTex,
+        emissive: new THREE.Color('#e0f2fe'),
+        emissiveIntensity: 0.22,
+        roughness: 0.55,
+        metalness: 0.18,
+        side: THREE.DoubleSide,
+      }),
     );
     const hullSignNorth = new THREE.Mesh(hullNamePlaneGeo, hullNameMat);
-    hullSignNorth.position.set(-1.8, -0.22, 1.46);
+    hullSignNorth.position.set(-1.8, -0.22, 1.455);
     const hullSignSouth = new THREE.Mesh(hullNamePlaneGeo, hullNameMat);
-    hullSignSouth.position.set(-1.8, -0.22, -1.46);
+    hullSignSouth.position.set(-1.8, -0.22, -1.455);
     hullSignSouth.rotation.y = Math.PI;
     shipGroup.add(hullSignNorth, hullSignSouth);
+
+    // Twin Sconce Floodlights above the Starship Hull Nameplates
+    const cowlLightGeo = tracker.trackGeo(new THREE.BoxGeometry(0.72, 0.065, 0.14));
+    const cowlLensGeo = tracker.trackGeo(new THREE.BoxGeometry(0.66, 0.02, 0.08));
+    const ledGlowMat = tracker.trackMat(
+      new THREE.MeshStandardMaterial({
+        color: new THREE.Color('#f8fafc'),
+        emissive: new THREE.Color('#38bdf8'),
+        emissiveIntensity: 1.25,
+        roughness: 0.2,
+      }),
+    );
+    for (const side of [1, -1]) {
+      const cowl = new THREE.Mesh(cowlLightGeo, aerospaceTitaniumMat);
+      cowl.position.set(-1.8, 0.18, side * 1.5);
+      const lens = new THREE.Mesh(cowlLensGeo, ledGlowMat);
+      lens.position.set(0, -0.03, 0);
+      cowl.add(lens);
+      shipGroup.add(cowl);
+
+      const hullLight = new THREE.PointLight(0xe0f2fe, 1.25, 3.8, 2.0);
+      hullLight.position.set(-1.8, 0.14, side * 1.68);
+      shipGroup.add(hullLight);
+    }
+
+    // Dedicated Museum Exhibition Plaque on the Promenade Apron in front of the Spacecraft
+    const shipPlaqueCanvas = document.createElement('canvas');
+    shipPlaqueCanvas.width = 1024;
+    shipPlaqueCanvas.height = 256;
+    const spCtx = shipPlaqueCanvas.getContext('2d');
+    if (spCtx) {
+      spCtx.fillStyle = '#0f172a';
+      spCtx.fillRect(0, 0, 1024, 256);
+      spCtx.strokeStyle = '#f59e0b';
+      spCtx.lineWidth = 8;
+      spCtx.strokeRect(8, 8, 1008, 240);
+      spCtx.strokeStyle = '#38bdf8';
+      spCtx.lineWidth = 2.5;
+      spCtx.strokeRect(18, 18, 988, 220);
+
+      spCtx.font = 'bold 50px Georgia, serif';
+      spCtx.textAlign = 'center';
+      spCtx.fillStyle = '#f8fafc';
+      spCtx.fillText('🚀 PROJECT HAIL MARY', 512, 88);
+
+      spCtx.font = 'bold 24px sans-serif';
+      spCtx.fillStyle = '#fbbf24';
+      spCtx.fillText('SOLAR SYSTEM ENVOY • HUMAN & ERIDIAN ALLIANCE', 512, 148);
+
+      spCtx.font = 'italic 20px Georgia, serif';
+      spCtx.fillStyle = '#94a3b8';
+      spCtx.fillText('Commanded by Ryland Grace & Chief Engineer Rocky', 512, 196);
+    }
+    const shipPlaqueTex = tracker.trackTex(new THREE.CanvasTexture(shipPlaqueCanvas));
+    shipPlaqueTex.colorSpace = THREE.SRGBColorSpace;
+    const shipPlaqueGeo = tracker.trackGeo(new THREE.PlaneGeometry(2.0, 0.52));
+    const shipPlaqueMat = tracker.trackMat(
+      new THREE.MeshStandardMaterial({
+        map: shipPlaqueTex,
+        emissiveMap: shipPlaqueTex,
+        emissive: new THREE.Color('#f8fafc'),
+        emissiveIntensity: 0.22,
+        roughness: 0.55,
+        metalness: 0.18,
+        side: THREE.DoubleSide,
+      }),
+    );
+    const shipPlaqueStandGeo = tracker.trackGeo(new THREE.CylinderGeometry(0.06, 0.08, 0.72, 10));
+    const shipPlaqueStandMesh = new THREE.Mesh(shipPlaqueStandGeo, mats.champagneGold);
+    shipPlaqueStandMesh.position.set(SHIP_LX - 0.8, y0 + 0.36, SHIP_LZ + 2.7);
+    const shipPlaqueMesh = new THREE.Mesh(shipPlaqueGeo, shipPlaqueMat);
+    shipPlaqueMesh.position.set(SHIP_LX - 0.8, y0 + 0.76, SHIP_LZ + 2.65);
+    shipPlaqueMesh.rotation.x = -0.32; // Angled comfortably toward arriving visitors
+
+    // Museum Light Fixture Hood & Soft Spotlight over the Promenade Plaque
+    const hoodGeo = tracker.trackGeo(new THREE.BoxGeometry(2.08, 0.055, 0.16));
+    const hoodMesh = new THREE.Mesh(hoodGeo, mats.champagneGold);
+    hoodMesh.position.set(SHIP_LX - 0.8, y0 + 1.05, SHIP_LZ + 2.58);
+    hoodMesh.rotation.x = -0.32;
+    const hoodLensGeo = tracker.trackGeo(new THREE.BoxGeometry(1.98, 0.02, 0.08));
+    const hoodLensMesh = new THREE.Mesh(hoodLensGeo, ledGlowMat);
+    hoodLensMesh.position.set(0, -0.03, 0);
+    hoodMesh.add(hoodLensMesh);
+
+    const shipPlaqueLight = new THREE.PointLight(0xfef08a, 1.45, 3.8, 2.0);
+    shipPlaqueLight.position.set(SHIP_LX - 0.8, y0 + 1.08, SHIP_LZ + 2.78);
+    hailMaryDistrictGroup.add(shipPlaqueStandMesh, shipPlaqueMesh, hoodMesh, shipPlaqueLight);
 
     // 2D. Centrifuge Separation Coupler & Extendable Cable Tether Winch Assembly (local X = 0.1 .. 1.45)
     const spineCoreGeo = tracker.trackGeo(new THREE.CylinderGeometry(0.68, 0.68, 4.8, 20));
@@ -2503,12 +2685,43 @@ export function createCastleLegoWorkshop(
     rockyPlaqueTex.colorSpace = THREE.SRGBColorSpace;
     const rockyPlaqueGeo = tracker.trackGeo(new THREE.PlaneGeometry(1.55, 0.38));
     const rockyPlaqueMat = tracker.trackMat(
-      new THREE.MeshBasicMaterial({ map: rockyPlaqueTex, side: THREE.DoubleSide }),
+      new THREE.MeshStandardMaterial({
+        map: rockyPlaqueTex,
+        emissiveMap: rockyPlaqueTex,
+        emissive: new THREE.Color('#fef08a'),
+        emissiveIntensity: 0.22,
+        roughness: 0.55,
+        metalness: 0.15,
+        side: THREE.DoubleSide,
+      }),
     );
     const rockyPlaqueMesh = new THREE.Mesh(rockyPlaqueGeo, rockyPlaqueMat);
     rockyPlaqueMesh.position.set(0.65, 0.62, 1.85);
     rockyPlaqueMesh.rotation.y = 0.35;
     rockyHabitatGroup.add(rockyPlaqueMesh);
+
+    // Museum Exhibition Light Hood & Warm Spotlight over Rocky's Plaque
+    const rockyHoodGeo = tracker.trackGeo(new THREE.BoxGeometry(1.62, 0.05, 0.14));
+    const rockyHoodMesh = new THREE.Mesh(rockyHoodGeo, mats.champagneGold);
+    rockyHoodMesh.position.set(0.65, 0.84, 1.78);
+    rockyHoodMesh.rotation.y = 0.35;
+    rockyHoodMesh.rotation.x = -0.22;
+    const rockyLensGeo = tracker.trackGeo(new THREE.BoxGeometry(1.52, 0.02, 0.06));
+    const warmAmberGlowMat = tracker.trackMat(
+      new THREE.MeshStandardMaterial({
+        color: new THREE.Color('#fef08a'),
+        emissive: new THREE.Color('#f59e0b'),
+        emissiveIntensity: 1.35,
+        roughness: 0.2,
+      }),
+    );
+    const rockyLensMesh = new THREE.Mesh(rockyLensGeo, warmAmberGlowMat);
+    rockyLensMesh.position.set(0, -0.026, 0);
+    rockyHoodMesh.add(rockyLensMesh);
+
+    const rockyPlaqueLight = new THREE.PointLight(0xfde047, 1.35, 3.4, 2.0);
+    rockyPlaqueLight.position.set(0.65, 0.86, 1.95);
+    rockyHabitatGroup.add(rockyHoodMesh, rockyPlaqueLight);
 
     hailMaryDistrictGroup.add(rockyHabitatGroup);
     group.add(hailMaryDistrictGroup);
