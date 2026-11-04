@@ -170,19 +170,19 @@ export function createHeartlineChoreographyDirector(
       ? 1.45 + Math.sin(elapsedTime * 5.0) * 0.25
       : 0.85 + Math.sin(elapsedTime * 2.0) * 0.12;
 
-    // 5. Act 12–14: Gemstone Crystal Tunnel Sequential Wave (u = 0.54..0.64)
-    // "TRAIN -> 💡1 -> 💡2 -> 💡3 -> 💡4 -> 💡5" ahead of the lead car!
+    // 5. Act 12–14: Gemstone Crystal Tunnel Sequential Wave (u = 0.524..0.562)
+    // "TRAIN -> 💡1 -> 💡2 -> 💡3 -> 💡4 -> 💡5" ahead of the lead car as it plunges into the ocean reef!
     for (let i = 0; i < targets.crystalTunnelRibCount; i++) {
       const frac = i / Math.max(1, targets.crystalTunnelRibCount - 1);
-      const ribU = 0.54 + frac * 0.10;
+      const ribU = 0.524 + frac * 0.038;
       // Base cyan-to-lavender gradient along the tunnel
       _scratchColor.lerpColors(_scratchBaseCyan, _scratchBaseLavender, frac);
 
       // Travelling wave ahead of the train + ambient shimmer
       const aheadDelta = ribU - leadU;
       let waveBoost = 0.15 * (0.5 + 0.5 * Math.sin(elapsedTime * 3.0 - i * 0.55));
-      if (aheadDelta >= -0.015 && aheadDelta <= 0.038) {
-        const proximity = 1.0 - Math.abs(aheadDelta - 0.01) / 0.028;
+      if (aheadDelta >= -0.012 && aheadDelta <= 0.025) {
+        const proximity = 1.0 - Math.abs(aheadDelta - 0.006) / 0.018;
         waveBoost = Math.max(waveBoost, Math.max(0, proximity) * 0.95);
       }
       _scratchColor.lerp(_scratchBrightWhiteCyan, THREE.MathUtils.clamp(waveBoost, 0, 1));
@@ -192,12 +192,12 @@ export function createHeartlineChoreographyDirector(
       targets.crystalTunnelRibsMesh.instanceColor.needsUpdate = true;
     }
 
-    // 6. Act 15: Signature Heartline Element Sequential Pulse (u = 0.64..0.75)
+    // 6. Act 15: Underwater Coral Reef & Heartline Element Sequential Pulse (u = 0.64..0.75)
     for (let i = 0; i < targets.heartlineBeaconCount; i++) {
       const frac = i / Math.max(1, targets.heartlineBeaconCount - 1);
       const nodeU = 0.64 + frac * 0.11;
       const dist = Math.abs(leadU - nodeU);
-      let glow = 0.3 + 0.25 * Math.sin(elapsedTime * 4.0 - i * 0.6);
+      let glow = 0.35 + 0.25 * Math.sin(elapsedTime * 4.0 - i * 0.6);
       if (dist < 0.025) {
         glow = 1.0;
       }

@@ -103,29 +103,29 @@ export const HEARTLINE_TRACK_ZONES: readonly TrackZoneDescriptor[] = [
   {
     id: 'CRYSTAL_TUNNEL',
     uStart: 0.54,
-    uEnd: 0.64,
-    label: 'Gemstone Crystal Tunnel',
-    targetFov: 56,
-    horizonLockFactor: 0.4,
-    shakeStrength: 0.08,
+    uEnd: 0.65,
+    label: 'Underwater Coral Reef Journey',
+    targetFov: 58,
+    horizonLockFactor: 0.72,
+    shakeStrength: 0.04,
   },
   {
     id: 'HEARTLINE_ENTRY',
-    uStart: 0.64,
-    uEnd: 0.75,
-    label: 'Signature Heartline Element',
-    targetFov: 64,
-    horizonLockFactor: 0.3,
-    shakeStrength: 0.15,
+    uStart: 0.65,
+    uEnd: 0.76,
+    label: 'Underwater Heartline — I LOVE YOU ❤️',
+    targetFov: 60,
+    horizonLockFactor: 0.78,
+    shakeStrength: 0.04,
   },
   {
     id: 'LOW_SPEED_RUN',
-    uStart: 0.75,
+    uStart: 0.76,
     uEnd: 0.83,
-    label: 'Botanical Garden Speed Run',
-    targetFov: 65,
-    horizonLockFactor: 0.5,
-    shakeStrength: 0.14,
+    label: 'Final Reef & Open Sky Emergence',
+    targetFov: 62,
+    horizonLockFactor: 0.68,
+    shakeStrength: 0.08,
   },
   {
     id: 'FINAL_HELIX',
@@ -164,7 +164,7 @@ export const STATION_EXIT_POS = new THREE.Vector3(70.0, 12.85, 75.2);
 export const TICKET_BOOTH_POS = new THREE.Vector3(55.0, 12.5, 71.0);
 export const ENTRANCE_ARCH_POS = new THREE.Vector3(46.0, 12.5, 65.0);
 export const VIEWING_DECK_POS = new THREE.Vector3(65.5, 13.3, 86.5);
-export const CRYSTAL_TUNNEL_CENTER = new THREE.Vector3(88.0, 14.2, 81.5);
+export const CRYSTAL_TUNNEL_CENTER = new THREE.Vector3(83.5, 6.2, 77.0);
 
 export interface ControlPointSpec {
   x: number;
@@ -174,14 +174,16 @@ export interface ControlPointSpec {
 }
 
 /**
- * 36 surveyed 3D control points matching the "Track Layout (Top View)" and "Full Attraction Overview" blueprints:
+ * 36 surveyed 3D control points matching the "Track Layout (Top View)" and "Underwater Coral Journey" blueprints:
  * - Station at (70, 13.15, 78) oriented East-West.
  * - Sweeping Lift Hill ascending to 45m above the meadow (Y = 57.5m) along the Northern ridge.
  * - Love Reveal Crest directly overlooking the oval "I LOVE YOU ❤️" meadow at (90, 17.6, 110).
  * - Steep 62° Major Drop + camelback wave sweeping into the elevated Castle Flyby (strictly z >= 65.5, clear of Castle Rear Garden).
- * - Arched Gemstone Crystal Tunnel over the stone bridge & reflective stream at (88, 14.2, 81.5).
- * - Iconic upright 3D Heartline Element silhouette (twin upper lobes + central heart cusp dip).
- * - Low Garden Speed Run slalom leading into the rising Final Helix on the West flank and straight Magnetic Brake Run.
+ * - Crystal Tunnel diving physically beneath the Y = 0.0m ocean water surface into the living Underwater Coral Reef (Y = -4.6m..-3.5m):
+ *   T+00s Transition In -> T+03s First Reef ("You are my world.") -> T+08s Living Reef ("My heart belongs to you.")
+ *   -> T+13s Coral Passage ("With you, everything feels magical.") -> T+18s Heart Reef ("You are my happy place.")
+ *   -> T+23s Heartline Element ("I LOVE YOU ❤️") -> T+28s Final Reef & Exit to Open Sky.
+ * - Emerges back out of the ocean water to the open sky, crossing the Queue Garden bridge into the Final Helix and Brake Run.
  */
 const CONTROL_POINT_SPECS: readonly ControlPointSpec[] = [
   // Zone 1: Station (collinear along +X at Z = 78.0, Y = 13.15)
@@ -215,23 +217,21 @@ const CONTROL_POINT_SPECS: readonly ControlPointSpec[] = [
   { x: 98.0, y: 27.5, z: 65.5, rollDeg: 35 }, // 17: Castle Flyby Apex (grand vista of Castle spires)
   { x: 84.0, y: 21.0, z: 67.0, rollDeg: 22 }, // 18: Castle Flyby Sweep Away
 
-  // Zone 7: Gemstone Crystal Tunnel (curving across the stone bridge & reflective pond)
-  { x: 79.5, y: 14.8, z: 73.5, rollDeg: -10 }, // 19: Crystal Tunnel West Portal
-  { x: 88.0, y: 14.2, z: 81.5, rollDeg: 8 }, // 20: Crystal Tunnel Gemstone Heart
-  { x: 97.5, y: 15.0, z: 88.5, rollDeg: -12 }, // 21: Crystal Tunnel East Emergence
+  // Zone 7 & 8: Crystal Tunnel Plunge -> Submerged Ocean Coral Reef Journey -> Underwater Heartline ("I LOVE YOU ❤️") -> Exit to Open Sky
+  { x: 80.0, y: 13.0, z: 73.5, rollDeg: -6 }, // 19 (u=0.528): Crystal Tunnel West Portal
+  { x: 87.0, y: -0.8, z: 80.5, rollDeg: 5 }, // 20 (u=0.556): T+00s Transition In — Crystal Tunnel plunges beneath Y=0.0m ocean water!
+  { x: 96.5, y: -4.1, z: 86.2, rollDeg: -8 }, // 21 (u=0.583): T+03s First Reef — "You are my world." & tropical fish school
+  { x: 109.5, y: -4.5, z: 88.5, rollDeg: 10 }, // 22 (u=0.611): T+08s Living Reef — "My heart belongs to you." & sea turtles
+  { x: 123.0, y: -4.6, z: 86.5, rollDeg: -10 }, // 23 (u=0.639): T+13s Coral Passage — Coral Arch, light rays & "With you, everything feels magical."
+  { x: 133.5, y: -4.3, z: 79.5, rollDeg: 12 }, // 24 (u=0.667): T+18s Heart Reef — Heart-shaped coral arch & "You are my happy place."
+  { x: 131.0, y: -3.9, z: 71.0, rollDeg: 14 }, // 25 (u=0.694): T+21s Underwater Heartline Approach Turn
+  { x: 119.5, y: -3.5, z: 68.2, rollDeg: 0 }, // 26 (u=0.722): T+23s Heartline Element — Twin Glowing Heart Arches & "I LOVE YOU ❤️"
+  { x: 107.5, y: -2.5, z: 69.8, rollDeg: -8 }, // 27 (u=0.750): T+25s Final Reef — Reef opens, light brightens ahead
+  { x: 96.5, y: -0.2, z: 73.2, rollDeg: -6 }, // 28 (u=0.778): T+28s Ocean Surface Breach — Rising through Y=0.0m ocean water surface!
 
-  // Zone 8: Signature 3D Heartline Element (sculpted upright tilted Heart Loop silhouette!)
-  { x: 107.0, y: 17.5, z: 85.0, rollDeg: 24 }, // 22: Heartline Bottom Stem Entry
-  { x: 115.5, y: 26.5, z: 90.5, rollDeg: 38 }, // 23: Heartline Left/North Upper Lobe Rise
-  { x: 112.0, y: 32.5, z: 84.0, rollDeg: 28 }, // 24: Heartline Left/North Lobe Peak
-  { x: 109.5, y: 27.8, z: 78.0, rollDeg: 0 }, // 25: Heartline Top Center Cusp Dip (Heart Indentation!)
-  { x: 112.5, y: 32.8, z: 71.5, rollDeg: -28 }, // 26: Heartline Right/South Lobe Peak
-  { x: 116.0, y: 25.5, z: 67.5, rollDeg: -38 }, // 27: Heartline Right/South Lobe Descent
-  { x: 106.5, y: 16.5, z: 68.5, rollDeg: 18 }, // 28: Heartline Bottom Point Exit
-
-  // Zone 9: Low-Level Botanical Garden Speed Run (passing over Queue Bridge & Reflective Stream, South of Love Meadow)
-  { x: 93.0, y: 14.2, z: 71.0, rollDeg: -16 }, // 29: Flower & Crystal Garden Slalom
-  { x: 76.0, y: 16.4, z: 84.0, rollDeg: 16 }, // 30: Signature Coaster Bridge over Queue Garden
+  // Zone 9: Emergence to Open Sky & Queue Garden Bridge Run
+  { x: 86.0, y: 10.2, z: 78.8, rollDeg: 8 }, // 29 (u=0.806): T+28s Exit to Open Sky
+  { x: 76.0, y: 16.4, z: 84.0, rollDeg: 16 }, // 30 (u=0.833): Signature Coaster Bridge over Queue Garden
   { x: 62.0, y: 15.2, z: 89.5, rollDeg: -20 }, // 31: Reflective Stream & Stone Garden Run
 
   // Zone 10: Final Rising Panoramic Helix (with distant callback view of Love Meadow)

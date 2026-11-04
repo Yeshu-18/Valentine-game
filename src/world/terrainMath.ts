@@ -612,6 +612,51 @@ export const PLAZA_RADIAL_SPOKES: Array<{
   },
 ];
 
+export const NE_THRILL_BOULEVARD_POINTS: ReadonlyArray<{
+  x: number;
+  z: number;
+  elev: number;
+}> = [
+  { x: 24.58, z: 20.80, elev: 4.25 }, // Central Plaza NE "THRILL ZONE" Gateway Arch
+  { x: 31.87, z: 26.97, elev: 5.10 }, // Image 2 Viewpoint: Thrill Zone Welcome Rondel (X 31m / Z 27m)
+  { x: 35.60, z: 36.00, elev: 7.45 }, // Lower Sapphire Boulevard Ascent
+  { x: 39.00, z: 45.50, elev: 9.85 }, // Mid-Hill Crystal Arbor Overlook
+  { x: 42.50, z: 55.50, elev: 12.15 }, // Upper Approach Promenade
+  { x: 46.00, z: 65.00, elev: 12.50 }, // Image 1 Viewpoint: HEARTLINE Entrance Gateway Arch
+  { x: 55.00, z: 71.00, elev: 12.50 }, // Octagonal Luxury Ticket Booth Forecourt
+];
+
+export function evaluateNeThrillBoulevardProximity(
+  x: number,
+  z: number,
+): {
+  minDist: number;
+  targetElevation: number;
+} {
+  let minDist = Infinity;
+  let bestElev = 12.5;
+  for (let i = 0; i < NE_THRILL_BOULEVARD_POINTS.length - 1; i++) {
+    const a = NE_THRILL_BOULEVARD_POINTS[i];
+    const b = NE_THRILL_BOULEVARD_POINTS[i + 1];
+    const abx = b.x - a.x;
+    const abz = b.z - a.z;
+    const lenSq = abx * abx + abz * abz;
+    const t = THREE.MathUtils.clamp(
+      ((x - a.x) * abx + (z - a.z) * abz) / lenSq,
+      0,
+      1,
+    );
+    const px = a.x + t * abx;
+    const pz = a.z + t * abz;
+    const d = Math.hypot(x - px, z - pz);
+    if (d < minDist) {
+      minDist = d;
+      bestElev = THREE.MathUtils.lerp(a.elev, b.elev, smoothstep(0, 1, t));
+    }
+  }
+  return { minDist, targetElevation: bestElev };
+}
+
 /**
  * Distance to the theme-park boulevard & scenic path network.
  * Returns 0..1 where 1 is the paved center of a boulevard or trail.
@@ -625,7 +670,12 @@ export function getPathWeight(x: number, z: number): number {
     [-17, 17, -74, 64], // NW: Ancient Realm Mountain Trail to Castle Landing Terrace
     [-74, 64, -85, 75], // NW: Castle Landing Terrace to Castle Keep
     [-24, 2, -78, 5], // West: Brick World
-    [17, 17, 82, 72], // NE: Roller Coaster / Theme Park
+    [17, 17, 31.87, 26.97], // NE: Central Plaza Spoke through Thrill Zone Gateway
+    [31.87, 26.97, 35.6, 36.0], // NE: Sapphire Boulevard Segment 1
+    [35.6, 36.0, 39.0, 45.5], // NE: Sapphire Boulevard Segment 2
+    [39.0, 45.5, 42.5, 55.5], // NE: Sapphire Boulevard Segment 3
+    [42.5, 55.5, 46.0, 65.0], // NE: Sapphire Boulevard Segment 4 to Heartline Entrance
+    [46.0, 65.0, 55.0, 71.0], // NE: Heartline Entrance to Ticket Booth
     [24, 2, 78, 5], // East: Doll / Fashion World
     [0, -24, 0, -65], // South: Couple Games Midway
     [0, -65, 0, -118], // Far South: Special Gate Cape
@@ -637,10 +687,13 @@ export function getPathWeight(x: number, z: number): number {
 
   let minDist = ringDist;
 
-  // Keep the NW Ancient Realm approach path direct and crisp near the Broom Stand & Terrace
+  // Keep the NW Ancient Realm & NE Thrill Boulevard paths direct and crisp
   const isNwCorridor = x < -14 && z > 14;
+  const isNeCorridor = x > 14 && z > 14;
   const curveWave =
-    rCenter > 27 && !isNwCorridor ? Math.sin(rCenter * 0.085) * 2.2 : 0;
+    rCenter > 27 && !isNwCorridor && !isNeCorridor
+      ? Math.sin(rCenter * 0.085) * 2.2
+      : 0;
   const sampleX = x + curveWave * (z / (rCenter + 1));
   const sampleZ = z - curveWave * (x / (rCenter + 1));
 
@@ -683,6 +736,13 @@ export function isInsideSightlineCorridor(x: number, z: number): boolean {
     (x >= 36.0 && x <= 132.0 && z >= 62.0 && z <= 140.0)
   ) {
     return true;
+  }
+  // Protect the entire NE Thrill Boulevard connecting Central Plaza Gateway (24.6, 20.8) & (31.9, 27.0) to Heartline Entrance (46.0, 65.0)
+  if (x >= 18.0 && x <= 62.0 && z >= 16.0 && z <= 74.0) {
+    const neProx = evaluateNeThrillBoulevardProximity(x, z);
+    if (neProx.minDist < 13.5) {
+      return true;
+    }
   }
 
   // Protect the Wizarding School Great Hall, Library/Potions Wings, Conservatory & Village Vista
@@ -801,7 +861,6 @@ export function getTerrainHeight(x: number, z: number): number {
   const ramps: Array<[number, number, number, number, number, number]> = [
     [-80, 10, -84, 68, 8.2, 27.8], // West Valley -> NW Highlands
     [-22, 22, -74, 64, 4.2, CASTLE_TERRACE_POS.y], // Central Plaza NW Spoke -> Castle Landing Terrace
-    [22, 22, 48, 66, 4.2, 12.5], // Central Plaza NE Spoke -> NE Coaster Ridge Entrance
   ];
 
   for (let i = 0; i < ramps.length; i++) {
@@ -819,6 +878,15 @@ export function getTerrainHeight(x: number, z: number): number {
       const rampWeight = 1.0 - smoothstep(5.5, 17, rDist);
       const rampElev = THREE.MathUtils.lerp(elevA, elevB, smoothstep(0, 1, rt));
       height = THREE.MathUtils.lerp(height, rampElev, rampWeight * 0.88);
+    }
+  }
+
+  // Smooth, wide, level-crowned Grand Sapphire Boulevard ramp connecting Central Plaza Thrill Gateway (24.6, 20.8 / 31.9, 27.0) to Heartline Entrance (46.0, 65.0)
+  if (x >= 16.0 && x <= 64.0 && z >= 14.0 && z <= 74.0) {
+    const neBoul = evaluateNeThrillBoulevardProximity(x, z);
+    if (neBoul.minDist < 18.0) {
+      const boulWeight = 1.0 - smoothstep(6.2, 18.0, neBoul.minDist);
+      height = THREE.MathUtils.lerp(height, neBoul.targetElevation, boulWeight);
     }
   }
 
@@ -875,6 +943,24 @@ export function getTerrainHeight(x: number, z: number): number {
 
   const shoreTaper = smoothstep(0.0, 0.09, mask);
   let finalHeight = height * shoreTaper;
+
+  // Submerged Eastern Ocean Coral Reef Basin (x: 85.5..142.0, z: 66.8..90.2, strictly East of Station x > 80.5,
+  // South of Love Meadow z < 94.5, and North of Dream Castle Rear Garden z > 62.5) descending to Y = -6.2m beneath Y = 0.0m ocean water
+  if (x > 80.5 && x < 148.0 && z > 62.5 && z < 94.5) {
+    const reefBoxDx = Math.max(0, 85.5 - x, x - 142.0);
+    const reefBoxDz = Math.max(0, 66.8 - z, z - 90.2);
+    const distFromReefBasin = Math.hypot(reefBoxDx, reefBoxDz);
+    if (distFromReefBasin < 5.0) {
+      const reefWeight = 1.0 - smoothstep(0.0, 5.0, distFromReefBasin);
+      const reefFloorWave =
+        Math.sin(x * 0.22 + 1.1) * Math.cos(z * 0.22 - 0.7) * 0.24;
+      finalHeight = THREE.MathUtils.lerp(
+        finalHeight,
+        -6.2 + reefFloorWave,
+        reefWeight,
+      );
+    }
+  }
 
   // Seamless Highland Shelf for the Phase F1 Enchanted Garden & Phase F2–F6 Ancient Forest & Heartwood Sanctuary
   if (localX >= 8.0 && localX <= 165.0 && localZ >= -38.0 && localZ <= 105.0) {
@@ -1061,6 +1147,12 @@ export function isWalkablePosition(x: number, z: number): boolean {
   // Always walkable throughout the Heartline Coaster Precinct (Entrance, Ticket Plaza, Queue Garden, Viewing Deck, Station)
   if (x >= 38.0 && x <= 124.0 && z >= 63.0 && z <= 134.0) {
     return true;
+  }
+  // Always walkable along the Grand Sapphire Boulevard connecting Central Plaza Thrill Gateway (24.6, 20.8 / 31.9, 27.0) to Heartline Entrance (46.0, 65.0)
+  if (x >= 18.0 && x <= 62.0 && z >= 18.0 && z <= 74.0) {
+    if (evaluateNeThrillBoulevardProximity(x, z).minDist <= 8.5) {
+      return true;
+    }
   }
   const normal = getTerrainNormal(x, z);
   return normal.y >= 0.52;

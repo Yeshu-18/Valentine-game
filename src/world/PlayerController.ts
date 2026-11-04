@@ -1626,7 +1626,9 @@ export function createPlayerController(
     if (Math.abs(lookDx) < 0.0001 && Math.abs(lookDy) < 0.0001) return;
 
     if (heartline?.isRiding()) {
-      heartline.applyLookDelta(lookDx * yawSensitivity, lookDy * pitchSensitivity);
+      const rideYawSens = isDragging ? 0.0072 : 0.0052;
+      const ridePitchSens = isDragging ? 0.0058 : 0.0042;
+      heartline.applyLookDelta(lookDx * rideYawSens, lookDy * ridePitchSens);
       lastMouseMoveElapsed = currentElapsedTime;
       return;
     }
@@ -1689,6 +1691,14 @@ export function createPlayerController(
     idleTimer = 0;
     if (carnivalDistrict.isActive()) {
       carnivalDistrict.applyZoomDelta?.(e.deltaY);
+      return;
+    }
+    if (heartline?.isRiding()) {
+      e.preventDefault();
+      const panDx = THREE.MathUtils.clamp(e.deltaX, -80, 80);
+      const panDy = THREE.MathUtils.clamp(e.deltaY, -80, 80);
+      heartline.applyLookDelta(panDx * 0.006, panDy * 0.0048);
+      lastMouseMoveElapsed = currentElapsedTime;
       return;
     }
     if (
@@ -2278,6 +2288,28 @@ export function createPlayerController(
         }
         if (heartline.isRiding()) {
           idleTimer = 0;
+          const rideLookLeft =
+            keys.has('ArrowLeft') ||
+            keys.has('KeyA') ||
+            keys.has('KeyQ') ||
+            keys.has('Numpad4');
+          const rideLookRight =
+            keys.has('ArrowRight') ||
+            keys.has('KeyD') ||
+            keys.has('KeyR') ||
+            keys.has('Numpad6');
+          const rideLookUp =
+            keys.has('ArrowUp') || keys.has('KeyW') || keys.has('Numpad8');
+          const rideLookDown =
+            keys.has('ArrowDown') || keys.has('KeyS') || keys.has('Numpad2');
+          const kbYawDelta =
+            ((rideLookRight ? 1 : 0) - (rideLookLeft ? 1 : 0)) * 2.1 * dt;
+          const kbPitchDelta =
+            ((rideLookDown ? 1 : 0) - (rideLookUp ? 1 : 0)) * 1.45 * dt;
+          if (Math.abs(kbYawDelta) > 1e-5 || Math.abs(kbPitchDelta) > 1e-5) {
+            heartline.applyLookDelta(kbYawDelta, kbPitchDelta);
+          }
+
           const hCam = heartline.getCameraState();
           camera.up.copy(hCam.up);
           camera.position.copy(hCam.position);

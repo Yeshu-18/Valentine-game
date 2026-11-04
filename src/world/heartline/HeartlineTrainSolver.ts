@@ -43,6 +43,8 @@ export interface HeartlineTrainSolver {
   startBoarding: () => void;
   cancelRideToStation: () => void;
   consumeCueEvents: () => BoardingCueEvents;
+  getUnderwaterSpeedFactor: () => number;
+  setUnderwaterSpeedFactor: (factor: number) => void;
   update: (dt: number, elapsedTime: number) => void;
 }
 
@@ -412,32 +414,37 @@ export function createHeartlineTrainSolver(
     carGroups.push(car);
   }
 
-  // Dedicated First-Person Tiny Blue Nose Tip (shown ONLY while riding, anchored at the very bottom-center of the camera view
-  // so zero seats, headrests, restraints, or side panels can ever block the view — even when looking straight down at Love Reveal!)
+  // Dedicated First-Person Short Blue Nose Tip (shown ONLY while riding, anchored low at the very bottom-center of the base coaster view
+  // so zero seats, headrests, restraints, or side panels can ever block the view — and shortened so it barely peeks at the bottom edge!)
   const riderNoseTipGroup = new THREE.Group();
   riderNoseTipGroup.name = 'HeartlineRiderTinyNoseTip';
   riderNoseTipGroup.visible = false;
 
-  const tinyNoseGeo = tracker.track(new THREE.CylinderGeometry(0.18, 0.36, 0.62, 16));
-  tinyNoseGeo.scale(1.0, 0.42, 1.0);
-  tinyNoseGeo.rotateX(Math.PI / 2 - 0.18);
+  const tinyNoseGeo = tracker.track(new THREE.CylinderGeometry(0.13, 0.25, 0.22, 16));
+  tinyNoseGeo.scale(0.92, 0.34, 1.0);
+  tinyNoseGeo.rotateX(Math.PI / 2 - 0.14);
   const tinyNoseMesh = new THREE.Mesh(tinyNoseGeo, sapphireShellMat);
-  tinyNoseMesh.position.set(0, -0.44, 0.88);
+  tinyNoseMesh.position.set(0, -0.43, 0.65);
   riderNoseTipGroup.add(tinyNoseMesh);
 
-  const tinyHeartShape = createHeartEmblemShape(0.38);
+  const tinyPearlRimGeo = tracker.track(new THREE.BoxGeometry(0.32, 0.035, 0.14));
+  const tinyPearlRim = new THREE.Mesh(tinyPearlRimGeo, pearlTrimMat);
+  tinyPearlRim.position.set(0, -0.45, 0.68);
+  riderNoseTipGroup.add(tinyPearlRim);
+
+  const tinyHeartShape = createHeartEmblemShape(0.22);
   const tinyHeartGeo = tracker.track(
     new THREE.ExtrudeGeometry(tinyHeartShape, {
-      depth: 0.025,
+      depth: 0.018,
       bevelEnabled: true,
-      bevelThickness: 0.008,
-      bevelSize: 0.008,
+      bevelThickness: 0.005,
+      bevelSize: 0.005,
       bevelSegments: 2,
     })
   );
-  tinyHeartGeo.rotateX(-Math.PI / 2 + 0.25);
+  tinyHeartGeo.rotateX(-Math.PI / 2 + 0.22);
   const tinyHeartMesh = new THREE.Mesh(tinyHeartGeo, cyanCrystalMat);
-  tinyHeartMesh.position.set(0, -0.37, 0.92);
+  tinyHeartMesh.position.set(0, -0.385, 0.67);
   riderNoseTipGroup.add(tinyHeartMesh);
 
   group.add(riderNoseTipGroup);
@@ -474,6 +481,14 @@ export function createHeartlineTrainSolver(
   let boardingTimer = 0;
   let seatSettleOffset = 0;
   let restraintOpenAngle = -0.78; // Open upward in station
+  let underwaterSpeedFactor = 0.72; // Adjustable underwater speed multiplier (slower dreamy pace)
+
+  function getUnderwaterSpeedFactor(): number {
+    return underwaterSpeedFactor;
+  }
+  function setUnderwaterSpeedFactor(factor: number): void {
+    underwaterSpeedFactor = Math.max(0.2, Math.min(2.0, factor));
+  }
 
   // Discrete audio/choreography cues during Boarding & Station Return
   let firedRestraintLock = false;
@@ -554,19 +569,29 @@ export function createHeartlineTrainSolver(
       let rawV = Math.sqrt(vSq);
 
       // Gentle zone speed shaping for cinematic pacing
-      if (u >= 0.44 && u < 0.54) {
-        // Castle Flyby: smooth sweeping 20–22 m/s
+      if (u >= 0.44 && u < 0.53) {
+        // Castle Flyby: smooth sweeping 20–21 m/s
         rawV = THREE.MathUtils.lerp(rawV, 20.5, Math.min(1, dt * 2.0));
-      } else if (u >= 0.54 && u < 0.64) {
-        // Crystal Tunnel: 19.0 m/s so sequential crystal wave is clearly perceived
-        rawV = THREE.MathUtils.lerp(rawV, 19.0, Math.min(1, dt * 2.2));
+      } else if (u >= 0.53 && u < 0.565) {
+        // T+00s Transition In: Crystal Tunnel plunges into ocean water, decelerating smoothly into underwater glide
+        rawV = THREE.MathUtils.lerp(rawV, 8.8 * underwaterSpeedFactor, Math.min(1, dt * 3.2));
+      } else if (u >= 0.565 && u < 0.70) {
+        // T+03s..T+18s Underwater Coral Reef (First Reef -> Living Reef -> Coral Passage -> Heart Reef): dreamy cruise
+        rawV = THREE.MathUtils.lerp(rawV, 7.8 * underwaterSpeedFactor, Math.min(1, dt * 3.8));
+      } else if (u >= 0.70 && u < 0.755) {
+        // T+23s Underwater Heartline Element ("I LOVE YOU ❤️"): romantic showcase glide
+        rawV = THREE.MathUtils.lerp(rawV, 7.2 * underwaterSpeedFactor, Math.min(1, dt * 4.0));
+      } else if (u >= 0.755 && u < 0.83) {
+        // T+28s Final Reef & Exit to Open Sky: buoyant hydro-launch propelling train out of the ocean up to the Garden Bridge & Helix
+        rawV = THREE.MathUtils.lerp(rawV, 16.2, Math.min(1, dt * 3.2));
       } else if (u >= 0.83 && u < 0.92) {
         // Final Helix: gradual scenic slowdown to 13.0 m/s
         rawV = THREE.MathUtils.lerp(rawV, 13.0, Math.min(1, dt * 2.0));
       }
 
       const drag = 0.0018 * rawV * rawV * dt;
-      speed = THREE.MathUtils.clamp(rawV - drag, 11.5, 27.5);
+      const minV = u >= 0.53 && u < 0.76 ? 4.2 * underwaterSpeedFactor : 11.5;
+      speed = THREE.MathUtils.clamp(rawV - drag, minV, 27.5);
     } else {
       // Zone 11 & 12: Magnetic Brake Run & Station Return (u = 0.92..1.00)
       const remainingS = Math.max(0, spline.totalLength - leadS);
@@ -782,6 +807,8 @@ export function createHeartlineTrainSolver(
     startBoarding,
     cancelRideToStation,
     consumeCueEvents,
+    getUnderwaterSpeedFactor,
+    setUnderwaterSpeedFactor,
     update,
   };
 }

@@ -216,6 +216,7 @@ export function createIslandTerrain(
     metalness: 0.12,
     transparent: true,
     opacity: 0.88,
+    side: THREE.DoubleSide,
   });
 
   const waterUniforms = {
@@ -272,13 +273,21 @@ export function createIslandTerrain(
 
         vec3 waterCol = mix(uDeepColor, uShallowColor, shallowMask);
 
+        // Crystal-clear sapphire-aqua coral reef lagoon over the Heartline Underwater Journey (x: 80..146, z: 64..93)
+        float reefLagoonX = smoothstep(80.0, 86.0, vWorldPos.x) * (1.0 - smoothstep(140.0, 146.0, vWorldPos.x));
+        float reefLagoonZ = smoothstep(64.0, 68.0, vWorldPos.z) * (1.0 - smoothstep(89.0, 93.5, vWorldPos.z));
+        float reefLagoonMask = reefLagoonX * reefLagoonZ;
+        vec3 reefSapphireAqua = vec3(0.05, 0.58, 0.88);
+        waterCol = mix(waterCol, reefSapphireAqua, reefLagoonMask * 0.72);
+
         float lapWave = sin(shallowMask * 22.0 - uTime * 2.6) * 0.5 + 0.5;
-        float foamLine = smoothstep(0.35, 0.85, shoreMask * (0.65 + 0.35 * lapWave));
+        float foamLine = smoothstep(0.35, 0.85, shoreMask * (0.65 + 0.35 * lapWave)) * (1.0 - reefLagoonMask * 0.75);
 
         float shimmer = sin(vWorldPos.x * 0.9 + uTime * 2.0) * cos(vWorldPos.z * 0.9 - uTime * 1.7);
-        waterCol += vec3(0.06, 0.09, 0.10) * max(0.0, shimmer) * shallowMask;
+        waterCol += vec3(0.06, 0.09, 0.10) * max(0.0, shimmer) * (shallowMask + reefLagoonMask * 0.8);
 
         diffuseColor.rgb = mix(waterCol, uFoamColor, foamLine * 0.82);
+        diffuseColor.a = mix(diffuseColor.a, 0.52, reefLagoonMask);
         `,
       );
   };
