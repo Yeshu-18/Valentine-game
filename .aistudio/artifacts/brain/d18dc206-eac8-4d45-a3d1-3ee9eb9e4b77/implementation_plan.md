@@ -1,158 +1,114 @@
-# Prequel & Sequel Narrative Game Scripts Integration Plan
-*Valentine's Day 2027: A Personal Journey for Harsha*
+# Phase 1: Prologue · Chapter 1 — The Ordinary Night (`13 FEBRUARY 2027 · 10:30 PM`)
 
-## Executive Summary
-
-This plan outlines the architecture, scene flow, and integration strategy to bookend the existing 3D Dream World with two emotional, narrative game scripts:
-1. **The Prequel (Prologue — "Cell 04: The Awakening" & February 13, 2027 Mystery)**:
-   - Starts on the evening of February 13, 2027 at 10:30 PM with the mysterious text message (*"Are you home yet?"*), the dark car approach, and waking up in the locked room (*Cell 04*).
-   - Features the interactive rotary telephone (*"You're awake. Good. We need to talk."*), memory clues (the *14/02/2024* photograph, the *Project Hail Mary* movie theater memory, the mall hand-holding / pinky moment, and the real chat confession).
-   - Concludes with the door opening, the blindfold sequence, and the major reveal where she realizes the "kidnapper" is her boyfriend Yeshwanth and that he built an entire fantasy world for her.
-2. **The Main World (Heart Island & Dream Castle)**:
-   - The current rich 3D world (Castle, Wizarding School, Carnival, Heartline Coaster, Ancient Forest, Aurora Grotto).
-3. **The Sequel (Epilogue — "The Private Romantic World" behind the Special Gate)**:
-   - Activated when she approaches the mysterious Special Gate at the southern tip of Heart Island.
-   - Transitions into a serene, deeply personal sanctuary (secluded starlight terrace, private romantic lounge, memories recap, teasing & cuddling moments, and the final romantic Valentine's proposal reaffirmation).
+This revised plan focuses specifically on **Phase 1 of the Prequel (`Prologue · Chapter 1: The Ordinary Night`)** inside its own dedicated top-level `prequel` module (completely outside the `world` directory), while keeping the existing 3D Dream World untouched and accessible at any moment via a developer shortcut.
 
 ---
 
 ## User Review & Critical Decisions
 
 > [!IMPORTANT]
-> - **Unified Game State Machine**: The app will transition linearly: `PROLOGUE` (Cell 04 & Mystery Clues) $\rightarrow$ `DREAM_WORLD` (Current 3D Heart Island) $\rightarrow$ `EPILOGUE` (The Private Romantic World).
-> - **Seamless Continuity**: At any time, testing or fast-forward controls (discreet chapter selector in dev mode or menu) allow jumping directly between Prologue, Main World, and Epilogue so exploration of existing areas is never blocked during development.
-> - **Zero Destruction**: The existing Three.js scene, terrain, castle, coaster, forest, and cinematics remain 100% intact and are simply wrapped by the game director.
+> The three Chapter 1 visual & interaction decisions from Section 10 of your specification are locked in using your recommended direction:
 
-- **Confirmed Decision 1**: Linear story flow (`Prologue` $\rightarrow$ `3D World` $\rightarrow$ `Epilogue`).
-- **Confirmed Decision 2**: Deeply personal narrative rooted in Yeshwanth & Harsha's real journey (Project Hail Mary theater memory, the pinky moment, the real confession, the "I built you a world" reveal).
-- **Confirmed Decision 3**: The Prequel combines atmospheric 3D room exploration (Cell 04) with tactile 2D narrative cards (phone, clues, photos, memories) and blindfold reveal transition.
+- **Decision A — Harsha's Character Representation**: **Stylized but recognizable 3D character** featuring articulated head, upper body, arms, hands, and legs supporting all 8 required animation states (`WALK`, `IDLE`, `PHONE_NOTICE`, `PHONE_TAKE_OUT`, `PHONE_READ`, `PHONE_PUT_AWAY`, `LOOK_BACK`, `STOP`) with smooth pose blending and gradual walking deceleration.
+- **Decision B — Street Environment**: **Familiar Indian residential street at night** featuring 2–3 storey residential villas/apartment blocks with compound walls, iron gates, warm illuminated windows, sodium-vapor streetlights casting warm pools of light on slightly reflective asphalt, parked cars/scooters, roadside trees, and distant city horizon glow.
+- **Decision C — Phone Interface**: **Both 3D phone + readable cinematic close-up** — Harsha physically pulls out a glowing 3D smartphone that casts soft blue-white light across her hands and face as the camera eases over her shoulder, paired with a crisp, readable close-up of `"Are you home yet?"`.
+- **Standalone Isolation & Testing Controls**: Built inside a standalone `prequel` folder (outside `world`), with a clean developer shortcut bar to jump directly to the 3D Dream World, restart Chapter 1, or warp to any of the 12 Chapter 1 state-machine stages.
 
 ---
 
 ## 1. Overview & Core Concept
 
-- **Core Theme**: *"I built an entire world for you."* The mystery and kidnapping setup is not a horror game—it is an intricate, suspenseful surprise that recontextualizes into an overwhelming romantic gift.
-- **Narrative Arc**:
-  $$\text{"Where am I?"} \rightarrow \text{"Who is doing this?"} \rightarrow \text{"These are our memories..."} \rightarrow \text{"It's him!"} \rightarrow \text{Dream World Exploration} \rightarrow \text{Private World & Epilogue}$$
-
-```
-┌────────────────────────────────────────────────────────────────────────┐
-│                        NARRATIVE EXPERIENCE TIMELINE                   │
-└────────────────────────────────────────────────────────────────────────┘
-
-  [PHASE I: PREQUEL]
-  February 13, 2027 (10:30 PM)
-  ├── Scene 1: The Dark Street & "Are you home yet?"
-  ├── Scene 2: The Approaching Dark Car
-  ├── Scene 3: The Dark Ride & "Almost there."
-  ├── Scene 4 & 5: Cell 04 Awakening & Rotary Phone ("We need to talk.")
-  ├── Scene 6 & 7: Searching for Clues & 14/02/2024 Photo
-  ├── Scene 8: The 3 Core Clue Memories
-  │     ├── Memory 1: Project Hail Mary Theater Interval
-  │     ├── Memory 2: Hand-Holding & The Pinky Moment
-  │     └── Memory 3: The Real Chat Confession
-  ├── Scene 9 & 10: The Door Opens & The Blindfold
-  └── Scene 11 & 12: Blindfold Removed ➔ THE BIG REVEAL ("It's Yeshwanth!")
-        │
-        ▼
-  [PHASE II: THE DREAM WORLD]
-  Third-Person Free Exploration of Heart Island
-  ├── Central Plaza & Orientation Hub
-  ├── Dream Castle (Lobby, Ballrooms, Jewellery Atelier, Lego Workshop)
-  ├── Wizarding School (Sorting Hat, Mirror of Desire, Pensieve, Royal Frog)
-  ├── Carnival District & Keepsake Games
-  ├── Ancient Forest & Heartwood Sanctuary
-  ├── Heartline Coaster (The Lagoon Dive & "I LOVE YOU ❤️" Meadow Reveal)
-  └── Underground Aurora Grotto Cinematic (Aurora Lights & Dialogue)
-        │
-        ▼ (Passing through the Special Gate at the Southern Tip)
-  [PHASE III: SEQUEL]
-  The Private Romantic World & Epilogue
-  ├── Scene 1: Crossing the Special Gate Threshold
-  ├── Scene 2: The Starlight Terrace & Warm Fireplace Pavilion
-  ├── Scene 3: The Private Journal & Personal Tokens
-  ├── Scene 4: Intimate Conversation (Teasing, Cuddling, Heartfelt Truths)
-  └── Scene 5: The Final Valentine's Ending ("Will you keep choosing me?")
-```
+- **Date & Time**: `13 FEBRUARY 2027 · 10:30 PM`
+- **Core Feeling**: Familiarity $\rightarrow$ Curiosity $\rightarrow$ Subtle Unease
+- **Chapter Purpose**: Let the player experience a deceptively ordinary night walk as Harsha—with no health bars, quest markers, or gamey HUD clutter—until a single unexpected message (`"Are you home yet?"`) and a pair of approaching headlights quietly shift the mood.
 
 ---
 
-## 2. User Experience & Visual Design
+## 2. Complete 5-Beat Scene Flow & Visual Design
 
-### A. The Prequel: "Cell 04: The Awakening"
-- **Aesthetic**: Atmospheric noir, low-key lighting, warm incandescent bulb over a wooden desk, heavy steel door, vintage rotary telephone. Suspenseful but cozy and intrigue-driven, not terrifying.
-- **Visual Palette**: Deep slate `#090d16`, warm tungsten amber `#d97706`, brass reflections `#ca8a04`, and nostalgic soft sepia.
-- **Interactions**:
-  - **Phone Interaction**: Click or press **E** on the rotary telephone. Phone rings, handset lifts, audio clicks, and dialogue typewriter displays:
-    > *"You're awake. Good. We need to talk."*
-  - **The Clue Desk & Photo**: Inspect the vintage photo dated `14 / 02 / 2024`.
-  - **Memory Cutscene Cards**:
-    1. *Project Hail Mary*: Screen dims, soft cinematic score plays, showing the movie interval memory, wiping the glass, the quiet smile.
-    2. *The Pinky Moment*: The hesitation in the car, holding the pinky, the question *"Do you have any intention of a relationship?"*.
-    3. *The Real Confession*: Faithful recreation of their actual chat screenshot on a tactile card.
-  - **The Reveal**: The steel door unlocks. A silhouette steps in, gently blindfolds her. Screen fades to black with footsteps and ambient wind changing into the magical melody of Heart Island.
-  - **The Unveiling**: Blindfold dissolves away with a radial blur reveal into the sun-drenched Central Plaza with Yeshwanth smiling in front of her.
+### Beat 01: Establish the Night (`0:00–0:40` · Playable)
+- Fade in from black with the typographic title card: **`13 FEBRUARY 2027 · 10:30 PM`**.
+- The opening camera slowly reveals Harsha walking along a quiet, sodium-lit Indian residential street.
+- Layered nighttime ambience: distant city traffic hum, occasional distant dog bark, crickets/insects, and synchronized footsteps on asphalt.
+- Once the camera settles into the diagonal `FOLLOW` state, the player seamlessly gains movement control (`WASD` to walk, `Shift` to walk slightly faster, `Mouse` to look around).
 
-### B. The Sequel: "The Private Romantic World"
-- **Aesthetic**: Dreamy pastel starlight, twilight lavender and rose gold, floating candles, moonlit bay overlook, plush cushions, warm fireplace.
-- **Location**: Accessed via the Special Gate at the southern tip of the island (`x: 0, z: -110`).
-- **Interactive Moments**:
-  - **The Memory Hearth**: Sitting together by the fire with gentle acoustic guitar/piano chords.
-  - **The Private Letter / Starlight Book**: A personalized book where Harsha can flip through pages containing reflections from Yeshwanth.
-  - **Final Romantic Cutscene**: Custom dialogue card flow that wraps up the journey in an intimate, non-rushed dialogue ending.
+### Beat 02: The First Message (`0:40–1:20` · Cinematic Interaction)
+- Triggered automatically after walking down the first block (or via `[E]` / state trigger): the phone vibrates with a tactile buzz.
+- **Gradual Deceleration**: Harsha does not freeze abruptly—her walking stride gradually slows (`WALK` $\rightarrow$ `PHONE_NOTICE`), her head tilts slightly, and she comes to a natural stop (`PHONE_TAKE_OUT`).
+- **Over-the-Shoulder Hybrid Camera (`PHONE_CINEMATIC`)**: The camera eases closer over her right shoulder as she raises the 3D phone (`PHONE_READ`), whose screen glow illuminates her hands and face.
+- A crisp, readable phone screen close-up displays:
+  > **"Are you home yet?"**
+- After holding long enough to read (and allowing `[E]` / click / brief pause to dismiss), Harsha pauses thoughtfully, lowers the phone back to her pocket (`PHONE_PUT_AWAY`), and the camera smoothly blends back to `FOLLOW`.
 
----
+### Beat 03: Something Feels Different (`1:20–2:15` · Playable Exploration)
+- Player regains control (`PLAYER_WALKING_2`).
+- Ambient background traffic fades lower; the residential street feels quieter.
+- A low, distant car engine enters the audio mix from behind/down the road, and twin headlights appear at the far end of the street (`CAR_VISIBLE`).
+- As the player walks or looks around (`LOOK_AROUND`), the camera gently assists awareness of the headlights without forcing a hard lock.
 
-## 3. Technical Architecture & State Strategy
+### Beat 04: The Approaching Car (`2:15–3:00` · Cinematic Transition)
+- As Harsha reaches the next streetlight pool (`CAR_APPROACHING`), the headlights grow brighter, casting long moving shadows across the asphalt.
+- The camera transitions smoothly into `CAR_CINEMATIC`:
+  1. Shifts behind Harsha toward the approaching headlights.
+  2. Cuts/glides to a low-angle shot of the dark sedan's wheels and headlights rolling slowly into the foreground.
+  3. The engine sound deepens; red brake lights flare against the dark road surface as the car slows and stops nearby (`CAR_STOPPED`).
 
-### Component Hierarchy & Game Director
-```
-┌────────────────────────────────────────────────────────────────────────┐
-│                               App.tsx                                  │
-│                      (Master Game State Director)                      │
-└───────────────────────────────────┬────────────────────────────────────┘
-                                    │
-         ┌──────────────────────────┼──────────────────────────┐
-         ▼                          ▼                          ▼
-┌──────────────────┐      ┌──────────────────┐      ┌──────────────────┐
-│  PrequelDirector │      │ 3D World (Active)│      │  SequelDirector  │
-│(Cell 04 & Mystery│      │  (Heart Island)  │      │(Private Sanctuary│
-│    Prologue)     │      │   Current Code   │      │    & Epilogue)   │
-└────────┬─────────┘      └────────┬─────────┘      └────────┬─────────┘
-         │                         │                         │
-  ┌──────┴──────┐           ┌──────┴──────┐           ┌──────┴──────┐
-  │- Street/Car │           │- DreamCastle│           │- Gate Portal│
-  │- Room 3D/2D │           │- Wizardry   │           │- Starlight  │
-  │- Phone/Desk │           │- Coaster    │           │  Pavilion   │
-  │- Memories   │           │- Carnival   │           │- Dialogue   │
-  │- Blindfold  │           │- Forest     │           │- Final Gift │
-  └─────────────┘           └─────────────┘           └─────────────┘
-```
-
-### New Modules & File Responsibilities
-1. `src/world/story/GameStoryDirector.ts`:
-   - Single source of truth state manager (`currentPhase: 'PROLOGUE' | 'DREAM_WORLD' | 'EPILOGUE'`).
-   - Handles persistent progression in `localStorage` so refreshing the browser retains her current progress, while providing a quiet developer skip/jump panel (`Shift + ~`).
-2. `src/world/story/PrequelScene.tsx`:
-   - Handles Scene 1–12 (Night street, car, Cell 04 room, rotary telephone, clue inspector, 3 memory cards, and blindfold reveal).
-3. `src/world/story/SequelScene.tsx`:
-   - Handles the Special Gate transition, Private Romantic World sanctuary, intimate dialogue sequences, and final Valentine's celebration.
-4. `src/world/story/storyAudio.ts`:
-   - Procedural Web Audio score specifically tailored to the mystery tension (subtle vinyl crackle, tape hum, muted chime) transitioning to romantic acoustic felt piano and music box.
+### Beat 05: Chapter Ending (`3:00–3:30` · Controlled Cinematic)
+- Harsha slows and stops walking, turning her head and upper body toward the dark car (`WALK` $\rightarrow$ `LOOK_BACK` $\rightarrow$ `STOP`).
+- The camera glides from behind her to a composed side-profile framing: Harsha in the foreground, the dark sedan's silhouette and glowing red tail lights in the background.
+- Hold on the silhouette in silence—then a distinct mechanical **car door unlock click** echoes.
+- Immediate cut to black before showing what happens next.
+- End Card: **`CHAPTER 01 · THE ORDINARY NIGHT`** (with options to replay Chapter 1, proceed to Chapter 2 when ready, or enter the 3D Dream World).
 
 ---
 
-## 4. Verification & Step-by-Step Delivery Plan
+## 3. Key Product Decisions & Systems Architecture
 
-1. **Step 1: State Machine & Data Models**: Create `GameStoryDirector.ts` with types, story beats, and memory data.
-2. **Step 2: Build the Prequel Experience**:
-   - Implement the intro narrative cards (Feb 13, 10:30 PM street & car).
-   - Implement the Cell 04 locked room with rotary telephone interaction and the 3 memory cards (*Project Hail Mary*, *The Pinky Moment*, *The Confession*).
-   - Implement the blindfold transition and reveal into Heart Island.
-3. **Step 3: Wire Main World & Special Gate**:
-   - Add the interactive Special Gate trigger at the southern tip of Heart Island that unlocks after exploring or finding clues, leading into the Sequel.
-4. **Step 4: Build the Sequel Experience**:
-   - Implement the Private Romantic World sanctuary with starlight terrace, private letter, and romantic dialogue.
-5. **Step 5: Audio & Polish**:
-   - Add ambient audio and transition cues for both Prologue and Epilogue.
-   - Test full linear playthrough and run `compile_applet` + `lint_applet` to verify zero errors.
+### A. 4-State Hybrid Camera Director
+- **`FOLLOW`**: Third-person slight diagonal offset behind and slightly above Harsha, with exponential damping (`THREE.MathUtils.damp`) and subtle walking bob.
+- **`LOOK_AROUND`**: Player-controlled mouse look with gentle yaw/pitch limits so the street architecture and headlights remain framed naturally.
+- **`PHONE_CINEMATIC`**: Smoothly interpolates over Harsha's right shoulder, shifting focal framing from her shoulder to the glowing 3D phone in her hand.
+- **`CAR_CINEMATIC`**: Directed spline/keyframe camera blending from follow view $\rightarrow$ low-angle wheel/headlight approach $\rightarrow$ side-profile silhouette composition.
+
+### B. 8-State Character Animation Blender
+- Procedural skeletal/hierarchical rig for Harsha with continuous weight interpolation (`WALK` $\rightarrow$ `PHONE_NOTICE` $\rightarrow$ `PHONE_TAKE_OUT` $\rightarrow$ `PHONE_READ` $\rightarrow$ `PHONE_PUT_AWAY` $\rightarrow$ `WALK` $\rightarrow$ `LOOK_BACK` $\rightarrow$ `STOP`, plus breathing `IDLE`).
+- Enforces a smooth velocity ramp-down (`0.85s` deceleration curve) when the phone vibrates so she never snaps from full stride to a static pose.
+
+### C. Event-Driven 12-Stage State Machine & Developer Toolbar
+- Predictable, event-driven state progression (`SCENE_START` through `TRANSITION_TO_CHAPTER_2`) with a collapsible developer bar at the top-right to jump to any of the 12 states or straight into the 3D Dream World.
+
+---
+
+## 4. Technical Architecture & State Flow Diagram
+
+```
+┌────────────────────────────────────────────────────────────────────────────┐
+│                         Application Root (App.tsx)                         │
+│   Active Mode: 'PREQUEL' (Default) ◄───► 'DREAM_WORLD' ◄───► 'EPILOGUE'    │
+│   + Persistent Top-Right Developer Shortcut ("Go Directly to Dream World") │
+└────────────────────┬───────────────────────────────────────────────────────┘
+                     │
+                     ▼
+┌────────────────────────────────────────────────────────────────────────────┐
+│             Standalone Prequel Module (Outside World Directory)            │
+│                                                                            │
+│  ┌──────────────────────────────────────────────────────────────────────┐  │
+│  │ Chapter 1 State Machine (Event-Driven, Zero Competing Timers)        │  │
+│  │ SCENE_START ──► OPENING_CINEMATIC ──► PLAYER_WALKING                 │  │
+│  │ ──► PHONE_VIBRATION ──► PHONE_CINEMATIC ──► MESSAGE_READ             │  │
+│  │ ──► PLAYER_WALKING_2 ──► CAR_VISIBLE ──► CAR_APPROACHING             │  │
+│  │ ──► CAR_STOPPED ──► CHAPTER_END ──► TRANSITION_TO_CHAPTER_2          │  │
+│  └───────────┬──────────────────────┬───────────────────────┬───────────┘  │
+│              │                      │                       │              │
+│              ▼                      ▼                       ▼              │
+│  ┌──────────────────────┐ ┌─────────────────────┐ ┌─────────────────────┐  │
+│  │ Residential Street   │ │ Hybrid Camera &     │ │ Chapter 1 Audio     │  │
+│  │ 3D Environment       │ │ Animation Systems   │ │ Controller          │  │
+│  │ • Indian Villas/Gates│ │ • FOLLOW / LOOK     │ │ • Night Ambience    │  │
+│  │ • Warm Streetlights  │ │ • PHONE_CINEMATIC   │ │ • Synced Footsteps  │  │
+│  │ • Parked Vehicles    │ │ • CAR_CINEMATIC     │ │ • Phone Vibration   │  │
+│  │ • Spline Dark Sedan  │ │ • 8 Blended Poses   │ │ • Car Engine/Brakes │  │
+│  │ • Headlights/Brakes  │ │ • Smooth Slowdown   │ │ • Door Unlock Click │  │
+│  └──────────────────────┘ └─────────────────────┘ └─────────────────────┘  │
+└────────────────────────────────────────────────────────────────────────────┘
+```
