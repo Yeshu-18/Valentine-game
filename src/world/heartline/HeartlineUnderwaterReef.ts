@@ -6,6 +6,175 @@ import {
   createEmptyTrackFrame,
 } from './HeartlineTrackSpline';
 
+export const HUGGING_FISH_COUPLE_SPOTLIGHT_U = 0.625;
+
+const _spotlightEvalFrame = createEmptyTrackFrame();
+const _spotlightWorldUp = new THREE.Vector3(0, 1, 0);
+
+export function getHuggingFishSpotlightWorldPos(
+  spline: HeartlineTrackSpline,
+  outPos: THREE.Vector3
+): THREE.Vector3 {
+  spline.evaluateAtU(HUGGING_FISH_COUPLE_SPOTLIGHT_U, _spotlightEvalFrame);
+  outPos
+    .copy(_spotlightEvalFrame.pos)
+    .addScaledVector(_spotlightEvalFrame.binormal, -2.25)
+    .addScaledVector(_spotlightWorldUp, 1.68);
+  return outPos;
+}
+
+export interface UnderwaterTextStageSpec {
+  readonly u: number;
+  readonly camStartU: number;
+  readonly camHoldStartU: number;
+  readonly camHoldEndU: number;
+  readonly camEndU: number;
+  readonly lateralOffset: number;
+  readonly heightOffset: number;
+  readonly targetFov: number;
+  readonly zoneLabel: string;
+  readonly line1: string;
+  readonly line2?: string;
+  readonly showHeartBelow: boolean;
+  readonly isGrandHeartline?: boolean;
+  readonly width: number;
+  readonly height: number;
+}
+
+export const UNDERWATER_TEXT_STAGE_SPECS: readonly UnderwaterTextStageSpec[] = [
+  {
+    // Stage 0: T+03s First Reef Coral Garden Alcove (Right side)
+    u: 0.585,
+    camStartU: 0.562,
+    camHoldStartU: 0.571,
+    camHoldEndU: 0.578,
+    camEndU: 0.584,
+    lateralOffset: 2.65,
+    heightOffset: 2.05,
+    targetFov: 56.0,
+    zoneLabel: 'Underwater Reef · "Hey my world :}."',
+    line1: 'Hey my world :}.',
+    showHeartBelow: true,
+    width: 4.1,
+    height: 2.05,
+  },
+  {
+    // Stage 1: T+08s Living Reef Sea Turtle Alcove (Left side)
+    u: 0.607,
+    camStartU: 0.585,
+    camHoldStartU: 0.593,
+    camHoldEndU: 0.600,
+    camEndU: 0.606,
+    lateralOffset: -2.65,
+    heightOffset: 2.1,
+    targetFov: 56.0,
+    zoneLabel: 'Living Reef · "My heart belongs to you."',
+    line1: 'My heart',
+    line2: 'belongs to you.',
+    showHeartBelow: true,
+    width: 4.0,
+    height: 2.0,
+  },
+  {
+    // Stage 2: T+11s Hugging Fish Couple Spotlight (Left side, right above the Hugging Fish Couple at u = 0.625!)
+    u: HUGGING_FISH_COUPLE_SPOTLIGHT_U,
+    camStartU: 0.607,
+    camHoldStartU: 0.613,
+    camHoldEndU: 0.620,
+    camEndU: 0.627,
+    lateralOffset: -2.25,
+    heightOffset: 2.62,
+    targetFov: 55.0,
+    zoneLabel: 'Underwater Reef · Hugging Fish Couple',
+    line1: 'En Kanmaniye...,',
+    line2: '🫶🏻',
+    showHeartBelow: false,
+    width: 3.7,
+    height: 1.85,
+  },
+  {
+    // Stage 3: T+18s Monumental Heart-Shaped Coral Reef Arch Crown
+    u: 0.666,
+    camStartU: 0.640,
+    camHoldStartU: 0.651,
+    camHoldEndU: 0.659,
+    camEndU: 0.666,
+    lateralOffset: 0.0,
+    heightOffset: 2.55,
+    targetFov: 56.0,
+    zoneLabel: 'Heart Coral Reef · "U r my happy place pattuma...."',
+    line1: 'U r my happy place pattuma....',
+    showHeartBelow: true,
+    width: 4.1,
+    height: 2.05,
+  },
+  {
+    // Stage 4: T+20s Bioluminescent Jellyfish Sanctuary Alcove (Right side)
+    u: 0.695,
+    camStartU: 0.670,
+    camHoldStartU: 0.680,
+    camHoldEndU: 0.688,
+    camEndU: 0.695,
+    lateralOffset: 2.65,
+    heightOffset: 2.1,
+    targetFov: 56.0,
+    zoneLabel: 'Bioluminescent Reef · "Every wave whispers your name."',
+    line1: 'Every wave whispers',
+    line2: 'your name.',
+    showHeartBelow: true,
+    width: 4.0,
+    height: 2.0,
+  },
+  {
+    // Stage 5: T+23s Underwater Heartline Element — Twin Glowing Heart Arches ("I LOVE YOU ❤️")
+    u: 0.722,
+    camStartU: 0.697,
+    camHoldStartU: 0.707,
+    camHoldEndU: 0.715,
+    camEndU: 0.723,
+    lateralOffset: 0.0,
+    heightOffset: 2.45,
+    targetFov: 56.0,
+    zoneLabel: 'Underwater Heartline — I LOVE YOU ❤️',
+    line1: 'I LOVE YOU',
+    showHeartBelow: false,
+    isGrandHeartline: true,
+    width: 4.9,
+    height: 2.45,
+  },
+  {
+    // Stage 6: T+26s Final Reef Sanctuary Vista before Open Sky Emergence (Left side)
+    u: 0.748,
+    camStartU: 0.724,
+    camHoldStartU: 0.733,
+    camHoldEndU: 0.741,
+    camEndU: 0.749,
+    lateralOffset: -2.55,
+    heightOffset: 2.05,
+    targetFov: 56.0,
+    zoneLabel: 'Final Reef Vista · "My pattuma 😘"',
+    line1: 'Forever & always,',
+    line2: 'My pattuma 😘',
+    showHeartBelow: true,
+    width: 4.1,
+    height: 2.05,
+  },
+];
+
+export function getUnderwaterTextStageWorldPos(
+  spline: HeartlineTrackSpline,
+  stageIndex: number,
+  outPos: THREE.Vector3
+): THREE.Vector3 {
+  const spec = UNDERWATER_TEXT_STAGE_SPECS[stageIndex];
+  spline.evaluateAtU(spec.u, _spotlightEvalFrame);
+  outPos
+    .copy(_spotlightEvalFrame.pos)
+    .addScaledVector(_spotlightEvalFrame.binormal, spec.lateralOffset)
+    .addScaledVector(_spotlightWorldUp, spec.heightOffset);
+  return outPos;
+}
+
 export interface HeartlineUnderwaterReef {
   readonly group: THREE.Group;
   update: (
@@ -18,14 +187,7 @@ export interface HeartlineUnderwaterReef {
 }
 
 interface ReefTextStage {
-  u: number;
-  line1: string;
-  line2?: string;
-  showHeartBelow: boolean;
-  isGrandHeartline?: boolean;
-  heightOffset: number;
-  width: number;
-  height: number;
+  spec: UnderwaterTextStageSpec;
   mesh?: THREE.Mesh;
   mat?: THREE.MeshBasicMaterial;
 }
@@ -76,6 +238,21 @@ interface SeaTurtleRig {
 interface LightRayRig {
   mesh: THREE.Mesh;
   baseOpacity: number;
+  phase: number;
+}
+
+interface HuggingFishCoupleRig {
+  root: THREE.Group;
+  embraceGroup: THREE.Group;
+  fishAGroup: THREE.Group;
+  fishBGroup: THREE.Group;
+  hugFinALeft: THREE.Mesh;
+  hugFinARight: THREE.Mesh;
+  hugFinBLeft: THREE.Mesh;
+  hugFinBRight: THREE.Mesh;
+  heartHaloGroup: THREE.Group;
+  basePos: THREE.Vector3;
+  baseYaw: number;
   phase: number;
 }
 
@@ -599,37 +776,145 @@ export function createHeartlineUnderwaterReef(
   };
   group.add(seabedMesh);
 
-  // Shimmering Water-Surface Plunge & Breach Splash Portals at Y = 0.05m (u = 0.553 and u = 0.778)
-  const splashRingGeo = tracker.track(new THREE.TorusGeometry(3.2, 0.28, 10, 28));
+  // ============================================================================
+  // 2B. ANIMATED WATER-ENTERING & BREACH SPLASH PORTALS (u = 0.553 & u = 0.778)
+  // ============================================================================
+  interface WaterPortalAnimRig {
+    portalU: number;
+    anchorPos: THREE.Vector3;
+    foamTorus: THREE.Mesh;
+    rippleRings: { mesh: THREE.Mesh; mat: THREE.MeshBasicMaterial; phaseOffset: number }[];
+    sprayCrown: THREE.Group;
+    sprayDroplets: {
+      mesh: THREE.Mesh;
+      dirX: number;
+      dirZ: number;
+      baseSpeedY: number;
+      radialSpeed: number;
+      phaseOffset: number;
+    }[];
+    vortexCurtain: THREE.Mesh;
+    vortexMat: THREE.MeshBasicMaterial;
+  }
+
+  const waterPortals: WaterPortalAnimRig[] = [];
+  const splashRingGeo = tracker.track(new THREE.TorusGeometry(3.15, 0.32, 12, 32));
   splashRingGeo.rotateX(Math.PI / 2);
   const splashFoamMat = tracker.track(
     new THREE.MeshBasicMaterial({
+      color: 0xe0f2fe,
+      transparent: true,
+      opacity: 0.82,
+    })
+  );
+  const dropletGeo = tracker.track(new THREE.OctahedronGeometry(0.16, 1));
+  const dropletMat = tracker.track(
+    new THREE.MeshBasicMaterial({
       color: 0xbae6fd,
       transparent: true,
-      opacity: 0.72,
+      opacity: 0.88,
     })
+  );
+  const crownSpikeGeo = tracker.track(new THREE.ConeGeometry(0.26, 1.45, 7));
+  crownSpikeGeo.translate(0, 0.72, 0);
+  const crownSpikeMat = tracker.track(
+    new THREE.MeshBasicMaterial({
+      color: 0x7dd3fc,
+      transparent: true,
+      opacity: 0.75,
+      side: THREE.DoubleSide,
+    })
+  );
+  const vortexCylGeo = tracker.track(
+    new THREE.CylinderGeometry(3.25, 2.55, 2.4, 24, 1, true)
   );
 
   for (const portalU of [0.553, 0.778]) {
     spline.evaluateAtU(portalU, sampleFrame);
-    const splashRing = new THREE.Mesh(splashRingGeo, splashFoamMat);
-    splashRing.position.set(sampleFrame.pos.x, 0.06, sampleFrame.pos.z);
-    group.add(splashRing);
+    const anchorPos = new THREE.Vector3(sampleFrame.pos.x, 0.06, sampleFrame.pos.z);
 
-    const outerRipple = new THREE.Mesh(
-      tracker.track(new THREE.RingGeometry(3.3, 4.8, 28)),
-      tracker.track(
+    const foamTorus = new THREE.Mesh(splashRingGeo, splashFoamMat);
+    foamTorus.position.copy(anchorPos);
+    group.add(foamTorus);
+
+    // 3 Concentric Expanding Water Surface Ripple Rings
+    const rippleRings: { mesh: THREE.Mesh; mat: THREE.MeshBasicMaterial; phaseOffset: number }[] = [];
+    for (let r = 0; r < 3; r++) {
+      const rMat = tracker.track(
         new THREE.MeshBasicMaterial({
-          color: 0x38bdf8,
+          color: r % 2 === 0 ? 0x38bdf8 : 0xbae6fd,
           transparent: true,
-          opacity: 0.42,
+          opacity: 0.55,
           side: THREE.DoubleSide,
+          depthWrite: false,
         })
-      )
+      );
+      const rMesh = new THREE.Mesh(
+        tracker.track(new THREE.RingGeometry(2.9, 3.45, 32)),
+        rMat
+      );
+      rMesh.rotation.x = -Math.PI / 2;
+      rMesh.position.set(anchorPos.x, 0.04 + r * 0.005, anchorPos.z);
+      group.add(rMesh);
+      rippleRings.push({ mesh: rMesh, mat: rMat, phaseOffset: r / 3 });
+    }
+
+    // Upward Water Splash Crown (16 radial water-sheet plumes around the entry/exit portal)
+    const sprayCrown = new THREE.Group();
+    sprayCrown.position.copy(anchorPos);
+    for (let k = 0; k < 16; k++) {
+      const ang = (k / 16) * Math.PI * 2;
+      const spike = new THREE.Mesh(crownSpikeGeo, crownSpikeMat);
+      spike.position.set(Math.cos(ang) * 3.05, 0, Math.sin(ang) * 3.05);
+      spike.rotation.y = -ang + Math.PI / 2;
+      spike.rotation.x = -0.34; // Tilt outward like a splash crown
+      sprayCrown.add(spike);
+    }
+    group.add(sprayCrown);
+
+    // 24 Animated Splash Spray Droplets & Bubble Burst Particles
+    const sprayDroplets: WaterPortalAnimRig['sprayDroplets'] = [];
+    for (let d = 0; d < 24; d++) {
+      const ang = (d / 24) * Math.PI * 2 + (d % 3) * 0.12;
+      const dMesh = new THREE.Mesh(dropletGeo, dropletMat);
+      dMesh.position.copy(anchorPos);
+      group.add(dMesh);
+      sprayDroplets.push({
+        mesh: dMesh,
+        dirX: Math.cos(ang),
+        dirZ: Math.sin(ang),
+        baseSpeedY: 3.2 + (d % 5) * 0.65,
+        radialSpeed: 1.4 + (d % 4) * 0.35,
+        phaseOffset: (d / 24) * 1.0,
+      });
+    }
+
+    // Submerged Plunge / Breach Bubble Vortex Tunnel Curtain right below the water surface
+    const vortexMat = tracker.track(
+      new THREE.MeshBasicMaterial({
+        map: causticFloorTex,
+        color: 0x7dd3fc,
+        transparent: true,
+        opacity: 0.42,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+        side: THREE.DoubleSide,
+      })
     );
-    outerRipple.rotation.x = -Math.PI / 2;
-    outerRipple.position.set(sampleFrame.pos.x, 0.04, sampleFrame.pos.z);
-    group.add(outerRipple);
+    const vortexCurtain = new THREE.Mesh(vortexCylGeo, vortexMat);
+    vortexCurtain.position.set(anchorPos.x, -1.05, anchorPos.z);
+    group.add(vortexCurtain);
+
+    waterPortals.push({
+      portalU,
+      anchorPos,
+      foamTorus,
+      rippleRings,
+      sprayCrown,
+      sprayDroplets,
+      vortexCurtain,
+      vortexMat,
+    });
   }
 
   // ============================================================================
@@ -750,10 +1035,10 @@ export function createHeartlineUnderwaterReef(
   // ============================================================================
   // 4. STORYBOARD CORAL ARCHES (T+03s First Reef, T+13s Coral Passage, T+18s Heart Reef)
   // ============================================================================
-  // A) T+03s First Reef Canopy Arch (u = 0.583) & T+13s Coral Passage Full Arch (u = 0.639)
+  // A) T+03s First Reef Canopy Arch (u = 0.573, wide & high so "Hey my world :}." at u = 0.586 is 100% unobstructed) & T+13s Coral Passage Full Arch (u = 0.639)
   for (const archSpec of [
-    { u: 0.583, radiusX: 4.8, radiusY: 4.4, rings: 2, ribCount: 16 },
-    { u: 0.639, radiusX: 4.6, radiusY: 4.3, rings: 4, ribCount: 18 },
+    { u: 0.573, radiusX: 5.5, radiusY: 5.0, yLift: 1.15, rings: 2, ribCount: 16 },
+    { u: 0.639, radiusX: 4.8, radiusY: 4.5, yLift: 0.85, rings: 4, ribCount: 18 },
   ]) {
     for (let r = 0; r < archSpec.rings; r++) {
       const ringU = archSpec.u + (r - (archSpec.rings - 1) * 0.5) * 0.0055;
@@ -764,7 +1049,7 @@ export function createHeartlineUnderwaterReef(
       for (let k = 0; k <= archSpec.ribCount; k++) {
         const theta = -Math.PI * 0.12 + (k / archSpec.ribCount) * (Math.PI * 1.24);
         const lx = Math.cos(theta) * archSpec.radiusX;
-        const ly = Math.sin(theta) * archSpec.radiusY + 0.65;
+        const ly = Math.sin(theta) * archSpec.radiusY + archSpec.yLift;
 
         const worldPt = new THREE.Vector3()
           .copy(sampleFrame.pos)
@@ -792,7 +1077,7 @@ export function createHeartlineUnderwaterReef(
     }
   }
 
-  // B) T+18s Monumental Heart-Shaped Coral Reef Arch at u = 0.667 ("You are my happy place.")
+  // B) T+18s Monumental Heart-Shaped Coral Reef Arch at u = 0.667 ("U r my happy place pattuma....")
   {
     spline.evaluateAtU(0.667, sampleFrame);
     _scratchForward.copy(sampleFrame.tangent).normalize();
@@ -1017,110 +1302,53 @@ export function createHeartlineUnderwaterReef(
   }
 
   // ============================================================================
-  // 6. WORLD-SPACE GLOWING ROMANTIC STORYBOARD MESSAGES
+  // 6. WORLD-SPACE GLOWING ROMANTIC STORYBOARD MESSAGES (OFF-TRACK REEF ALCOVES & HEART ARCHES)
   // ============================================================================
-  const textStages: ReefTextStage[] = [
-    {
-      // T+03s First Reef
-      u: 0.585,
-      line1: 'You are my world.',
-      showHeartBelow: true,
-      heightOffset: 2.35,
-      width: 6.4,
-      height: 3.2,
-    },
-    {
-      // T+08s Living Reef
-      u: 0.612,
-      line1: 'My heart',
-      line2: 'belongs to you.',
-      showHeartBelow: true,
-      heightOffset: 2.4,
-      width: 6.2,
-      height: 3.1,
-    },
-    {
-      // T+13s Coral Passage
-      u: 0.640,
-      line1: 'With you,',
-      line2: 'everything feels magical.',
-      showHeartBelow: false,
-      heightOffset: 2.25,
-      width: 6.5,
-      height: 3.25,
-    },
-    {
-      // T+18s Heart Reef
-      u: 0.668,
-      line1: 'You are my happy place.',
-      showHeartBelow: true,
-      heightOffset: 2.25,
-      width: 6.2,
-      height: 3.1,
-    },
-    {
-      // Extended Romantic Bridge Quote
-      u: 0.695,
-      line1: 'Every wave whispers',
-      line2: 'your name.',
-      showHeartBelow: true,
-      heightOffset: 2.35,
-      width: 6.0,
-      height: 3.0,
-    },
-    {
-      // T+23s Heartline Element — Grand Love Moment
-      u: 0.722,
-      line1: 'I LOVE YOU',
-      showHeartBelow: false,
-      isGrandHeartline: true,
-      heightOffset: 2.45,
-      width: 7.8,
-      height: 3.9,
-    },
-    {
-      // T+26s Final Reef Vista before Open Sky Emergence
-      u: 0.752,
-      line1: 'Forever & always,',
-      line2: 'into our sky of dreams.',
-      showHeartBelow: true,
-      heightOffset: 2.35,
-      width: 6.2,
-      height: 3.1,
-    },
-  ];
+  const textStages: ReefTextStage[] = UNDERWATER_TEXT_STAGE_SPECS.map((spec) => ({
+    spec,
+  }));
+
+  const approachFrame = createEmptyTrackFrame();
+  const stageBasePos = new THREE.Vector3();
 
   for (let i = 0; i < textStages.length; i++) {
     const st = textStages[i];
-    spline.evaluateAtU(st.u, sampleFrame);
+    const spec = st.spec;
+    getUnderwaterTextStageWorldPos(spline, i, stageBasePos);
+    // Aim each off-track reef quote directly toward the rider's seat eye position during the dedicated camera hold!
+    const midHoldU = (spec.camHoldStartU + spec.camHoldEndU) * 0.5;
+    spline.evaluateAtU(midHoldU, approachFrame);
 
     const tex = createGlowingRomanticTextTexture(
       tracker,
-      st.line1,
-      st.line2,
-      st.showHeartBelow,
-      st.isGrandHeartline
+      spec.line1,
+      spec.line2,
+      spec.showHeartBelow,
+      spec.isGrandHeartline
     );
 
     const mat = tracker.track(
       new THREE.MeshBasicMaterial({
         map: tex,
         transparent: true,
-        opacity: i === textStages.length - 1 ? 0.48 : 0.96,
+        opacity: 0.0,
         depthWrite: false,
-        side: THREE.FrontSide,
+        depthTest: false,
+        side: THREE.DoubleSide,
       })
     );
 
-    const planeGeo = tracker.track(new THREE.PlaneGeometry(st.width, st.height));
+    const planeGeo = tracker.track(new THREE.PlaneGeometry(spec.width, spec.height));
     const mesh = new THREE.Mesh(planeGeo, mat);
+    mesh.renderOrder = 18;
+    // Hidden by default — ONLY revealed after the dedicated camera movement turns toward this reef alcove / heart arch!
+    mesh.visible = false;
 
-    mesh.position.copy(sampleFrame.pos).add(new THREE.Vector3(0, st.heightOffset, 0));
-    // Face +Z directly toward the approaching train (-sampleFrame.tangent) so text is 100% upright & left-to-right!
+    mesh.position.copy(stageBasePos);
     mesh.lookAt(
-      mesh.position.x - sampleFrame.tangent.x * 12.0,
-      mesh.position.y - sampleFrame.tangent.y * 2.5,
-      mesh.position.z - sampleFrame.tangent.z * 12.0
+      approachFrame.pos.x,
+      approachFrame.pos.y + 1.72,
+      approachFrame.pos.z
     );
 
     st.mesh = mesh;
@@ -1300,6 +1528,211 @@ export function createHeartlineUnderwaterReef(
   group.add(bubblesMesh);
 
   // ============================================================================
+  // 7B. ROMANTIC HUGGING FISH COUPLES (WITH FLOATING HEART HALOS & WRAPPING FINS)
+  // ============================================================================
+  const huggingFishCouples: HuggingFishCoupleRig[] = [];
+  {
+    const partnerRoseMat = tracker.track(
+      new THREE.MeshStandardMaterial({
+        color: 0xfda4af,
+        emissive: 0xf43f5e,
+        emissiveIntensity: 0.48,
+        roughness: 0.22,
+        metalness: 0.1,
+      })
+    );
+    const partnerGoldFinMat = tracker.track(
+      new THREE.MeshStandardMaterial({
+        color: 0xfde047,
+        emissive: 0xfbbf24,
+        emissiveIntensity: 0.55,
+        roughness: 0.22,
+        metalness: 0.12,
+      })
+    );
+    const partnerRoseFinMat = tracker.track(
+      new THREE.MeshStandardMaterial({
+        color: 0xfbcfe8,
+        emissive: 0xec4899,
+        emissiveIntensity: 0.58,
+        roughness: 0.22,
+        metalness: 0.1,
+      })
+    );
+    const eyeDarkMat = tracker.track(
+      new THREE.MeshStandardMaterial({
+        color: 0x0f172a,
+        roughness: 0.1,
+        metalness: 0.2,
+      })
+    );
+    const eyeSparkleMat = tracker.track(
+      new THREE.MeshBasicMaterial({ color: 0xffffff })
+    );
+    const blushPinkMat = tracker.track(
+      new THREE.MeshBasicMaterial({
+        color: 0xf43f5e,
+        transparent: true,
+        opacity: 0.78,
+      })
+    );
+
+    // Shared geometries for the hugging fish partners
+    const cuddleBodyGeo = tracker.track(new THREE.SphereGeometry(0.38, 16, 14));
+    cuddleBodyGeo.scale(0.62, 1.08, 0.86);
+
+    const cuddleCrownFinGeo = tracker.track(new THREE.ConeGeometry(0.18, 0.44, 6));
+    cuddleCrownFinGeo.scale(0.35, 1.0, 1.15);
+    cuddleCrownFinGeo.translate(0, 0.45, -0.05);
+
+    const cuddleTailFinGeo = tracker.track(new THREE.ConeGeometry(0.28, 0.42, 6));
+    cuddleTailFinGeo.scale(0.35, 1.0, 1.1);
+    cuddleTailFinGeo.rotateX(Math.PI);
+    cuddleTailFinGeo.translate(0, -0.52, -0.04);
+
+    // Pectoral "Hugging Arm" Fin Geometry (pivoted at shoulder so rotation.y wraps around partner!)
+    const hugArmFinGeo = tracker.track(new THREE.SphereGeometry(0.22, 12, 10));
+    hugArmFinGeo.scale(0.28, 0.52, 1.35);
+    hugArmFinGeo.translate(0, 0, 0.24);
+
+    const eyeGeo = tracker.track(new THREE.SphereGeometry(0.058, 10, 10));
+    const catchlightGeo = tracker.track(new THREE.SphereGeometry(0.022, 8, 8));
+    const blushGeo = tracker.track(new THREE.SphereGeometry(0.052, 10, 8));
+    blushGeo.scale(0.45, 0.75, 1.1);
+
+    // Floating 3D Heart Halo above each Hugging Couple
+    const miniHeartPts: THREE.Vector3[] = [];
+    for (let i = 0; i <= 36; i++) {
+      const t = (i / 36) * Math.PI * 2;
+      const hx = 16 * Math.pow(Math.sin(t), 3) * 0.026;
+      const hy =
+        (13 * Math.cos(t) -
+          5 * Math.cos(2 * t) -
+          2 * Math.cos(3 * t) -
+          Math.cos(4 * t)) *
+        0.024;
+      miniHeartPts.push(new THREE.Vector3(hx, hy, 0));
+    }
+    const miniHeartCurve = new THREE.CatmullRomCurve3(miniHeartPts, true);
+    const miniHeartTubeGeo = tracker.track(
+      new THREE.TubeGeometry(miniHeartCurve, 36, 0.042, 8, true)
+    );
+    const miniHeartCoreGeo = tracker.track(new THREE.OctahedronGeometry(0.12, 1));
+
+    function createHuggingPartner(
+      bodyMat: THREE.Material,
+      finMat: THREE.Material
+    ): {
+      fishGroup: THREE.Group;
+      leftHugFin: THREE.Mesh;
+      rightHugFin: THREE.Mesh;
+    } {
+      const fishGroup = new THREE.Group();
+
+      const body = new THREE.Mesh(cuddleBodyGeo, bodyMat);
+      const crownFin = new THREE.Mesh(cuddleCrownFinGeo, finMat);
+      const tailFin = new THREE.Mesh(cuddleTailFinGeo, finMat);
+      fishGroup.add(body, crownFin, tailFin);
+
+      for (const side of [-1, 1]) {
+        const eye = new THREE.Mesh(eyeGeo, eyeDarkMat);
+        eye.position.set(side * 0.19, 0.14, 0.21);
+        const catchlight = new THREE.Mesh(catchlightGeo, eyeSparkleMat);
+        catchlight.position.set(side * 0.22, 0.16, 0.24);
+        const blush = new THREE.Mesh(blushGeo, blushPinkMat);
+        blush.position.set(side * 0.21, 0.04, 0.19);
+        fishGroup.add(eye, catchlight, blush);
+      }
+
+      const leftHugFin = new THREE.Mesh(hugArmFinGeo, finMat);
+      leftHugFin.position.set(0.21, 0.02, 0.12);
+      leftHugFin.rotation.y = -0.38;
+
+      const rightHugFin = new THREE.Mesh(hugArmFinGeo, finMat);
+      rightHugFin.position.set(-0.21, 0.02, 0.12);
+      rightHugFin.rotation.y = 0.38;
+
+      fishGroup.add(leftHugFin, rightHugFin);
+      return { fishGroup, leftHugFin, rightHugFin };
+    }
+
+    const coupleSpecs = [
+      // Couple #1: Hero Spotlight Couple at u = 0.625 (Featured in Cinematic Camera Zoom!)
+      { u: HUGGING_FISH_COUPLE_SPOTLIGHT_U, lat: -2.25, vert: 1.68, scale: 1.48, isSpotlight: true },
+      // Couple #2: First Reef / Living Reef Couple at u = 0.598
+      { u: 0.598, lat: 2.35, vert: 1.58, scale: 1.28, isSpotlight: false },
+      // Couple #3: Post-Heart Reef Couple at u = 0.684
+      { u: 0.684, lat: -2.35, vert: 1.62, scale: 1.32, isSpotlight: false },
+    ];
+
+    for (let cIdx = 0; cIdx < coupleSpecs.length; cIdx++) {
+      const spec = coupleSpecs[cIdx];
+      spline.evaluateAtU(spec.u, sampleFrame);
+      spline.evaluateAtU(spec.u - 0.012, approachFrame);
+
+      const basePos = new THREE.Vector3()
+        .copy(sampleFrame.pos)
+        .addScaledVector(sampleFrame.binormal, spec.lat)
+        .addScaledVector(_worldUp, spec.vert);
+
+      const root = new THREE.Group();
+      root.position.copy(basePos);
+      // Orient the couple so the approaching rider sees both hugging fish in a clear three-quarter / side-frontal profile
+      const toRiderX = approachFrame.pos.x - basePos.x;
+      const toRiderZ = approachFrame.pos.z - basePos.z;
+      const baseYaw = Math.atan2(toRiderX, toRiderZ);
+      root.rotation.y = baseYaw;
+      root.scale.setScalar(spec.scale);
+
+      const embraceGroup = new THREE.Group();
+      root.add(embraceGroup);
+
+      // Partner A (Left: Royal Blue & Golden-Yellow Striped Tang/Angelfish) facing right (+X) & slightly toward rider (+Z)
+      const partnerA = createHuggingPartner(stripedTangFishMat, partnerGoldFinMat);
+      partnerA.fishGroup.position.set(-0.22, 0.0, 0.0);
+      partnerA.fishGroup.rotation.set(0.08, Math.PI * 0.42, -0.14);
+      embraceGroup.add(partnerA.fishGroup);
+
+      // Partner B (Right: Pastel Rose-Coral & Pearl Angelfish) facing left (-X) & nuzzling Partner A
+      const partnerB = createHuggingPartner(partnerRoseMat, partnerRoseFinMat);
+      partnerB.fishGroup.position.set(0.22, -0.02, 0.04);
+      partnerB.fishGroup.rotation.set(0.08, -Math.PI * 0.42, 0.14);
+      embraceGroup.add(partnerB.fishGroup);
+
+      // Glowing 3D Heart Halo floating above the Hugging Fish Couple
+      const heartHaloGroup = new THREE.Group();
+      heartHaloGroup.position.set(0, 0.76, 0);
+      const heartLoopMesh = new THREE.Mesh(miniHeartTubeGeo, glowingHeartlinePinkMat);
+      const heartCoreMesh = new THREE.Mesh(miniHeartCoreGeo, glowingHeartlineBlueMat);
+      heartHaloGroup.add(heartLoopMesh, heartCoreMesh);
+      root.add(heartHaloGroup);
+
+      // Subtle glowing coral spotlight on the Hero Couple so it gleams during the cinematic zoom
+      if (spec.isSpotlight) {
+        const coupleLight = new THREE.PointLight(0xfda4af, 2.2, 9.0, 1.5);
+        coupleLight.position.set(0, 0.55, 0.65);
+        root.add(coupleLight);
+      }
+
+      group.add(root);
+      huggingFishCouples.push({
+        root,
+        embraceGroup,
+        fishAGroup: partnerA.fishGroup,
+        fishBGroup: partnerB.fishGroup,
+        hugFinALeft: partnerA.leftHugFin,
+        hugFinARight: partnerA.rightHugFin,
+        hugFinBLeft: partnerB.leftHugFin,
+        hugFinBRight: partnerB.rightHugFin,
+        heartHaloGroup,
+        basePos,
+        baseYaw,
+        phase: cIdx * 1.7,
+      });
+    }
+  }
+
+  // ============================================================================
   // 8. PER-FRAME ZERO-ALLOCATION CHOREOGRAPHY & MARINE LIFE UPDATE
   // ============================================================================
   function updateFishSchool(
@@ -1442,24 +1875,143 @@ export function createHeartlineUnderwaterReef(
     glowingHeartlineBlueMat.emissiveIntensity = hlPulse;
     glowingHeartlinePinkMat.emissiveIntensity = hlPulse;
 
-    // 8. Smooth proximity pulse on each storyboard world-space romantic quote as the train approaches
+    // 7B. Animate Hugging Fish Couples (affectionate fin-squeeze embrace, cheek nuzzle & pulsing heart halo)
+    for (let i = 0; i < huggingFishCouples.length; i++) {
+      const hc = huggingFishCouples[i];
+      const t = elapsedTime * 2.4 + hc.phase;
+      const bobY = Math.sin(t) * 0.11;
+      const swayYaw = Math.sin(t * 0.75) * 0.18;
+      hc.root.position.set(hc.basePos.x, hc.basePos.y + bobY, hc.basePos.z);
+      hc.root.rotation.y = hc.baseYaw + swayYaw;
+
+      // Gentle rhythmic cuddle rock & fin-patting hug motion
+      hc.embraceGroup.rotation.z = Math.sin(t * 1.2) * 0.07;
+      const hugSqueeze = Math.sin(elapsedTime * 4.2 + hc.phase) * 0.24;
+      hc.hugFinALeft.rotation.y = -0.45 - hugSqueeze;
+      hc.hugFinARight.rotation.y = 0.45 + hugSqueeze;
+      hc.hugFinBLeft.rotation.y = -0.45 - hugSqueeze;
+      hc.hugFinBRight.rotation.y = 0.45 + hugSqueeze;
+
+      // Nuzzle tilt
+      hc.fishAGroup.rotation.z = -0.14 + Math.sin(t * 1.5) * 0.05;
+      hc.fishBGroup.rotation.z = 0.14 - Math.sin(t * 1.5) * 0.05;
+
+      // Floating Heart Halo pulse above the hugging pair
+      const heartScale = 1.0 + Math.sin(elapsedTime * 4.2 + hc.phase) * 0.14;
+      hc.heartHaloGroup.position.y = 0.76 + Math.cos(t * 1.4) * 0.06;
+      hc.heartHaloGroup.rotation.y = Math.sin(elapsedTime * 1.8 + hc.phase) * 0.28;
+      hc.heartHaloGroup.scale.set(heartScale, heartScale, heartScale);
+    }
+
+    // 8. Animate Water-Entering & Water-Breaching Splash Portals (ripples, splash crowns, droplet fountain & plunge vortex)
+    for (let p = 0; p < waterPortals.length; p++) {
+      const wp = waterPortals[p];
+      const uDist = Math.abs(leadU - wp.portalU);
+      // Dramatic surge when the coaster train physically plunges into (u ~ 0.553) or breaches out of (u ~ 0.778) the water!
+      const trainSplashSurge = uDist < 0.032 ? 1.0 - uDist / 0.032 : 0.0;
+      const surgeBoost = 1.0 + trainSplashSurge * 1.45;
+
+      // Foam collar pulse
+      const foamScale = 1.0 + Math.sin(elapsedTime * 3.8 + p) * 0.06 + trainSplashSurge * 0.22;
+      wp.foamTorus.scale.set(foamScale, foamScale, 1.0 + trainSplashSurge * 0.45);
+      wp.foamTorus.rotation.z = elapsedTime * 0.65 * (p === 0 ? 1 : -1);
+
+      // Expanding concentric surface ripple rings
+      for (let r = 0; r < wp.rippleRings.length; r++) {
+        const rr = wp.rippleRings[r];
+        const cycle = (elapsedTime * (0.55 + trainSplashSurge * 0.65) + rr.phaseOffset) % 1.0;
+        const rScale = 1.0 + cycle * (1.15 + trainSplashSurge * 0.75);
+        rr.mesh.scale.set(rScale, rScale, 1.0);
+        rr.mat.opacity = (1.0 - cycle) * (0.48 + trainSplashSurge * 0.38);
+      }
+
+      // Splash Crown plumes surging upward on water entry / exit
+      const crownHeight = (0.55 + Math.sin(elapsedTime * 4.5 + p) * 0.18) * surgeBoost;
+      const crownSpread = 1.0 + trainSplashSurge * 0.28;
+      wp.sprayCrown.scale.set(crownSpread, crownHeight, crownSpread);
+      wp.sprayCrown.rotation.y = elapsedTime * 0.45 * (p === 0 ? 1 : -1);
+
+      // Parabolic water spray droplets & bubble burst fountain
+      for (let d = 0; d < wp.sprayDroplets.length; d++) {
+        const sd = wp.sprayDroplets[d];
+        const tDrop = (elapsedTime * (0.95 + trainSplashSurge * 0.85) + sd.phaseOffset) % 1.0;
+        const rad = (2.85 + tDrop * sd.radialSpeed * 2.1 * surgeBoost);
+        const yArc =
+          (sd.baseSpeedY * surgeBoost * tDrop - 4.9 * tDrop * tDrop) * 0.85;
+        sd.mesh.position.set(
+          wp.anchorPos.x + sd.dirX * rad,
+          wp.anchorPos.y + Math.max(0.02, yArc),
+          wp.anchorPos.z + sd.dirZ * rad
+        );
+        const dScale = (1.0 - tDrop * 0.65) * (0.85 + trainSplashSurge * 0.55);
+        sd.mesh.scale.setScalar(Math.max(0.05, dScale));
+      }
+
+      // Swirling underwater bubble-vortex curtain right below the plunge/breach portal
+      wp.vortexCurtain.rotation.y = elapsedTime * (1.2 + trainSplashSurge * 1.8) * (p === 0 ? 1 : -1);
+      wp.vortexMat.opacity = 0.34 + trainSplashSurge * 0.48;
+    }
+
+    // 9. Camera-Choreographed Underwater Text Reveal:
+    // Each quote is placed in an off-track reef alcove / heart arch crown and is ONLY visible
+    // after the dedicated camera movement turns & zooms toward that reef feature!
+    const isRiderSubmerged = isPlayerRiding && leadU >= 0.542 && leadU <= 0.782;
+    spline.evaluateAtU(THREE.MathUtils.clamp(leadU, 0.54, 0.77), approachFrame);
+
     for (let i = 0; i < textStages.length; i++) {
       const st = textStages[i];
       if (!st.mesh || !st.mat) continue;
-      const deltaU = st.u - leadU;
-      let scaleBoost = 1.0;
-      if (deltaU >= -0.008 && deltaU <= 0.032) {
-        const prox = 1.0 - Math.abs(deltaU - 0.012) / 0.02;
-        scaleBoost = 1.0 + Math.max(0, prox) * 0.08;
+      const spec = st.spec;
+
+      if (!isRiderSubmerged || leadU < spec.camStartU || leadU > spec.camEndU) {
+        // Strictly hidden until the dedicated camera movement begins for this stage!
+        st.mesh.visible = false;
+        st.mat.opacity = 0.0;
+        continue;
       }
-      const gentleFloat = Math.sin(elapsedTime * 2.2 + i * 0.9) * 0.08;
-      spline.evaluateAtU(st.u, sampleFrame);
+
+      // Compute dedicated camera focus weight: text fades in as the camera turns toward the alcove/arch and stays 100% focused during the pause hold
+      let camFocusWeight = 0;
+      if (leadU < spec.camHoldStartU) {
+        camFocusWeight = THREE.MathUtils.smoothstep(
+          leadU,
+          spec.camStartU + (spec.camHoldStartU - spec.camStartU) * 0.15,
+          spec.camHoldStartU
+        );
+      } else if (leadU <= spec.camHoldEndU) {
+        camFocusWeight = 1.0;
+      } else {
+        camFocusWeight =
+          1.0 -
+          THREE.MathUtils.smoothstep(leadU, spec.camHoldEndU, spec.camEndU);
+      }
+
+      if (camFocusWeight <= 0.01) {
+        st.mesh.visible = false;
+        st.mat.opacity = 0.0;
+        continue;
+      }
+
+      st.mesh.visible = true;
+      const maxStageOpacity = i === textStages.length - 1 ? 0.58 : 0.99;
+      st.mat.opacity = camFocusWeight * maxStageOpacity;
+
+      const scaleBoost = 0.88 + camFocusWeight * 0.08;
+      const gentleFloat = Math.sin(elapsedTime * 2.2 + i * 0.9) * 0.05;
+      getUnderwaterTextStageWorldPos(spline, i, stageBasePos);
       st.mesh.position.set(
-        sampleFrame.pos.x,
-        sampleFrame.pos.y + st.heightOffset + gentleFloat,
-        sampleFrame.pos.z
+        stageBasePos.x,
+        stageBasePos.y + gentleFloat,
+        stageBasePos.z
       );
       st.mesh.scale.set(scaleBoost, scaleBoost, 1.0);
+
+      // Face the quote plane directly toward the rider's seat eye position so the entire text is square-on to the camera
+      st.mesh.lookAt(
+        approachFrame.pos.x,
+        approachFrame.pos.y + 1.82,
+        approachFrame.pos.z
+      );
     }
   }
 

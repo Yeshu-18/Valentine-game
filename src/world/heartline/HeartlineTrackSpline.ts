@@ -159,8 +159,8 @@ export const HEARTLINE_TRACK_ZONES: readonly TrackZoneDescriptor[] = [
 // Canonical World Anchor Coordinates for the Northeast Spectacular Thrill Zone Precinct (strictly z >= 65.0, clear of Castle Rear Garden z <= 56.5)
 export const LOVE_MEADOW_CENTER = new THREE.Vector3(90.0, 17.6, 110.0);
 export const DREAM_CASTLE_SPIRE_TARGET = new THREE.Vector3(88.0, 28.0, 18.0);
-export const STATION_BOARDING_POS = new THREE.Vector3(70.0, 12.85, 80.8);
-export const STATION_EXIT_POS = new THREE.Vector3(70.0, 12.85, 75.2);
+export const STATION_BOARDING_POS = new THREE.Vector3(70.0, 13.255, 80.8);
+export const STATION_EXIT_POS = new THREE.Vector3(70.0, 13.255, 75.2);
 export const TICKET_BOOTH_POS = new THREE.Vector3(55.0, 12.5, 71.0);
 export const ENTRANCE_ARCH_POS = new THREE.Vector3(46.0, 12.5, 65.0);
 export const VIEWING_DECK_POS = new THREE.Vector3(65.5, 13.3, 86.5);

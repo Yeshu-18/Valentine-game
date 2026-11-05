@@ -1848,7 +1848,10 @@ export function createPlayerController(
       dismountBroomAndReturnToStand();
     }
     const groundY = getTerrainHeight(x, z);
-    playerPos.set(x, groundY, z);
+    const surfaceY = heartline
+      ? heartline.getSurfaceHeight(x, z, groundY)
+      : groundY;
+    playerPos.set(x, surfaceY, z);
     playerVelocity.set(0, 0, 0);
     verticalVel = 0;
     isGrounded = true;
@@ -3139,12 +3142,19 @@ export function createPlayerController(
             dreamCastle.nav.resolveEntranceDoorBarrier(playerPos, PLAYER_RADIUS);
             dreamCastle.nav.resolveCastleWallCollisions(playerPos, PLAYER_RADIUS);
           }
+          // Enforce 100% closed physical balustrade collision around the Heartline Crystal Lagoon Skywalk & Lover's Heart Bridge
+          if (heartline) {
+            heartline.resolveSkywalkBarriers(playerPos, PLAYER_RADIUS);
+          }
         }
 
         const groundY = getTerrainHeight(playerPos.x, playerPos.z);
-        const surfaceY = dreamCastle
+        const castleOrGroundY = dreamCastle
           ? dreamCastle.getSurfaceHeight(playerPos.x, playerPos.z, playerPos.y, groundY)
           : groundY;
+        const surfaceY = heartline
+          ? heartline.getSurfaceHeight(playerPos.x, playerPos.z, castleOrGroundY)
+          : castleOrGroundY;
         if (isElevatorFpv && dreamCastle) {
           playerPos.y = dreamCastle.nav.elevatorCabinY;
           verticalVel = 0;
@@ -3445,12 +3455,15 @@ export function createPlayerController(
             _desiredCamPos.x,
             _desiredCamPos.z,
           );
-          const camSurface = dreamCastle
+          const camCastleOrGround = dreamCastle
             ? Math.max(
                 camGround,
                 dreamCastle.getSurfaceHeight(_desiredCamPos.x, _desiredCamPos.z, playerPos.y, camGround),
               )
             : camGround;
+          const camSurface = heartline
+            ? heartline.getSurfaceHeight(_desiredCamPos.x, _desiredCamPos.z, camCastleOrGround)
+            : camCastleOrGround;
           if (_desiredCamPos.y < camSurface + 0.75) {
             _desiredCamPos.y = camSurface + 0.75;
           }

@@ -30,6 +30,8 @@ import { createHeartlineUnderwaterReef } from './HeartlineUnderwaterReef';
 export interface HeartlinePrecinctManager {
   readonly group: THREE.Group;
   readonly colliders: THREE.Box3[];
+  getSurfaceHeight: (x: number, z: number, baseGroundY: number) => number;
+  resolveSkywalkBarriers: (playerPos: THREE.Vector3, playerRadius: number) => void;
   getProximityPrompt: (playerPos: THREE.Vector3) => string | null;
   handleKeyAction: (key: string, playerPos: THREE.Vector3) => boolean;
   interact: (playerPos: THREE.Vector3) => boolean;
@@ -1704,6 +1706,470 @@ export function createHeartlinePrecinct(): HeartlinePrecinctManager {
   group.add(canopiesInst);
   group.add(hydrangeasInst);
 
+  // ============================================================================
+  // 9B. ROMANTIC LOVER'S CRYSTAL HEART BRIDGE, ROTUNDA & LAGOON SKYWALK
+  // ============================================================================
+  interface SkywalkBarrierSegment {
+    x1: number;
+    z1: number;
+    x2: number;
+    z2: number;
+  }
+  const skywalkBarrierSegments: SkywalkBarrierSegment[] = [];
+  const floatingBridgeHeartCrystals: THREE.Object3D[] = [];
+
+  {
+    const skywalkGroup = new THREE.Group();
+    skywalkGroup.name = 'CrystalGlassLagoonSkywalk';
+
+    const crystalWalkwayGlassMat = tracker.track(
+      new THREE.MeshPhysicalMaterial({
+        color: 0x38bdf8,
+        emissive: 0x0284c7,
+        emissiveIntensity: 0.24,
+        roughness: 0.08,
+        metalness: 0.08,
+        transmission: 0.55,
+        transparent: true,
+        opacity: 0.54,
+        depthWrite: false,
+        side: THREE.DoubleSide,
+      })
+    );
+
+    const balustradeGlassMat = tracker.track(
+      new THREE.MeshPhysicalMaterial({
+        color: 0xbae6fd,
+        emissive: 0x0284c7,
+        emissiveIntensity: 0.3,
+        roughness: 0.1,
+        metalness: 0.1,
+        transmission: 0.5,
+        transparent: true,
+        opacity: 0.52,
+        depthWrite: false,
+        side: THREE.DoubleSide,
+      })
+    );
+
+    const romanticRoseGlowMat = tracker.track(
+      new THREE.MeshStandardMaterial({
+        color: 0xf472b6,
+        emissive: 0xec4899,
+        emissiveIntensity: 0.95,
+        roughness: 0.18,
+        metalness: 0.22,
+      })
+    );
+
+    const softBlushPetalMat = tracker.track(
+      new THREE.MeshStandardMaterial({
+        color: 0xfda4af,
+        emissive: 0xf43f5e,
+        emissiveIntensity: 0.38,
+        roughness: 0.32,
+        metalness: 0.08,
+      })
+    );
+
+    const warmLanternHeartMat = tracker.track(
+      new THREE.MeshStandardMaterial({
+        color: 0xffe4e6,
+        emissive: 0xfb7185,
+        emissiveIntensity: 1.25,
+        roughness: 0.14,
+      })
+    );
+
+    const DECK_Y = 12.55;
+    const DECK_THICK = 0.22;
+
+    function addGlassDeckSection(
+      minX: number,
+      maxX: number,
+      minZ: number,
+      maxZ: number,
+      topY = DECK_Y,
+      useRoseAccent = false
+    ): void {
+      const w = maxX - minX;
+      const d = maxZ - minZ;
+      const cx = (minX + maxX) * 0.5;
+      const cz = (minZ + maxZ) * 0.5;
+
+      // Transparent Crystal-Glass Floor Slab
+      const slabGeo = tracker.track(new THREE.BoxGeometry(w, DECK_THICK, d));
+      const slabMesh = new THREE.Mesh(slabGeo, crystalWalkwayGlassMat);
+      slabMesh.position.set(cx, topY - DECK_THICK * 0.5, cz);
+      slabMesh.renderOrder = 4;
+      skywalkGroup.add(slabMesh);
+
+      // Outer & Inner Pearl-and-Gold Structural Edge Curbs + Dual Cyan/Rose LED Trim
+      const curbAlongX = w >= d;
+      const accentMat = useRoseAccent ? romanticRoseGlowMat : cyanCrystalMat;
+      if (curbAlongX) {
+        const curbGeo = tracker.track(new THREE.BoxGeometry(w, DECK_THICK + 0.06, 0.24));
+        const glowStripGeo = tracker.track(new THREE.BoxGeometry(w, 0.045, 0.09));
+        for (const zEdge of [minZ + 0.12, maxZ - 0.12]) {
+          const curb = new THREE.Mesh(curbGeo, pearlStoneMat);
+          curb.position.set(cx, topY - DECK_THICK * 0.5 + 0.01, zEdge);
+          const glow = new THREE.Mesh(glowStripGeo, accentMat);
+          glow.position.set(cx, topY + 0.025, zEdge);
+          skywalkGroup.add(curb, glow);
+        }
+        const ribCount = Math.max(2, Math.floor(w / 4.2));
+        const ribGeo = tracker.track(new THREE.BoxGeometry(0.22, DECK_THICK + 0.03, d - 0.2));
+        for (let i = 0; i <= ribCount; i++) {
+          const rx = minX + (i / ribCount) * w;
+          const rib = new THREE.Mesh(ribGeo, champagneGoldMat);
+          rib.position.set(rx, topY - DECK_THICK * 0.5, cz);
+          skywalkGroup.add(rib);
+        }
+      } else {
+        const curbGeo = tracker.track(new THREE.BoxGeometry(0.26, DECK_THICK + 0.06, d));
+        const glowStripGeo = tracker.track(new THREE.BoxGeometry(0.09, 0.045, d));
+        const innerRoseStripGeo = tracker.track(new THREE.BoxGeometry(0.06, 0.045, d));
+        for (const side of [-1, 1]) {
+          const xEdge = side < 0 ? minX + 0.13 : maxX - 0.13;
+          const curb = new THREE.Mesh(curbGeo, pearlStoneMat);
+          curb.position.set(xEdge, topY - DECK_THICK * 0.5 + 0.01, cz);
+          const glow = new THREE.Mesh(glowStripGeo, accentMat);
+          glow.position.set(xEdge, topY + 0.026, cz);
+          const innerCyan = new THREE.Mesh(innerRoseStripGeo, cyanCrystalMat);
+          innerCyan.position.set(xEdge - side * 0.18, topY + 0.022, cz);
+          skywalkGroup.add(curb, glow, innerCyan);
+        }
+        const ribCount = Math.max(2, Math.floor(d / 3.0));
+        const ribGeo = tracker.track(new THREE.BoxGeometry(w - 0.2, DECK_THICK + 0.03, 0.24));
+        for (let i = 0; i <= ribCount; i++) {
+          const rz = minZ + (i / ribCount) * d;
+          const rib = new THREE.Mesh(ribGeo, champagneGoldMat);
+          rib.position.set(cx, topY - DECK_THICK * 0.5, rz);
+          skywalkGroup.add(rib);
+        }
+      }
+    }
+
+    // 1. South Crystal Glass Promenade (x: 76.5..144.8, z: 62.0..66.2)
+    addGlassDeckSection(76.5, 144.8, 62.0, 66.2, DECK_Y, false);
+
+    // 2. North Crystal Glass Promenade (x: 76.5..144.8, z: 90.2..94.4)
+    addGlassDeckSection(76.5, 144.8, 90.2, 94.4, DECK_Y, false);
+
+    // 3. East Crystal Glass Overlook Terrace (x: 140.5..144.8, z: 66.2..90.2)
+    addGlassDeckSection(140.5, 144.8, 66.2, 90.2, DECK_Y, false);
+
+    // 4. West Station-to-Lagoon Connector Deck (x: 76.5..80.6, z: 66.2..90.2)
+    addGlassDeckSection(76.5, 80.6, 66.2, 90.2, DECK_Y, false);
+
+    // 5. Central Lover's Crystal Heart Bridge (x: 111.0..116.5, z: 66.2..90.2)
+    addGlassDeckSection(111.0, 116.5, 66.2, 90.2, DECK_Y + 0.01, true);
+
+    // 6. Central Circular "Lover's Overlook Rotunda" Deck at Bridge Midpoint (113.75, 78.2, radius = 4.15m)
+    const rotundaCylGeo = tracker.track(new THREE.CylinderGeometry(4.15, 4.15, DECK_THICK, 36));
+    const rotundaSlab = new THREE.Mesh(rotundaCylGeo, crystalWalkwayGlassMat);
+    rotundaSlab.position.set(113.75, DECK_Y + 0.01 - DECK_THICK * 0.5, 78.2);
+    rotundaSlab.renderOrder = 4;
+    skywalkGroup.add(rotundaSlab);
+
+    const rotundaGoldRimGeo = tracker.track(new THREE.RingGeometry(3.88, 4.16, 40));
+    rotundaGoldRimGeo.rotateX(-Math.PI / 2);
+    const rotundaGoldRim = new THREE.Mesh(rotundaGoldRimGeo, champagneGoldMat);
+    rotundaGoldRim.position.set(113.75, DECK_Y + 0.025, 78.2);
+    skywalkGroup.add(rotundaGoldRim);
+
+    const rotundaRoseInnerRingGeo = tracker.track(new THREE.RingGeometry(2.35, 2.55, 36));
+    rotundaRoseInnerRingGeo.rotateX(-Math.PI / 2);
+    const rotundaRoseRing = new THREE.Mesh(rotundaRoseInnerRingGeo, romanticRoseGlowMat);
+    rotundaRoseRing.position.set(113.75, DECK_Y + 0.028, 78.2);
+    skywalkGroup.add(rotundaRoseRing);
+
+    // 7. Parametric 3D Heart Geometry Helper for Overhead Heart Arches, Floor Medallions & Chandeliers
+    function buildHeartTubeGeo(
+      scaleX: number,
+      scaleY: number,
+      tubeRadius: number,
+      tubularSegments = 56
+    ): THREE.TubeGeometry {
+      const pts: THREE.Vector3[] = [];
+      for (let i = 0; i <= tubularSegments; i++) {
+        const t = (i / tubularSegments) * Math.PI * 2;
+        const hx = 16 * Math.pow(Math.sin(t), 3) * scaleX;
+        const hy =
+          (13 * Math.cos(t) -
+            5 * Math.cos(2 * t) -
+            2 * Math.cos(3 * t) -
+            Math.cos(4 * t)) *
+          scaleY;
+        pts.push(new THREE.Vector3(hx, hy, 0));
+      }
+      const curve = new THREE.CatmullRomCurve3(pts, true);
+      return tracker.track(new THREE.TubeGeometry(curve, tubularSegments, tubeRadius, 10, true));
+    }
+
+    // 5 Inlaid Glowing Heart Stepping Medallions down the centerline of the Lover's Bridge (x = 113.75)
+    const floorHeartGeo = buildHeartTubeGeo(0.065, 0.062, 0.045, 40);
+    floorHeartGeo.rotateX(-Math.PI / 2);
+    const floorMedallionRingGeo = tracker.track(new THREE.RingGeometry(1.12, 1.25, 28));
+    floorMedallionRingGeo.rotateX(-Math.PI / 2);
+    const bridgeMedallionZs = [69.5, 73.8, 78.2, 82.6, 86.9];
+    for (let m = 0; m < bridgeMedallionZs.length; m++) {
+      const mz = bridgeMedallionZs[m];
+      const isCenter = m === 2;
+      const heartInlay = new THREE.Mesh(
+        floorHeartGeo,
+        m % 2 === 0 ? romanticRoseGlowMat : cyanCrystalMat
+      );
+      heartInlay.position.set(113.75, DECK_Y + 0.03, mz);
+      const s = isCenter ? 1.55 : 1.0;
+      heartInlay.scale.set(s, 1.0, s);
+      skywalkGroup.add(heartInlay);
+
+      const mRing = new THREE.Mesh(floorMedallionRingGeo, champagneGoldMat);
+      mRing.position.set(113.75, DECK_Y + 0.024, mz);
+      mRing.scale.setScalar(isCenter ? 1.45 : 0.92);
+      skywalkGroup.add(mRing);
+    }
+
+    // 8. 5 Grand Overhead Glowing Twin-Heart Floral & Crystal Arches spanning the Lover's Bridge!
+    const archOuterHeartGeo = buildHeartTubeGeo(0.22, 0.195, 0.095, 64);
+    const archInnerHeartGeo = buildHeartTubeGeo(0.198, 0.175, 0.055, 64);
+    const chandelierHeartGeo = buildHeartTubeGeo(0.036, 0.034, 0.035, 36);
+    const chandelierCoreGeo = tracker.track(new THREE.OctahedronGeometry(0.18, 1));
+    const blossomGeo = tracker.track(new THREE.DodecahedronGeometry(0.16, 0));
+    const archPedestalGeo = tracker.track(new THREE.CylinderGeometry(0.26, 0.34, 0.65, 12));
+
+    const archLocationsZ = [67.4, 72.8, 78.2, 83.6, 89.0];
+    for (let a = 0; a < archLocationsZ.length; a++) {
+      const az = archLocationsZ[a];
+      const isCenterRotundaArch = a === 2;
+      const archScaleX = isCenterRotundaArch ? 1.24 : 1.02;
+      const archScaleY = isCenterRotundaArch ? 1.18 : 1.04;
+
+      const archGroup = new THREE.Group();
+      archGroup.position.set(113.75, DECK_Y + 2.55 * archScaleY, az);
+      archGroup.scale.set(archScaleX, archScaleY, 1.0);
+
+      const outerHeart = new THREE.Mesh(
+        archOuterHeartGeo,
+        a % 2 === 0 ? romanticRoseGlowMat : cyanCrystalMat
+      );
+      const innerHeart = new THREE.Mesh(archInnerHeartGeo, champagneGoldMat);
+      innerHeart.position.z = 0.09;
+      const backHeart = new THREE.Mesh(
+        archInnerHeartGeo,
+        a % 2 === 0 ? cyanCrystalMat : romanticRoseGlowMat
+      );
+      backHeart.position.z = -0.09;
+      archGroup.add(outerHeart, innerHeart, backHeart);
+
+      // Romantic Rose-Blossom Garland Clusters draped along the upper lobes of each Heart Arch
+      for (let b = 0; b < 14; b++) {
+        const bt = (b / 14) * Math.PI * 2;
+        const bx = 16 * Math.pow(Math.sin(bt), 3) * 0.21;
+        const by =
+          (13 * Math.cos(bt) -
+            5 * Math.cos(2 * bt) -
+            2 * Math.cos(3 * bt) -
+            Math.cos(4 * bt)) *
+          0.185;
+        if (by > -0.8) {
+          const blossom = new THREE.Mesh(
+            blossomGeo,
+            b % 2 === 0 ? softBlushPetalMat : warmLanternHeartMat
+          );
+          blossom.position.set(bx, by, (b % 2 === 0 ? 1 : -1) * 0.14);
+          archGroup.add(blossom);
+        }
+      }
+
+      // Suspended Floating Rose-Quartz & Diamond Heart Chandelier at the Crown of the Arch
+      const chandelierGroup = new THREE.Group();
+      chandelierGroup.position.set(0, 0.85, 0);
+      const chLoop = new THREE.Mesh(chandelierHeartGeo, warmLanternHeartMat);
+      const chGem = new THREE.Mesh(chandelierCoreGeo, cyanCrystalMat);
+      chandelierGroup.add(chLoop, chGem);
+      archGroup.add(chandelierGroup);
+      floatingBridgeHeartCrystals.push(chandelierGroup);
+
+      // Left & Right Pearl-and-Gold Arch Base Pedestals anchored to the bridge curbs
+      const pedOffsetX = isCenterRotundaArch ? 3.85 : 2.65;
+      for (const side of [-1, 1]) {
+        const ped = new THREE.Mesh(archPedestalGeo, pearlStoneMat);
+        ped.position.set(113.75 + side * pedOffsetX, DECK_Y + 0.32, az);
+        skywalkGroup.add(ped);
+      }
+
+      skywalkGroup.add(archGroup);
+    }
+
+    // 9. Two Sculpted Pearl & Rose-Gold Lover's Benches in the West & East Rotunda Observation Bays
+    const benchSeatGeo = tracker.track(new THREE.BoxGeometry(0.62, 0.1, 1.85));
+    const benchLegGeo = tracker.track(new THREE.BoxGeometry(0.56, 0.42, 0.14));
+    const benchBackHeartGeo = buildHeartTubeGeo(0.032, 0.03, 0.032, 32);
+    for (const side of [-1, 1]) {
+      const benchGroup = new THREE.Group();
+      benchGroup.position.set(113.75 + side * 3.15, DECK_Y + 0.02, 78.2);
+      benchGroup.rotation.y = side < 0 ? Math.PI * 0.5 : -Math.PI * 0.5;
+
+      const seat = new THREE.Mesh(benchSeatGeo, pearlStoneMat);
+      seat.position.set(0, 0.44, 0);
+      const legL = new THREE.Mesh(benchLegGeo, champagneGoldMat);
+      legL.position.set(0, 0.21, -0.72);
+      const legR = new THREE.Mesh(benchLegGeo, champagneGoldMat);
+      legR.position.set(0, 0.21, 0.72);
+
+      // Twin Heart Backrests
+      for (const hz of [-0.42, 0.42]) {
+        const hBack = new THREE.Mesh(benchBackHeartGeo, romanticRoseGlowMat);
+        hBack.rotation.y = Math.PI * 0.5;
+        hBack.position.set(-0.26, 0.86, hz);
+        benchGroup.add(hBack);
+      }
+      benchGroup.add(seat, legL, legR);
+      skywalkGroup.add(benchGroup);
+    }
+
+    // 10. Grand Stepped Crystal & Pearl Garden Terrace Ramp (x: 76.5..106.0, z: 57.5..62.0)
+    // Connects the entire Dream Castle Rear Garden (Y = 10.0m) smoothly up to the South Glass Promenade (Y = 12.55m)
+    const RAMP_STEPS = 12;
+    const rampStepGeo = tracker.track(new THREE.BoxGeometry(29.5, 0.26, 0.44));
+    const rampRoseTrimGeo = tracker.track(new THREE.BoxGeometry(29.5, 0.04, 0.08));
+    for (let s = 0; s < RAMP_STEPS; s++) {
+      const t = (s + 0.5) / RAMP_STEPS;
+      const sz = THREE.MathUtils.lerp(57.55, 61.95, t);
+      const sy = THREE.MathUtils.lerp(10.02, DECK_Y, t);
+      const stepMesh = new THREE.Mesh(
+        rampStepGeo,
+        s % 2 === 0 ? pearlStoneMat : crystalWalkwayGlassMat
+      );
+      stepMesh.position.set(91.25, sy - 0.12, sz);
+      const stepGlow = new THREE.Mesh(
+        rampRoseTrimGeo,
+        s % 2 === 0 ? romanticRoseGlowMat : cyanCrystalMat
+      );
+      stepGlow.position.set(91.25, sy + 0.015, sz - 0.18);
+      skywalkGroup.add(stepMesh, stepGlow);
+    }
+
+    // 11. Complete, Gap-Free Crystal-Glass & Rose-Gold Safety Balustrades + Physical Collision Barriers
+    const RAIL_H = 1.28;
+    const postGeo = tracker.track(new THREE.CylinderGeometry(0.09, 0.11, RAIL_H, 10));
+    const finialHeartGeo = buildHeartTubeGeo(0.012, 0.012, 0.016, 20);
+    const lanternPoleGeo = tracker.track(new THREE.CylinderGeometry(0.055, 0.075, 2.55, 10));
+    const lanternGlobeGeo = tracker.track(new THREE.OctahedronGeometry(0.22, 1));
+
+    function addGlassBalustradeRun(
+      x1: number,
+      z1: number,
+      x2: number,
+      z2: number,
+      baseY1 = DECK_Y,
+      baseY2 = baseY1,
+      withLanterns = false
+    ): void {
+      // Register physical barrier segment for 100% leak-proof player collision!
+      skywalkBarrierSegments.push({ x1, z1, x2, z2 });
+
+      const len = Math.hypot(x2 - x1, z2 - z1);
+      if (len < 0.2) return;
+      const mx = (x1 + x2) * 0.5;
+      const mz = (z1 + z2) * 0.5;
+      const my = (baseY1 + baseY2) * 0.5;
+      const yaw = Math.atan2(x2 - x1, z2 - z1);
+      const pitch = -Math.atan2(baseY2 - baseY1, len);
+      const slopeLen = Math.hypot(len, baseY2 - baseY1);
+
+      const railGroup = new THREE.Group();
+      railGroup.position.set(mx, my, mz);
+      railGroup.rotation.y = yaw;
+      railGroup.rotation.x = pitch;
+
+      // Tempered Crystal-Glass Safety Barrier Panel
+      const panelGeo = tracker.track(new THREE.BoxGeometry(0.07, RAIL_H - 0.18, slopeLen));
+      const panelMesh = new THREE.Mesh(panelGeo, balustradeGlassMat);
+      panelMesh.position.set(0, RAIL_H * 0.5, 0);
+      panelMesh.renderOrder = 5;
+      railGroup.add(panelMesh);
+
+      // Champagne-Gold Top Handrail, Rose-Pink Middle Accent Rail & Pearl Base Curb
+      const topRailGeo = tracker.track(new THREE.BoxGeometry(0.15, 0.085, slopeLen + 0.12));
+      const topRail = new THREE.Mesh(topRailGeo, champagneGoldMat);
+      topRail.position.set(0, RAIL_H, 0);
+
+      const midRoseGeo = tracker.track(new THREE.BoxGeometry(0.09, 0.045, slopeLen + 0.08));
+      const midRose = new THREE.Mesh(midRoseGeo, romanticRoseGlowMat);
+      midRose.position.set(0, RAIL_H * 0.58, 0);
+
+      const botRailGeo = tracker.track(new THREE.BoxGeometry(0.18, 0.11, slopeLen + 0.12));
+      const botRail = new THREE.Mesh(botRailGeo, pearlStoneMat);
+      botRail.position.set(0, 0.055, 0);
+      railGroup.add(topRail, midRose, botRail);
+      skywalkGroup.add(railGroup);
+
+      // Stanchion Posts, Glowing Heart Finials & Romantic Lantern Posts
+      const postCount = Math.max(1, Math.round(len / 4.0));
+      for (let i = 0; i <= postCount; i++) {
+        const t = i / postCount;
+        const px = THREE.MathUtils.lerp(x1, x2, t);
+        const pz = THREE.MathUtils.lerp(z1, z2, t);
+        const py = THREE.MathUtils.lerp(baseY1, baseY2, t);
+
+        const post = new THREE.Mesh(postGeo, champagneGoldMat);
+        post.position.set(px, py + RAIL_H * 0.5, pz);
+        const finial = new THREE.Mesh(
+          finialHeartGeo,
+          i % 2 === 0 ? romanticRoseGlowMat : cyanCrystalMat
+        );
+        finial.position.set(px, py + RAIL_H + 0.18, pz);
+        finial.rotation.y = yaw + Math.PI * 0.5;
+        skywalkGroup.add(post, finial);
+
+        if (withLanterns && i > 0 && i < postCount && i % 2 === 1) {
+          const lPole = new THREE.Mesh(lanternPoleGeo, champagneGoldMat);
+          lPole.position.set(px, py + 1.28, pz);
+          const lGlobe = new THREE.Mesh(lanternGlobeGeo, warmLanternHeartMat);
+          lGlobe.position.set(px, py + 2.66, pz);
+          skywalkGroup.add(lPole, lGlobe);
+        }
+      }
+    }
+
+    // --- A. 100% CLOSED INNER WEST LAGOON CUTOUT LOOP (x = 80.6..111.0, z = 66.2..90.2, curving around West Rotunda Bay) ---
+    addGlassBalustradeRun(80.6, 66.2, 111.0, 66.2, DECK_Y, DECK_Y, true);
+    addGlassBalustradeRun(111.0, 66.2, 111.0, 74.4, DECK_Y + 0.01, DECK_Y + 0.01, true);
+    addGlassBalustradeRun(111.0, 74.4, 109.65, 76.3, DECK_Y + 0.01, DECK_Y + 0.01, false);
+    addGlassBalustradeRun(109.65, 76.3, 109.65, 80.1, DECK_Y + 0.01, DECK_Y + 0.01, true);
+    addGlassBalustradeRun(109.65, 80.1, 111.0, 82.0, DECK_Y + 0.01, DECK_Y + 0.01, false);
+    addGlassBalustradeRun(111.0, 82.0, 111.0, 90.2, DECK_Y + 0.01, DECK_Y + 0.01, true);
+    addGlassBalustradeRun(111.0, 90.2, 80.6, 90.2, DECK_Y, DECK_Y, true);
+    addGlassBalustradeRun(80.6, 90.2, 80.6, 66.2, DECK_Y, DECK_Y, false);
+
+    // --- B. 100% CLOSED INNER EAST LAGOON CUTOUT LOOP (x = 116.5..140.5, z = 66.2..90.2, curving around East Rotunda Bay) ---
+    addGlassBalustradeRun(116.5, 66.2, 140.5, 66.2, DECK_Y, DECK_Y, true);
+    addGlassBalustradeRun(140.5, 66.2, 140.5, 90.2, DECK_Y, DECK_Y, true);
+    addGlassBalustradeRun(140.5, 90.2, 116.5, 90.2, DECK_Y, DECK_Y, true);
+    addGlassBalustradeRun(116.5, 90.2, 116.5, 82.0, DECK_Y + 0.01, DECK_Y + 0.01, true);
+    addGlassBalustradeRun(116.5, 82.0, 117.85, 80.1, DECK_Y + 0.01, DECK_Y + 0.01, false);
+    addGlassBalustradeRun(117.85, 80.1, 117.85, 76.3, DECK_Y + 0.01, DECK_Y + 0.01, true);
+    addGlassBalustradeRun(117.85, 76.3, 116.5, 74.4, DECK_Y + 0.01, DECK_Y + 0.01, false);
+    addGlassBalustradeRun(116.5, 74.4, 116.5, 66.2, DECK_Y + 0.01, DECK_Y + 0.01, true);
+
+    // --- C. OUTER PERIMETER & RAMP SIDEWALL BALUSTRADES (Zero Unprotected Drop-Offs Anywhere) ---
+    // West Sidewall of the Grand South Ramp (x = 76.5, z = 57.5..62.0)
+    addGlassBalustradeRun(76.5, 57.5, 76.5, 62.0, 10.02, DECK_Y, true);
+    // East Sidewall of the Grand South Ramp (x = 106.0, z = 57.5..62.0)
+    addGlassBalustradeRun(106.0, 57.5, 106.0, 62.0, 10.02, DECK_Y, true);
+    // South-East Outer Cliff Balustrade (from Ramp East edge x = 106.0 to SE corner x = 144.8 at z = 62.0)
+    addGlassBalustradeRun(106.0, 62.0, 144.8, 62.0, DECK_Y, DECK_Y, true);
+    // Full East Outer Cliff Balustrade (x = 144.8, z = 62.0..94.4)
+    addGlassBalustradeRun(144.8, 62.0, 144.8, 94.4, DECK_Y, DECK_Y, true);
+    // North-East Outer Cliff Balustrade (x = 144.8 back to Love Meadow at x = 110.0, z = 94.4)
+    addGlassBalustradeRun(144.8, 94.4, 110.0, 94.4, DECK_Y, DECK_Y, true);
+
+    group.add(skywalkGroup);
+  }
+
   // Castle-Side Crystal Fountain Beacon (at z = 65.5, well clear of Castle Rear Garden)
   const castleFountainCrystal = new THREE.Mesh(
     tracker.track(new THREE.OctahedronGeometry(1.1, 1)),
@@ -1734,6 +2200,120 @@ export function createHeartlinePrecinct(): HeartlinePrecinctManager {
 
   function isRiding(): boolean {
     return playerIsRiding;
+  }
+
+  function resolveSkywalkBarriers(
+    playerPos: THREE.Vector3,
+    playerRadius: number
+  ): void {
+    if (playerIsRiding) return;
+    if (
+      playerPos.x < 74.0 ||
+      playerPos.x > 147.5 ||
+      playerPos.z < 55.5 ||
+      playerPos.z > 97.0
+    ) {
+      return;
+    }
+
+    const minDist = playerRadius + 0.18;
+    for (let i = 0; i < skywalkBarrierSegments.length; i++) {
+      const seg = skywalkBarrierSegments[i];
+      const abx = seg.x2 - seg.x1;
+      const abz = seg.z2 - seg.z1;
+      const lenSq = abx * abx + abz * abz;
+      if (lenSq < 1e-6) continue;
+      const t = THREE.MathUtils.clamp(
+        ((playerPos.x - seg.x1) * abx + (playerPos.z - seg.z1) * abz) / lenSq,
+        0,
+        1
+      );
+      const cx = seg.x1 + t * abx;
+      const cz = seg.z1 + t * abz;
+      const dx = playerPos.x - cx;
+      const dz = playerPos.z - cz;
+      const dist = Math.hypot(dx, dz);
+      if (dist < minDist && dist > 1e-5) {
+        const push = minDist - dist;
+        playerPos.x += (dx / dist) * push;
+        playerPos.z += (dz / dist) * push;
+      }
+    }
+  }
+
+  function getSurfaceHeight(x: number, z: number, baseGroundY: number): number {
+    let h = baseGroundY;
+
+    // 0. Romantic Crystal Lagoon Skywalk, Lover's Heart Bridge, Rotunda & Grand South Ramp (x: 76.0..145.5, z: 57.5..95.0)
+    // Guarantees the walking player stands firmly on the Glass Promenade & Bridge at Y = 12.55m and never falls into the -6.2m lagoon trench!
+    if (x >= 76.0 && x <= 145.5 && z >= 57.5 && z <= 95.0) {
+      if (z >= 62.0) {
+        const onBridgeOrRotunda =
+          (x >= 111.0 && x <= 116.5 && z >= 66.2 && z <= 90.2) ||
+          Math.hypot(x - 113.75, z - 78.2) <= 4.18;
+        h = Math.max(h, onBridgeOrRotunda ? 12.56 : 12.55);
+      } else if (x <= 106.2) {
+        // Smooth stepped crystal ramp from Castle Rear Garden (z = 57.5, Y = 10.0m) up to South Glass Promenade (z = 62.0, Y = 12.55m)
+        const rampT = THREE.MathUtils.clamp((z - 57.5) / (62.0 - 57.5), 0, 1);
+        const rampY = THREE.MathUtils.lerp(10.0, 12.55, rampT);
+        h = Math.max(h, rampY);
+      }
+    }
+
+    // 1. Station Boarding Stand & Stepped Boarding Staircases at (70.0, 12.5, 78.0)
+    const stDx = Math.abs(x - 70.0);
+    const stDz = Math.abs(z - 78.0);
+
+    // Station Plaza Slab base (20.5m x 13.8m, top at Y = 12.625m)
+    if (stDx <= 10.25 && stDz <= 6.9) {
+      h = Math.max(h, 12.625);
+    }
+
+    // North & South Boarding Stand Platforms (17.2m wide -> stDx <= 8.6, platZ = ±2.85 with depth 3.8m -> stDz in [0.95..4.75])
+    // Platform top deck carpet is at 12.5 + 0.755 = 13.255m
+    if (stDx <= 8.65 && stDz >= 0.9 && stDz <= 4.78) {
+      h = Math.max(h, 13.255);
+    }
+
+    // Grand Stepped Boarding Staircase + Ramp connecting the Sapphire Pathway (stDz = 6.2) up to the Stand Deck (stDz = 4.55)
+    // Staircase width is 6.2m (stDx <= 3.35 with margin)
+    if (stDx <= 3.35 && stDz > 4.55 && stDz <= 6.25) {
+      const rampT = THREE.MathUtils.clamp((6.15 - stDz) / (6.15 - 4.72), 0, 1);
+      const stairY = THREE.MathUtils.lerp(12.625, 13.255, rampT);
+      h = Math.max(h, stairY);
+    }
+
+    // Also allow smooth step-up from the outer platform edges (stDx <= 8.65, stDz in 4.78..5.35)
+    if (stDx <= 8.65 && stDz > 4.78 && stDz <= 5.35) {
+      const edgeT = THREE.MathUtils.clamp((5.35 - stDz) / (5.35 - 4.78), 0, 1);
+      h = Math.max(h, THREE.MathUtils.lerp(12.625, 13.255, edgeT));
+    }
+
+    // 2. Octagonal Luxury Ticket Booth / Ticket Counter at TICKET_BOOTH_POS (55.0, 12.5, 71.0)
+    // Forecourt medallion at Y = 12.56m, Octagonal Counter Deck top at 12.5 + 1.25 = 13.75m (radius 3.6m)
+    const boothDist = Math.hypot(x - TICKET_BOOTH_POS.x, z - TICKET_BOOTH_POS.z);
+    if (boothDist <= 6.8) {
+      h = Math.max(h, 12.565);
+    }
+    if (boothDist <= 3.62) {
+      h = Math.max(h, 13.75);
+    } else if (boothDist <= 4.35) {
+      // Smooth step-up collar around the Ticket Counter perimeter so the player can walk right up onto the counter
+      const counterT = THREE.MathUtils.clamp((4.35 - boothDist) / (4.35 - 3.62), 0, 1);
+      h = Math.max(h, THREE.MathUtils.lerp(12.565, 13.75, counterT));
+    }
+
+    // 3. Elevated Viewing Deck at VIEWING_DECK_POS (65.5, 13.3, 86.5)
+    // Deck platform top is at Y = 13.3m (radius 4.85m, tapered outer base to 5.4m)
+    const deckDist = Math.hypot(x - VIEWING_DECK_POS.x, z - VIEWING_DECK_POS.z);
+    if (deckDist <= 4.85) {
+      h = Math.max(h, 13.3);
+    } else if (deckDist <= 5.6) {
+      const deckT = THREE.MathUtils.clamp((5.6 - deckDist) / (5.6 - 4.85), 0, 1);
+      h = Math.max(h, THREE.MathUtils.lerp(12.57, 13.3, deckT));
+    }
+
+    return h;
   }
 
   function getProximityPrompt(playerPos: THREE.Vector3): string | null {
@@ -1835,6 +2415,13 @@ export function createHeartlinePrecinct(): HeartlinePrecinctManager {
     const leadU = train.getLeadU();
     underwaterReef.update(dt, elapsedTime, leadU, playerIsRiding);
 
+    // Gently bob & rotate the suspended floating rose-heart crystals under each Lover's Bridge Heart Arch
+    for (let i = 0; i < floatingBridgeHeartCrystals.length; i++) {
+      const ch = floatingBridgeHeartCrystals[i];
+      ch.position.y = 0.85 + Math.sin(elapsedTime * 2.2 + i * 0.8) * 0.08;
+      ch.rotation.y = elapsedTime * 0.9 + i * 0.6;
+    }
+
     director.update(
       dt,
       elapsedTime,
@@ -1854,6 +2441,8 @@ export function createHeartlinePrecinct(): HeartlinePrecinctManager {
   return {
     group,
     colliders,
+    getSurfaceHeight,
+    resolveSkywalkBarriers,
     getProximityPrompt,
     handleKeyAction,
     interact,

@@ -61,6 +61,14 @@ import {
   castleLocalToWorld,
   getTerrainHeight,
 } from './world/terrainMath';
+import {
+  GameChapterPhase,
+  isNearSpecialGate,
+  loadSavedStoryPhase,
+  saveStoryPhase,
+} from './world/story/GameStoryDirector';
+import { PrequelScene } from './world/story/PrequelScene';
+import { SequelScene } from './world/story/SequelScene';
 
 /**
  * Combined ACESFilmic Tone Mapping + Warm Golden-Hour Color-Grading + Soft Romantic Vignette + sRGB Output Pass.
@@ -195,6 +203,21 @@ export default function App() {
 
   const [selectedGalleryFrame, setSelectedGalleryFrame] = useState(0);
   const portraitFileInputRef = useRef<HTMLInputElement | null>(null);
+
+  const [storyPhase, setStoryPhase] = useState<GameChapterPhase>(() =>
+    loadSavedStoryPhase(),
+  );
+  const storyPhaseRef = useRef<GameChapterPhase>(storyPhase);
+  const [nearSpecialGate, setNearSpecialGate] = useState(false);
+  const nearSpecialGateRef = useRef(false);
+
+  useEffect(() => {
+    storyPhaseRef.current = storyPhase;
+    saveStoryPhase(storyPhase);
+    if (storyPhase !== 'DREAM_WORLD' && document.pointerLockElement) {
+      document.exitPointerLock?.();
+    }
+  }, [storyPhase]);
 
   const handlePortraitBackdropUpload = (
     e: React.ChangeEvent<HTMLInputElement>,
@@ -423,11 +446,19 @@ export default function App() {
     };
 
     const handleKeyHud = (e: KeyboardEvent) => {
+      if (storyPhaseRef.current !== 'DREAM_WORLD') {
+        return;
+      }
       if (
         e.defaultPrevented ||
         e.target instanceof HTMLInputElement ||
         e.target instanceof HTMLTextAreaElement
       ) {
+        return;
+      }
+      if (e.code === 'KeyE' && nearSpecialGateRef.current) {
+        e.preventDefault();
+        setStoryPhase('EPILOGUE');
         return;
       }
       if (e.code === 'KeyH') {
@@ -479,6 +510,15 @@ export default function App() {
       const delta = Math.min(clock.getDelta(), 0.05);
       const elapsed = clock.getElapsedTime();
 
+      if (storyPhaseRef.current !== 'DREAM_WORLD') {
+        if (isSoftwareGl) {
+          frameId = window.setTimeout(tick, 120);
+        } else {
+          frameId = requestAnimationFrame(tick);
+        }
+        return;
+      }
+
       playerController.update(delta, elapsed);
       galleryPlacementTool.update();
       const playerPos = playerController.getPosition();
@@ -525,6 +565,11 @@ export default function App() {
       if (hudFastTimer >= 0.12) {
         hudFastTimer = 0;
         const fast = playerController.getFastHudState();
+        const atSpecialGate = isNearSpecialGate(fast.x, fast.z);
+        if (atSpecialGate !== nearSpecialGateRef.current) {
+          nearSpecialGateRef.current = atSpecialGate;
+          setNearSpecialGate(atSpecialGate);
+        }
         if (hudCoordsRef.current) {
           hudCoordsRef.current.textContent = `X ${fast.x.toFixed(0)}m / Z ${fast.z.toFixed(0)}m`;
         }
@@ -1720,6 +1765,31 @@ export default function App() {
           </div>
         )}
 
+      {/* Floating Special Gate Threshold Prompt: [E] Enter Private Romantic World (Sequel / Part VI) */}
+      {storyPhase === 'DREAM_WORLD' && nearSpecialGate && (
+        <div className="pointer-events-auto absolute bottom-32 left-1/2 -translate-x-1/2 z-30 flex items-center gap-3 bg-slate-950/95 border border-rose-400/60 rounded-xl px-4 py-2.5 text-white shadow-[0_0_28px_rgba(244,63,94,0.4)]">
+          <Sparkles className="w-4 h-4 text-rose-400 shrink-0" />
+          <div className="flex flex-col">
+            <span className="text-xs font-semibold text-rose-200">
+              The Special Gate Threshold • Private Romantic World
+            </span>
+            <span className="text-xs text-slate-200">
+              <kbd className="px-1.5 py-0.5 bg-slate-800 rounded border border-white/15 font-mono text-amber-200">
+                [E]
+              </kbd>{' '}
+              Step Through the Special Gate into the Private Sanctuary
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setStoryPhase('EPILOGUE')}
+            className="ml-2 px-3.5 py-1.5 rounded-lg bg-gradient-to-r from-rose-500 to-amber-500 hover:from-rose-400 hover:to-amber-400 text-slate-950 text-xs font-bold transition-colors cursor-pointer"
+          >
+            [E] Enter Private World
+          </button>
+        </div>
+      )}
+
       {/* Collapsible Bottom Control Dock (Zero Viewport Occlusion) */}
       {!isInMysteryCinematic && telemetry.legoWorkshopState?.mode !== 'lego_build' && (
         <div className="pointer-events-auto absolute bottom-5 left-1/2 -translate-x-1/2 z-10 flex flex-col items-center w-full max-w-[min(1020px,95vw)]">
@@ -1913,13 +1983,23 @@ export default function App() {
                     type="button"
                     onClick={() =>
                       handleTeleport(
-                        zone.id === 'coaster-ridge' ? 42.0 : zone.x,
-                        zone.id === 'coaster-ridge' ? 61.0 : zone.z,
+                        zone.id === 'coaster-ridge'
+                          ? 42.0
+                          : zone.id === 'southern-tip'
+                            ? 0
+                            : zone.x,
+                        zone.id === 'coaster-ridge'
+                          ? 61.0
+                          : zone.id === 'southern-tip'
+                            ? -105.5
+                            : zone.z,
                         zone.id === 'coaster-ridge'
                           ? Math.PI / 4
                           : zone.id === 'brick-valley'
                             ? 0
-                            : undefined,
+                            : zone.id === 'southern-tip'
+                              ? Math.PI
+                              : undefined,
                       )
                     }
                     className="px-2.5 py-1 text-xs font-medium rounded-md bg-slate-900 hover:bg-slate-800 text-slate-200 border border-white/10 transition-colors whitespace-nowrap shrink-0 cursor-pointer"
@@ -1927,6 +2007,20 @@ export default function App() {
                     {zone.name}
                   </button>
                 ))}
+                <button
+                  type="button"
+                  onClick={() => setStoryPhase('PROLOGUE')}
+                  className="px-2.5 py-1 text-xs font-semibold rounded-md bg-rose-500/20 hover:bg-rose-500/35 text-rose-200 border border-rose-400/40 transition-colors whitespace-nowrap shrink-0 cursor-pointer"
+                >
+                  Prologue (Cell 04)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setStoryPhase('EPILOGUE')}
+                  className="px-2.5 py-1 text-xs font-semibold rounded-md bg-amber-500/20 hover:bg-amber-500/35 text-amber-200 border border-amber-400/40 transition-colors whitespace-nowrap shrink-0 cursor-pointer"
+                >
+                  Private World (Finale)
+                </button>
               </div>
             </div>
 
@@ -1966,6 +2060,36 @@ export default function App() {
         onChange={handlePortraitBackdropUpload}
         className="hidden"
       />
+
+      {/* Chapter I: Prequel / Prologue (Feb 13, 2027 10:30 PM -> Cell 04: The Awakening -> Dream World Reveal) */}
+      {storyPhase === 'PROLOGUE' && (
+        <div className="absolute inset-0 z-50">
+          <PrequelScene
+            onCompletePrequel={() => {
+              setStoryPhase('DREAM_WORLD');
+              handleTeleport(-16.5, 16.0, 0);
+            }}
+            onJumpToEpilogue={() => {
+              setStoryPhase('EPILOGUE');
+            }}
+          />
+        </div>
+      )}
+
+      {/* Chapter III: Sequel / Epilogue (Part VI: Beyond The Special Gate — The Private Romantic World) */}
+      {storyPhase === 'EPILOGUE' && (
+        <div className="absolute inset-0 z-50">
+          <SequelScene
+            onReturnToDreamWorld={() => {
+              setStoryPhase('DREAM_WORLD');
+              handleTeleport(0, -104.5, 0);
+            }}
+            onReplayFullStory={() => {
+              setStoryPhase('PROLOGUE');
+            }}
+          />
+        </div>
+      )}
     </div>
   );
 }

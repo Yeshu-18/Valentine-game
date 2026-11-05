@@ -5,6 +5,7 @@ import {
   getPathWeight,
   getTerrainHeight,
   noise2D,
+  worldToCastleLocal,
 } from './terrainMath';
 
 export interface IslandTerrainBundle {
@@ -120,7 +121,18 @@ export function createIslandTerrain(
   for (let i = 0; i < vertexCount; i++) {
     const vx = posAttr.getX(i);
     const vz = posAttr.getZ(i);
-    const vy = getTerrainHeight(vx, vz);
+    let vy = getTerrainHeight(vx, vz);
+
+    // Prevent coplanar depth-buffer z-fighting ("twinkling/buffering") between the green island
+    // grass mesh and the indoor Wizarding School Great Hall & Royal Frog Conservatory floor slabs
+    const cLocal = worldToCastleLocal(vx, vz);
+    if (cLocal.localZ >= -1.8 && cLocal.localZ <= 41.4) {
+      const maxIndoorX = cLocal.localZ >= 24.5 ? 10.6 : 18.2;
+      if (Math.abs(cLocal.localX) <= maxIndoorX) {
+        vy -= 0.45;
+      }
+    }
+
     posAttr.setY(i, vy);
   }
 

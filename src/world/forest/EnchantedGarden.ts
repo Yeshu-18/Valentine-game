@@ -204,6 +204,9 @@ export function createEnchantedGardenSystem(): EnchantedGardenBundle {
       emissiveIntensity: 0.24,
       roughness: 0.78,
       metalness: 0.01,
+      polygonOffset: true,
+      polygonOffsetFactor: -2,
+      polygonOffsetUnits: -2,
     }),
   );
   const hedgeFoliageMat = tracker.trackMat(
@@ -231,6 +234,9 @@ export function createEnchantedGardenSystem(): EnchantedGardenBundle {
       emissiveIntensity: 0.28,
       roughness: 0.78,
       metalness: 0.01,
+      polygonOffset: true,
+      polygonOffsetFactor: -1.5,
+      polygonOffsetUnits: -3.0,
     }),
   );
   const vineLeafMat = tracker.trackMat(
@@ -344,19 +350,19 @@ export function createEnchantedGardenSystem(): EnchantedGardenBundle {
   group.add(conservatoryTrailGroup);
 
   const stepStoneBaseGeo = tracker.trackGeo(
-    new THREE.CylinderGeometry(0.42, 0.46, 0.045, 12),
+    new THREE.CylinderGeometry(0.42, 0.46, 0.052, 12),
   );
-  stepStoneBaseGeo.translate(0, 0.022, 0);
+  stepStoneBaseGeo.translate(0, 0.036, 0);
   const stepStoneBrassRimGeo = tracker.trackGeo(
     new THREE.RingGeometry(0.32, 0.38, 24),
   );
   stepStoneBrassRimGeo.rotateX(-Math.PI / 2);
-  stepStoneBrassRimGeo.translate(0, 0.048, 0);
+  stepStoneBrassRimGeo.translate(0, 0.068, 0);
   const stepStoneRuneCoreGeo = tracker.trackGeo(
     new THREE.CircleGeometry(0.24, 16),
   );
   stepStoneRuneCoreGeo.rotateX(-Math.PI / 2);
-  stepStoneRuneCoreGeo.translate(0, 0.05, 0);
+  stepStoneRuneCoreGeo.translate(0, 0.074, 0);
   const smallFlowerGeo = tracker.trackGeo(
     new THREE.DodecahedronGeometry(0.06, 0),
   );
@@ -371,7 +377,7 @@ export function createEnchantedGardenSystem(): EnchantedGardenBundle {
     const lz =
       THREE.MathUtils.lerp(36.0, 38.4, t) + Math.sin(t * Math.PI) * 0.45;
     const wCoords = castleLocalToWorld(lx, lz);
-    const wy = getTerrainHeight(wCoords.x, wCoords.z);
+    const wy = getTerrainHeight(wCoords.x, wCoords.z) + 0.012;
 
     const stoneGroup = new THREE.Group();
     stoneGroup.position.set(wCoords.x, wy, wCoords.z);
@@ -388,6 +394,9 @@ export function createEnchantedGardenSystem(): EnchantedGardenBundle {
         emissive: new THREE.Color('#10b981'),
         emissiveIntensity: 0.55,
         roughness: 0.26,
+        polygonOffset: true,
+        polygonOffsetFactor: -2.0,
+        polygonOffsetUnits: -4.0,
       }),
     );
     steppingStoneInlayMats.push(inlayMat);
@@ -800,7 +809,7 @@ export function createEnchantedGardenSystem(): EnchantedGardenBundle {
     [-2.95, 2.95].forEach((latOffset) => {
       const tx = _z1Pt.x + _z1Right.x * latOffset;
       const tz = _z1Pt.z + _z1Right.z * latOffset;
-      const ty = getTerrainHeight(tx, tz) - 0.02;
+      const ty = getTerrainHeight(tx, tz) + 0.022;
       const turf = new THREE.Mesh(turfStripGeo, trimmedTurfMat);
       turf.position.set(tx, ty, tz);
       turf.rotation.y = z1Yaw;
@@ -1452,6 +1461,9 @@ export function createEnchantedGardenSystem(): EnchantedGardenBundle {
     new THREE.MeshStandardMaterial({
       color: new THREE.Color('#ffffff'),
       roughness: 0.78,
+      polygonOffset: true,
+      polygonOffsetFactor: -2.0,
+      polygonOffsetUnits: -4.0,
     }),
   );
 
@@ -1476,7 +1488,7 @@ export function createEnchantedGardenSystem(): EnchantedGardenBundle {
     const lat = side * (minLat + rand() * 3.6);
     const wx = _pt.x + _right.x * lat + (rand() - 0.5) * 0.45;
     const wz = _pt.z + _right.z * lat + (rand() - 0.5) * 0.45;
-    const wy = getTerrainHeight(wx, wz) - 0.02;
+    const wy = getTerrainHeight(wx, wz) + 0.008;
 
     const s = (0.55 + u * 0.85) * (0.75 + rand() * 0.5);
     _dummy.position.set(wx, wy, wz);

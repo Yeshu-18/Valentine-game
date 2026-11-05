@@ -250,6 +250,9 @@ export function createMushroomGrove(): MushroomGroveBundle {
       color: new THREE.Color('#2d4022'),
       roughness: 0.94,
       metalness: 0.02,
+      polygonOffset: true,
+      polygonOffsetFactor: -2.0,
+      polygonOffsetUnits: -4.0,
     }),
   );
 

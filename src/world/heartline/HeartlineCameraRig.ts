@@ -6,6 +6,11 @@ import {
   createEmptyTrackFrame,
 } from './HeartlineTrackSpline';
 import { HeartlineTrainSolver } from './HeartlineTrainSolver';
+import {
+  getHuggingFishSpotlightWorldPos,
+  UNDERWATER_TEXT_STAGE_SPECS,
+  getUnderwaterTextStageWorldPos,
+} from './HeartlineUnderwaterReef';
 
 export interface HeartlineCameraState {
   readonly position: THREE.Vector3;
@@ -29,6 +34,8 @@ const _scratchForwardDir = new THREE.Vector3();
 const _scratchBaseDir = new THREE.Vector3();
 const _scratchPoiDir = new THREE.Vector3();
 const _scratchBlendedDir = new THREE.Vector3();
+const _scratchHuggingCouplePos = new THREE.Vector3();
+const _scratchStageWorldPos = new THREE.Vector3();
 const _scratchRight = new THREE.Vector3();
 const _scratchUp = new THREE.Vector3();
 const _scratchQuatYaw = new THREE.Quaternion();
@@ -101,6 +108,7 @@ export function createHeartlineCameraRig(
     const zone = frame.zone;
     const u = frame.u;
     currentZoneLabel = zone.label;
+    let effectiveTargetFov = zone.targetFov;
 
     // 1. Base physical seat eye position inside Lead Car (Car 0)
     train.getSeatEyeWorldPosition(_scratchSeatEye);
@@ -119,7 +127,7 @@ export function createHeartlineCameraRig(
     // 3. Horizon-stabilized Up vector (blends track normal with World Up per zone.horizonLockFactor)
     _scratchUp.copy(frame.normal).lerp(_worldUp, zone.horizonLockFactor).normalize();
 
-    // 4. Base Forward Track Tangent Look-Ahead (12m ahead along the spline)
+    // 4. Base Forward Track Tangent Look-Ahead
     const lookAheadMeters = zone.id === 'CRYSTAL_TUNNEL' ? 9.5 : 13.5;
     spline.evaluateAtS(frame.s + lookAheadMeters, lookAheadFrame);
     _scratchForwardDir.copy(lookAheadFrame.pos).sub(_scratchSeatEye);
@@ -143,8 +151,6 @@ export function createHeartlineCameraRig(
         revealWeight = 1.0 - THREE.MathUtils.smoothstep(u, 0.308, 0.325);
       }
 
-      // Upon entering the Crest Reveal, smoothly guide the camera to center on "I LOVE YOU ❤️"
-      // while still allowing the player to manually look around if they move mouse/keys during the reveal!
       if (!enteredCrestReveal) {
         enteredCrestReveal = true;
       }
@@ -171,16 +177,75 @@ export function createHeartlineCameraRig(
         _scratchPoiDir.copy(DREAM_CASTLE_SPIRE_TARGET).sub(_scratchSeatEye).normalize();
         _scratchBlendedDir.lerp(_scratchPoiDir, castleWeight * 0.42).normalize();
       } else if (u >= 0.555 && u <= 0.775) {
-        // Underwater Coral Reef & Heartline Element ("I LOVE YOU ❤️"): gentle upward canopy gaze (+4.5°)
-        // so the coral arches, volumetric sunbeams, and glowing world-space love quotes frame above the nose heart emblem
+        // Underwater Coral Reef, Marine Life Spotlights & Heartline Element ("I LOVE YOU ❤️")
         let reefWeight = 1.0;
         if (u < 0.575) {
           reefWeight = THREE.MathUtils.smoothstep(u, 0.555, 0.575);
         } else if (u > 0.755) {
           reefWeight = 1.0 - THREE.MathUtils.smoothstep(u, 0.755, 0.775);
         }
-        _scratchBlendedDir.y += 0.075 * reefWeight;
+        _scratchBlendedDir.y += 0.045 * reefWeight;
         _scratchBlendedDir.normalize();
+
+        // Dedicated Camera Movements for each Underwater Reef Alcove, Hugging Fish Couple & Heartline Arch:
+        // The camera turns 100% onto each focal point while the train slows and pauses, centering the entire romantic text!
+        for (let sIdx = 0; sIdx < UNDERWATER_TEXT_STAGE_SPECS.length; sIdx++) {
+          const spec = UNDERWATER_TEXT_STAGE_SPECS[sIdx];
+          if (u >= spec.camStartU && u <= spec.camEndU) {
+            let stageCamWeight = 0;
+            if (u < spec.camHoldStartU) {
+              stageCamWeight = THREE.MathUtils.smoothstep(
+                u,
+                spec.camStartU,
+                spec.camHoldStartU
+              );
+            } else if (u <= spec.camHoldEndU) {
+              stageCamWeight = 1.0;
+            } else {
+              stageCamWeight =
+                1.0 -
+                THREE.MathUtils.smoothstep(u, spec.camHoldEndU, spec.camEndU);
+            }
+
+            if (timeSinceLastLookInput > 0.35) {
+              userYawOffset = THREE.MathUtils.lerp(
+                userYawOffset,
+                0,
+                Math.min(1, clampedDt * 6.5)
+              );
+              userPitchOffset = THREE.MathUtils.lerp(
+                userPitchOffset,
+                0,
+                Math.min(1, clampedDt * 6.5)
+              );
+            }
+
+            if (sIdx === 2) {
+              // Stage 2 (u = 0.625): Frame the entire quote AND the Hugging Fish Couple right beneath it!
+              getHuggingFishSpotlightWorldPos(spline, _scratchHuggingCouplePos);
+              getUnderwaterTextStageWorldPos(spline, sIdx, _scratchStageWorldPos);
+              _scratchStageWorldPos.lerp(_scratchHuggingCouplePos, 0.36);
+            } else {
+              getUnderwaterTextStageWorldPos(spline, sIdx, _scratchStageWorldPos);
+            }
+
+            _scratchPoiDir
+              .copy(_scratchStageWorldPos)
+              .sub(_scratchSeatEye)
+              .normalize();
+            // Turn 100% toward the target stage during the hold so the entire text is centered in the viewport
+            _scratchBlendedDir
+              .lerp(_scratchPoiDir, stageCamWeight)
+              .normalize();
+            effectiveTargetFov = THREE.MathUtils.lerp(
+              zone.targetFov,
+              spec.targetFov,
+              stageCamWeight
+            );
+            currentZoneLabel = spec.zoneLabel;
+            break;
+          }
+        }
       } else if (u >= 0.83 && u <= 0.915) {
         // ACT 16: Final Panoramic Helix (distant romantic callback view toward the Love Meadow)
         let helixWeight = 0;
@@ -219,17 +284,19 @@ export function createHeartlineCameraRig(
       smoothedDir.copy(_scratchBlendedDir);
       smoothedBaseDir.copy(_scratchBaseDir);
       smoothedUp.copy(_scratchUp);
-      currentFov = zone.targetFov;
+      currentFov = effectiveTargetFov;
       initialized = true;
     } else {
-      const dirDamp = 1.0 - Math.exp(-12.0 * clampedDt);
-      const baseDamp = 1.0 - Math.exp(-8.5 * clampedDt);
-      const upDamp = 1.0 - Math.exp(-6.5 * clampedDt);
-      const fovDamp = 1.0 - Math.exp(-5.0 * clampedDt);
+      const isUnderwater = u >= 0.545 && u <= 0.778;
+      // Smoothly turn and lock onto each underwater text stage during the 1-second pause hold
+      const dirDamp = 1.0 - Math.exp(-(isUnderwater ? 6.2 : 12.0) * clampedDt);
+      const baseDamp = 1.0 - Math.exp(-(isUnderwater ? 5.5 : 8.5) * clampedDt);
+      const upDamp = 1.0 - Math.exp(-(isUnderwater ? 4.5 : 6.5) * clampedDt);
+      const fovDamp = 1.0 - Math.exp(-(isUnderwater ? 4.5 : 6.0) * clampedDt);
       smoothedDir.lerp(_scratchBlendedDir, dirDamp).normalize();
       smoothedBaseDir.lerp(_scratchBaseDir, baseDamp).normalize();
       smoothedUp.lerp(_scratchUp, upDamp).normalize();
-      currentFov = THREE.MathUtils.lerp(currentFov, zone.targetFov, fovDamp);
+      currentFov = THREE.MathUtils.lerp(currentFov, effectiveTargetFov, fovDamp);
     }
 
     up.copy(smoothedUp);

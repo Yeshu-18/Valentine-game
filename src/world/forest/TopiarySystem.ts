@@ -586,6 +586,9 @@ export function createTopiarySystem(): TopiarySystemBundle {
       emissive: new THREE.Color('#fbbf24'),
       emissiveIntensity: 0.75,
       roughness: 0.26,
+      polygonOffset: true,
+      polygonOffsetFactor: -1,
+      polygonOffsetUnits: -1,
     }),
   );
   const blossomRoseMat = tracker.trackMat(
@@ -602,6 +605,9 @@ export function createTopiarySystem(): TopiarySystemBundle {
       emissive: new THREE.Color('#f59e0b'),
       emissiveIntensity: 0.68,
       roughness: 0.26,
+      polygonOffset: true,
+      polygonOffsetFactor: -1,
+      polygonOffsetUnits: -1,
     }),
   );
 
@@ -627,7 +633,7 @@ export function createTopiarySystem(): TopiarySystemBundle {
     new THREE.RingGeometry(0.92, 1.08, 24),
   );
   planterGroundHaloGeo.rotateX(-Math.PI / 2);
-  planterGroundHaloGeo.translate(0, 0.03, 0);
+  planterGroundHaloGeo.translate(0, 0.042, 0);
 
   const soilDiscGeo = tracker.trackGeo(
     new THREE.CylinderGeometry(0.76, 0.76, 0.08, 10),
@@ -821,7 +827,7 @@ export function createTopiarySystem(): TopiarySystemBundle {
       const mAng = (m / mossCount) * Math.PI * 2 + rand() * 0.6;
       const isBaseMoss = m % 2 === 0;
       const mr = isBaseMoss ? 0.86 + rand() * 0.12 : 0.62 + rand() * 0.18;
-      const my = isBaseMoss ? 0.08 + rand() * 0.14 : 0.57;
+      const my = isBaseMoss ? 0.12 + rand() * 0.14 : 0.57;
       const mGeo = createPerturbedFoliagePuff(
         {
           x: Math.cos(mAng) * mr,

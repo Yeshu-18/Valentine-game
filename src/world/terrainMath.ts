@@ -524,9 +524,9 @@ export function getHeartIslandMask(x: number, z: number): number {
 
   // Broadened Northeast Spectacular Thrill Zone Highland lobe extension (strictly away from Aurora Lake x < 28)
   const thrillLobeX =
-    smoothstep(28, 48, x) * (1.0 - smoothstep(138, 162, x));
-  const thrillLobeZ = smoothstep(56, 82, z) * (1.0 - smoothstep(148, 174, z));
-  const thrillHighlandBoost = thrillLobeX * thrillLobeZ * 0.68;
+    smoothstep(28, 48, x) * (1.0 - smoothstep(146, 170, x));
+  const thrillLobeZ = smoothstep(48, 70, z) * (1.0 - smoothstep(148, 174, z));
+  const thrillHighlandBoost = thrillLobeX * thrillLobeZ * 0.78;
 
   return (
     1.0 -
@@ -932,9 +932,9 @@ export function getTerrainHeight(x: number, z: number): number {
     height = THREE.MathUtils.lerp(height, 8.2, brickFlatWeight);
   }
 
-  // Level shelf at the Heartline Coaster Precinct, Station, Love Meadow & Track Footprint (x: 38..124, z: 64.5..134) at Y = 12.5m
-  const heartlineBoxDx = Math.max(0, 38.0 - x, x - 124.0);
-  const heartlineBoxDz = Math.max(0, 64.5 - z, z - 134.0);
+  // Level shelf at the Heartline Coaster Precinct, Station, Love Meadow, Lagoon Skywalk Rim & Track Footprint (x: 38..145, z: 62.5..134) at Y = 12.5m
+  const heartlineBoxDx = Math.max(0, 38.0 - x, x - 145.0);
+  const heartlineBoxDz = Math.max(0, 62.5 - z, z - 134.0);
   const distFromHeartlineBox = Math.hypot(heartlineBoxDx, heartlineBoxDz);
   if (distFromHeartlineBox < 6.5 && z > 58.0) {
     const heartlineFlatWeight = 1.0 - smoothstep(0.0, 6.5, distFromHeartlineBox);
@@ -1092,6 +1092,38 @@ export function getTerrainNormal(
   return target;
 }
 
+/**
+ * Returns true if (x, z) is inside either of the two open-water viewing cutouts
+ * of the Heartline Underwater Coral Reef Lagoon (bounded by the 3D glass safety balustrades).
+ * The Central Lover's Heart Bridge (x: 111.0..116.5), the Central Lover's Rotunda (center 113.75, 78.2, r = 4.15m),
+ * and the Perimeter Glass Promenades (South z: 57.5..66.2, North z: 90.2..95.5, West x <= 80.6, East x: 140.5..145.0) remain walkable.
+ */
+export function isInsideHeartlineLagoonOpenWaterCutout(
+  x: number,
+  z: number,
+): boolean {
+  if (z <= 66.2 || z >= 90.2) return false;
+  // Central Lover's Rotunda observation deck in the middle of the bridge
+  if (Math.hypot(x - 113.75, z - 78.2) <= 4.15) return false;
+  const inWestCutout = x > 80.6 && x < 111.0;
+  const inEastCutout = x > 116.5 && x < 140.5;
+  return inWestCutout || inEastCutout;
+}
+
+/**
+ * Returns true if (x, z) is on the Heartline Lagoon Perimeter Glass Promenade,
+ * the South Castle-to-Lagoon Crystal Ramp, or the Central Lover's Heart Bridge & Rotunda.
+ */
+export function isOnHeartlineLagoonGlassWalkway(
+  x: number,
+  z: number,
+): boolean {
+  if (x < 76.5 || x > 144.8 || z < 57.5 || z > 94.4) return false;
+  // Block stepping off the South-East ledge South of z = 62.0 outside the Grand Ramp (x: 76.5..106.0)
+  if (z < 62.0 && x > 106.0) return false;
+  return !isInsideHeartlineLagoonOpenWaterCutout(x, z);
+}
+
 export function isWalkablePosition(x: number, z: number): boolean {
   if (
     x < ISLAND_BOUNDS.minX ||
@@ -1100,6 +1132,16 @@ export function isWalkablePosition(x: number, z: number): boolean {
     z > ISLAND_BOUNDS.maxZ
   ) {
     return false;
+  }
+
+  // Restrict player from walking through the glass safety balustrades into the open-water lagoon cutouts
+  if (isInsideHeartlineLagoonOpenWaterCutout(x, z)) {
+    return false;
+  }
+
+  // Always walkable on the Heartline Lagoon Crystal Glass Promenade, Central Glass Bridge, & South Ramp
+  if (isOnHeartlineLagoonGlassWalkway(x, z)) {
+    return true;
   }
 
   // Always walkable inside the Wizarding School Great Hall, Library Wing, Potions Wing, & Conservatory
@@ -1145,7 +1187,7 @@ export function isWalkablePosition(x: number, z: number): boolean {
     return true;
   }
   // Always walkable throughout the Heartline Coaster Precinct (Entrance, Ticket Plaza, Queue Garden, Viewing Deck, Station)
-  if (x >= 38.0 && x <= 124.0 && z >= 63.0 && z <= 134.0) {
+  if (x >= 38.0 && x <= 146.0 && z >= 60.0 && z <= 134.0) {
     return true;
   }
   // Always walkable along the Grand Sapphire Boulevard connecting Central Plaza Thrill Gateway (24.6, 20.8 / 31.9, 27.0) to Heartline Entrance (46.0, 65.0)
@@ -1171,12 +1213,12 @@ export function getRegionAtPosition(x: number, z: number): {
       subtitle: '5-Level Grand Palace & Couture Sanctuary',
     };
   }
-  // Northeast Spectacular Thrill Zone: Heartline Coaster Precinct
-  if (x >= 38.0 && x <= 126.0 && z >= 63.0 && z <= 136.0) {
+  // Northeast Spectacular Thrill Zone: Heartline Coaster Precinct & Crystal Glass Lagoon Skywalk
+  if (x >= 38.0 && x <= 146.5 && z >= 57.5 && z <= 136.0) {
     return {
       id: 'coaster-ridge',
       name: 'Heartline — The Sky of Our Dreams',
-      subtitle: 'Flagship Sky Coaster & Botanical Precinct',
+      subtitle: 'Flagship Sky Coaster & Crystal Lagoon Skywalk',
     };
   }
 

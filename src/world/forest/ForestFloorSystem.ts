@@ -183,6 +183,9 @@ export function createForestFloorSystem(): ForestFloorSystemBundle {
       color: new THREE.Color('#ffffff'),
       roughness: 0.88,
       metalness: 0.0,
+      polygonOffset: true,
+      polygonOffsetFactor: -1.5,
+      polygonOffsetUnits: -3.0,
     }),
   );
   const mossCount = 140;
@@ -196,7 +199,7 @@ export function createForestFloorSystem(): ForestFloorSystemBundle {
     const pt = sampleClusteredPoint(1.25, 1.15);
     if (!pt) continue;
     const s = 0.65 + rand() * 1.15;
-    _dummy.position.set(pt.wx, pt.wy - 0.02, pt.wz);
+    _dummy.position.set(pt.wx, pt.wy + 0.005, pt.wz);
     _dummy.rotation.set(
       (rand() - 0.5) * 0.14,
       rand() * Math.PI * 2,
@@ -235,6 +238,9 @@ export function createForestFloorSystem(): ForestFloorSystemBundle {
     new THREE.MeshStandardMaterial({
       color: new THREE.Color('#ffffff'),
       roughness: 0.82,
+      polygonOffset: true,
+      polygonOffsetFactor: -2.0,
+      polygonOffsetUnits: -4.0,
     }),
   );
   const grassCount = 180;
@@ -248,7 +254,7 @@ export function createForestFloorSystem(): ForestFloorSystemBundle {
     const pt = sampleClusteredPoint(1.35, 1.25);
     if (!pt) continue;
     const s = 0.65 + rand() * 0.85;
-    _dummy.position.set(pt.wx, pt.wy - 0.02, pt.wz);
+    _dummy.position.set(pt.wx, pt.wy + 0.008, pt.wz);
     _dummy.rotation.set(0, rand() * Math.PI * 2, 0);
     _dummy.scale.set(s, s * (0.75 + rand() * 0.55), s);
     _dummy.updateMatrix();
@@ -287,6 +293,9 @@ export function createForestFloorSystem(): ForestFloorSystemBundle {
       color: new THREE.Color('#ffffff'),
       roughness: 0.86,
       side: THREE.DoubleSide,
+      polygonOffset: true,
+      polygonOffsetFactor: -2.5,
+      polygonOffsetUnits: -5.0,
     }),
   );
   const leafPatchCount = 160;
@@ -306,7 +315,7 @@ export function createForestFloorSystem(): ForestFloorSystemBundle {
     const pt = sampleClusteredPoint(0.45, 1.35);
     if (!pt) continue;
     const s = 0.75 + rand() * 0.95;
-    _dummy.position.set(pt.wx, pt.wy + 0.01, pt.wz);
+    _dummy.position.set(pt.wx, pt.wy + 0.024, pt.wz);
     _dummy.rotation.set(
       (rand() - 0.5) * 0.1,
       rand() * Math.PI * 2,
@@ -455,6 +464,9 @@ export function createForestFloorSystem(): ForestFloorSystemBundle {
       color: new THREE.Color('#ffffff'),
       roughness: 0.74,
       side: THREE.DoubleSide,
+      polygonOffset: true,
+      polygonOffsetFactor: -1.0,
+      polygonOffsetUnits: -2.0,
     }),
   );
   const fernCount = 135;
@@ -469,7 +481,7 @@ export function createForestFloorSystem(): ForestFloorSystemBundle {
     const pt = sampleClusteredPoint(1.55, 1.1);
     if (!pt) continue;
     const s = 0.75 + rand() * 0.85;
-    _dummy.position.set(pt.wx, pt.wy - 0.03, pt.wz);
+    _dummy.position.set(pt.wx, pt.wy - 0.015, pt.wz);
     _dummy.rotation.set(
       (rand() - 0.5) * 0.12,
       rand() * Math.PI * 2,
@@ -526,6 +538,9 @@ export function createForestFloorSystem(): ForestFloorSystemBundle {
     new THREE.MeshStandardMaterial({
       color: new THREE.Color('#ffffff'),
       roughness: 0.65,
+      polygonOffset: true,
+      polygonOffsetFactor: -1.5,
+      polygonOffsetUnits: -3.0,
     }),
   );
   const flowerCount = 52;

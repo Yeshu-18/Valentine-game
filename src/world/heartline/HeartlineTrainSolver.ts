@@ -5,6 +5,7 @@ import {
   HeartlineTrackFrame,
   createEmptyTrackFrame,
 } from './HeartlineTrackSpline';
+import { UNDERWATER_TEXT_STAGE_SPECS } from './HeartlineUnderwaterReef';
 
 export type HeartlineRidePhase =
   | 'PRE_RIDE_PARKED'
@@ -414,49 +415,155 @@ export function createHeartlineTrainSolver(
     carGroups.push(car);
   }
 
-  // Dedicated First-Person Short Blue Nose Tip (shown ONLY while riding, anchored low at the very bottom-center of the base coaster view
-  // so zero seats, headrests, restraints, or side panels can ever block the view — and shortened so it barely peeks at the bottom edge!)
+  // Dedicated Realistic First-Person Aerodynamic Coaster Nose Hood (shown ONLY while riding, anchored low at the bottom-center
+  // of the base coaster view so zero seats, headrests, restraints, or side walls can ever obstruct the camera!)
   const riderNoseTipGroup = new THREE.Group();
   riderNoseTipGroup.name = 'HeartlineRiderTinyNoseTip';
   riderNoseTipGroup.visible = false;
 
-  const tinyNoseGeo = tracker.track(new THREE.CylinderGeometry(0.13, 0.25, 0.22, 16));
-  tinyNoseGeo.scale(0.92, 0.34, 1.0);
-  tinyNoseGeo.rotateX(Math.PI / 2 - 0.14);
-  const tinyNoseMesh = new THREE.Mesh(tinyNoseGeo, sapphireShellMat);
-  tinyNoseMesh.position.set(0, -0.43, 0.65);
-  riderNoseTipGroup.add(tinyNoseMesh);
+  // 1. Sculpted Aerodynamic Sapphire-Blue Hood Cowl (tapered low-profile sports-car nose matching the reference artwork)
+  const fppHoodGeo = tracker.track(new THREE.CylinderGeometry(0.16, 0.34, 0.34, 24));
+  fppHoodGeo.scale(1.12, 0.32, 1.0);
+  fppHoodGeo.rotateX(Math.PI / 2 - 0.16);
+  const fppHoodMesh = new THREE.Mesh(fppHoodGeo, sapphireShellMat);
+  fppHoodMesh.position.set(0, -0.43, 0.69);
+  riderNoseTipGroup.add(fppHoodMesh);
 
-  const tinyPearlRimGeo = tracker.track(new THREE.BoxGeometry(0.32, 0.035, 0.14));
-  const tinyPearlRim = new THREE.Mesh(tinyPearlRimGeo, pearlTrimMat);
-  tinyPearlRim.position.set(0, -0.45, 0.68);
-  riderNoseTipGroup.add(tinyPearlRim);
+  // 2. Swept Pearl-White Aerodynamic Wing Cheeks & Front Splitter Lip
+  for (const side of [-1, 1]) {
+    const fppWingGeo = tracker.track(new THREE.BoxGeometry(0.11, 0.042, 0.28));
+    const fppWing = new THREE.Mesh(fppWingGeo, pearlTrimMat);
+    fppWing.position.set(side * 0.24, -0.435, 0.68);
+    fppWing.rotation.y = -side * 0.28;
+    fppWing.rotation.z = -side * 0.14;
+    fppWing.rotation.x = 0.14;
+    riderNoseTipGroup.add(fppWing);
 
-  const tinyHeartShape = createHeartEmblemShape(0.22);
+    // Champagne-Gold Pinstripe Rib along the inner wing crease
+    const fppGoldCreaseGeo = tracker.track(new THREE.BoxGeometry(0.022, 0.025, 0.26));
+    const fppGoldCrease = new THREE.Mesh(fppGoldCreaseGeo, champagneGoldMat);
+    fppGoldCrease.position.set(side * 0.185, -0.412, 0.685);
+    fppGoldCrease.rotation.y = -side * 0.26;
+    fppGoldCrease.rotation.x = 0.14;
+    riderNoseTipGroup.add(fppGoldCrease);
+
+    // Glowing V-Shaped Cyan-Blue LED Headlight Strip on the outer front nose edge
+    const fppLedGeo = tracker.track(new THREE.BoxGeometry(0.11, 0.018, 0.045));
+    const fppLed = new THREE.Mesh(fppLedGeo, headlightMat);
+    fppLed.position.set(side * 0.20, -0.43, 0.80);
+    fppLed.rotation.y = -side * 0.38;
+    fppLed.rotation.z = side * 0.18;
+    riderNoseTipGroup.add(fppLed);
+  }
+
+  // 3. Dark Metallic Cockpit Cowl Lip & Champagne-Gold Hood Vent Trim at the base of the windshield
+  const fppDashLipGeo = tracker.track(new THREE.BoxGeometry(0.52, 0.038, 0.09));
+  const fppDashLip = new THREE.Mesh(fppDashLipGeo, bogieChassisMat);
+  fppDashLip.position.set(0, -0.405, 0.54);
+  fppDashLip.rotation.x = 0.15;
+  riderNoseTipGroup.add(fppDashLip);
+
+  const fppVentTrimGeo = tracker.track(new THREE.BoxGeometry(0.22, 0.022, 0.065));
+  const fppVentTrim = new THREE.Mesh(fppVentTrimGeo, champagneGoldMat);
+  fppVentTrim.position.set(0, -0.39, 0.57);
+  fppVentTrim.rotation.x = 0.18;
+  riderNoseTipGroup.add(fppVentTrim);
+
+  // 4. Faceted Glowing Cyan-Crystal Heart Emblem + Champagne-Gold Heart Bezel on the Nose Centerpiece
+  const tinyHeartShape = createHeartEmblemShape(0.28);
   const tinyHeartGeo = tracker.track(
     new THREE.ExtrudeGeometry(tinyHeartShape, {
-      depth: 0.018,
+      depth: 0.022,
       bevelEnabled: true,
-      bevelThickness: 0.005,
-      bevelSize: 0.005,
-      bevelSegments: 2,
+      bevelThickness: 0.006,
+      bevelSize: 0.006,
+      bevelSegments: 3,
     })
   );
   tinyHeartGeo.rotateX(-Math.PI / 2 + 0.22);
   const tinyHeartMesh = new THREE.Mesh(tinyHeartGeo, cyanCrystalMat);
-  tinyHeartMesh.position.set(0, -0.385, 0.67);
+  tinyHeartMesh.position.set(0, -0.376, 0.69);
   riderNoseTipGroup.add(tinyHeartMesh);
+
+  const tinyHeartBezelGeo = tracker.track(new THREE.TorusGeometry(0.078, 0.009, 8, 20));
+  tinyHeartBezelGeo.rotateX(Math.PI / 2 - 0.22);
+  const tinyHeartBezel = new THREE.Mesh(tinyHeartBezelGeo, champagneGoldMat);
+  tinyHeartBezel.position.set(0, -0.38, 0.688);
+  riderNoseTipGroup.add(tinyHeartBezel);
+
+  // 5. Dynamic Water-Entry / Exit Splash Droplets, Bow-Wave Foam & Shimmering Water Veil attached to the Rider Nose View!
+  const waterSplashFXGroup = new THREE.Group();
+  waterSplashFXGroup.visible = false;
+  riderNoseTipGroup.add(waterSplashFXGroup);
+
+  const splashDropMat = tracker.track(
+    new THREE.MeshBasicMaterial({
+      color: 0xe0f2fe,
+      transparent: true,
+      opacity: 0.0,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+    })
+  );
+  const splashRippleMat = tracker.track(
+    new THREE.MeshBasicMaterial({
+      color: 0x38bdf8,
+      transparent: true,
+      opacity: 0.0,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+      side: THREE.DoubleSide,
+    })
+  );
+
+  // Bow-wave expanding water rings around the nose tip during water plunge/breach
+  const bowWaveRings: THREE.Mesh[] = [];
+  const bowWaveGeo = tracker.track(new THREE.TorusGeometry(0.26, 0.018, 8, 24));
+  for (let r = 0; r < 3; r++) {
+    const ring = new THREE.Mesh(bowWaveGeo, splashRippleMat);
+    ring.position.set(0, -0.36, 0.72);
+    waterSplashFXGroup.add(ring);
+    bowWaveRings.push(ring);
+  }
+
+  // 28 3D Water Droplets & Foam Beads streaming across the nose & windshield perimeter on water entry/exit and underwater
+  interface NoseDropletSpec {
+    mesh: THREE.Mesh;
+    dirX: number;
+    dirY: number;
+    speed: number;
+    phase: number;
+    baseScale: number;
+  }
+  const noseDroplets: NoseDropletSpec[] = [];
+  const dropletGeo = tracker.track(new THREE.SphereGeometry(0.014, 8, 8));
+  dropletGeo.scale(0.85, 0.85, 2.2); // elongated water streak bead
+  for (let i = 0; i < 28; i++) {
+    const dMesh = new THREE.Mesh(dropletGeo, splashDropMat);
+    const angle = (i / 28) * Math.PI * 2 + (i % 3) * 0.2;
+    waterSplashFXGroup.add(dMesh);
+    noseDroplets.push({
+      mesh: dMesh,
+      dirX: Math.cos(angle) * (0.32 + (i % 4) * 0.11),
+      dirY: Math.sin(angle) * 0.24 + 0.16,
+      speed: 2.2 + (i % 5) * 0.45,
+      phase: i * 0.37,
+      baseScale: 0.75 + (i % 4) * 0.25,
+    });
+  }
 
   group.add(riderNoseTipGroup);
 
   function setRiderViewMode(isRiding: boolean): void {
     // When the player sits/rides, hide all 4 cars' seats, headrests, restraints, side walls & bogies
-    // so NOTHING can ever obstruct the camera view, leaving ONLY the tiny blue nose tip!
+    // so NOTHING can ever obstruct the camera view, leaving ONLY the realistic sculpted nose hood!
     for (let c = 0; c < CAR_COUNT; c++) {
       carGroups[c].visible = !isRiding;
     }
     riderNoseTipGroup.visible = isRiding;
   }
+
+  let currentAnimElapsed = 0;
 
   function syncRiderNoseToCamera(
     camPos: THREE.Vector3,
@@ -471,6 +578,43 @@ export function createHeartlineTrainSolver(
     _scratchUp.crossVectors(_scratchForward, _scratchRight).normalize();
     _scratchBasisMat.makeBasis(_scratchRight, _scratchUp, _scratchForward);
     riderNoseTipGroup.quaternion.setFromRotationMatrix(_scratchBasisMat);
+
+    // Animate water-entry plunge splash (u ~ 0.542..0.578), underwater bubble beads (u ~ 0.542..0.785), and water-exit breach splash (u ~ 0.755..0.788)
+    const u = leadCarFrame.u;
+    const isInWaterZone = u >= 0.538 && u <= 0.790;
+    waterSplashFXGroup.visible = isInWaterZone;
+    if (isInWaterZone) {
+      // Peak splash burst right as the train plunges into the ocean (u = 0.553) and breaches out (u = 0.775)
+      const entrySplash = Math.max(0, 1.0 - Math.abs(u - 0.554) / 0.018);
+      const exitSplash = Math.max(0, 1.0 - Math.abs(u - 0.774) / 0.018);
+      const splashBurst = Math.max(entrySplash, exitSplash);
+      const underwaterStream = u >= 0.554 && u <= 0.774 ? 0.38 : 0.0;
+      const fxIntensity = Math.min(1.0, splashBurst * 0.95 + underwaterStream);
+
+      splashDropMat.opacity = fxIntensity * 0.85;
+      splashRippleMat.opacity = splashBurst * 0.68;
+
+      for (let r = 0; r < bowWaveRings.length; r++) {
+        const ring = bowWaveRings[r];
+        const ringCycle = (currentAnimElapsed * 2.8 + r * 0.33) % 1.0;
+        const ringScale = 0.55 + ringCycle * (1.85 + splashBurst * 1.1);
+        ring.scale.set(ringScale, ringScale, 1.0);
+        ring.position.set(0, -0.36 + ringCycle * 0.14, 0.76 - ringCycle * 0.24);
+      }
+
+      for (let i = 0; i < noseDroplets.length; i++) {
+        const nd = noseDroplets[i];
+        const cycle = (currentAnimElapsed * nd.speed + nd.phase) % 1.0;
+        const spread = cycle * (0.65 + splashBurst * 0.55);
+        nd.mesh.position.set(
+          nd.dirX * spread,
+          -0.38 + nd.dirY * spread - cycle * cycle * 0.12,
+          0.78 - cycle * 0.38
+        );
+        const s = nd.baseScale * (1.0 - cycle * 0.45) * (0.7 + splashBurst * 0.65);
+        nd.mesh.scale.set(s, s, s);
+      }
+    }
   }
 
   // Kinematics State
@@ -481,7 +625,9 @@ export function createHeartlineTrainSolver(
   let boardingTimer = 0;
   let seatSettleOffset = 0;
   let restraintOpenAngle = -0.78; // Open upward in station
-  let underwaterSpeedFactor = 0.72; // Adjustable underwater speed multiplier (slower dreamy pace)
+  let underwaterSpeedFactor = 0.56; // Adjustable underwater speed multiplier (slower dreamy pace)
+  let underwaterStageVisitedMask = 0;
+  let underwaterStagePauseTimer = 0;
 
   function getUnderwaterSpeedFactor(): number {
     return underwaterSpeedFactor;
@@ -565,7 +711,9 @@ export function createHeartlineTrainSolver(
       const nextPreviewFrame = spline.evaluateAtS(leadS + Math.max(1.5, speed * dt), carFrames[1]);
       const dh = prevY - nextPreviewFrame.pos.y;
       const g = 9.81 * 1.45; // Coaster scale gravity feel
-      const vSq = Math.max(64.0, speed * speed + 2.0 * g * dh);
+      const isUnderwater = u >= 0.53 && u < 0.76;
+      const minEnergyVSq = isUnderwater ? 12.0 : 64.0;
+      const vSq = Math.max(minEnergyVSq, speed * speed + 2.0 * g * dh);
       let rawV = Math.sqrt(vSq);
 
       // Gentle zone speed shaping for cinematic pacing
@@ -574,13 +722,13 @@ export function createHeartlineTrainSolver(
         rawV = THREE.MathUtils.lerp(rawV, 20.5, Math.min(1, dt * 2.0));
       } else if (u >= 0.53 && u < 0.565) {
         // T+00s Transition In: Crystal Tunnel plunges into ocean water, decelerating smoothly into underwater glide
-        rawV = THREE.MathUtils.lerp(rawV, 8.8 * underwaterSpeedFactor, Math.min(1, dt * 3.2));
+        rawV = THREE.MathUtils.lerp(rawV, 8.8 * underwaterSpeedFactor, Math.min(1, dt * 5.2));
       } else if (u >= 0.565 && u < 0.70) {
         // T+03s..T+18s Underwater Coral Reef (First Reef -> Living Reef -> Coral Passage -> Heart Reef): dreamy cruise
-        rawV = THREE.MathUtils.lerp(rawV, 7.8 * underwaterSpeedFactor, Math.min(1, dt * 3.8));
+        rawV = THREE.MathUtils.lerp(rawV, 7.8 * underwaterSpeedFactor, Math.min(1, dt * 6.5));
       } else if (u >= 0.70 && u < 0.755) {
         // T+23s Underwater Heartline Element ("I LOVE YOU ❤️"): romantic showcase glide
-        rawV = THREE.MathUtils.lerp(rawV, 7.2 * underwaterSpeedFactor, Math.min(1, dt * 4.0));
+        rawV = THREE.MathUtils.lerp(rawV, 7.2 * underwaterSpeedFactor, Math.min(1, dt * 6.8));
       } else if (u >= 0.755 && u < 0.83) {
         // T+28s Final Reef & Exit to Open Sky: buoyant hydro-launch propelling train out of the ocean up to the Garden Bridge & Helix
         rawV = THREE.MathUtils.lerp(rawV, 16.2, Math.min(1, dt * 3.2));
@@ -590,8 +738,46 @@ export function createHeartlineTrainSolver(
       }
 
       const drag = 0.0018 * rawV * rawV * dt;
-      const minV = u >= 0.53 && u < 0.76 ? 4.2 * underwaterSpeedFactor : 11.5;
+      const minV = isUnderwater ? 3.8 * underwaterSpeedFactor : 11.5;
       speed = THREE.MathUtils.clamp(rawV - drag, minV, 27.5);
+
+      if (!isUnderwater) {
+        underwaterStageVisitedMask = 0;
+        underwaterStagePauseTimer = 0;
+      } else {
+        // Slow down as the camera turns toward each underwater text stage, and pause for ~1.15s while showing the entire text!
+        let inStageApproachOrHold = false;
+        for (let sIdx = 0; sIdx < UNDERWATER_TEXT_STAGE_SPECS.length; sIdx++) {
+          const spec = UNDERWATER_TEXT_STAGE_SPECS[sIdx];
+          const pauseU = (spec.camHoldStartU + spec.camHoldEndU) * 0.5;
+          const bit = 1 << sIdx;
+
+          if (
+            !(underwaterStageVisitedMask & bit) &&
+            u >= pauseU &&
+            u <= spec.camHoldEndU
+          ) {
+            underwaterStageVisitedMask |= bit;
+            // 2.5-second dedicated pause for the Hugging Fish Couple (Stage 2), 1.45s for Grand Heartline, 1.15s for other reef texts
+            underwaterStagePauseTimer = sIdx === 2 ? 2.5 : sIdx === 5 ? 1.45 : 1.15;
+          }
+
+          if (u >= spec.camStartU && u <= spec.camHoldEndU) {
+            inStageApproachOrHold = true;
+            break;
+          }
+        }
+
+        if (underwaterStagePauseTimer > 0) {
+          underwaterStagePauseTimer = Math.max(0, underwaterStagePauseTimer - dt);
+          // Hold a near-stationary ~1.15s pause while the camera locks onto the entire underwater text
+          speed = THREE.MathUtils.lerp(speed, 0.14, Math.min(1, dt * 12.0));
+        } else if (inStageApproachOrHold) {
+          // Smoothly slow down as the camera turns toward the text stage
+          const slowTurnV = 1.45 * underwaterSpeedFactor;
+          speed = THREE.MathUtils.lerp(speed, slowTurnV, Math.min(1, dt * 7.5));
+        }
+      }
     } else {
       // Zone 11 & 12: Magnetic Brake Run & Station Return (u = 0.92..1.00)
       const remainingS = Math.max(0, spline.totalLength - leadS);
@@ -633,6 +819,8 @@ export function createHeartlineTrainSolver(
     boardingTimer = 0;
     seatSettleOffset = 0;
     restraintOpenAngle = -0.78;
+    underwaterStageVisitedMask = 0;
+    underwaterStagePauseTimer = 0;
     firedRestraintLock = false;
     firedConsoleChime = false;
     firedBrakeRelease = false;
@@ -648,6 +836,8 @@ export function createHeartlineTrainSolver(
     boardingTimer = 0;
     seatSettleOffset = 0;
     restraintOpenAngle = -0.78;
+    underwaterStageVisitedMask = 0;
+    underwaterStagePauseTimer = 0;
     preRideTimer = 18.0;
     setRiderViewMode(false);
     updateCarTransforms();
@@ -679,6 +869,7 @@ export function createHeartlineTrainSolver(
 
   function update(dt: number, elapsedTime: number): void {
     const clampedDt = Math.min(dt, 0.05);
+    currentAnimElapsed = elapsedTime;
 
     switch (phase) {
       case 'PRE_RIDE_PARKED': {

@@ -337,6 +337,9 @@ export function createAncientForestSystem(): AncientForestBundle {
       color: new THREE.Color('#8c857f'),
       roughness: 0.86,
       metalness: 0.03,
+      polygonOffset: true,
+      polygonOffsetFactor: -1.5,
+      polygonOffsetUnits: -3.0,
     }),
   );
 
@@ -353,6 +356,9 @@ export function createAncientForestSystem(): AncientForestBundle {
       color: new THREE.Color('#3f6135'),
       roughness: 0.85,
       metalness: 0.0,
+      polygonOffset: true,
+      polygonOffsetFactor: -2.0,
+      polygonOffsetUnits: -4.0,
     }),
   );
 
@@ -665,6 +671,9 @@ export function createAncientForestSystem(): AncientForestBundle {
       opacity: 0.82,
       depthWrite: false,
       side: THREE.DoubleSide,
+      polygonOffset: true,
+      polygonOffsetFactor: -2.0,
+      polygonOffsetUnits: -4.0,
     }),
   );
   const lakeMesh = new THREE.Mesh(lakeWaterGeo, lakeWaterMat);

@@ -2284,10 +2284,16 @@ export function createWizardingSchoolSystem(): WizardingSchoolBundle {
   const conservatoryFloorGeo = tracker.trackGeo(
     new THREE.BoxGeometry(22.5, 2.2, 12.6),
   );
-  conservatoryFloorGeo.translate(0, 0.7, 35.4);
+  conservatoryFloorGeo.translate(0, 0.72, 35.4);
+  const conservatoryFloorMat = tracker.trackMat(
+    warmAshlarStoneMat.clone(),
+  );
+  conservatoryFloorMat.polygonOffset = true;
+  conservatoryFloorMat.polygonOffsetFactor = -1.0;
+  conservatoryFloorMat.polygonOffsetUnits = -2.0;
   const conservatoryFloor = new THREE.Mesh(
     conservatoryFloorGeo,
-    warmAshlarStoneMat,
+    conservatoryFloorMat,
   );
   conservatoryFloor.receiveShadow = true;
   conservatoryGroup.add(conservatoryFloor);
@@ -2402,6 +2408,9 @@ export function createWizardingSchoolSystem(): WizardingSchoolBundle {
       emissive: new THREE.Color('#22c55e'),
       emissiveIntensity: 0.48,
       roughness: 0.42,
+      polygonOffset: true,
+      polygonOffsetFactor: -1.5,
+      polygonOffsetUnits: -3.0,
     }),
   );
   const mandrakeRootMat = tracker.trackMat(
@@ -2425,7 +2434,7 @@ export function createWizardingSchoolSystem(): WizardingSchoolBundle {
     new THREE.RingGeometry(0.28, 0.42, 20),
   );
   indoorHaloRingGeo.rotateX(-Math.PI / 2);
-  indoorHaloRingGeo.translate(0, 0.02, 0);
+  indoorHaloRingGeo.translate(0, 0.042, 0);
   const mandrakeHeadGeo = tracker.trackGeo(
     new THREE.SphereGeometry(0.16, 10, 10),
   );
@@ -2482,6 +2491,9 @@ export function createWizardingSchoolSystem(): WizardingSchoolBundle {
       emissive: new THREE.Color('#ec4899'),
       emissiveIntensity: 0.68,
       roughness: 0.28,
+      polygonOffset: true,
+      polygonOffsetFactor: -1,
+      polygonOffsetUnits: -1,
     }),
   );
   const flowerStemGeo = tracker.trackGeo(
@@ -2538,7 +2550,7 @@ export function createWizardingSchoolSystem(): WizardingSchoolBundle {
   pondRimGeo.translate(0, 0.18, 0);
   const pondWaterGeo = tracker.trackGeo(new THREE.CircleGeometry(1.42, 28));
   pondWaterGeo.rotateX(-Math.PI / 2);
-  pondWaterGeo.translate(0, 0.22, 0);
+  pondWaterGeo.translate(0, 0.225, 0);
   const pondWaterMat = tracker.trackMat(
     new THREE.MeshPhysicalMaterial({
       color: new THREE.Color('#0ea5e9'),
@@ -2546,6 +2558,9 @@ export function createWizardingSchoolSystem(): WizardingSchoolBundle {
       emissiveIntensity: 0.32,
       roughness: 0.12,
       clearcoat: 0.9,
+      polygonOffset: true,
+      polygonOffsetFactor: -1.5,
+      polygonOffsetUnits: -3.0,
     }),
   );
   const mossyRockGeo = tracker.trackGeo(
@@ -2554,12 +2569,12 @@ export function createWizardingSchoolSystem(): WizardingSchoolBundle {
   mossyRockGeo.scale(1.1, 0.72, 1.1);
   mossyRockGeo.translate(0, 0.34, 0);
 
-  // Lily pad + splash ripple ring on the pond water
+  // Lily pad + splash ripple ring on the pond water (separated vertically to prevent z-fighting)
   const lilyPadGeo = tracker.trackGeo(
-    new THREE.CylinderGeometry(0.32, 0.32, 0.02, 16),
+    new THREE.CylinderGeometry(0.32, 0.32, 0.024, 16),
   );
   const lilyPadMesh = new THREE.Mesh(lilyPadGeo, mandrakeLeafMat);
-  lilyPadMesh.position.set(0.58, 0.23, -0.35);
+  lilyPadMesh.position.set(0.58, 0.258, -0.35);
 
   const splashRingGeo = tracker.trackGeo(
     new THREE.RingGeometry(0.32, 0.38, 24),
@@ -2570,11 +2585,15 @@ export function createWizardingSchoolSystem(): WizardingSchoolBundle {
       color: new THREE.Color('#e0f2fe'),
       transparent: true,
       opacity: 0.35,
+      depthWrite: false,
+      polygonOffset: true,
+      polygonOffsetFactor: -2.0,
+      polygonOffsetUnits: -4.0,
       side: THREE.DoubleSide,
     }),
   );
   const splashRingMesh = new THREE.Mesh(splashRingGeo, splashRingMat);
-  splashRingMesh.position.set(0.58, 0.235, -0.35);
+  splashRingMesh.position.set(0.58, 0.242, -0.35);
 
   const pondRim = new THREE.Mesh(pondRimGeo, warmAshlarStoneMat);
   const pondWater = new THREE.Mesh(pondWaterGeo, pondWaterMat);
