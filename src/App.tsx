@@ -67,7 +67,7 @@ import {
   loadSavedStoryPhase,
   saveStoryPhase,
 } from './world/story/GameStoryDirector';
-import { PrequelScene } from './world/story/PrequelScene';
+import { PrequelGame } from './prequel/PrequelGame';
 import { SequelScene } from './world/story/SequelScene';
 
 /**
@@ -2012,7 +2012,7 @@ export default function App() {
                   onClick={() => setStoryPhase('PROLOGUE')}
                   className="px-2.5 py-1 text-xs font-semibold rounded-md bg-rose-500/20 hover:bg-rose-500/35 text-rose-200 border border-rose-400/40 transition-colors whitespace-nowrap shrink-0 cursor-pointer"
                 >
-                  Prologue (Cell 04)
+                  Prologue · Ch 1 (10:30 PM)
                 </button>
                 <button
                   type="button"
@@ -2061,11 +2061,11 @@ export default function App() {
         className="hidden"
       />
 
-      {/* Chapter I: Prequel / Prologue (Feb 13, 2027 10:30 PM -> Cell 04: The Awakening -> Dream World Reveal) */}
+      {/* Standalone Prequel Game Module (src/prequel — Prologue · Chapter 1: The Ordinary Night) */}
       {storyPhase === 'PROLOGUE' && (
         <div className="absolute inset-0 z-50">
-          <PrequelScene
-            onCompletePrequel={() => {
+          <PrequelGame
+            onEnterDreamWorld={() => {
               setStoryPhase('DREAM_WORLD');
               handleTeleport(-16.5, 16.0, 0);
             }}
