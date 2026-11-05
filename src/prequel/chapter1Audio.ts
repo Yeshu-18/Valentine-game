@@ -345,7 +345,150 @@ export class Chapter1AudioController {
   }
 
   /**
-   * Beat 05: Crisp mechanical car door unlock click right before cutting to black.
+   * Beat 05: Heavy tactical boot footstep on wet asphalt for the Masked Man.
+   */
+  public playHeavyBootStep(): void {
+    const ctx = this.ensureContext();
+    if (!ctx) return;
+    const now = ctx.currentTime;
+
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    const filter = ctx.createBiquadFilter();
+
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(92, now);
+    osc.frequency.exponentialRampToValueAtTime(36, now + 0.11);
+
+    filter.type = 'lowpass';
+    filter.frequency.setValueAtTime(290, now);
+
+    gain.gain.setValueAtTime(0.0001, now);
+    gain.gain.linearRampToValueAtTime(0.065, now + 0.01);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.12);
+
+    osc.connect(filter);
+    filter.connect(gain);
+    gain.connect(ctx.destination);
+
+    osc.start(now);
+    osc.stop(now + 0.13);
+  }
+
+  /**
+   * Beat 05: Heavy resonant car door slam when Harsha is pulled into the dark sedan.
+   */
+  public playCarDoorSlam(): void {
+    const ctx = this.ensureContext();
+    if (!ctx) return;
+    const now = ctx.currentTime;
+
+    // Deep cabin air-pressure thud
+    const thud = ctx.createOscillator();
+    const thudGain = ctx.createGain();
+    thud.type = 'sine';
+    thud.frequency.setValueAtTime(115, now);
+    thud.frequency.exponentialRampToValueAtTime(28, now + 0.24);
+
+    thudGain.gain.setValueAtTime(0.0001, now);
+    thudGain.gain.linearRampToValueAtTime(0.14, now + 0.008);
+    thudGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.26);
+
+    thud.connect(thudGain);
+    thudGain.connect(ctx.destination);
+    thud.start(now);
+    thud.stop(now + 0.28);
+
+    // Metallic latch clack
+    const latch = ctx.createOscillator();
+    const latchGain = ctx.createGain();
+    latch.type = 'square';
+    latch.frequency.setValueAtTime(280, now);
+    latch.frequency.exponentialRampToValueAtTime(95, now + 0.06);
+
+    latchGain.gain.setValueAtTime(0.0001, now);
+    latchGain.gain.linearRampToValueAtTime(0.055, now + 0.004);
+    latchGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.07);
+
+    latch.connect(latchGain);
+    latchGain.connect(ctx.destination);
+    latch.start(now);
+    latch.stop(now + 0.08);
+  }
+
+  /**
+   * Beat 05: Sudden aggressive engine RPM roar + tire drift screech on wet asphalt.
+   */
+  public playEngineRevAndDriftScreech(): void {
+    const ctx = this.ensureContext();
+    if (!ctx) return;
+    const now = ctx.currentTime;
+
+    // 1. Aggressive twin-oscillator engine rev
+    const rev1 = ctx.createOscillator();
+    const rev2 = ctx.createOscillator();
+    const revFilter = ctx.createBiquadFilter();
+    const revGain = ctx.createGain();
+
+    rev1.type = 'sawtooth';
+    rev2.type = 'triangle';
+    rev1.frequency.setValueAtTime(62, now);
+    rev1.frequency.exponentialRampToValueAtTime(175, now + 0.75);
+    rev1.frequency.exponentialRampToValueAtTime(128, now + 2.4);
+
+    rev2.frequency.setValueAtTime(124, now);
+    rev2.frequency.exponentialRampToValueAtTime(350, now + 0.75);
+    rev2.frequency.exponentialRampToValueAtTime(256, now + 2.4);
+
+    revFilter.type = 'lowpass';
+    revFilter.frequency.setValueAtTime(480, now);
+    revFilter.frequency.linearRampToValueAtTime(920, now + 0.8);
+    revFilter.frequency.exponentialRampToValueAtTime(240, now + 2.6);
+
+    revGain.gain.setValueAtTime(0.0001, now);
+    revGain.gain.linearRampToValueAtTime(0.095, now + 0.2);
+    revGain.gain.setValueAtTime(0.085, now + 1.1);
+    revGain.gain.exponentialRampToValueAtTime(0.0001, now + 2.7);
+
+    rev1.connect(revFilter);
+    rev2.connect(revFilter);
+    revFilter.connect(revGain);
+    revGain.connect(ctx.destination);
+
+    rev1.start(now);
+    rev2.start(now);
+    rev1.stop(now + 2.75);
+    rev2.stop(now + 2.75);
+
+    // 2. Tire drift screech (bandpass-filtered noise + resonant squeal)
+    const squeal = ctx.createOscillator();
+    const squealGain = ctx.createGain();
+    const squealFilter = ctx.createBiquadFilter();
+
+    squeal.type = 'sawtooth';
+    squeal.frequency.setValueAtTime(780, now + 0.12);
+    squeal.frequency.linearRampToValueAtTime(940, now + 0.55);
+    squeal.frequency.exponentialRampToValueAtTime(610, now + 1.55);
+
+    squealFilter.type = 'bandpass';
+    squealFilter.frequency.setValueAtTime(860, now + 0.12);
+    squealFilter.Q.setValueAtTime(4.5, now + 0.12);
+
+    squealGain.gain.setValueAtTime(0.0001, now + 0.12);
+    squealGain.gain.linearRampToValueAtTime(0.038, now + 0.28);
+    squealGain.gain.setValueAtTime(0.034, now + 0.95);
+    squealGain.gain.exponentialRampToValueAtTime(0.0001, now + 1.65);
+
+    squeal.connect(squealFilter);
+    squealFilter.connect(squealGain);
+    squealGain.connect(ctx.destination);
+
+    squeal.start(now + 0.12);
+    squeal.stop(now + 1.7);
+  }
+
+  /**
+   * Beat 05: Crisp mechanical car door unlock click.
    */
   public playCarDoorUnlockAndEndTone(): void {
     const ctx = this.ensureContext();
@@ -379,7 +522,7 @@ export class Chapter1AudioController {
     click2.start(now + 0.07);
     click2.stop(now + 0.16);
 
-    // 2. Low restrained cinematic tone as the screen cuts to black
+    // 2. Low restrained cinematic tone
     const lowTone = ctx.createOscillator();
     const lowGain = ctx.createGain();
     lowTone.type = 'sine';

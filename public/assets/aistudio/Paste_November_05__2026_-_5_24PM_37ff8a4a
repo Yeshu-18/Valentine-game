@@ -1,0 +1,606 @@
+# Phase 1: Complete Character Production Plan
+
+
+
+Design direction approved
+
+Prequel · Chapter 1
+
+
+
+Our first production milestone is to replace the current procedural character with a believable, cinematic human character who can carry the emotional weight of the Prequel.
+
+The visual benchmark is The Last of Us Part II, particularly its character realism, facial performance, animation, clothing and cinematic presentation. We will create an original character, not copy an existing character or use Harsha's photographs.
+
+The guiding principle:
+
+Harsha should feel like a real person walking through a real neighbourhood, not a 3D model moving through a game scene.
+
+# 1. Character design direction
+
+[The Last of Us 2 i nowy poziom realizmu | Eurogamer.pl](https://images.openai.com/static-rsc-4/xRmJsG7hjgitfJAATYDa_Pjuf_RBfN3wvFpKgs8GRlzU3QOOWYo7ZpRarVAsVRNK9WwEAAGjw2AoQ1-ptRnY4hVFEk_D3BjiQRSBpBY8Kzz4iIBRlT8eNu7jRVHznn6Yiu_9GS7sQ_KDfagpAad1Y0YcWIuDyBccOEm2BiKVwlg?purpose=inline)
+
+[Maya Bennett - Character Life Simulation by Jabali AI](https://images.openai.com/static-rsc-4/HeS12YuliyDojqDCdZFXr5aqgKYUy8IdxwQ3CrzaM4IyBcRUx73yfWQ1pYIE4v-BBuUjSVrdmKvqoLcQW_OexRhhRjheSRgTFjxyCpYa3F0m9CzaWHx1iSDdKK1lKi2O56w5Y8xjYunQ82hr8Ozy7Wvl6eSj49BeBbAmvySNFJ4?purpose=inline)
+
+[Jogadores destroem discos de The Last of Us: Part II - O Vício](https://images.openai.com/static-rsc-4/FibfkB4tJ7H8tqNXJkaLrrA53pwQyX4VIM1GoEQpuuZqWIOUAIqNUHLTq8l_tdDzyoW_x7dVtpSur4rbjzj3tNnBl1VSCcu54cDl55YMxxGJEinTGGAdC8tJHEzCqcjKCvH_7owdqomEkdwcsQVrwT6CVvrVHfdXcRJ8JnfRESg?purpose=inline)
+
+11
+
+## 1.1 Overall appearance
+
+| Attribute          | Design direction                                          |
+| ------------------ | --------------------------------------------------------- |
+| Character identity | Original fictional character                              |
+| Age appearance     | Young adult                                               |
+| Face               | Natural, realistic proportions                            |
+| Eyes               | Detailed eyes with realistic reflections and eye movement |
+| Skin               | Natural skin texture, subtle imperfections                |
+| Hair               | Detailed hairstyle with individual-looking strands        |
+| Body               | Realistic human proportions                               |
+| Posture            | Natural, relaxed, slightly expressive                     |
+| Movement           | Grounded, human-like                                      |
+| Overall style      | Photorealistic game character                             |
+
+We should avoid the overly polished doll-like appearance common in generic 3D characters.
+
+### Face design
+
+The face is particularly important because the Prequel depends on subtle reactions.
+
+Required details:
+
+- Natural skin roughness and variation.
+- Realistic eyes with iris, pupil and reflections.
+- Eyelids and eyebrows with independent movement.
+- Natural lips and mouth geometry.
+- Facial asymmetry.
+- Subtle cheek and forehead details.
+- Realistic teeth when the mouth opens.
+- Eye direction that responds to objects and events.
+
+The face should support small expressions rather than exaggerated cartoon emotions.
+
+## 1.2 Hair
+
+[UE4 Face Hair Groom Test(WIP)](https://images.openai.com/static-rsc-4/dix617gHPsi3L8vb1moMKSZtoB5B5ZpGLbfQiMFwZpItoF7ucGSb0Bw05to-KfQvh0dBJqkSIgOZWzmaiHIAHabAYf0JnCAwQOb4GvcFGn_guC2V5hb6mfplKhX5T__e8dcgLgoo_jDX-9J8rbLCnLi-r3qQ654cc-c6vc_4f-o?purpose=inline)
+
+[Female Explorer - Rigged Character in Characters - UE Marketplace](https://images.openai.com/static-rsc-4/sjIDlE8ypYGXtpzpdEvCWve_HYcQJhBjgeiRHWiXvZ6AvrgEbqllz90_PoF5mPGjvj4FyeBZJAwIsQ6bLgckldiZCtdHLUswTFsEqa4D2HyEpHkWQmju_yrAwKbAY1wTNChoN7Cn92hmxjjmbs233LcfdVXeJC_fRlb4Zd8dIfc?purpose=inline)
+
+[秋瑾/Qiu Jin - ZBrushCentral](https://images.openai.com/static-rsc-4/A9vat-09l1NIEwalkLyF5POJnUEzC5G4vRUJV913MNqKMiCGc2IqxkreZwZEMMYNmfVLumA20HyeGJiSkEABelGRUGubUpZ0qKmkeGULb78MRKq_uWsE6ghukMStHrRg_fPQ9ruJe_AexhHbsngWxX8k-QABTfmnADTNOaKkOKg?purpose=inline)
+
+14
+
+Hair needs to behave naturally.
+
+Required:
+
+- Proper hairstyle silhouette.
+- Detailed hair strands or high-quality hair cards.
+- Natural hairline.
+- Individual hair sections.
+- Movement while walking and turning.
+- Secondary motion when she stops.
+- Appropriate lighting and shadow interaction.
+
+We should avoid a single solid mesh that looks like a plastic helmet.
+
+## 1.3 Clothing
+
+Her outfit must suit the opening scene: an ordinary night in an Indian residential neighbourhood.
+
+[Asian Girl Lisa Rigged 3d Model 3D model rigged | CGTrader](https://images.openai.com/static-rsc-4/AGi-3V6AqvU59coKDOLRYojItkWPICiu1Yd1Bl797EGLpSAZVzYn0ummIwWLkYX_aYO_Bf16IQcP6Zpc4bDTvM8Wpl4cAGjep9TR3melBm3BE8O1PKzeKQDBFcqKkRxP8xtM7NpG2aUHhXfhuF7clbsOoOzJ63QgBqymaPyk7fI?purpose=inline)
+
+[The Last of Us: Part II: Видеообзор | StopGame](https://images.openai.com/static-rsc-4/2QzAEuJLm3LqRHmRvbQFD9yfpanZGQRtONgGS-TgiVZVrkm1mdO_YKv8mRD8NGlGu2iIFf0DIe8zzl4mcQB96jjk6yxECdgxdHV_G-7MimefS_Ru-JJJuUN3YWSQ0TXZerbOXQAzKWEAS5GKELfru8hXFQgxckLyBCN3LC476mE?purpose=inline)
+
+[参考图中人物面部特征，生成16:9比例的人物三视图，三个视图并排显示：正面全身、正侧面全身-1q00emzh0xkep59r-HB-稿定 AI](https://images.openai.com/static-rsc-4/k7-I2QbTsFzosYYVOxAWY02OkyjHyNosrAg7HUkQ_WsUDaqm0FCIz3VXoxMKuiHmzk-rKyyXGPAom9eP8SKe0nS-w5QvBvRSRgz8TXoj8XKnfoM8kwiLfHaLmp7hqOMLTnQUSHBhTvhFuHbljEGe03Oqqd0aUUuZ2rTMYEvL9gY?purpose=inline)
+
+11
+
+Clothing production requirements:
+
+- Realistic fabric materials.
+- Proper garment thickness.
+- Natural folds around elbows, waist and knees.
+- Stitching and seams.
+- Realistic fabric roughness.
+- Cloth movement during walking and turning.
+- Proper fit around the body.
+- Consistent appearance across every cinematic shot.
+
+Design rule: The outfit must remain unchanged throughout Chapter 1 unless the story explicitly requires a change.
+
+# 2. Character modelling
+
+This is where we replace the existing primitive-based character.
+
+The current `HarshaStreetCharacter.ts` uses basic geometry and manually controlled joints. It is useful as a prototype, but it is not the foundation we want for cinematic production.
+
+## 2.1 Required 3D model
+
+[Aria Blake- Game Ready - Superhive (formerly Blender Market)](https://images.openai.com/static-rsc-4/-_WLeFAm6aWD1BPxCe9XRopIgDgq1OsgnwPpY-bd2mr9z6boH8Oftb-e_iv-Y3rLTZCC0rv63iAjTHZHLeGluOeQGfNSdGKREL7zRgmFzst9O9Irz7OETugDX8ggw58gc2ihzKpXXBfpe9pzdXqoRBqM_wuD66ghrMIJJCYy7QI?purpose=inline)
+
+[Mohsen Rezaei / Making of Charlize Theron Likeness – Texturing.xyz](https://images.openai.com/static-rsc-4/VntP1tyKT3bje_ySA68sfKwwSUXjlG9UE8Tgc7BGbSyoOs5Uko0x5wUfkg2df9BsT-O7sWpuvGx7ClvujyyCBUN4Yi0wPAvQu1OsK1RM_FwE2fwJf30ibbv_pLrBT8VGEqDqaKW4uKuvXP6vg6QzWZy_uyaL_uqIRVC41NpfU6k?purpose=inline)
+
+[Survivor type character — polycount](https://images.openai.com/static-rsc-4/kTenKNcAV7tjiDeci3Ko3Uuk1oIe4JDqZVlMXP__kTaWzIVL6vLUazTzUThTKjJCzMBa9pl78RsCp3k8tb9vAHyspFxjiHs7f9R4mymzQHCW1HcoTk4l0TdbELVeKS4XLmXT4oeCvDQCmW2FnwIKCkD8ZC68OiSbeuuMagcXs1Q?purpose=inline)
+
+12
+
+The character should have:
+
+| Component | Requirement                               |
+| --------- | ----------------------------------------- |
+| Head      | Detailed head mesh                        |
+| Face      | Facial topology suitable for expressions  |
+| Eyes      | Separate eyeball, iris and pupil geometry |
+| Mouth     | Proper mouth interior and deformation     |
+| Hair      | Separate hair system                      |
+| Torso     | Detailed anatomy and deformation          |
+| Arms      | Proper shoulder and elbow deformation     |
+| Hands     | Individual fingers and thumb              |
+| Legs      | Proper knee and ankle deformation         |
+| Feet      | Detailed footwear                         |
+| Clothing  | Separate meshes with realistic materials  |
+
+### Modelling quality
+
+We should target a high-quality game-ready character rather than an excessively heavy film-quality model.
+
+The model must support:
+
+- Close-up facial shots.
+- Medium shots.
+- Full-body shots.
+- Walking sequences.
+- Phone interaction.
+- Turning and looking around.
+- Cinematic lighting.
+
+We should not optimise away facial detail before testing the close-up shots.
+
+# 3. Skeleton and rigging
+
+[Clara - Realistic Woman In Survival Casual Outfit - Superhive (formerly Blender Market)](https://images.openai.com/static-rsc-4/e5baKLAOb7W9SHT22hZvfVhWxM077KqRlWgPI1tuI1Tl-LPkiORJE74AN1-IXHf7jEloSm45UYRscR0zossqZjfmgV1hgEchnEeK_pJb1KJvZt2aTw0Sh3_pldZmPgAw3tt3eFDDtMosdAawYrUu170TAPS3tKQbA7x-KS8nAPg?purpose=inline)
+
+[Nagozi - African Strong Woman 3D Model by khaloui](https://images.openai.com/static-rsc-4/qk0EQVUSAYRXUZVMRc_33chRw_ocUi6KrxOGNn9TRCDmxwGOuDw8Ym5L-w3R0ahWqHw93Z15q7_wWsDbbwk61fmazBHfbHdkhkRSR7rQRZLNjBXKcNpi3C2Uc7endi0CvamC-3GnaZOAbzeMavTsVl3o-9UrGg7jGdEnr-LYKYk?purpose=inline)
+
+[rigging - How to make a punch pose - Blender Stack Exchange](https://images.openai.com/static-rsc-4/v9UxnDd9Lnun3-HbVb7h9gPWzcL9MrKKAQaM2K3UPvxmM21uAKOsEgQdBnidy2XsVvTL_k5WAgyV_XzIQKbbJfpbTLe_2PdaxOlU50_INU9zKnqKzI0qUNLPTt0RarDWRsNX9mM1Vs_6qNPs3dlHAzU3Dq0WCdCoO1Q54ivQw38?purpose=inline)
+
+10
+
+A proper skeletal rig is essential.
+
+## 3.1 Body skeleton
+
+The rig should include:
+
+- Root and pelvis.
+- Spine and chest.
+- Neck and head.
+- Clavicles.
+- Shoulders.
+- Upper and lower arms.
+- Wrists.
+- Individual finger joints.
+- Hip joints.
+- Upper and lower legs.
+- Ankles and feet.
+
+## 3.2 Facial rig
+
+The facial rig should support:
+
+- Eye blinking.
+- Eye direction.
+- Eyebrow movement.
+- Brow compression.
+- Smile.
+- Lip movement.
+- Mouth opening.
+- Jaw movement.
+- Subtle cheek movement.
+- Emotional expressions.
+
+Blend shapes or an equivalent facial animation system can drive the expressions.
+
+## 3.3 Inverse kinematics
+
+We need IK for natural interactions.
+
+Examples:
+
+- Hands reaching toward the phone.
+- Fingers gripping the phone.
+- Arms swinging during walking.
+- Feet making proper ground contact.
+- Head and eyes tracking objects.
+
+Without IK, her hands may float through objects or fail to reach the correct position.
+
+# 4. Complete animation library
+
+This is one of the most important parts of Phase 1.
+
+We should not create one generic walking animation and use it everywhere. Each action should have its own authored animation and transition.
+
+[3d Young White Female Rigged Model](https://images.openai.com/static-rsc-4/2hWVMILtajcL_e2E6UTr4lkiKuhie4_5v5nGo2DYoZqTa_mGFyKnTxALy_V3RqBXjBgcn3AtfWq73V57Ry_t8tsDOREWljgBgyt8aMQnYim1bMuey8FUv3ym-V4CLmCQ6PB3aDPnBSwPXH9UiarbYSjw4upOrsnPDWG5kFylCCI?purpose=inline)
+
+[Nina in the Apartment 3D Render, Digital Art by Little Melon](https://images.openai.com/static-rsc-4/LlOc9-vWLdzVN_kFIG8NK6a79B4AwPoawdM5v6ffU3prrLhLAX4nBx8siHmnJNakv15M1L_WeZsk1VacY4DUJPwf5yFgPRmLEIkF3W4qAF1X6iR-aLzwiqMH8AnuR2Eva4LwkxyWle3nO07fFLgN-ler1h01CmVsgF_kj1QNhNI?purpose=inline)
+
+[The story behind The Last of Us Part II’s staggeringly realistic in-game character facial animation – PlayStation.Blog](https://images.openai.com/static-rsc-4/41EevkeqBO4E07pgq6e3d48qhwCXCkUUOqiA-gmyucFx7gtxKViQ7pXr0NJokSuL3G8Dcj-vxocKUu216ihUDBLPRV1euhf-RYjcZJwwD7oST4KY_E7pfOpfv0jZ46wmr0LvUn_u3hDotvp9VdKRFDsh4dMe2Yd7jL96iQsLsVw?purpose=inline)
+
+9
+
+## 4.1 Core animation clips
+
+| Animation         | Description                         | Priority  |
+| ----------------- | ----------------------------------- | --------- |
+| Idle              | Natural standing and breathing      | Essential |
+| Idle variation    | Weight shifts and subtle movement   | Essential |
+| Walk              | Natural walking cycle               | Essential |
+| Walk start        | Transition from standing to walking | Essential |
+| Walk stop         | Natural deceleration                | Essential |
+| Turn left/right   | Full-body directional turn          | Essential |
+| Look around       | Head and eye movement               | Essential |
+| Look back         | Reacting to something behind her    | Essential |
+| Phone notice      | Reacting to phone vibration         | Essential |
+| Phone take out    | Retrieving phone from pocket or bag | Essential |
+| Phone read        | Holding and looking at phone        | Essential |
+| Phone interaction | Thumb movement and scrolling        | Essential |
+| Phone put away    | Returning phone                     | Essential |
+| Startled reaction | Subtle unexpected reaction          | Important |
+| Nervous idle      | Slightly tense posture              | Important |
+| Breathing         | Natural breathing variations        | Important |
+
+## 4.2 Animation transitions
+
+The transitions matter just as much as the individual animations.
+
+For example:
+
+`WALK → SLOW DOWN → STOP → HEAR VIBRATION → LOOK DOWN → TAKE OUT PHONE → READ`
+
+We should avoid instantly switching from one animation to another.
+
+Use:
+
+- Animation blending.
+- Crossfades.
+- Motion matching where practical.
+- Root motion or carefully controlled locomotion.
+- Foot locking.
+- Procedural corrections for hand and eye targets.
+
+## 4.3 Phone interaction animation
+
+This deserves special attention because it is a central story moment.
+
+The sequence:
+
+1. Phone vibrates.
+2. She notices it.
+3. Her walking slows.
+4. She stops.
+5. Her eyes glance down.
+6. She reaches for the phone.
+7. She grips it naturally.
+8. She raises it to a comfortable viewing position.
+9. Her eyes focus on the screen.
+10. She reads.
+11. Her facial expression changes subtly.
+12. She lowers the phone.
+13. She puts it away.
+
+The phone must remain correctly positioned in her hand throughout the interaction.
+
+We should also have a dedicated close-up animation for the thumb and screen interaction.
+
+# 5. Facial performance and emotions
+
+The Prequel needs emotional realism, not just technically correct movement.
+
+[The Last of Us 2 i nowy poziom realizmu | Eurogamer.pl](https://images.openai.com/static-rsc-4/xRmJsG7hjgitfJAATYDa_Pjuf_RBfN3wvFpKgs8GRlzU3QOOWYo7ZpRarVAsVRNK9WwEAAGjw2AoQ1-ptRnY4hVFEk_D3BjiQRSBpBY8Kzz4iIBRlT8eNu7jRVHznn6Yiu_9GS7sQ_KDfagpAad1Y0YcWIuDyBccOEm2BiKVwlg?purpose=inline)
+
+[Review: The Last of Us Part 2 Remastered – Destructoid](https://images.openai.com/static-rsc-4/2TJ9AIp6gJKwnJOJkb-OuLqB-LtRgJ2guQQEWNkou5Jl7yifVizgEczE_8xzHGjeLKwVBsvOyGwpyYVCiHutbtK8oc0lhuhzrzVhBO8duMx1hCeME5UwY7QenLQH-Gmq7jMfc2AUVxZUFJO9eX_8l5ERGSlmEOcDIf4GGlMnHj4?purpose=inline)
+
+[The story behind The Last of Us Part II’s staggeringly realistic in-game character facial animation – PlayStation.Blog](https://images.openai.com/static-rsc-4/41EevkeqBO4E07pgq6e3d48qhwCXCkUUOqiA-gmyucFx7gtxKViQ7pXr0NJokSuL3G8Dcj-vxocKUu216ihUDBLPRV1euhf-RYjcZJwwD7oST4KY_E7pfOpfv0jZ46wmr0LvUn_u3hDotvp9VdKRFDsh4dMe2Yd7jL96iQsLsVw?purpose=inline)
+
+10
+
+For Chapter 1, the emotional performance should be restrained.
+
+| Moment               | Facial performance          |
+| -------------------- | --------------------------- |
+| Walking              | Neutral, relaxed            |
+| Phone vibrates       | Slight attention shift      |
+| Notices phone        | Brief curiosity             |
+| Reads message        | Focused eyes                |
+| Processes message    | Subtle expression change    |
+| Hears something      | Alertness                   |
+| Looks back           | Curiosity mixed with unease |
+| Sees approaching car | Subtle concern              |
+
+We should use a combination of:
+
+- Facial animation clips.
+- Blend shapes.
+- Eye tracking.
+- Head movement.
+- Body posture.
+- Breathing.
+
+Important: Avoid exaggerated fear, wide-open eyes or theatrical reactions. The mystery works better when her reactions are believable.
+
+# 6. Secondary animation
+
+This is what separates a static character from a convincing one.
+
+[unreal cloth and hair simulation](https://images.openai.com/static-rsc-4/9IByhn5LX6r4N_kwpPNo3Q8fzkryNdcrvnWfSA6sm2S0piR66-CB_pb8Vg7BnZWzsMcTyJxNIRFVIPpsU7nUvJ9ii8aR7mls-sx6ojj9FxKBISWrpom6V-GCoWMsRQENkkXNgKvyd6Ce4JGckU9g7uIqXP8MeV0J5mqkr5WKmWs?purpose=inline)
+
+[Testing Blender 5.1 Alpha's New Hair Physics In Geometry Nodes](https://images.openai.com/static-rsc-4/EAyRbYX-MZfAtGov4F0ksQVbb4mSX9pABsDfuD956YukenSGLX6PfxFO20uwiJytg0_9TdrTSIhLYIY27mjLRMYvbM_Xf5Ovrdkb1Bl6rWLaqt33jWI1Ec_TUoPle4TzS2FiGt9wZnLETllYduGUyk_R_UHb8ncFMTPXndBOSEQ?purpose=inline)
+
+[A Better Cloth Simulation In Blender - Finished Projects - Blender Artists Community](https://images.openai.com/static-rsc-4/g2GmaKX2_AlU8icOB04NAR91Ly8LB8VGQdL9YWVY1m0FJlml38RCqT1pKPXA2NLvyuLpHvUsjhvLv2xAOPvXTNPHNIDd8rk4IgSjN3H4LzA5Et9fK2JB51ppbsgfI01P_TI7HH3wLCI8jYHU-N1JjpfNfRGFBiVoBpLMfauKxgo?purpose=inline)
+
+10
+
+Required secondary movement:
+
+- Hair reacts to walking and turning.
+- Clothing responds to movement.
+- Scarf or loose fabric reacts naturally, if included in the outfit.
+- Hands settle after reaching.
+- Head has slight follow-through.
+- Body weight shifts naturally.
+- Fingers relax after releasing the phone.
+- Chest and shoulders move with breathing.
+
+Not everything needs expensive physics simulation. We can use lightweight secondary animation where it produces the desired result.
+
+# 7. Character materials and rendering
+
+The model must look convincing under different lighting conditions.
+
+[The Last of Us 2 i nowy poziom realizmu | Eurogamer.pl](https://images.openai.com/static-rsc-4/xRmJsG7hjgitfJAATYDa_Pjuf_RBfN3wvFpKgs8GRlzU3QOOWYo7ZpRarVAsVRNK9WwEAAGjw2AoQ1-ptRnY4hVFEk_D3BjiQRSBpBY8Kzz4iIBRlT8eNu7jRVHznn6Yiu_9GS7sQ_KDfagpAad1Y0YcWIuDyBccOEm2BiKVwlg?purpose=inline)
+
+[Hyper-realistic 3D Humans :: Behance](https://images.openai.com/static-rsc-4/Wxix0GXSelpiaeLwv1zmS01-DQ8c_AKAIPkqayWP1I1sUnIzXQeOxAIvLjVSxZsC_uAxAEe2o0C8ULxy7GOF7fNR-Bp_qeR0GmI6KQkYLBlWX8LwmJcttAmeSvPrGeZQogB0dhOMiQ_BNiM_tPf5F09gtFOmG2u4VbD4nlQicnk?purpose=inline)
+
+[Postacie w symulatorze życia inZOI nie wyglądają już jak z koszmaru. To zasługa realistycznych cieni i oświetlenia, o które prosili gracze - GRYOnline.pl](https://images.openai.com/static-rsc-4/adacTQJbPz6y8Br8jueUCLBfm3Z8RKgEt9MYu77eZOs2AL7Rbeu2Oh9XNH7gvjXkxgeUWudMcDCPsyaD8svy4Har6tTLTlu27qENrQNfkkqA087CYxhWHrrqAP_j0gU6_eWtvbLrgggViJvgOrRtjakPSXO9-hfsoWPpTxPWKs0?purpose=inline)
+
+10
+
+### Material requirements
+
+| Material | Requirements                                             |
+| -------- | -------------------------------------------------------- |
+| Skin     | Subsurface scattering approximation, roughness variation |
+| Eyes     | Corneal reflections and realistic iris                   |
+| Hair     | Strand or hair-card shading                              |
+| Clothing | Fabric roughness and normal detail                       |
+| Shoes    | Leather/rubber/fabric material variation                 |
+| Phone    | Glass screen, metal or plastic frame                     |
+
+### Lighting requirements
+
+We need to test the character under:
+
+1. Residential streetlight.
+2. Warm house lighting.
+3. Cool moonlight.
+4. Car headlights.
+5. Dark environments.
+6. Close-up cinematic lighting.
+
+Her face must remain readable without looking artificially illuminated.
+
+We should use a consistent color pipeline and tune exposure, tone mapping and shadows across the scene.
+
+# 8. Cinematic character integration
+
+The character should be designed around the camera, not merely placed into the scene.
+
+[The Last of Us 2: artistas explicam como fizeram olhos realistas | Voxel](https://images.openai.com/static-rsc-4/IOkPTCbm1hEK0eKdDV-mDBPqMisMoqABoZZBJybetBByGw4PzdiAY1gjFTpVMyQ1ms4fqEbzEegBgTRyFEPyYeKyURO5hGUosxacmzDqnxCNspEmfp6SF4v60bPDBaWfAsYWhx5egghNg-z-bJXFvQe_LttMeh-7nFiAUk3bLEE?purpose=inline)
+
+[28 elie ideas to save today | the last of us2, the last of us, the lest of us and more](https://images.openai.com/static-rsc-4/L3S58XHT8ct9cxtVsEEvzbnL9XQ6y52_7wMswhqcmGdIwP6TqvXMela0I7_7zga08NUNrBWnQ_8R1N5ZIAG_tMnhckYo2G7HdVe00So-i_JYjlSOIkJSzqbZhYafM_Mp62w9Wa4V5R85xiKzO4dbQivjwNn0mQmr1uXzeu2sP-A?purpose=inline)
+
+[Vídeo de The Last of Us: Part 2 mostra a evolução de Ellie | Eurogamer.pt](https://images.openai.com/static-rsc-4/9MkS0dOJsIFXOPXhuLJTZ7ilC1fcjv8HRLjvpdDWVXxawJkBGgJUPzRf7U_YbGi-DbqScXMp7-m_x3wfPiZSIGIKot2M4Kr8HOrYhsH8CJf4bQagXpqGLSrUFjUzaoReilVYGeIHHtEn5UJyz9ymH4tsPVd1NDdOLerijiz8us8?purpose=inline)
+
+9
+
+For Chapter 1, the character must work in these camera compositions:
+
+| Shot              | Character requirement          |
+| ----------------- | ------------------------------ |
+| Establishing shot | Recognisable silhouette        |
+| Rear follow shot  | Natural walking posture        |
+| Side profile      | Facial and hair detail         |
+| Medium shot       | Full upper-body performance    |
+| Phone close-up    | Natural hand and eye movement  |
+| Reaction close-up | Facial expression              |
+| Look-back shot    | Natural head and shoulder turn |
+| Car headlights    | Believable lighting response   |
+
+We should prepare the character for both real-time gameplay and authored cinematic sequences.
+
+# 9. Technical implementation
+
+The proposed production pipeline:
+
+01\. Blender character production
+
+Primary asset
+
+Model, topology, clothing, hair, rigging, facial controls and animation clips.
+
+02\. GLB export
+
+Export the character, skeleton, materials and animation clips in a Three.js-compatible format.
+
+03\. Three.js integration
+
+Load the GLB using GLTFLoader, control animation through AnimationMixer, and connect actions to the existing state machine.
+
+04\. Character performance system
+
+Animation blending, IK, eye tracking, facial expressions, phone interaction and secondary motion.
+
+05\. Cinematic integration
+
+Shot-specific lighting, framing, animation timing and character-camera synchronization.
+
+### Proposed project structure
+
+```
+src/
+└── prequel/
+    ├── character/
+    │   ├── HarshaCharacter.ts
+    │   ├── CharacterLoader.ts
+    │   ├── CharacterAnimator.ts
+    │   ├── CharacterController.ts
+    │   ├── CharacterIK.ts
+    │   ├── FacialAnimation.ts
+    │   ├── EyeTracking.ts
+    │   ├── SecondaryMotion.ts
+    │   └── CharacterConfig.ts
+    │
+    ├── animation/
+    │   ├── AnimationLibrary.ts
+    │   ├── AnimationTransitions.ts
+    │   └── AnimationStateMap.ts
+    │
+    └── assets/
+        └── characters/
+            └── harsha/
+                ├── harsha.glb
+                ├── textures/
+                └── animation/
+```
+
+This is a proposed organisation, not a request to create all these files immediately. We should first inspect the existing implementation and adapt it rather than duplicate existing systems.
+
+# 10. Performance and optimisation
+
+We are targeting cinematic quality, but the game must remain smooth on the intended hardware.
+
+| Area           | Approach                                        |
+| -------------- | ----------------------------------------------- |
+| Character mesh | Optimised game-ready topology                   |
+| Textures       | Appropriate texture resolutions and compression |
+| Hair           | Controlled strand/card complexity               |
+| Shadows        | Selective shadow casting                        |
+| Facial detail  | Preserve detail for close-ups                   |
+| Animation      | Reuse skeleton and animation resources          |
+| Memory         | Dispose of unused assets correctly              |
+| Rendering      | Avoid unnecessary duplicate renderers           |
+| Loading        | Load Prequel assets before the cinematic starts |
+
+We should test on the M4 Max first, but also establish a reasonable performance target for ordinary desktop hardware.
+
+# 11. Phase 1 production milestones
+
+Here is the order I recommend. We should not build everything simultaneously.
+
+1. Milestone 1: Character concept
+
+   Design direction approved
+
+   Establish face, hairstyle, body proportions, outfit, footwear and accessories.
+2. Milestone 2: High-quality character model
+
+   Build the full-body character, face, hair, clothing and materials.
+3. Milestone 3: Rigging
+
+   Build body skeleton, hand rig, facial rig and IK controls.
+4. Milestone 4: Animation library
+
+   Produce idle, walking, turning, phone interaction and look-back animations.
+5. Milestone 5: Facial performance
+
+   Implement eye movement, expressions, blinking and emotional reactions.
+6. Milestone 6: Three.js integration
+
+   Replace the existing primitive character while preserving the Prequel's story orchestration.
+7. Milestone 7: Cinematic testing
+
+   Test every important shot under streetlights, moonlight and car headlights.
+8. Milestone 8: Final polish
+
+   Fix foot sliding, clipping, animation pops, unnatural hand positions and lighting issues.
+
+## 12. Phase 1 acceptance criteria
+
+Phase 1 is not complete just because the GLB loads successfully.
+
+The character must pass these tests:
+
+- Looks convincing in a full-body shot.
+- Looks convincing in a close-up.
+- Hair and clothing do not look artificial.
+- Walking has natural weight transfer.
+- Feet do not slide noticeably.
+- Hands correctly grip and hold the phone.
+- Eyes track the phone naturally.
+- Facial expressions are subtle and believable.
+- Walking-to-stopping transitions are smooth.
+- Turning and looking back feel natural.
+- Car headlights illuminate the character correctly.
+- Character performance stays consistent across camera angles.
+- Performance remains stable during the scene.
+
+# 13. What we should preserve from the current repository
+
+| Existing component          | Decision                                             |
+| --------------------------- | ---------------------------------------------------- |
+| `PrequelGame.tsx`           | Preserve story orchestration                         |
+| `chapter1StateMachine.ts`   | Preserve and extend                                  |
+| `HarshaStreetCharacter.ts`  | Replace primitive model internals                    |
+| `HybridCameraDirector.ts`   | Integrate character-specific cinematic shots later   |
+| `ResidentialStreetScene.ts` | Keep separate from character production              |
+| `chapter1Audio.ts`          | Retain architecture, improve audio assets separately |
+
+This separation is important. We should not destabilise the entire Prequel while improving one character.
+
+# Final Phase 1 deliverables
+
+# The finished character package
+
+What we expect at the end of this phase
+
+[" "Design a hyper-realistic 3D female human character model optimized for next-gen video games, showcasing exceptional detail and texture accuracy. Wearing jeans and T-shirt. The character must exhibit lifelike features and be fully prepared for cinematic or gameplay integration.The final result should push the boundaries of realism, capturing every nuance of human anatomy, texture, and expression, while being optimized for next-gen gaming performance."" - Download free 3D models generated with Meshy AI by @Null](https://images.openai.com/static-rsc-4/rEuU-CWHLZW7nsYRh0LlqPNlYlpMErT8mLWVcQG9SguB690u4QkmG-4ZmZZj8q32OxCYhy5qENTXTU5hlDLm0GeAlufGXOUesmHQza-j6qPGux89uEcv3Y0SF3MxRijQISyz4et1v0tABSpEIcHiekfKMtAI5KWXH8O9eGS52Y8?purpose=inline)
+
+1\. Character model
+
+Complete textured GLB
+
+[Ava - Realistic Woman Prefect Base Shape - Superhive (formerly Blender Market)](https://images.openai.com/static-rsc-4/E5wGGKTWtzBX1lNN9Bre_ID6pMtieY21askDd70SQSPCycEDDJss0tFTuyzlNIeFGbU3xXDaknkNp53w9dYwPRAU7jYNj_49Nkqip6LZwTvehvyOlhlJ-m_SeD8qggec1bC7HE7RbEbRC6fJOh6lBugV77z9qE9D3-T-9yxVYw8?purpose=inline)
+
+2\. Character rig
+
+Body, hands and face
+
+[MAYA初级动画教学：人物走路循环动画_哔哩哔哩_bilibili](https://images.openai.com/static-rsc-4/8wZgtiOYZGM_rx90Ev7JJdjvqePjmLu5nCS34vUaZRw0yzZCWC2Mzw0uPF_vcqEBZKvxcwnYlvQZeC_bPC6X-7PYHJVeYlW4kE6v-kZpk44LXus-WRF1358L_rK107ZaMJFHp2JLwKdtOqDRYtyS55ipjP5yncETlxyrqWIya6I?purpose=inline)
+
+3\. Animation library
+
+All Chapter 1 actions
+
+[The Last of Us Parte 2 tem um pequeno, mas surpreendente detalhe | Eurogamer.pt](https://images.openai.com/static-rsc-4/YRcdcnr4DQo7ACJbIL3VXhMs8eI-YGfUlhXrOyaL_-erAH3sR38cx0o37w5o_h_FGVuQpuL-AXDMS_3Y1o45kCex8mFBhPMAfZ4tfPcwQcI8Lz5793djoUsUg3X-U6m-K5Vg83e_bxxXdnzAuf6Ipgh4PWvQwoMRb4IIechH8J4?purpose=inline)
+
+4\. Performance system
+
+Expressions, eye tracking and secondary motion
+
+## My recommendation: one important production decision
+
+Do not begin by building all the animations.
+
+First, create one exceptionally good character model and render it in three situations:
+
+1. Neutral daylight portrait.
+2. Residential streetlight close-up.
+3. Walking full-body shot at night.
+
+If the character does not look convincing in these three tests, we should fix the model before investing time in animation.
+
+Phase 1 is complete only when we have a character worth putting in a cinematic.
+
+After that, Phase 2 should be the residential street itself, with the same The Last of Us standard for environmental detail, lighting, materials and atmosphere.

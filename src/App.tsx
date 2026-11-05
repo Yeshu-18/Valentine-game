@@ -210,6 +210,7 @@ export default function App() {
   const storyPhaseRef = useRef<GameChapterPhase>(storyPhase);
   const [nearSpecialGate, setNearSpecialGate] = useState(false);
   const nearSpecialGateRef = useRef(false);
+  const [devSwitcherOpen, setDevSwitcherOpen] = useState(true);
 
   useEffect(() => {
     storyPhaseRef.current = storyPhase;
@@ -218,6 +219,32 @@ export default function App() {
       document.exitPointerLock?.();
     }
   }, [storyPhase]);
+
+  useEffect(() => {
+    const onGlobalDevKey = (e: KeyboardEvent) => {
+      if (
+        e.target instanceof HTMLInputElement ||
+        e.target instanceof HTMLTextAreaElement
+      ) {
+        return;
+      }
+      if (e.code === 'F9') {
+        e.preventDefault();
+        setDevSwitcherOpen((prev) => !prev);
+      } else if (e.altKey && e.code === 'Digit1') {
+        e.preventDefault();
+        setStoryPhase('PROLOGUE');
+      } else if (e.altKey && e.code === 'Digit2') {
+        e.preventDefault();
+        setStoryPhase('DREAM_WORLD');
+      } else if (e.altKey && e.code === 'Digit3') {
+        e.preventDefault();
+        setStoryPhase('EPILOGUE');
+      }
+    };
+    window.addEventListener('keydown', onGlobalDevKey);
+    return () => window.removeEventListener('keydown', onGlobalDevKey);
+  }, []);
 
   const handlePortraitBackdropUpload = (
     e: React.ChangeEvent<HTMLInputElement>,
@@ -2090,6 +2117,83 @@ export default function App() {
           />
         </div>
       )}
+
+      {/* Global Persistent Dev Mode Bar: Instant Switch Between Prequel, Dream World & Sequel */}
+      <div className="pointer-events-auto fixed top-3 left-1/2 -translate-x-1/2 z-[100] flex items-center gap-1.5">
+        {devSwitcherOpen ? (
+          <div className="flex items-center gap-1 p-1 rounded-xl bg-slate-950/95 border border-white/15 shadow-2xl text-xs">
+            <span className="px-2 py-1 text-[10px] font-mono uppercase tracking-wider text-slate-400 select-none">
+              Dev Mode
+            </span>
+            <button
+              type="button"
+              onClick={() => setStoryPhase('PROLOGUE')}
+              title="Switch to Prequel (Alt+1)"
+              className={`px-3 py-1.5 rounded-lg font-medium transition-colors cursor-pointer whitespace-nowrap ${
+                storyPhase === 'PROLOGUE'
+                  ? 'bg-amber-400 text-slate-950 font-semibold shadow-sm'
+                  : 'text-slate-300 hover:text-white hover:bg-white/5'
+              }`}
+            >
+              1 · Prequel
+            </button>
+            <button
+              type="button"
+              onClick={() => setStoryPhase('DREAM_WORLD')}
+              title="Switch to 3D Dream World (Alt+2)"
+              className={`px-3 py-1.5 rounded-lg font-medium transition-colors cursor-pointer whitespace-nowrap ${
+                storyPhase === 'DREAM_WORLD'
+                  ? 'bg-rose-500 text-white font-semibold shadow-sm'
+                  : 'text-slate-300 hover:text-white hover:bg-white/5'
+              }`}
+            >
+              2 · World
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setStoryPhase('DREAM_WORLD');
+                window.setTimeout(() => {
+                  handleTeleport(0, -105.5, Math.PI);
+                }, 40);
+              }}
+              title="Jump directly to The Special Gate in the 3D World"
+              className="px-2.5 py-1.5 rounded-lg font-medium text-rose-200 hover:text-white hover:bg-rose-500/20 border border-rose-400/25 transition-colors cursor-pointer whitespace-nowrap"
+            >
+              Special Gate
+            </button>
+            <button
+              type="button"
+              onClick={() => setStoryPhase('EPILOGUE')}
+              title="Switch to Sequel / Private Romantic World (Alt+3)"
+              className={`px-3 py-1.5 rounded-lg font-medium transition-colors cursor-pointer whitespace-nowrap ${
+                storyPhase === 'EPILOGUE'
+                  ? 'bg-purple-500 text-white font-semibold shadow-sm'
+                  : 'text-slate-300 hover:text-white hover:bg-white/5'
+              }`}
+            >
+              3 · Sequel
+            </button>
+            <button
+              type="button"
+              onClick={() => setDevSwitcherOpen(false)}
+              title="Minimize Dev Switcher (F9)"
+              className="ml-0.5 px-2 py-1 rounded-lg text-slate-400 hover:text-white hover:bg-white/5 transition-colors cursor-pointer"
+            >
+              ✕
+            </button>
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={() => setDevSwitcherOpen(true)}
+            title="Open Dev Mode Switcher (F9)"
+            className="px-2.5 py-1 rounded-lg bg-slate-950/90 hover:bg-slate-900 border border-white/15 text-[11px] font-mono text-slate-300 hover:text-white shadow-lg transition cursor-pointer"
+          >
+            Dev Mode [F9]
+          </button>
+        )}
+      </div>
     </div>
   );
 }
