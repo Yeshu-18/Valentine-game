@@ -266,18 +266,19 @@ export function createChapter2CharacterPerformance(): Chapter2CharacterPerforman
         }
         case 'WATCH_WINDOW_LIGHTS': {
           // Scene 2 (Stages A & B): Looks out the side window & front windshield as streetlights & shops pass;
-          // gently raises her right hand near the cool rain-speckled window glass
+          // rests her right arm and gold bangle smoothly along the window sill / door ledge (image_f753b93f.png)
           const windowTouch =
             0.5 + 0.5 * Math.sin(elapsed * 0.65 - 0.4);
-          targetHeadYaw = -0.48 + Math.sin(passingLightAngle * 0.5) * 0.22;
-          targetHeadPitch = -0.03 + Math.sin(elapsed * 0.7) * 0.04;
-          targetHeadRoll = -0.04;
-          targetTorsoYaw = -0.12;
+          targetHeadYaw = -0.52 + Math.sin(passingLightAngle * 0.5) * 0.22;
+          targetHeadPitch = -0.04 + Math.sin(elapsed * 0.7) * 0.04;
+          targetHeadRoll = -0.05;
+          targetTorsoYaw = -0.16;
 
-          targetRightArmX = -0.68 - windowTouch * 0.24;
-          targetRightArmZ = -0.22 - windowTouch * 0.18;
-          targetRightForearmX = -1.05 - windowTouch * 0.18;
-          targetRightForearmY = 0.12;
+          // Right arm resting along the door armrest & window ledge with gold bangle catching moonlight
+          targetRightArmX = -0.72 - windowTouch * 0.16;
+          targetRightArmZ = -0.28 - windowTouch * 0.14;
+          targetRightForearmX = -1.14 - windowTouch * 0.12;
+          targetRightForearmY = 0.18;
           break;
         }
         case 'TURN_BODY_LEAN': {

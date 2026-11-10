@@ -53,6 +53,75 @@ function createHighwayAsphaltTexture(): THREE.CanvasTexture {
 }
 
 /**
+ * Generates Illuminated Green "EXIT" Sign Texture for Destination Double Doors (matching image_c9b883df.png)
+ */
+function createExitDoorSignTexture(): THREE.CanvasTexture {
+  const canvas = document.createElement('canvas');
+  canvas.width = 256;
+  canvas.height = 96;
+  const ctx = canvas.getContext('2d');
+  if (ctx) {
+    ctx.fillStyle = '#05180c';
+    ctx.fillRect(0, 0, 256, 96);
+    ctx.strokeStyle = '#15803d';
+    ctx.lineWidth = 4;
+    ctx.strokeRect(4, 4, 248, 88);
+    ctx.fillStyle = '#4ade80';
+    ctx.shadowColor = '#22c55e';
+    ctx.shadowBlur = 14;
+    ctx.font = 'bold 44px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('EXIT', 128, 48);
+  }
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
+}
+
+/**
+ * Generates Lit Interior Vestibule Corridor Texture visible through Double Glass Doors (matching image_c9b883df.png)
+ */
+function createLitVestibuleCorridorTexture(): THREE.CanvasTexture {
+  const canvas = document.createElement('canvas');
+  canvas.width = 512;
+  canvas.height = 512;
+  const ctx = canvas.getContext('2d');
+  if (ctx) {
+    const grad = ctx.createLinearGradient(0, 0, 0, 512);
+    grad.addColorStop(0, '#fffbeb');
+    grad.addColorStop(0.5, '#fde68a');
+    grad.addColorStop(1, '#b45309');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, 512, 512);
+
+    ctx.strokeStyle = '#0f172a';
+    ctx.lineWidth = 14;
+    ctx.strokeRect(0, 0, 512, 512);
+    ctx.beginPath();
+    ctx.moveTo(256, 0);
+    ctx.lineTo(256, 512);
+    ctx.stroke();
+
+    ctx.strokeStyle = '#64748b';
+    ctx.lineWidth = 10;
+    ctx.beginPath();
+    ctx.moveTo(24, 280);
+    ctx.lineTo(240, 280);
+    ctx.moveTo(272, 280);
+    ctx.lineTo(488, 280);
+    ctx.stroke();
+
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(70, 36, 140, 28);
+    ctx.fillRect(296, 36, 140, 28);
+  }
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
+}
+
+/**
  * Chapter 2: The Unknown Journey — High-Detail 3-Stage Connected Night Environment (0m -> -625m)
  *
  * Includes:
@@ -540,6 +609,131 @@ export function createCarJourneyEnvironment(): CarJourneyEnvironmentBundle {
   }
 
   // ============================================================================
+  // AHEAD HIGHWAY TRAFFIC JAM (EXACT MATCH FOR THE LAST OF US image_900bc9ae.png & image_d3c7521e.png)
+  // Visible through the front windshield: Lead light-blue sedan, left SUV, and right green truck
+  // with glowing red rectangular brake lights illuminating the wet road!
+  // ============================================================================
+  const aheadTrafficGroup = new THREE.Group();
+  aheadTrafficGroup.name = 'AheadHighwayTrafficJam';
+  environmentGroup.add(aheadTrafficGroup);
+
+  const trafficBrakeLightMat = trackMat(
+    new THREE.MeshStandardMaterial({
+      color: 0x991b1b,
+      emissive: 0xef4444,
+      emissiveIntensity: 6.5,
+      roughness: 0.2,
+    }),
+  );
+  const leadCarBluePaintMat = trackMat(
+    new THREE.MeshStandardMaterial({
+      color: 0x47627e,
+      roughness: 0.35,
+      metalness: 0.75,
+    }),
+  );
+  const greenTruckPaintMat = trackMat(
+    new THREE.MeshStandardMaterial({
+      color: 0x243b2f,
+      roughness: 0.48,
+      metalness: 0.55,
+    }),
+  );
+  const darkSuvPaintMat = trackMat(
+    new THREE.MeshStandardMaterial({
+      color: 0x181c22,
+      roughness: 0.42,
+      metalness: 0.8,
+    }),
+  );
+
+  // 1. Center Lead Car (Light-blue hatchback/sedan directly ahead in image_900bc9ae.png)
+  const leadCar = new THREE.Group();
+  leadCar.position.set(0.05, 0.58, -13.5);
+  aheadTrafficGroup.add(leadCar);
+
+  const leadCarBody = new THREE.Mesh(
+    trackGeo(new THREE.BoxGeometry(1.86, 1.08, 3.8)),
+    leadCarBluePaintMat,
+  );
+  leadCar.add(leadCarBody);
+
+  const leadCarGlass = new THREE.Mesh(
+    trackGeo(new THREE.BoxGeometry(1.72, 0.52, 1.8)),
+    commercialGlassMat,
+  );
+  leadCarGlass.position.set(0, 0.48, -0.2);
+  leadCar.add(leadCarGlass);
+
+  // Bright glowing red brake lights
+  for (const bx of [-0.68, 0.68]) {
+    const brakeLight = new THREE.Mesh(
+      trackGeo(new THREE.BoxGeometry(0.34, 0.16, 0.05)),
+      trafficBrakeLightMat,
+    );
+    brakeLight.position.set(bx, 0.06, 1.91);
+    leadCar.add(brakeLight);
+  }
+
+  // Red glow on wet asphalt underneath lead car
+  const leadCarRedLight = new THREE.PointLight(0xef4444, 4.5, 9.5, 1.4);
+  leadCarRedLight.position.set(0, 0.25, 2.0);
+  leadCar.add(leadCarRedLight);
+
+  // 2. Right Lane Truck (Green pickup truck on the right in image_900bc9ae.png)
+  const rightTruck = new THREE.Group();
+  rightTruck.position.set(2.2, 0.72, -11.8);
+  aheadTrafficGroup.add(rightTruck);
+
+  const rightTruckBody = new THREE.Mesh(
+    trackGeo(new THREE.BoxGeometry(2.0, 1.35, 4.4)),
+    greenTruckPaintMat,
+  );
+  rightTruck.add(rightTruckBody);
+
+  // Tall vertical rectangular red brake lights on the truck's rear corners
+  for (const tx of [-0.85, 0.85]) {
+    const tBrake = new THREE.Mesh(
+      trackGeo(new THREE.BoxGeometry(0.14, 0.46, 0.05)),
+      trafficBrakeLightMat,
+    );
+    tBrake.position.set(tx, 0.12, 2.21);
+    rightTruck.add(tBrake);
+  }
+
+  // 3. Left Lane Vehicle (Dark pickup / SUV in traffic on the left)
+  const leftVehicle = new THREE.Group();
+  leftVehicle.position.set(-2.4, 0.64, -15.2);
+  aheadTrafficGroup.add(leftVehicle);
+
+  const leftVehBody = new THREE.Mesh(
+    trackGeo(new THREE.BoxGeometry(1.92, 1.18, 4.0)),
+    darkSuvPaintMat,
+  );
+  leftVehicle.add(leftVehBody);
+
+  for (const lx of [-0.72, 0.72]) {
+    const lBrake = new THREE.Mesh(
+      trackGeo(new THREE.BoxGeometry(0.3, 0.15, 0.05)),
+      trafficBrakeLightMat,
+    );
+    lBrake.position.set(lx, 0.08, 2.01);
+    leftVehicle.add(lBrake);
+  }
+
+  // Deep rows of glowing red brake lights further ahead in the traffic backup
+  const brakePairGeo = trackGeo(new THREE.BoxGeometry(0.24, 0.12, 0.04));
+  for (let r = 0; r < 5; r++) {
+    const distZ = -22.0 - r * 11.0;
+    const laneX = (r % 3 - 1) * 2.1;
+    for (const sx of [-0.62, 0.62]) {
+      const farBrake = new THREE.Mesh(brakePairGeo, trafficBrakeLightMat);
+      farBrake.position.set(laneX + sx, 0.62, distZ);
+      aheadTrafficGroup.add(farBrake);
+    }
+  }
+
+  // ============================================================================
   // 5. STAGE C · ISOLATED ROUTE (-410m to -565m) & CONCEALED DESTINATION (-607.5m)
   // ============================================================================
   for (let z = -418; z >= -575; z -= 24) {
@@ -564,57 +758,127 @@ export function createCarJourneyEnvironment(): CarJourneyEnvironmentBundle {
     }
   }
 
-  // Concealed Destination Entrance Portico at z = -607.5m
+  // ============================================================================
+  // DESTINATION BUILDING ENTRANCE (EXACT MATCH FOR REFERENCE image_c9b883df.png)
+  // Symmetrical Modern/Brutalist Institutional Facade with Lit Double Glass Doors,
+  // Glowing Green "EXIT" Sign, Symmetrical Wall Sconces, and Wet Reflective Tarmac Puddles
+  // ============================================================================
   const destinationGroup = new THREE.Group();
-  destinationGroup.position.set(2.4, 0, -607.5);
-  destinationGroup.rotation.y = -0.18;
+  destinationGroup.position.set(0, 0, -607.5);
   environmentGroup.add(destinationGroup);
 
-  const porticoSteps = new THREE.Mesh(
-    trackGeo(new THREE.BoxGeometry(8.8, 0.36, 4.8)),
-    destinationConcreteMat,
+  const brutalistStoneMat = trackMat(
+    new THREE.MeshStandardMaterial({
+      color: 0x181f2a,
+      roughness: 0.88,
+      metalness: 0.15,
+    }),
   );
-  porticoSteps.position.set(0, 0.18, 0);
-  porticoSteps.receiveShadow = true;
-  destinationGroup.add(porticoSteps);
 
-  const porticoPillarGeo = trackGeo(new THREE.BoxGeometry(0.68, 4.2, 0.68));
-  for (const px of [-3.5, -1.25, 1.25, 3.5]) {
-    const pMesh = new THREE.Mesh(porticoPillarGeo, destinationConcreteMat);
-    pMesh.position.set(px, 2.28, 1.7);
-    pMesh.castShadow = true;
-    destinationGroup.add(pMesh);
-  }
-
-  const porticoRoof = new THREE.Mesh(
-    trackGeo(new THREE.BoxGeometry(9.6, 0.54, 5.4)),
-    destinationConcreteMat,
-  );
-  porticoRoof.position.set(0, 4.5, 0);
-  destinationGroup.add(porticoRoof);
-
+  // Main Symmetrical Facade
+  const facadeWidth = 16.0;
+  const facadeHeight = 7.5;
   const mainFacade = new THREE.Mesh(
-    trackGeo(new THREE.BoxGeometry(12.0, 7.0, 3.2)),
-    buildingWarmStuccoMat,
+    trackGeo(new THREE.BoxGeometry(facadeWidth, facadeHeight, 2.5)),
+    brutalistStoneMat,
   );
-  mainFacade.position.set(0, 3.5, -2.6);
+  mainFacade.position.set(0, facadeHeight / 2, -1.8);
   destinationGroup.add(mainFacade);
 
-  const entranceFrame = new THREE.Mesh(
-    trackGeo(new THREE.BoxGeometry(2.6, 2.85, 0.18)),
-    warmWindowMat,
+  // Overhanging Architectural Entrance Canopy
+  const canopy = new THREE.Mesh(
+    trackGeo(new THREE.BoxGeometry(7.2, 0.42, 3.6)),
+    brutalistStoneMat,
   );
-  entranceFrame.position.set(0, 1.65, -0.95);
-  destinationGroup.add(entranceFrame);
+  canopy.position.set(0, 4.2, -0.4);
+  canopy.castShadow = true;
+  destinationGroup.add(canopy);
 
-  const porticoPointLight = new THREE.PointLight(0xfde68a, 5.5, 22, 1.25);
-  porticoPointLight.position.set(0, 3.9, 0.8);
-  destinationGroup.add(porticoPointLight);
+  // Lit Double Glass Doors with Visible Vestibule Corridor (image_c9b883df.png)
+  const vestibuleTex = createLitVestibuleCorridorTexture();
+  textures.push(vestibuleTex);
+  const vestibuleMat = trackMat(
+    new THREE.MeshBasicMaterial({
+      map: vestibuleTex,
+    }),
+  );
+  const glassDoubleDoors = new THREE.Mesh(
+    trackGeo(new THREE.PlaneGeometry(3.6, 3.4)),
+    vestibuleMat,
+  );
+  glassDoubleDoors.position.set(0, 1.7, -0.52);
+  destinationGroup.add(glassDoubleDoors);
+
+  // Glowing Green "EXIT" Sign Centered Above Double Doors (image_c9b883df.png)
+  const exitDoorTex = createExitDoorSignTexture();
+  textures.push(exitDoorTex);
+  const exitDoorMat = trackMat(
+    new THREE.MeshBasicMaterial({
+      map: exitDoorTex,
+      transparent: true,
+    }),
+  );
+  const exitDoorSign = new THREE.Mesh(
+    trackGeo(new THREE.PlaneGeometry(1.12, 0.42)),
+    exitDoorMat,
+  );
+  exitDoorSign.position.set(0, 3.75, -0.5);
+  destinationGroup.add(exitDoorSign);
+
+  // Symmetrical Exterior Wall Lantern Sconces (image_c9b883df.png)
+  const sconceLampMat = trackMat(
+    new THREE.MeshStandardMaterial({
+      color: 0xffedd5,
+      emissive: 0xf59e0b,
+      emissiveIntensity: 4.5,
+    }),
+  );
+  for (const sx of [-2.6, 2.6]) {
+    const sconceHousing = new THREE.Mesh(
+      trackGeo(new THREE.BoxGeometry(0.24, 0.48, 0.28)),
+      poleMat,
+    );
+    sconceHousing.position.set(sx, 2.8, -0.48);
+    destinationGroup.add(sconceHousing);
+
+    const sconceGlow = new THREE.Mesh(
+      trackGeo(new THREE.BoxGeometry(0.18, 0.32, 0.18)),
+      sconceLampMat,
+    );
+    sconceGlow.position.set(sx, 2.78, -0.46);
+    destinationGroup.add(sconceGlow);
+
+    const sconceLight = new THREE.PointLight(0xfef3c7, 3.8, 12.0, 1.3);
+    sconceLight.position.set(sx, 2.7, -0.3);
+    destinationGroup.add(sconceLight);
+  }
+
+  // Interior Vestibule Glow radiating outward through the double glass doors
+  const vestibuleWarmLight = new THREE.PointLight(0xfde68a, 6.2, 16.0, 1.2);
+  vestibuleWarmLight.position.set(0, 2.2, -0.3);
+  destinationGroup.add(vestibuleWarmLight);
+
+  // Highly Reflective Wet Asphalt Apron & Puddle Planes (image_c9b883df.png)
+  const puddlePlane1 = new THREE.Mesh(
+    trackGeo(new THREE.PlaneGeometry(5.8, 4.2)),
+    wetReflectionMat,
+  );
+  puddlePlane1.rotation.x = -Math.PI / 2;
+  puddlePlane1.position.set(0.4, 0.015, 2.2);
+  destinationGroup.add(puddlePlane1);
+
+  const puddlePlane2 = new THREE.Mesh(
+    trackGeo(new THREE.PlaneGeometry(3.6, 2.8)),
+    wetReflectionMat,
+  );
+  puddlePlane2.rotation.x = -Math.PI / 2;
+  puddlePlane2.position.set(-2.5, 0.015, 1.4);
+  destinationGroup.add(puddlePlane2);
 
   // Articulated Masked Figure for Scene 4.3 / 5.1 (walks toward the open rear car door!)
   const approachingKidnapper = createMaskedKidnapperCharacter();
   const approachingFigureGroup = approachingKidnapper.group;
-  approachingFigureGroup.position.set(3.2, 0, -598);
+  approachingFigureGroup.position.set(2.4, 0, -600);
   approachingFigureGroup.visible = false;
   environmentGroup.add(approachingFigureGroup);
 
@@ -636,6 +900,14 @@ export function createCarJourneyEnvironment(): CarJourneyEnvironmentBundle {
         const lampZ = baseGridZ + 20 - i * 20;
         const side = i % 2 === 0 ? -1 : 1;
         activeRoadLights[i].position.set(side * 4.2, 5.4, lampZ);
+      }
+
+      // Track ahead highway traffic jam (matching image_900bc9ae.png)
+      if (carWorldZ > -410) {
+        aheadTrafficGroup.visible = true;
+        aheadTrafficGroup.position.z = carWorldZ;
+      } else {
+        aheadTrafficGroup.visible = false;
       }
 
       // 2. Animate Stage A walking pedestrians

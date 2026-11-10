@@ -53,6 +53,11 @@ export function createCarInteriorLighting(): CarInteriorLightingBundle {
   dashboardGlowLight.position.set(-0.22, 1.08, -0.68);
   lightingGroup.add(dashboardGlowLight);
 
+  // 5b. Front Windshield Traffic Brake Light Glow (The Last of Us atmosphere matching image_900bc9ae.png)
+  const windshieldBrakeGlowLight = new THREE.PointLight(0xef4444, 1.8, 3.2, 1.4);
+  windshieldBrakeGlowLight.position.set(0.12, 1.25, -1.05);
+  lightingGroup.add(windshieldBrakeGlowLight);
+
   // 6. Oncoming Vehicle Headlight Sweep SpotLight (Scene 3.2 Passing Headlights)
   const oncomingHeadlightFlash = new THREE.SpotLight(
     0xe0f2fe,

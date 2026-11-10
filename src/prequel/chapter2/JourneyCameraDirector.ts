@@ -84,19 +84,19 @@ export function createJourneyCameraDirector(
 
       // ======================================================================
       // SHOT 11: CELL 04 AWAKENING PULLBACK (Chapter 3 Opening Preview)
-      // Close-up of Harsha's eyes opening on the Cell 04 pillow -> pulls back to reveal Cell 04
+      // Close-up of Harsha's eyes opening on the Cell 04 pillow -> pulls back to reveal the god ray, solitary chair & heavy door
       // ======================================================================
       if (activeShot === 'CELL_04_AWAKENING_PULLBACK') {
-        const pullT = THREE.MathUtils.smoothstep(stateElapsed, 1.5, 7.8);
+        const pullT = THREE.MathUtils.smoothstep(stateElapsed, 1.2, 7.8);
         const startPos = new THREE.Vector3(
-          harshaFaceWorldPos.x + 0.14,
-          harshaFaceWorldPos.y + 0.42,
-          harshaFaceWorldPos.z + 0.28,
+          harshaFaceWorldPos.x + 0.12,
+          harshaFaceWorldPos.y + 0.38,
+          harshaFaceWorldPos.z + 0.24,
         );
         const endPos = new THREE.Vector3(
-          CELL_04_WORLD_OFFSET.x + 1.15 + Math.sin(playerLookYaw) * 1.4 * zoomScale,
-          CELL_04_WORLD_OFFSET.y + 1.58 + playerLookPitch * 0.65,
-          CELL_04_WORLD_OFFSET.z + 1.65 * zoomScale,
+          CELL_04_WORLD_OFFSET.x + 0.85 + Math.sin(playerLookYaw) * 1.2 * zoomScale,
+          CELL_04_WORLD_OFFSET.y + 1.48 + playerLookPitch * 0.55,
+          CELL_04_WORLD_OFFSET.z + 1.85 * zoomScale,
         );
         _camTargetPos.lerpVectors(startPos, endPos, pullT);
 
@@ -106,12 +106,12 @@ export function createJourneyCameraDirector(
           harshaFaceWorldPos.z,
         );
         const endLook = new THREE.Vector3(
-          harshaFaceWorldPos.x + 0.35 + playerLookYaw * 0.75,
-          harshaFaceWorldPos.y + 0.08 + playerLookPitch * 0.45,
-          harshaFaceWorldPos.z - 0.35,
+          CELL_04_WORLD_OFFSET.x - 0.45 + playerLookYaw * 0.65,
+          CELL_04_WORLD_OFFSET.y + 1.15 + playerLookPitch * 0.38,
+          CELL_04_WORLD_OFFSET.z - 0.75,
         );
         _camTargetLook.lerpVectors(startLook, endLook, pullT);
-        targetFov = THREE.MathUtils.lerp(36, 48, pullT);
+        targetFov = THREE.MathUtils.lerp(34, 52, pullT);
 
         if (shotChanged) {
           currentPos.copy(_camTargetPos);
@@ -171,19 +171,21 @@ export function createJourneyCameraDirector(
       // ======================================================================
       switch (activeShot) {
         case 'INTERIOR_FIXED_WIDE': {
-          // 1. Rear-seat wide shot from the rear-left corner (-X) looking across the cabin
-          // at Harsha (x = +0.36, y = 1.28, z = +0.62) and the closing rear-right door (+X)
+          // Iconic The Last of Us Rear-Cabin Perspective (image_900bc9ae.png)
+          // Positioned low in the center-rear cabin directly behind Harsha, looking forward
+          // between the Driver (left) and Front Passenger (right) through the front windshield
+          // at the traffic jam with red glowing brake lights and the overhead green "EXIT 15" sign!
           _localPos.set(
-            -0.58 + playerLookYaw * 0.25,
-            1.32 + gentleBreathY + playerLookPitch * 0.18,
-            0.22 * zoomScale,
+            0.06 + playerLookYaw * 0.35,
+            1.16 + gentleBreathY + playerLookPitch * 0.22,
+            0.96 * zoomScale,
           );
           _localLook.set(
-            0.36 + playerLookYaw * 0.45,
-            1.24 + playerLookPitch * 0.35,
-            0.58,
+            0.02 + playerLookYaw * 0.75,
+            1.10 + playerLookPitch * 0.55,
+            -2.2,
           );
-          targetFov = 48;
+          targetFov = 54;
           break;
         }
         case 'LOW_DASHBOARD_ANGLE': {

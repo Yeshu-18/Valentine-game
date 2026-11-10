@@ -185,7 +185,7 @@ function createSculptedSharpHeadGeometry(): THREE.BufferGeometry {
 
       // Crisp submental under-chin jawline definition
       if (ny < -0.58 && nz > -0.42) {
-        v.y += Math.pow((-0.58 - ny) / 0.42, 1.3) * 0.022;
+        v.y += Math.pow(Math.max(0, (-0.58 - ny) / 0.42), 1.3) * 0.022;
       }
     }
 

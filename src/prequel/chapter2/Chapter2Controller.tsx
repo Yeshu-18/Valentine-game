@@ -742,6 +742,16 @@ export const Chapter2Controller: React.FC<Chapter2ControllerProps> = ({
             {devHudOpen ? 'Hide All Beats' : 'All 14 Scene Beats'}
           </button>
 
+          {onCompleteToCell04 && (
+            <button
+              type="button"
+              onClick={onCompleteToCell04}
+              className="px-3 py-1.5 rounded-md bg-rose-500/25 hover:bg-rose-500/35 text-rose-200 border border-rose-400/50 font-semibold text-xs transition cursor-pointer"
+            >
+              Cell 04: Locked Room &rarr;
+            </button>
+          )}
+
           {onExitToDreamWorld && (
             <button
               type="button"
@@ -922,7 +932,7 @@ export const Chapter2Controller: React.FC<Chapter2ControllerProps> = ({
               onClick={onCompleteToCell04}
               className="px-3 py-1 rounded text-xs bg-amber-400 hover:bg-amber-300 text-slate-950 font-semibold cursor-pointer"
             >
-              Enter Dream World &rarr;
+              Explore Cell 04 (First-Person) &rarr;
             </button>
           )}
         </div>

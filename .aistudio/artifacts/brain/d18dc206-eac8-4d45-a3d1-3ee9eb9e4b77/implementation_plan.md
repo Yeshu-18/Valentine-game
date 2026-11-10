@@ -64,13 +64,31 @@ This implementation plan incorporates your approved **Phase 1 Character Producti
 
 ---
 
-## 3. Implementation Steps
+## 4. Phase 2: Chapter 2 The Unknown Journey & Cell 04 Overhaul (Fidelity to Reference Images)
 
-1. **Create Character Sub-Directory (`/src/prequel/character/`)**:
-   - `HarshaCharacterMesh.ts`: Enhanced anatomical 3D geometry with refined facial proportions, detailed hair cap/flow strands, layered kurti clothing normals, and smartphone attachment.
-   - `CharacterAnimator.ts`: Robust animation mixer and IK transition math supporting the 8 Chapter 1 poses and smooth deceleration.
-   - `CharacterLightingTest.ts`: Developer testing utility to preview the character under the three required lighting situations.
-2. **Update Prequel Game Integration (`/src/prequel/PrequelGame.tsx`)**:
-   - Wire the advanced character bundle into the existing 12-stage state machine and hybrid camera director.
-3. **Build & Verify**:
-   - Run `compile_applet` and `lint_applet` to ensure zero compilation or type errors.
+Incorporated direct matching for the 10 reference images provided by the user:
+- **`image_900bc9ae.png` & `image_d3c7521e.png` (The Last of Us Rear-Cabin Perspective & Highway Traffic Jam)**:
+  - Articulated Front-Right Passenger Companion (Joel silhouette in dark tactical jacket) seated next to the Masked Driver (Tommy).
+  - Overhead illuminated digital dot-matrix highway exit sign: `"EXIT 15"`.
+  - Windshield horizontal red anamorphic lens flare streak plane with additive blending.
+  - Forward highway traffic jam with lead light-blue sedan, left SUV, and right green pickup truck with bright glowing red rectangular brake lights illuminating wet road asphalt.
+  - Rearview mirror hanging from the front header with reflective ball mount.
+  - Dashboard dual screen instrument cluster with speedometer dials, GPS navigation map, and green radio tuner.
+  - Calibrated `INTERIOR_FIXED_WIDE` camera positioned low in the rear seat directly behind Harsha, looking between the two front seats through the windshield.
+- **`image_f753b93f.png` (Night Window Arm Rest)**:
+  - Seated performance pose in `WATCH_WINDOW_LIGHTS` where Harsha's right arm and gold bangle rest smoothly along the door armrest and window sill catching cool moonlight and passing street bokeh.
+- **`image_c9b883df.png` (Brutalist Symmetrical Destination Entrance)**:
+  - Modern brutalist concrete facade with overhanging entrance canopy.
+  - Lit double glass entrance doors revealing bright warm interior vestibule corridor.
+  - Centered glowing green illuminated `"EXIT"` sign above the double doors.
+  - Symmetrical exterior wall lantern sconces casting warm light pools on the dark stone facade.
+  - Wet asphalt apron in front with specular puddle reflection planes.
+- **`image_57be26fb.png`, `image_8dae1dbd.png`, `image_de7d2def.png`, `image_a94592d6.png` (Cell 04: The Awakening)**:
+  - Cinderblock concrete walls with horizontal and vertical mortar joints, concrete noise, and dark green institutional wainscoting band.
+  - Cracked flagstone floor with surface fissures and specular moisture.
+  - High ceiling aperture with a dramatic angled volumetric God-Ray beam cone cutting diagonally across the cell onto Harsha's cot.
+  - Solitary vintage wooden chair with turned legs and backrest spindles sitting in the shadows.
+  - Heavy reinforced security door with steel cross-ribs, inspection observation window with safety glass, and yellow/black caution header strip.
+  - Galvanized steel conduit pipes and junction boxes along the ceiling and walls.
+  - Overhead industrial cone pendant lamp and warm rotary desk phone lamp.
+  - Calibrated `CELL_04_AWAKENING_PULLBACK` camera pulling back from Harsha's opening eyes on the pillow to frame the god ray, cot, solitary chair, and steel door.

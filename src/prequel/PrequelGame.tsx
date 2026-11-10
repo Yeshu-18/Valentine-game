@@ -26,6 +26,7 @@ import { createMaskedKidnapperCharacter } from './MaskedKidnapperCharacter';
 import { createResidentialStreetScene } from './ResidentialStreetScene';
 import { createHybridCameraDirector } from './HybridCameraDirector';
 import { Chapter2Controller } from './chapter2/Chapter2Controller';
+import { Cell04Controller } from './cell04/Cell04Controller';
 
 export interface PrequelGameProps {
   /** Direct testing shortcut to enter the 3D Dream World immediately */
@@ -48,7 +49,7 @@ export const PrequelGame: React.FC<PrequelGameProps> = ({
 }) => {
   const canvasMountRef = useRef<HTMLDivElement | null>(null);
 
-  const [activeChapter, setActiveChapter] = useState<'CHAPTER_1' | 'CHAPTER_2'>('CHAPTER_1');
+  const [activeChapter, setActiveChapter] = useState<'CHAPTER_1' | 'CHAPTER_2' | 'CELL_04'>('CHAPTER_1');
   const [gameState, setGameState] = useState<Chapter1StateId>('SCENE_START');
   const [cameraState, setCameraState] = useState<HybridCameraState>('FOLLOW');
   const [animState, setAnimState] = useState<HarshaAnimState>('WALK');
@@ -838,6 +839,9 @@ export const PrequelGame: React.FC<PrequelGameProps> = ({
         case 'TRANSITION_TO_CHAPTER_2': {
           targetSpeed = 0;
           desiredAnim = 'STOP';
+          if (stTime >= 1.35) {
+            setActiveChapter('CELL_04');
+          }
           break;
         }
       }
@@ -1129,6 +1133,21 @@ export const PrequelGame: React.FC<PrequelGameProps> = ({
     };
   }, [activeChapter]);
 
+  if (activeChapter === 'CELL_04') {
+    return (
+      <Cell04Controller
+        onSwitchToChapter1={() => {
+          setActiveChapter('CHAPTER_1');
+          setGameState('SCENE_START');
+        }}
+        onSwitchToChapter2={() => {
+          setActiveChapter('CHAPTER_2');
+        }}
+        onEnterDreamWorld={onEnterDreamWorld}
+      />
+    );
+  }
+
   if (activeChapter === 'CHAPTER_2') {
     return (
       <Chapter2Controller
@@ -1136,7 +1155,7 @@ export const PrequelGame: React.FC<PrequelGameProps> = ({
           setActiveChapter('CHAPTER_1');
           setGameState('SCENE_START');
         }}
-        onCompleteToCell04={onEnterDreamWorld}
+        onCompleteToCell04={() => setActiveChapter('CELL_04')}
         onExitToDreamWorld={onEnterDreamWorld}
       />
     );
@@ -1186,9 +1205,17 @@ export const PrequelGame: React.FC<PrequelGameProps> = ({
           <button
             type="button"
             onClick={() => setActiveChapter('CHAPTER_2')}
-            className="px-3.5 py-1.5 rounded-lg bg-sky-500/25 hover:bg-sky-500/35 border border-sky-400/40 text-sky-200 font-semibold text-xs flex items-center gap-1.5 shadow-lg transition cursor-pointer whitespace-nowrap"
+            className="px-3 py-1.5 rounded-lg bg-sky-500/25 hover:bg-sky-500/35 border border-sky-400/40 text-sky-200 font-semibold text-xs flex items-center gap-1.5 shadow-lg transition cursor-pointer whitespace-nowrap"
           >
-            <span>Ch 2: Unknown Journey &rarr;</span>
+            <span>Ch 2: Unknown Journey</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveChapter('CELL_04')}
+            className="px-3.5 py-1.5 rounded-lg bg-rose-500/25 hover:bg-rose-500/35 border border-rose-400/40 text-rose-200 font-semibold text-xs flex items-center gap-1.5 shadow-lg transition cursor-pointer whitespace-nowrap"
+          >
+            <span>Cell 04: Locked Room &rarr;</span>
           </button>
 
           <button
@@ -1365,11 +1392,19 @@ export const PrequelGame: React.FC<PrequelGameProps> = ({
 
               <button
                 type="button"
-                onClick={() => setActiveChapter('CHAPTER_2')}
+                onClick={() => setActiveChapter('CELL_04')}
                 className="px-5 py-2.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-semibold text-xs flex items-center gap-2 shadow-lg transition cursor-pointer"
               >
                 <Compass className="w-4 h-4" />
-                <span>Enter Chapter 02 &middot; The Unknown Journey &rarr;</span>
+                <span>Wake Up in Cell 04 &middot; Locked Room &rarr;</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setActiveChapter('CHAPTER_2')}
+                className="px-4 py-2.5 rounded-xl bg-sky-500/25 hover:bg-sky-500/35 border border-sky-400/40 text-xs text-sky-200 flex items-center gap-2 transition cursor-pointer"
+              >
+                <span>Ch 02 &middot; The Unknown Journey</span>
               </button>
 
               <button

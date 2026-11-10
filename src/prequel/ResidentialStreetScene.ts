@@ -122,21 +122,23 @@ function createSculptedSedanChassisGeometry(): THREE.BufferGeometry {
 
   for (let i = 0; i < pos.count; i++) {
     v.fromBufferAttribute(pos, i);
-    const nx = v.x / (width * 0.5); // -1..1
-    const ny = v.y / (height * 0.5); // -1..1
-    const nz = v.z / (length * 0.5); // -1 (rear) .. +1 (front)
+    const nx = THREE.MathUtils.clamp(v.x / (width * 0.5), -1, 1);
+    const ny = THREE.MathUtils.clamp(v.y / (height * 0.5), -1, 1);
+    const nz = THREE.MathUtils.clamp(v.z / (length * 0.5), -1, 1);
     const absX = Math.abs(nx);
 
     // 1. Tumblehome & Side Door Curvature (rounded upper shoulder & tucked lower rocker panel)
     if (ny > 0.2) {
-      v.x *= 1 - Math.pow((ny - 0.2) / 0.8, 1.6) * 0.075;
+      const upperT = THREE.MathUtils.clamp((ny - 0.2) / 0.8, 0, 1);
+      v.x *= 1 - Math.pow(upperT, 1.6) * 0.075;
     } else if (ny < -0.5) {
-      v.x *= 1 - Math.pow((-0.5 - ny) / 0.5, 1.5) * 0.065;
+      const lowerT = THREE.MathUtils.clamp((-0.5 - ny) / 0.5, 0, 1);
+      v.x *= 1 - Math.pow(lowerT, 1.5) * 0.065;
     }
 
     // 2. Aerodynamic Front Nose Taper & Sloped Hood (nz > 0.35)
     if (nz > 0.35) {
-      const frontT = (nz - 0.35) / 0.65; // 0..1 toward front bumper
+      const frontT = THREE.MathUtils.clamp((nz - 0.35) / 0.65, 0, 1);
       // Hood slopes down toward the front grille
       if (ny > 0) {
         v.y -= Math.pow(frontT, 1.45) * 0.12 * ny;
@@ -150,14 +152,14 @@ function createSculptedSedanChassisGeometry(): THREE.BufferGeometry {
       v.x *= 1 - Math.pow(frontT, 2.1) * 0.11;
       // Front bumper rounding
       if (frontT > 0.78) {
-        const noseTip = (frontT - 0.78) / 0.22;
+        const noseTip = THREE.MathUtils.clamp((frontT - 0.78) / 0.22, 0, 1);
         v.z -= Math.pow(absX, 2.0) * noseTip * 0.14;
       }
     }
 
     // 3. Sculpted Rear Quarter Taper & Integrated Trunk Lip Spoiler (nz < -0.45)
     if (nz < -0.45) {
-      const rearT = (-0.45 - nz) / 0.55; // 0..1 toward rear bumper
+      const rearT = THREE.MathUtils.clamp((-0.45 - nz) / 0.55, 0, 1);
       v.x *= 1 - Math.pow(rearT, 1.8) * 0.085;
       if (ny > 0.65 && rearT > 0.65) {
         // Subtle integrated ducktail trunk lip
@@ -202,20 +204,20 @@ function createSculptedFastbackCabinGeometry(): THREE.BufferGeometry {
 
   for (let i = 0; i < pos.count; i++) {
     v.fromBufferAttribute(pos, i);
-    const nx = v.x / (width * 0.5);
-    const ny = v.y / (height * 0.5); // -1 bottom .. +1 roof
-    const nz = v.z / (length * 0.5); // -1 rear .. +1 front windshield
+    const nx = THREE.MathUtils.clamp(v.x / (width * 0.5), -1, 1);
+    const ny = THREE.MathUtils.clamp(v.y / (height * 0.5), -1, 1); // -1 bottom .. +1 roof
+    const nz = THREE.MathUtils.clamp(v.z / (length * 0.5), -1, 1); // -1 rear .. +1 front windshield
     const absX = Math.abs(nx);
-    const h01 = (ny + 1) * 0.5; // 0 at beltline, 1 at roof
+    const h01 = THREE.MathUtils.clamp((ny + 1) * 0.5, 0, 1); // 0 at beltline, 1 at roof
 
     // 1. Tumblehome inward slope from beltline to roof
     v.x *= 1 - h01 * 0.16;
 
     // 2. Sweeping Raked Front Windshield (+Z) and Fastback Rear Glass (-Z)
     if (nz > 0) {
-      v.z -= Math.pow(h01, 1.15) * 0.58 * nz;
+      v.z -= Math.pow(Math.max(0, h01), 1.15) * 0.58 * nz;
     } else {
-      v.z += Math.pow(h01, 1.25) * 0.68 * Math.abs(nz);
+      v.z += Math.pow(Math.max(0, h01), 1.25) * 0.68 * Math.abs(nz);
     }
 
     // 3. Longitudinal & Lateral Roof Arch Dome
@@ -226,7 +228,7 @@ function createSculptedFastbackCabinGeometry(): THREE.BufferGeometry {
     }
 
     // 4. Rounded plan-view corners at windshield & rear window headers
-    v.x *= 1 - Math.pow(Math.abs(nz), 2.4) * 0.12;
+    v.x *= 1 - Math.pow(THREE.MathUtils.clamp(Math.abs(nz), 0, 1), 2.4) * 0.12;
 
     pos.setXYZ(i, v.x, v.y, v.z);
   }

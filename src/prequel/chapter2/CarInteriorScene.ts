@@ -164,6 +164,177 @@ function createDashboardClusterTexture(): THREE.CanvasTexture {
 }
 
 /**
+ * Generates the Iconic "EXIT 15" Digital Highway Sign Texture (matching The Last of Us reference image_900bc9ae.png)
+ */
+function createExit15SignTexture(): THREE.CanvasTexture {
+  const canvas = document.createElement('canvas');
+  canvas.width = 256;
+  canvas.height = 64;
+  const ctx = canvas.getContext('2d');
+  if (ctx) {
+    ctx.fillStyle = '#060f0a';
+    ctx.fillRect(0, 0, 256, 64);
+    ctx.strokeStyle = '#166534';
+    ctx.lineWidth = 3;
+    ctx.strokeRect(3, 3, 250, 58);
+
+    // Green digital dot-matrix background pattern
+    ctx.fillStyle = 'rgba(34, 197, 94, 0.08)';
+    for (let x = 8; x < 248; x += 6) {
+      for (let y = 8; y < 56; y += 6) {
+        ctx.fillRect(x, y, 2, 2);
+      }
+    }
+
+    ctx.fillStyle = '#4ade80';
+    ctx.shadowColor = '#22c55e';
+    ctx.shadowBlur = 10;
+    ctx.font = 'bold 30px monospace';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('EXIT 15', 128, 32);
+  }
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
+}
+
+/**
+ * Generates Horizontal Red Anamorphic Windshield Lens Flare Texture (matching image_900bc9ae.png)
+ */
+function createRedAnamorphicFlareTexture(): THREE.CanvasTexture {
+  const canvas = document.createElement('canvas');
+  canvas.width = 512;
+  canvas.height = 64;
+  const ctx = canvas.getContext('2d');
+  if (ctx) {
+    ctx.clearRect(0, 0, 512, 64);
+    const grad = ctx.createRadialGradient(256, 32, 2, 256, 32, 252);
+    grad.addColorStop(0, 'rgba(239, 68, 68, 0.95)');
+    grad.addColorStop(0.2, 'rgba(244, 63, 94, 0.65)');
+    grad.addColorStop(0.55, 'rgba(225, 29, 72, 0.22)');
+    grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 22, 512, 20);
+
+    // Center sharp glowing flare filament
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.92)';
+    ctx.fillRect(246, 30, 20, 4);
+  }
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
+}
+
+/**
+ * Generates Dark Cinderblock Concrete Wall Texture with Mortar Joints & Institutional Wainscoting (matching image_57be26fb.png & image_8dae1dbd.png)
+ */
+function createCinderblockWallTexture(): THREE.CanvasTexture {
+  const canvas = document.createElement('canvas');
+  canvas.width = 512;
+  canvas.height = 512;
+  const ctx = canvas.getContext('2d');
+  if (ctx) {
+    ctx.fillStyle = '#1c222b';
+    ctx.fillRect(0, 0, 512, 512);
+
+    const blockH = 64;
+    const blockW = 128;
+    for (let y = 0; y < 512; y += blockH) {
+      const row = Math.floor(y / blockH);
+      const offsetX = (row % 2) * (blockW / 2);
+      ctx.strokeStyle = '#10141a';
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      ctx.moveTo(0, y);
+      ctx.lineTo(512, y);
+      ctx.stroke();
+
+      for (let x = -blockW; x <= 512 + blockW; x += blockW) {
+        ctx.beginPath();
+        ctx.moveTo(x + offsetX, y);
+        ctx.lineTo(x + offsetX, y + blockH);
+        ctx.stroke();
+      }
+    }
+
+    // Concrete grimy noise
+    for (let i = 0; i < 900; i++) {
+      const gx = (i * 97) % 512;
+      const gy = (i * 139) % 512;
+      ctx.fillStyle =
+        i % 2 === 0 ? 'rgba(8, 10, 14, 0.22)' : 'rgba(42, 52, 64, 0.14)';
+      ctx.fillRect(gx, gy, 6, 6);
+    }
+
+    // Institutional Green Wainscoting lower wall band (bottom 170px)
+    ctx.fillStyle = 'rgba(22, 40, 32, 0.72)';
+    ctx.fillRect(0, 342, 512, 170);
+    ctx.strokeStyle = 'rgba(34, 197, 94, 0.42)';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(0, 342);
+    ctx.lineTo(512, 342);
+    ctx.stroke();
+  }
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.wrapS = THREE.RepeatWrapping;
+  tex.wrapT = THREE.RepeatWrapping;
+  tex.repeat.set(2, 2);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
+}
+
+/**
+ * Generates Cracked Flagstone Floor Texture (matching image_a94592d6.png)
+ */
+function createCrackedFlagstoneFloorTexture(): THREE.CanvasTexture {
+  const canvas = document.createElement('canvas');
+  canvas.width = 512;
+  canvas.height = 512;
+  const ctx = canvas.getContext('2d');
+  if (ctx) {
+    ctx.fillStyle = '#141820';
+    ctx.fillRect(0, 0, 512, 512);
+
+    const tileSize = 128;
+    ctx.strokeStyle = '#090c10';
+    ctx.lineWidth = 5;
+    for (let y = 0; y <= 512; y += tileSize) {
+      ctx.beginPath();
+      ctx.moveTo(0, y);
+      ctx.lineTo(512, y);
+      ctx.stroke();
+    }
+    for (let x = 0; x <= 512; x += tileSize) {
+      ctx.beginPath();
+      ctx.moveTo(x, 0);
+      ctx.lineTo(x, 512);
+      ctx.stroke();
+    }
+
+    // Surface fissures & cracks catching shadows
+    ctx.strokeStyle = 'rgba(6, 8, 11, 0.88)';
+    ctx.lineWidth = 2.2;
+    for (let i = 0; i < 22; i++) {
+      const cx = ((i * 79) % 460) + 26;
+      const cy = ((i * 131) % 460) + 26;
+      ctx.beginPath();
+      ctx.moveTo(cx, cy);
+      ctx.lineTo(cx + 26, cy + 16);
+      ctx.lineTo(cx + 44, cy + 34);
+      ctx.stroke();
+    }
+  }
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.wrapS = THREE.RepeatWrapping;
+  tex.wrapT = THREE.RepeatWrapping;
+  tex.repeat.set(3, 3);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
+}
+
+/**
  * Chapter 2: High-Polygon Executive Sedan Interior/Exterior + Articulated Masked Driver + Cell 04 Room
  *
  * Unified Coordinate System (in carRootGroup & cabinInteriorGroup, where y = 0 is road level, -Z is forward):
@@ -549,6 +720,43 @@ export function createCarInteriorScene(): CarInteriorSceneBundle {
   frontWindshield.rotation.x = 0.42;
   cabinInteriorGroup.add(frontWindshield);
 
+  // The Last of Us "EXIT 15" Digital Highway Sign overhead at the top of the windshield frame (image_900bc9ae.png)
+  const exit15SignTex = createExit15SignTexture();
+  textures.push(exit15SignTex);
+  const exit15Mat = trackMat(
+    new THREE.MeshBasicMaterial({
+      map: exit15SignTex,
+      transparent: true,
+    }),
+  );
+  const exit15SignMesh = new THREE.Mesh(
+    trackGeo(new THREE.PlaneGeometry(0.38, 0.095)),
+    exit15Mat,
+  );
+  exit15SignMesh.position.set(0.44, 1.58, -1.05);
+  exit15SignMesh.rotation.x = 0.22;
+  cabinInteriorGroup.add(exit15SignMesh);
+
+  // Red Anamorphic Horizontal Windshield Lens Flare Plane (image_900bc9ae.png & image_d3c7521e.png)
+  const redFlareTex = createRedAnamorphicFlareTexture();
+  textures.push(redFlareTex);
+  const redFlareMat = trackMat(
+    new THREE.MeshBasicMaterial({
+      map: redFlareTex,
+      transparent: true,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+      side: THREE.DoubleSide,
+    }),
+  );
+  const redFlareMesh = new THREE.Mesh(
+    trackGeo(new THREE.PlaneGeometry(1.68, 0.12)),
+    redFlareMat,
+  );
+  redFlareMesh.position.set(0.12, 1.18, -1.21);
+  redFlareMesh.rotation.x = 0.42;
+  cabinInteriorGroup.add(redFlareMesh);
+
   // Rearview Mirror suspended from Front Header (y = 1.50m, z = -0.84m)
   const mirrorMount = new THREE.Mesh(
     trackGeo(new THREE.CylinderGeometry(0.01, 0.01, 0.1, 10)),
@@ -645,23 +853,88 @@ export function createCarInteriorScene(): CarInteriorSceneBundle {
   dHeadrest.position.set(0, 0.72, 0.24);
   driverSeatGroup.add(dHeadrest);
 
-  // Front-Right Passenger Seat (x = +0.40, z = -0.42):
-  // Intentionally reclined forward / low-profile (top at y = 0.86m) so it NEVER blocks
-  // front-to-back camera shots of Harsha (whose head is at y = 1.30m) or Harsha's forward view!
+  // Front-Right Passenger Bucket Seat (x = +0.40, z = -0.32) - Upright position matching The Last of Us (image_900bc9ae.png)
   const frontPassSeatGroup = new THREE.Group();
-  frontPassSeatGroup.position.set(0.4, 0.42, -0.42);
+  frontPassSeatGroup.position.set(0.4, 0.44, -0.32);
   cabinInteriorGroup.add(frontPassSeatGroup);
 
   const fpCushion = new THREE.Mesh(seatCushionGeo, leatherSeatMat);
   frontPassSeatGroup.add(fpCushion);
 
-  const fpBackrest = new THREE.Mesh(
-    trackGeo(new THREE.BoxGeometry(0.5, 0.38, 0.14, 12, 6, 4)),
-    leatherSeatMat,
-  );
-  fpBackrest.position.set(0, 0.24, 0.16);
-  fpBackrest.rotation.x = 0.22; // Folded slightly forward for open rear-cabin sightlines
+  const fpBackrest = new THREE.Mesh(seatBackGeo, leatherSeatMat);
+  fpBackrest.scale.set(1.12, 1.0, 0.42);
+  fpBackrest.position.set(0, 0.36, 0.18);
+  fpBackrest.rotation.x = -0.14;
   frontPassSeatGroup.add(fpBackrest);
+
+  const fpHeadrest = new THREE.Mesh(headrestGeo, leatherSeatMat);
+  fpHeadrest.rotation.z = Math.PI / 2;
+  fpHeadrest.scale.set(0.82, 1.0, 0.62);
+  fpHeadrest.position.set(0, 0.72, 0.24);
+  frontPassSeatGroup.add(fpHeadrest);
+
+  // Front-Right Passenger Companion Silhouette (Joel Equivalent in image_900bc9ae.png)
+  const passCompanionJacketMat = trackMat(
+    new THREE.MeshPhysicalMaterial({
+      color: 0x141b27,
+      roughness: 0.52,
+      metalness: 0.14,
+      clearcoat: 0.1,
+    }),
+  );
+  const passCompanionHairMat = trackMat(
+    new THREE.MeshStandardMaterial({
+      color: 0x1c1917,
+      roughness: 0.75,
+    }),
+  );
+
+  const frontPassCompanionGroup = new THREE.Group();
+  frontPassCompanionGroup.position.set(0.4, 0.54, -0.32);
+  cabinInteriorGroup.add(frontPassCompanionGroup);
+
+  const fpTorso = new THREE.Mesh(
+    trackGeo(new THREE.CapsuleGeometry(0.19, 0.4, 20, 28)),
+    passCompanionJacketMat,
+  );
+  fpTorso.scale.set(1.18, 1.0, 0.82);
+  fpTorso.position.set(0, 0.34, 0.02);
+  frontPassCompanionGroup.add(fpTorso);
+
+  const fpCollar = new THREE.Mesh(
+    trackGeo(new THREE.TorusGeometry(0.118, 0.03, 14, 28)),
+    passCompanionJacketMat,
+  );
+  fpCollar.rotation.x = Math.PI / 2 - 0.15;
+  fpCollar.position.set(0, 0.58, 0.01);
+  frontPassCompanionGroup.add(fpCollar);
+
+  const fpHead = new THREE.Mesh(
+    trackGeo(new THREE.SphereGeometry(0.128, 28, 28)),
+    passCompanionHairMat,
+  );
+  fpHead.scale.set(0.92, 1.08, 0.98);
+  fpHead.position.set(0, 0.72, 0);
+  frontPassCompanionGroup.add(fpHead);
+
+  // Left arm resting on center console, right arm resting on door
+  const fpLeftArm = new THREE.Mesh(
+    trackGeo(new THREE.CapsuleGeometry(0.046, 0.35, 14, 20)),
+    passCompanionJacketMat,
+  );
+  fpLeftArm.rotation.x = Math.PI / 2 - 0.22;
+  fpLeftArm.rotation.z = 0.15;
+  fpLeftArm.position.set(-0.19, 0.46, -0.16);
+  frontPassCompanionGroup.add(fpLeftArm);
+
+  const fpRightArm = new THREE.Mesh(
+    trackGeo(new THREE.CapsuleGeometry(0.046, 0.35, 14, 20)),
+    passCompanionJacketMat,
+  );
+  fpRightArm.rotation.x = Math.PI / 2 - 0.22;
+  fpRightArm.rotation.z = -0.12;
+  fpRightArm.position.set(0.2, 0.46, -0.16);
+  frontPassCompanionGroup.add(fpRightArm);
 
   // ============================================================================
   // 7. ARTICULATED MASKED DRIVER RIG (Hands on Steering Wheel + Head Mirror Glance)
@@ -919,7 +1192,7 @@ export function createCarInteriorScene(): CarInteriorSceneBundle {
   cabinInteriorGroup.add(carHeadlightSpot);
 
   // ============================================================================
-  // 10. CELL 04: THE AWAKENING ROOM SET (FOR SCENE 5 ENDING TRANSITION)
+  // 10. CELL 04: THE AWAKENING ROOM SET (MATCHING REFERENCE IMAGES 57be26fb, 8dae1dbd, a94592d6)
   // ============================================================================
   const cell04RoomGroup = new THREE.Group();
   cell04RoomGroup.name = 'Chapter2Cell04AwakeningSet';
@@ -929,54 +1202,70 @@ export function createCarInteriorScene(): CarInteriorSceneBundle {
     CELL_04_WORLD_OFFSET.z,
   );
 
+  const cinderblockTex = createCinderblockWallTexture();
+  textures.push(cinderblockTex);
   const cellWallMat = trackMat(
     new THREE.MeshStandardMaterial({
-      color: 0x2a303c,
-      roughness: 0.85,
+      map: cinderblockTex,
+      roughness: 0.82,
+      metalness: 0.12,
     }),
   );
+
+  const flagstoneTex = createCrackedFlagstoneFloorTexture();
+  textures.push(flagstoneTex);
   const cellFloorMat = trackMat(
     new THREE.MeshStandardMaterial({
-      color: 0x1c212b,
-      roughness: 0.78,
+      map: flagstoneTex,
+      roughness: 0.72,
+      metalness: 0.22,
     }),
   );
+
   const ironFrameMat = trackMat(
     new THREE.MeshStandardMaterial({
-      color: 0x1a1e26,
-      roughness: 0.42,
-      metalness: 0.75,
+      color: 0x161a22,
+      roughness: 0.45,
+      metalness: 0.78,
     }),
   );
   const mattressMat = trackMat(
     new THREE.MeshStandardMaterial({
-      color: 0xe2e8f0,
-      roughness: 0.75,
+      color: 0xd8e1ec,
+      roughness: 0.78,
     }),
   );
   const blanketMat = trackMat(
     new THREE.MeshStandardMaterial({
-      color: 0x334155,
-      roughness: 0.82,
+      color: 0x273444,
+      roughness: 0.85,
     }),
   );
   const deskWoodMat = trackMat(
     new THREE.MeshStandardMaterial({
-      color: 0x4a3325,
-      roughness: 0.68,
+      color: 0x3d2b1f,
+      roughness: 0.65,
+    }),
+  );
+  const chairWoodMat = trackMat(
+    new THREE.MeshStandardMaterial({
+      color: 0x4a3424,
+      roughness: 0.62,
     }),
   );
 
+  // Cracked Stone Flagstone Floor (image_a94592d6.png)
   const cellFloor = new THREE.Mesh(
-    trackGeo(new THREE.PlaneGeometry(6.0, 5.6)),
+    trackGeo(new THREE.PlaneGeometry(6.4, 6.0)),
     cellFloorMat,
   );
   cellFloor.rotation.x = -Math.PI / 2;
   cellFloor.receiveShadow = true;
   cell04RoomGroup.add(cellFloor);
 
+  // Dark Concrete Ceiling with High Skylight Aperture (image_a94592d6.png)
   const cellCeiling = new THREE.Mesh(
-    trackGeo(new THREE.PlaneGeometry(6.0, 5.6)),
+    trackGeo(new THREE.PlaneGeometry(6.4, 6.0)),
     cellWallMat,
   );
   cellCeiling.rotation.x = Math.PI / 2;
@@ -984,27 +1273,193 @@ export function createCarInteriorScene(): CarInteriorSceneBundle {
   cell04RoomGroup.add(cellCeiling);
 
   const backWall = new THREE.Mesh(
-    trackGeo(new THREE.BoxGeometry(6.0, 3.4, 0.2)),
+    trackGeo(new THREE.BoxGeometry(6.4, 3.4, 0.2)),
     cellWallMat,
   );
-  backWall.position.set(0, 1.7, -2.7);
+  backWall.position.set(0, 1.7, -2.8);
   cell04RoomGroup.add(backWall);
 
   const leftWall = new THREE.Mesh(
-    trackGeo(new THREE.BoxGeometry(0.2, 3.4, 5.6)),
+    trackGeo(new THREE.BoxGeometry(0.2, 3.4, 6.0)),
     cellWallMat,
   );
-  leftWall.position.set(-2.9, 1.7, 0);
+  leftWall.position.set(-3.1, 1.7, 0);
   cell04RoomGroup.add(leftWall);
 
   const rightWall = new THREE.Mesh(
-    trackGeo(new THREE.BoxGeometry(0.2, 3.4, 5.6)),
+    trackGeo(new THREE.BoxGeometry(0.2, 3.4, 6.0)),
     cellWallMat,
   );
-  rightWall.position.set(2.9, 1.7, 0);
+  rightWall.position.set(3.1, 1.7, 0);
   cell04RoomGroup.add(rightWall);
 
-  // Iron Frame Bed Cot in Cell 04
+  // High Ceiling Skylight Aperture Grate & Dramatic Volumetric God-Ray Beam (image_a94592d6.png)
+  const skylightFrame = new THREE.Mesh(
+    trackGeo(new THREE.BoxGeometry(1.2, 0.12, 1.2)),
+    ironFrameMat,
+  );
+  skylightFrame.position.set(-1.6, 3.36, -1.35);
+  cell04RoomGroup.add(skylightFrame);
+
+  // Angled Volumetric God-Ray Light Beam Cone slicing across the cell onto the cot
+  const godRayGeo = trackGeo(new THREE.CylinderGeometry(0.35, 1.55, 3.9, 24, 1, true));
+  const godRayMat = trackMat(
+    new THREE.MeshBasicMaterial({
+      color: 0xfff3db,
+      transparent: true,
+      opacity: 0.18,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+      side: THREE.DoubleSide,
+    }),
+  );
+  const godRayBeam = new THREE.Mesh(godRayGeo, godRayMat);
+  godRayBeam.position.set(-1.42, 1.75, -1.05);
+  godRayBeam.rotation.z = -0.22;
+  godRayBeam.rotation.x = 0.18;
+  cell04RoomGroup.add(godRayBeam);
+
+  // Focused Directional Skylight God-Ray Spot
+  const godRaySpot = new THREE.SpotLight(0xffedd5, 7.5, 9.5, Math.PI / 4.5, 0.45, 1.2);
+  godRaySpot.position.set(-1.6, 3.32, -1.35);
+  const godRayTarget = new THREE.Object3D();
+  godRayTarget.position.set(-1.25, 0.44, -0.75);
+  cell04RoomGroup.add(godRayTarget);
+  godRaySpot.target = godRayTarget;
+  cell04RoomGroup.add(godRaySpot);
+
+  // Industrial Galvanized Conduit Pipes & Junction Box (image_8dae1dbd.png & image_de7d2def.png)
+  const pipeMat = trackMat(
+    new THREE.MeshStandardMaterial({
+      color: 0x475569,
+      roughness: 0.4,
+      metalness: 0.82,
+    }),
+  );
+  const ceilingPipe = new THREE.Mesh(
+    trackGeo(new THREE.CylinderGeometry(0.024, 0.024, 5.8, 12)),
+    pipeMat,
+  );
+  ceilingPipe.rotation.z = Math.PI / 2;
+  ceilingPipe.position.set(0, 3.28, -2.6);
+  cell04RoomGroup.add(ceilingPipe);
+
+  const verticalPipe = new THREE.Mesh(
+    trackGeo(new THREE.CylinderGeometry(0.024, 0.024, 2.8, 12)),
+    pipeMat,
+  );
+  verticalPipe.position.set(1.15, 1.8, -2.68);
+  cell04RoomGroup.add(verticalPipe);
+
+  const junctionBox = new THREE.Mesh(
+    trackGeo(new THREE.BoxGeometry(0.18, 0.22, 0.1)),
+    pipeMat,
+  );
+  junctionBox.position.set(1.15, 2.7, -2.65);
+  cell04RoomGroup.add(junctionBox);
+
+  // Solitary Vintage Wooden Chair sitting in the shadows near the wall (image_57be26fb.png)
+  const solitaryChair = new THREE.Group();
+  solitaryChair.position.set(2.05, 0, -0.45);
+  solitaryChair.rotation.y = -0.32;
+  cell04RoomGroup.add(solitaryChair);
+
+  const chairSeat = new THREE.Mesh(
+    trackGeo(new THREE.BoxGeometry(0.46, 0.045, 0.44)),
+    chairWoodMat,
+  );
+  chairSeat.position.set(0, 0.45, 0);
+  chairSeat.castShadow = true;
+  solitaryChair.add(chairSeat);
+
+  const legGeo = trackGeo(new THREE.CylinderGeometry(0.018, 0.015, 0.45, 10));
+  for (const [lx, lz] of [
+    [-0.18, -0.17],
+    [0.18, -0.17],
+    [-0.18, 0.17],
+    [0.18, 0.17],
+  ]) {
+    const leg = new THREE.Mesh(legGeo, chairWoodMat);
+    leg.position.set(lx, 0.225, lz);
+    solitaryChair.add(leg);
+  }
+
+  // Chair Backrest with vertical spindles
+  const backPostGeo = trackGeo(new THREE.CylinderGeometry(0.016, 0.016, 0.48, 10));
+  for (const bx of [-0.18, 0.18]) {
+    const post = new THREE.Mesh(backPostGeo, chairWoodMat);
+    post.position.set(bx, 0.7, -0.18);
+    solitaryChair.add(post);
+  }
+  const topCrest = new THREE.Mesh(
+    trackGeo(new THREE.BoxGeometry(0.44, 0.065, 0.03)),
+    chairWoodMat,
+  );
+  topCrest.position.set(0, 0.92, -0.18);
+  solitaryChair.add(topCrest);
+
+  for (const sx of [-0.09, 0, 0.09]) {
+    const spindle = new THREE.Mesh(
+      trackGeo(new THREE.CylinderGeometry(0.009, 0.009, 0.42, 8)),
+      chairWoodMat,
+    );
+    spindle.position.set(sx, 0.68, -0.18);
+    solitaryChair.add(spindle);
+  }
+
+  // Heavy Reinforced Steel Security Door with Hazard Trim & Observation Slit (image_8dae1dbd.png & image_57be26fb.png)
+  const steelDoorGroup = new THREE.Group();
+  steelDoorGroup.position.set(1.85, 0, -2.68);
+  cell04RoomGroup.add(steelDoorGroup);
+
+  const doorFrame = new THREE.Mesh(
+    trackGeo(new THREE.BoxGeometry(1.28, 2.38, 0.16)),
+    ironFrameMat,
+  );
+  doorFrame.position.set(0, 1.19, 0);
+  steelDoorGroup.add(doorFrame);
+
+  const doorPanel = new THREE.Mesh(
+    trackGeo(new THREE.BoxGeometry(1.12, 2.24, 0.09)),
+    ironFrameMat,
+  );
+  doorPanel.position.set(0, 1.16, 0.02);
+  steelDoorGroup.add(doorPanel);
+
+  // Reinforcing steel ribs
+  for (const ry of [0.45, 1.15, 1.85]) {
+    const rib = new THREE.Mesh(
+      trackGeo(new THREE.BoxGeometry(1.06, 0.045, 0.035)),
+      ironFrameMat,
+    );
+    rib.position.set(0, ry, 0.07);
+    steelDoorGroup.add(rib);
+  }
+
+  // Rectangular Inspection Window with safety glass & metal bars
+  const windowOpening = new THREE.Mesh(
+    trackGeo(new THREE.BoxGeometry(0.36, 0.22, 0.12)),
+    ironFrameMat,
+  );
+  windowOpening.position.set(0, 1.48, 0.02);
+  steelDoorGroup.add(windowOpening);
+
+  const inspectionGlass = new THREE.Mesh(
+    trackGeo(new THREE.PlaneGeometry(0.32, 0.18)),
+    rainGlassMat,
+  );
+  inspectionGlass.position.set(0, 1.48, 0.07);
+  steelDoorGroup.add(inspectionGlass);
+
+  // Yellow/Black Hazard Caution Header Strip
+  const hazardHeader = new THREE.Mesh(
+    trackGeo(new THREE.BoxGeometry(1.18, 0.085, 0.025)),
+    indicatorMat,
+  );
+  hazardHeader.position.set(0, 2.32, 0.08);
+  steelDoorGroup.add(hazardHeader);
+
+  // Iron Frame Bed Cot in Cell 04 (where Harsha awakens under the god ray!)
   const cell04BedAnchor = new THREE.Group();
   cell04BedAnchor.position.set(-1.25, 0, -0.75);
   cell04RoomGroup.add(cell04BedAnchor);
@@ -1047,7 +1502,7 @@ export function createCarInteriorScene(): CarInteriorSceneBundle {
   footboardArch.position.set(0, 0.44, 1.04);
   cell04BedAnchor.add(footboardArch);
 
-  // Wooden Desk, Chair, Vintage Rotary Telephone, Desk Lamp & Heavy Steel Door
+  // Wooden Desk, Vintage Rotary Telephone, Desk Lamp
   const cellDesk = new THREE.Mesh(
     trackGeo(new THREE.BoxGeometry(1.3, 0.76, 0.72)),
     deskWoodMat,
@@ -1076,15 +1531,7 @@ export function createCarInteriorScene(): CarInteriorSceneBundle {
   deskLampLight.position.set(0.95, 1.12, -1.95);
   cell04RoomGroup.add(deskLampLight);
 
-  // Heavy Steel Door on Back-Right Wall
-  const steelDoor = new THREE.Mesh(
-    trackGeo(new THREE.BoxGeometry(1.12, 2.25, 0.12)),
-    ironFrameMat,
-  );
-  steelDoor.position.set(1.8, 1.12, -2.58);
-  cell04RoomGroup.add(steelDoor);
-
-  // Overhead Industrial Tungsten Pendant Lamp + Soft Bed Beauty Fill Light
+  // Overhead Industrial Cone Pendant Lamp (image_57be26fb.png)
   const lampCord = new THREE.Mesh(
     trackGeo(new THREE.CylinderGeometry(0.01, 0.01, 0.65, 8)),
     ironFrameMat,
@@ -1099,11 +1546,11 @@ export function createCarInteriorScene(): CarInteriorSceneBundle {
   lampShade.position.set(-0.2, 2.72, -0.4);
   cell04RoomGroup.add(lampShade);
 
-  const cellOverheadLight = new THREE.PointLight(0xf59e0b, 6.5, 14.0, 1.2);
+  const cellOverheadLight = new THREE.PointLight(0xf59e0b, 5.5, 12.0, 1.3);
   cellOverheadLight.position.set(-0.2, 2.58, -0.4);
   cell04RoomGroup.add(cellOverheadLight);
 
-  const cellBedKeyLight = new THREE.PointLight(0xffe4cc, 3.2, 5.5, 1.3);
+  const cellBedKeyLight = new THREE.PointLight(0xffedd5, 3.8, 6.0, 1.2);
   cellBedKeyLight.position.set(-1.1, 1.65, -0.85);
   cell04RoomGroup.add(cellBedKeyLight);
 
