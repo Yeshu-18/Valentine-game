@@ -74,6 +74,20 @@ import {
 } from './world/story/GameStoryDirector';
 import { PrequelGame } from './prequel/PrequelGame';
 import { SequelScene } from './world/story/SequelScene';
+import {
+  createPrivateWorldScene,
+  PrivateWorldSceneBundle,
+} from './world/privateWorld/PrivateWorldScene';
+import {
+  createPrivateWorldController,
+  PrivateWorldControllerBundle,
+  PrivateWorldTelemetry,
+} from './world/privateWorld/PrivateWorldController';
+import {
+  PRIVATE_WORLD_ANCHORS,
+  getPrivatePlayerGroundHeight,
+} from './world/privateWorld/privateWorldMath';
+import { PrivatePathLightingTelemetry } from './world/privateWorld/PrivatePathLighting';
 
 /**
  * Combined ACESFilmic Tone Mapping + Warm Golden-Hour Color-Grading + Soft Romantic Vignette + sRGB Output Pass.
@@ -234,6 +248,50 @@ export default function App() {
   const nearSpecialGateRef = useRef(false);
   const [devSwitcherOpen, setDevSwitcherOpen] = useState(true);
 
+  // Phase 4.1: Private Romantic World Shared-Renderer State & Refs
+  const heartIslandGroupRef = useRef<THREE.Group | null>(null);
+  const privateWorldSceneRef = useRef<PrivateWorldSceneBundle | null>(null);
+  const privateWorldControllerRef = useRef<PrivateWorldControllerBundle | null>(
+    null,
+  );
+  const atmosphereRef = useRef<ReturnType<typeof createAtmosphereSystem> | null>(
+    null,
+  );
+  const [privateDebugVisible, setPrivateDebugVisible] = useState(false);
+  const [privateVegetationVisible, setPrivateVegetationVisible] =
+    useState(true);
+  const [privatePathTelemetry, setPrivatePathTelemetry] =
+    useState<PrivatePathLightingTelemetry>(() => ({
+      activeRouteId: 'primary-route',
+      activeRouteName: 'Primary Route',
+      nearestPathDist: 0,
+      arcDistanceMeters: 0,
+      routeTotalLengthMeters: 280,
+      waveLeadMeters: 0,
+      activeGlowingStones: 0,
+      totalEmbeddedStones: 0,
+    }));
+  const [privateWorldTelemetry, setPrivateWorldTelemetry] =
+    useState<PrivateWorldTelemetry>(() => ({
+      x: PRIVATE_WORLD_ANCHORS.ARRIVAL_SHORE.x,
+      y: getPrivatePlayerGroundHeight(
+        PRIVATE_WORLD_ANCHORS.ARRIVAL_SHORE.x,
+        PRIVATE_WORLD_ANCHORS.ARRIVAL_SHORE.z,
+      ),
+      z: PRIVATE_WORLD_ANCHORS.ARRIVAL_SHORE.z,
+      terrainElevation: getPrivatePlayerGroundHeight(
+        PRIVATE_WORLD_ANCHORS.ARRIVAL_SHORE.x,
+        PRIVATE_WORLD_ANCHORS.ARRIVAL_SHORE.z,
+      ),
+      speed: 0,
+      isSprinting: false,
+      regionName: PRIVATE_WORLD_ANCHORS.ARRIVAL_SHORE.name,
+      regionSubtitle: PRIVATE_WORLD_ANCHORS.ARRIVAL_SHORE.subtitle,
+      nearReturnGate: true,
+      isTopDownView: false,
+      debugOverlayEnabled: false,
+    }));
+
   const triggerDreamWorldReveal = (forceReplay = false) => {
     if (!forceReplay && hasTriggeredFromPrequelRef.current) {
       setStoryPhase('DREAM_WORLD');
@@ -257,6 +315,39 @@ export default function App() {
       if (document.pointerLockElement) {
         document.exitPointerLock?.();
       }
+    }
+
+    if (storyPhase === 'EPILOGUE') {
+      if (heartIslandGroupRef.current) {
+        heartIslandGroupRef.current.visible = false;
+      }
+      if (privateWorldSceneRef.current) {
+        privateWorldSceneRef.current.group.visible = true;
+        privateWorldSceneRef.current.resetPathLighting();
+      }
+      privateWorldControllerRef.current?.resetToArrivalShore();
+      privateWorldControllerRef.current?.setActive(true);
+      atmosphereRef.current?.setPrivateWorldMoonlightMode(
+        true,
+        privateWorldControllerRef.current?.isTopDownView() ?? false,
+      );
+      if (privateWorldControllerRef.current) {
+        setPrivateWorldTelemetry(
+          privateWorldControllerRef.current.getTelemetry(),
+        );
+      }
+    } else if (storyPhase === 'DREAM_WORLD') {
+      privateWorldControllerRef.current?.setActive(false);
+      if (privateWorldSceneRef.current) {
+        privateWorldSceneRef.current.resetPathLighting();
+        privateWorldSceneRef.current.group.visible = false;
+      }
+      if (heartIslandGroupRef.current) {
+        heartIslandGroupRef.current.visible = true;
+      }
+      atmosphereRef.current?.setPrivateWorldMoonlightMode(false, false);
+    } else {
+      privateWorldControllerRef.current?.setActive(false);
     }
   }, [storyPhase]);
 
@@ -375,52 +466,64 @@ export default function App() {
 
     // 3. Build Protected Theme-Park Modules + Ancient Realm MagicFlight & Mystery Box Systems
     const atmosphere = createAtmosphereSystem(scene, renderer, isSoftwareGl);
+    atmosphereRef.current = atmosphere;
+
+    const heartIslandWorldGroup = new THREE.Group();
+    heartIslandWorldGroup.name = 'HeartIslandWorldRoot';
+    scene.add(heartIslandWorldGroup);
+    heartIslandGroupRef.current = heartIslandWorldGroup;
+
     const islandTerrain = createIslandTerrain(renderer);
-    scene.add(islandTerrain.group);
+    heartIslandWorldGroup.add(islandTerrain.group);
 
     const centralPlaza = createCentralPlaza(renderer);
-    scene.add(centralPlaza.group);
+    heartIslandWorldGroup.add(centralPlaza.group);
 
     const distantLandmarks = createDistantLandmarks();
-    scene.add(distantLandmarks.group);
+    heartIslandWorldGroup.add(distantLandmarks.group);
 
     const magicFlight = createMagicFlightSystem();
-    scene.add(magicFlight.group);
+    heartIslandWorldGroup.add(magicFlight.group);
 
     const mysteryBox = createMagicMysteryBoxSystem();
-    scene.add(mysteryBox.group);
+    heartIslandWorldGroup.add(mysteryBox.group);
 
     const wizardingSchool = createWizardingSchoolSystem();
-    scene.add(wizardingSchool.group);
+    heartIslandWorldGroup.add(wizardingSchool.group);
 
     const enchantedGarden = createEnchantedGardenSystem();
-    scene.add(enchantedGarden.group);
+    heartIslandWorldGroup.add(enchantedGarden.group);
     wizardingSchool.setMagicalPlantSystem(enchantedGarden.magicalPlantSystem);
 
     const ancientForest = createAncientForestSystem();
-    scene.add(ancientForest.group);
+    heartIslandWorldGroup.add(ancientForest.group);
     wizardingSchool.setAncientForestSystem(ancientForest);
 
     const vegetation = createVegetationSystem();
-    scene.add(vegetation.group);
+    heartIslandWorldGroup.add(vegetation.group);
 
     const auroraCinematic = createAuroraUndergroundCinematic();
-    scene.add(auroraCinematic.group);
+    heartIslandWorldGroup.add(auroraCinematic.group);
 
     const carnivalDistrict = createCarnivalDistrict();
-    scene.add(carnivalDistrict.group);
+    heartIslandWorldGroup.add(carnivalDistrict.group);
 
     const dreamCastle = createDreamCastle();
     dreamCastle.floor2CreativeWing.setOpenCustomBackdropPickerCallback(() => {
       portraitFileInputRef.current?.click();
     });
-    scene.add(dreamCastle.group);
+    heartIslandWorldGroup.add(dreamCastle.group);
 
     const brickWorkshop = createPlayfulBrickWorkshop();
-    scene.add(brickWorkshop.group);
+    heartIslandWorldGroup.add(brickWorkshop.group);
 
     const heartlinePrecinct = createHeartlinePrecinct();
-    scene.add(heartlinePrecinct.group);
+    heartIslandWorldGroup.add(heartlinePrecinct.group);
+
+    // 3A. Build Independent Private Romantic World Terrain & Location Blockout
+    const privateWorldScene = createPrivateWorldScene(renderer);
+    scene.add(privateWorldScene.group);
+    privateWorldSceneRef.current = privateWorldScene;
 
     const galleryPlacementTool = createHeartGalleryPlacementTool({
       scene,
@@ -503,6 +606,33 @@ export default function App() {
       heartlinePrecinct,
     );
     controllerRef.current = playerController;
+
+    const privateWorldController = createPrivateWorldController(
+      camera,
+      renderer.domElement,
+      avatar,
+      privateWorldScene.colliders,
+      () => {
+        setStoryPhase('DREAM_WORLD');
+        playerController.teleportTo(0, -104.5, 0);
+        setTelemetry(playerController.getTelemetry());
+      },
+    );
+    privateWorldControllerRef.current = privateWorldController;
+
+    if (storyPhaseRef.current === 'EPILOGUE') {
+      heartIslandWorldGroup.visible = false;
+      privateWorldScene.group.visible = true;
+      atmosphere.setPrivateWorldMoonlightMode(true, false);
+      privateWorldController.resetToArrivalShore();
+      privateWorldController.setActive(true);
+      setPrivateWorldTelemetry(privateWorldController.getTelemetry());
+    } else {
+      heartIslandWorldGroup.visible = true;
+      privateWorldScene.group.visible = false;
+      atmosphere.setPrivateWorldMoonlightMode(false, false);
+      privateWorldController.setActive(false);
+    }
 
     const revealDirector = createDreamWorldRevealDirector({
       scene,
@@ -632,9 +762,34 @@ export default function App() {
       const delta = Math.min(clock.getDelta(), 0.05);
       const elapsed = clock.getElapsedTime();
 
-      if (storyPhaseRef.current !== 'DREAM_WORLD') {
+      if (storyPhaseRef.current === 'PROLOGUE') {
         if (isSoftwareGl) {
           frameId = window.setTimeout(tick, 120);
+        } else {
+          frameId = requestAnimationFrame(tick);
+        }
+        return;
+      }
+
+      if (storyPhaseRef.current === 'EPILOGUE') {
+        privateWorldController.update(delta, elapsed);
+        const privPos = privateWorldController.getPosition();
+        const privVel = privateWorldController.getVelocity();
+        privateWorldScene.update(delta, elapsed, privPos, privVel);
+        atmosphere.update(privPos, delta, elapsed);
+        composer.render();
+
+        hudFastTimer += delta;
+        if (hudFastTimer >= 0.12) {
+          hudFastTimer = 0;
+          setPrivateWorldTelemetry(privateWorldController.getTelemetry());
+          setPrivatePathTelemetry(
+            privateWorldScene.getPathLightingTelemetry(),
+          );
+        }
+
+        if (isSoftwareGl) {
+          afterDraw(tick);
         } else {
           frameId = requestAnimationFrame(tick);
         }
@@ -770,6 +925,12 @@ export default function App() {
       revealDirectorRef.current = null;
       galleryPlacementTool.dispose();
       placementToolRef.current = null;
+      privateWorldController.dispose();
+      privateWorldControllerRef.current = null;
+      privateWorldScene.dispose();
+      privateWorldSceneRef.current = null;
+      heartIslandGroupRef.current = null;
+      atmosphereRef.current = null;
       playerController.dispose();
       auroraCinematic.dispose();
       carnivalDistrict.dispose();
@@ -878,7 +1039,9 @@ export default function App() {
       />
 
       {/* Top-Left Minimal Region Discovery & Flight Telemetry Banner */}
-      {!isInMysteryCinematic && !revealUiState.active && (
+      {storyPhase === 'DREAM_WORLD' &&
+        !isInMysteryCinematic &&
+        !revealUiState.active && (
         <div className="pointer-events-none absolute top-5 left-6 z-10 flex flex-col gap-0.5 bg-slate-950/85 border border-white/10 rounded-xl px-4 py-3 text-white shadow-lg">
           <div className="flex items-center gap-2 text-xs font-medium text-amber-200/90">
             <Compass className="w-3.5 h-3.5 shrink-0" />
@@ -1950,7 +2113,8 @@ export default function App() {
       )}
 
       {/* Collapsible Bottom Control Dock (Zero Viewport Occlusion) */}
-      {!isInMysteryCinematic &&
+      {storyPhase === 'DREAM_WORLD' &&
+        !isInMysteryCinematic &&
         !revealUiState.active &&
         telemetry.legoWorkshopState?.mode !== 'lego_build' && (
         <div className="pointer-events-auto absolute bottom-5 left-1/2 -translate-x-1/2 z-10 flex flex-col items-center w-full max-w-[min(1020px,95vw)]">
@@ -2317,20 +2481,50 @@ export default function App() {
 
       {/* Chapter III: Sequel / Epilogue (Part VI: Beyond The Special Gate — The Private Romantic World) */}
       {storyPhase === 'EPILOGUE' && (
-        <div className="absolute inset-0 z-50">
-          <SequelScene
-            onReturnToDreamWorld={() => {
-              setStoryPhase('DREAM_WORLD');
-              handleTeleport(0, -104.5, 0);
-            }}
-            onReplayFullStory={() => {
-              hasTriggeredFromPrequelRef.current = false;
-              setPrequelTargetChapter('CHAPTER_1');
-              setPrequelJumpSignal((s) => s + 1);
-              setStoryPhase('PROLOGUE');
-            }}
-          />
-        </div>
+        <SequelScene
+          telemetry={privateWorldTelemetry}
+          pathTelemetry={privatePathTelemetry}
+          debugVisible={privateDebugVisible}
+          vegetationVisible={privateVegetationVisible}
+          onToggleDebugVisible={() => {
+            const next = !privateDebugVisible;
+            setPrivateDebugVisible(next);
+            privateWorldSceneRef.current?.setDebugVisible(next);
+          }}
+          onToggleVegetationVisible={() => {
+            const next = !privateVegetationVisible;
+            setPrivateVegetationVisible(next);
+            privateWorldSceneRef.current?.setVegetationVisible(next);
+          }}
+          onToggleTopDownView={() => {
+            const ctrl = privateWorldControllerRef.current;
+            if (!ctrl) return;
+            const nextTopDown = !ctrl.isTopDownView();
+            ctrl.setTopDownView(nextTopDown);
+            atmosphereRef.current?.setPrivateWorldMoonlightMode(
+              true,
+              nextTopDown,
+            );
+            setPrivateWorldTelemetry(ctrl.getTelemetry());
+          }}
+          onTeleportToAnchor={(x, z, yaw) => {
+            const ctrl = privateWorldControllerRef.current;
+            if (!ctrl) return;
+            ctrl.teleportTo(x, z, yaw);
+            atmosphereRef.current?.setPrivateWorldMoonlightMode(true, false);
+            setPrivateWorldTelemetry(ctrl.getTelemetry());
+          }}
+          onReturnToDreamWorld={() => {
+            setStoryPhase('DREAM_WORLD');
+            handleTeleport(0, -104.5, 0);
+          }}
+          onReplayFullStory={() => {
+            hasTriggeredFromPrequelRef.current = false;
+            setPrequelTargetChapter('CHAPTER_1');
+            setPrequelJumpSignal((s) => s + 1);
+            setStoryPhase('PROLOGUE');
+          }}
+        />
       )}
 
       {/* Global Persistent Dev Mode Bar: Instant Switch Between Prequel, Cell 04, Dream World, Reveal Replay & Sequel */}

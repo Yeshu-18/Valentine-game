@@ -13,6 +13,10 @@ export interface AtmosphereBundle {
   registerPointLights: () => void;
   getActivePointLightCount: () => number;
   setRevealModulation: (mod: Partial<AtmosphereRevealModulation>) => void;
+  setPrivateWorldMoonlightMode: (
+    enabled: boolean,
+    topDownDebug?: boolean,
+  ) => void;
   update: (
     playerPos: THREE.Vector3,
     delta: number,
@@ -264,6 +268,10 @@ export function createAtmosphereSystem(
   const revealTwilightFogColor = new THREE.Color('#130f1e');
   const blendedSurfaceFogColor = new THREE.Color('#e8b89a');
   const undergroundVoidColor = new THREE.Color('#01030a');
+  const privateMoonlightFogColor = new THREE.Color('#1e2944');
+
+  let privateMoonlightMode = false;
+  let privateTopDownDebug = false;
 
   const revealMod: AtmosphereRevealModulation = {
     active: false,
@@ -284,6 +292,14 @@ export function createAtmosphereSystem(
   function evaluatePointLightCulling(playerPos: THREE.Vector3) {
     const n = trackedLights.length;
     if (n === 0) return;
+
+    if (privateMoonlightMode) {
+      for (let i = 0; i < n; i++) {
+        trackedLights[i].light.visible = false;
+      }
+      activePointLightCount = 0;
+      return;
+    }
 
     const effectiveRadius = revealMod.active ? 165.0 : POINT_LIGHT_CULL_RADIUS;
     const effectiveRadiusSq = effectiveRadius * effectiveRadius;
@@ -331,6 +347,9 @@ export function createAtmosphereSystem(
     scene.updateMatrixWorld(true);
     scene.traverse((obj) => {
       if (obj instanceof THREE.PointLight || obj instanceof THREE.SpotLight) {
+        if (obj.userData?.skipAtmosphereCull) {
+          return;
+        }
         const worldPos = new THREE.Vector3();
         obj.getWorldPosition(worldPos);
         const baseIntensity = obj.intensity > 0 ? obj.intensity : 2.2;
@@ -365,6 +384,33 @@ export function createAtmosphereSystem(
         evaluatePointLightCulling(_spawnPos);
       }
     },
+    setPrivateWorldMoonlightMode(enabled: boolean, topDownDebug = false) {
+      privateMoonlightMode = enabled;
+      privateTopDownDebug = topDownDebug;
+      if (enabled) {
+        skyUniforms.uZenithColor.value.set('#141e38');
+        skyUniforms.uMidSkyColor.value.set('#2a365c');
+        skyUniforms.uHorizonColor.value.set('#4c436b');
+        skyUniforms.uSunColor.value.set('#e8dcf8');
+        skyUniforms.uStarAlpha.value = 0.78;
+        skyUniforms.uRevealBrightness.value = 1.0;
+        sunLight.color.set('#e8dcf8');
+        hemiLight.color.set('#8494c4');
+        hemiLight.groundColor.set('#34453e');
+        mountainRingGroup.visible = false;
+      } else {
+        skyUniforms.uZenithColor.value.set('#223b6e');
+        skyUniforms.uMidSkyColor.value.set('#845882');
+        skyUniforms.uHorizonColor.value.set('#e8b89a');
+        skyUniforms.uSunColor.value.set('#ffd9a0');
+        skyUniforms.uStarAlpha.value = 0.22;
+        skyUniforms.uRevealBrightness.value = 1.0;
+        sunLight.color.set('#ffd9a0');
+        hemiLight.color.set('#ffcaa6');
+        hemiLight.groundColor.set('#3a2d4c');
+        mountainRingGroup.visible = true;
+      }
+    },
     update(playerPos: THREE.Vector3, delta: number, elapsedTime: number) {
       skyUniforms.uTime.value = elapsedTime;
       skyMesh.position.set(playerPos.x, 0, playerPos.z);
@@ -374,6 +420,36 @@ export function createAtmosphereSystem(
       if (lightCullTimer >= (revealMod.active ? 0.05 : 0.15)) {
         lightCullTimer = 0;
         evaluatePointLightCulling(playerPos);
+      }
+
+      if (privateMoonlightMode) {
+        sunLight.intensity = 2.35;
+        hemiLight.intensity = 1.28;
+        scene.environmentIntensity = 0.88;
+        fog.color.copy(privateMoonlightFogColor);
+        if (scene.background instanceof THREE.Color) {
+          scene.background.copy(privateMoonlightFogColor);
+        }
+        fog.density = privateTopDownDebug ? 0.00018 : 0.00062;
+        skyMesh.visible = true;
+        mountainRingGroup.visible = false;
+
+        if (playerPos.distanceToSquared(lastShadowSnapPos) > 4.0) {
+          lastShadowSnapPos.copy(playerPos);
+          const texelWorldSize = 160.0 / currentShadowRes;
+          const snappedX =
+            Math.round(playerPos.x / texelWorldSize) * texelWorldSize;
+          const snappedZ =
+            Math.round(playerPos.z / texelWorldSize) * texelWorldSize;
+          sunLight.position.set(
+            snappedX + sunOffset.x,
+            sunOffset.y,
+            snappedZ + sunOffset.z,
+          );
+          sunLight.target.position.set(snappedX, 0, snappedZ);
+          sunLight.target.updateMatrixWorld();
+        }
+        return;
       }
 
       // Smoothly transition surface golden-hour atmosphere to pitch-dark void when descending underground
