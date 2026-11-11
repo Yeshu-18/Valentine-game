@@ -33,6 +33,10 @@ export interface PrequelGameProps {
   onEnterDreamWorld: () => void;
   /** Optional shortcut to jump to the Private World Epilogue */
   onJumpToEpilogue?: () => void;
+  /** Optional initial or externally requested Prequel chapter for direct Dev Mode access */
+  initialChapter?: 'CHAPTER_1' | 'CHAPTER_2' | 'CELL_04';
+  /** Signal counter so repeated Dev Mode clicks switch chapter even while PrequelGame is mounted */
+  chapterJumpSignal?: number;
 }
 
 /**
@@ -46,10 +50,18 @@ export interface PrequelGameProps {
  */
 export const PrequelGame: React.FC<PrequelGameProps> = ({
   onEnterDreamWorld,
+  initialChapter = 'CHAPTER_1',
+  chapterJumpSignal = 0,
 }) => {
   const canvasMountRef = useRef<HTMLDivElement | null>(null);
 
-  const [activeChapter, setActiveChapter] = useState<'CHAPTER_1' | 'CHAPTER_2' | 'CELL_04'>('CHAPTER_1');
+  const [activeChapter, setActiveChapter] = useState<
+    'CHAPTER_1' | 'CHAPTER_2' | 'CELL_04'
+  >(initialChapter);
+
+  useEffect(() => {
+    setActiveChapter(initialChapter);
+  }, [initialChapter, chapterJumpSignal]);
   const [gameState, setGameState] = useState<Chapter1StateId>('SCENE_START');
   const [cameraState, setCameraState] = useState<HybridCameraState>('FOLLOW');
   const [animState, setAnimState] = useState<HarshaAnimState>('WALK');

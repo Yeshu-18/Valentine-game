@@ -11,6 +11,8 @@ export interface RoomTextureSet {
   fabric: THREE.CanvasTexture;
   doorSteel: THREE.CanvasTexture;
   phoneDial: THREE.CanvasTexture;
+  photoFront: THREE.CanvasTexture;
+  photoBack: THREE.CanvasTexture;
   shadowDecal: THREE.CanvasTexture;
   dispose: () => void;
 }
@@ -166,7 +168,116 @@ export function createRoomTextures(maxAnisotropy: number): RoomTextureSet {
   dlCtx.arc(128, 128, 30, 0, Math.PI * 2);
   dlCtx.fill();
 
-  // 7. Soft Radial Contact Shadow Decal
+  // 7. Photograph Front Texture (Portrait 4:5 ratio canvas with centered border and bottom caption bar)
+  const photoFrontCanvas = document.createElement('canvas');
+  photoFrontCanvas.width = 512;
+  photoFrontCanvas.height = 640;
+  const pfCtx = photoFrontCanvas.getContext('2d')!;
+  pfCtx.fillStyle = '#f4efe4';
+  pfCtx.fillRect(0, 0, 512, 640);
+  // Subtle outer frame border
+  pfCtx.strokeStyle = '#dcd2c0';
+  pfCtx.lineWidth = 4;
+  pfCtx.strokeRect(10, 10, 492, 620);
+  // Inner photo aperture (440 x 470, centered horizontally at x=36..476)
+  pfCtx.fillStyle = '#181514';
+  pfCtx.fillRect(36, 36, 440, 470);
+  pfCtx.strokeStyle = 'rgba(180, 145, 95, 0.5)';
+  pfCtx.lineWidth = 2;
+  pfCtx.strokeRect(36, 36, 440, 470);
+  // Centered date below photo aperture
+  pfCtx.fillStyle = '#2b221c';
+  pfCtx.font = '700 28px "JetBrains Mono", monospace';
+  pfCtx.textAlign = 'center';
+  pfCtx.textBaseline = 'middle';
+  pfCtx.fillText('14 / 02 / 2024', 256, 568);
+
+  const photoFront = configureAlbedo(
+    new THREE.CanvasTexture(photoFrontCanvas),
+    1,
+    1,
+  );
+
+  if (typeof Image !== 'undefined') {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      pfCtx.drawImage(img, 38, 38, 436, 466);
+      photoFront.needsUpdate = true;
+    };
+    img.src = '/assets/harsha/photo-treasured.jpg';
+  }
+
+  // 8. Photograph Back Texture (Portrait 4:5 ratio canvas with perfectly centered 14 / 02 / 2024 date)
+  const photoBackCanvas = document.createElement('canvas');
+  photoBackCanvas.width = 512;
+  photoBackCanvas.height = 640;
+  const pbCtx = photoBackCanvas.getContext('2d')!;
+  pbCtx.fillStyle = '#ebe3d5';
+  pbCtx.fillRect(0, 0, 512, 640);
+  for (let i = 0; i < 400; i++) {
+    pbCtx.fillStyle = 'rgba(110, 95, 75, 0.05)';
+    pbCtx.fillRect(
+      Math.random() * 512,
+      Math.random() * 640,
+      8 + Math.random() * 18,
+      2,
+    );
+  }
+  pbCtx.strokeStyle = 'rgba(130, 115, 95, 0.45)';
+  pbCtx.lineWidth = 3;
+  pbCtx.strokeRect(24, 24, 464, 592);
+
+  // Subtle registration crop marks in corners
+  pbCtx.strokeStyle = 'rgba(110, 95, 75, 0.4)';
+  pbCtx.lineWidth = 2;
+  const cLen = 18;
+  // Top-left
+  pbCtx.beginPath();
+  pbCtx.moveTo(42, 42 + cLen);
+  pbCtx.lineTo(42, 42);
+  pbCtx.lineTo(42 + cLen, 42);
+  // Top-right
+  pbCtx.moveTo(470 - cLen, 42);
+  pbCtx.lineTo(470, 42);
+  pbCtx.lineTo(470, 42 + cLen);
+  // Bottom-left
+  pbCtx.moveTo(42, 598 - cLen);
+  pbCtx.lineTo(42, 598);
+  pbCtx.lineTo(42 + cLen, 598);
+  // Bottom-right
+  pbCtx.moveTo(470 - cLen, 598);
+  pbCtx.lineTo(470, 598);
+  pbCtx.lineTo(470, 598 - cLen);
+  pbCtx.stroke();
+
+  // Perfectly centered date stamp in the middle of the card with generous side margins
+  pbCtx.fillStyle = '#1a1614';
+  pbCtx.font = '700 34px "JetBrains Mono", monospace';
+  pbCtx.textAlign = 'center';
+  pbCtx.textBaseline = 'middle';
+  pbCtx.fillText('14 / 02 / 2024', 256, 300);
+
+  // Subtle centered divider rule under the date
+  pbCtx.strokeStyle = 'rgba(120, 95, 70, 0.45)';
+  pbCtx.lineWidth = 2;
+  pbCtx.beginPath();
+  pbCtx.moveTo(156, 336);
+  pbCtx.lineTo(356, 336);
+  pbCtx.stroke();
+
+  // Positioned well above the bottom corner crop marks (y=580..598)
+  pbCtx.fillStyle = '#6e6256';
+  pbCtx.font = '600 13px "JetBrains Mono", monospace';
+  pbCtx.fillText('ARCHIVAL SILVER PRINT · REVERSE', 256, 542);
+
+  const photoBack = configureAlbedo(
+    new THREE.CanvasTexture(photoBackCanvas),
+    1,
+    1,
+  );
+
+  // 9. Soft Radial Contact Shadow Decal
   const shadowCanvas = document.createElement('canvas');
   shadowCanvas.width = 256;
   shadowCanvas.height = 256;
@@ -195,6 +306,8 @@ export function createRoomTextures(maxAnisotropy: number): RoomTextureSet {
     fabric,
     doorSteel,
     phoneDial,
+    photoFront,
+    photoBack,
     shadowDecal,
     dispose: () => {
       wall.dispose();
@@ -203,6 +316,8 @@ export function createRoomTextures(maxAnisotropy: number): RoomTextureSet {
       fabric.dispose();
       doorSteel.dispose();
       phoneDial.dispose();
+      photoFront.dispose();
+      photoBack.dispose();
       shadowDecal.dispose();
     },
   };

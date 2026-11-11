@@ -2,24 +2,62 @@ import * as THREE from 'three';
 import { RoomTextureSet } from './cell04Textures';
 
 /**
- * Builds the procedural 3D architectural shell and composite 3-12 part furniture groups for Cell 04:
- * - Room shell (floor, ceiling, 4 walls, baseboards, overhead pendant lamp fixture)
+ * Builds the procedural 3D architectural shell, composite furniture groups,
+ * physical narrative clues, and doorway corridor silhouette figure for Cell 04:
+ * - Room shell (floor, ceiling, walls with north doorway frame, baseboards, overhead pendant lamp)
  * - Bed (iron frame, 4 corner legs, slatted headboard, mattress, blanket, angled pillow)
  * - Desk (timber tabletop, 4 legs, drawer cabinet, drawer fronts & brass pulls, architect desk lamp)
  * - Chair (4 legs, wooden seat, 2 back posts, 2 curved backrest slats)
- * - Door (heavy steel frame, riveted door slab, barred observation slit, deadbolt lock box, status LED, lever handle)
+ * - Door (heavy steel frame, hinged riveted door slab, barred observation slit, deadbolt lock box, status LED, lever handle)
  * - Rotary Phone on Desk (sloped bakelite base, rotary wheel, cradle prongs, sculpted handset, coiled cord, status LED)
+ * - Physical Photograph (14 / 02 / 2024) properly aligned on the desk
+ * - Three Relationship Memory Clues (Realistic optical eyeglasses & glass tumbler on desk, Pinky Moment keepsake on chair, Confession phone on bed)
+ * - Mysterious Silhouette Figure in the corridor beyond the steel door
  */
 export interface RoomPropsResult {
   doorGroup: THREE.Group;
+  doorHingePivot: THREE.Group;
   doorHandlePivot: THREE.Group;
   doorStatusMat: THREE.MeshStandardMaterial;
+  doorHitMeshes: THREE.Object3D[];
+
   phoneGroup: THREE.Group;
   phoneHandset: THREE.Group;
   phoneLedMat: THREE.MeshStandardMaterial;
+  phoneHitMeshes: THREE.Object3D[];
+
+  photographGroup: THREE.Group;
+  photographHitMeshes: THREE.Object3D[];
+
+  memoryHailMaryGroup: THREE.Group;
+  memoryHailMaryHitMeshes: THREE.Object3D[];
+
+  memoryPinkyGroup: THREE.Group;
+  memoryPinkyHitMeshes: THREE.Object3D[];
+  pinkyHandsVfxGroup: THREE.Group;
+  pinkyLeftHand: THREE.Group;
+  pinkyRightHand: THREE.Group;
+  pinkyEmberPoints: THREE.Points;
+  pinkyWarmLight: THREE.PointLight;
+
+  memoryConfessionGroup: THREE.Group;
+  memoryConfessionHitMeshes: THREE.Object3D[];
+  confessionScreenMat: THREE.MeshStandardMaterial;
+
+  bedGroup: THREE.Group;
+  bedHitMeshes: THREE.Object3D[];
+
+  deskGroup: THREE.Group;
+  deskHitMeshes: THREE.Object3D[];
+
+  chairGroup: THREE.Group;
+  chairHitMeshes: THREE.Object3D[];
+
+  figureGroup: THREE.Group;
+  corridorLight: THREE.PointLight;
+
   overheadBulbMat: THREE.MeshStandardMaterial;
   deskBulbMat: THREE.MeshStandardMaterial;
-  interactables: THREE.Object3D[];
 }
 
 function createContactShadow(
@@ -47,9 +85,17 @@ export function buildRoomProps(
   scene: THREE.Scene,
   textures: RoomTextureSet,
 ): RoomPropsResult {
-  const interactables: THREE.Object3D[] = [];
+  const doorHitMeshes: THREE.Object3D[] = [];
+  const phoneHitMeshes: THREE.Object3D[] = [];
+  const photographHitMeshes: THREE.Object3D[] = [];
+  const memoryHailMaryHitMeshes: THREE.Object3D[] = [];
+  const memoryPinkyHitMeshes: THREE.Object3D[] = [];
+  const memoryConfessionHitMeshes: THREE.Object3D[] = [];
+  const bedHitMeshes: THREE.Object3D[] = [];
+  const deskHitMeshes: THREE.Object3D[] = [];
+  const chairHitMeshes: THREE.Object3D[] = [];
 
-  // Shared PBR Materials with varied roughness & metalness (>= 0.25 contrast between adjacent parts)
+  // Shared PBR Materials with varied roughness & metalness
   const wallMat = new THREE.MeshStandardMaterial({
     map: textures.wall,
     roughness: 0.88,
@@ -134,8 +180,46 @@ export function buildRoomProps(
   ceilingMesh.position.y = roomHeight;
   roomGroup.add(ceilingMesh);
 
+  // North Wall built with doorway aperture (x in [-0.52, +0.52], y in [0, 2.12])
+  const northLeftWall = new THREE.Mesh(
+    new THREE.PlaneGeometry(2.48, roomHeight),
+    wallMat,
+  );
+  northLeftWall.position.set(-1.76, roomHeight / 2, -roomSize / 2);
+  northLeftWall.receiveShadow = true;
+  roomGroup.add(northLeftWall);
+
+  const northRightWall = new THREE.Mesh(
+    new THREE.PlaneGeometry(2.48, roomHeight),
+    wallMat,
+  );
+  northRightWall.position.set(1.76, roomHeight / 2, -roomSize / 2);
+  northRightWall.receiveShadow = true;
+  roomGroup.add(northRightWall);
+
+  const northTopWall = new THREE.Mesh(
+    new THREE.PlaneGeometry(1.04, roomHeight - 2.12),
+    wallMat,
+  );
+  northTopWall.position.set(0, 2.12 + (roomHeight - 2.12) / 2, -roomSize / 2);
+  northTopWall.receiveShadow = true;
+  roomGroup.add(northTopWall);
+
+  const northBaseLeft = new THREE.Mesh(
+    new THREE.BoxGeometry(2.42, 0.14, 0.04),
+    baseboardMat,
+  );
+  northBaseLeft.position.set(-1.79, 0.07, -roomSize / 2);
+  roomGroup.add(northBaseLeft);
+
+  const northBaseRight = new THREE.Mesh(
+    new THREE.BoxGeometry(2.42, 0.14, 0.04),
+    baseboardMat,
+  );
+  northBaseRight.position.set(1.79, 0.07, -roomSize / 2);
+  roomGroup.add(northBaseRight);
+
   const wallDefs = [
-    { pos: [0, roomHeight / 2, -roomSize / 2], rotY: 0 }, // North wall (Door)
     { pos: [0, roomHeight / 2, roomSize / 2], rotY: Math.PI }, // South wall
     { pos: [-roomSize / 2, roomHeight / 2, 0], rotY: Math.PI / 2 }, // West wall (Bed)
     { pos: [roomSize / 2, roomHeight / 2, 0], rotY: -Math.PI / 2 }, // East wall (Desk)
@@ -151,7 +235,6 @@ export function buildRoomProps(
     wMesh.receiveShadow = true;
     roomGroup.add(wMesh);
 
-    // Baseboard trim
     const baseMesh = new THREE.Mesh(
       new THREE.BoxGeometry(roomSize, 0.14, 0.04),
       baseboardMat,
@@ -161,6 +244,99 @@ export function buildRoomProps(
     baseMesh.receiveShadow = true;
     roomGroup.add(baseMesh);
   });
+
+  // Outer corridor vestibule beyond the North Door
+  const corridorMat = new THREE.MeshStandardMaterial({
+    color: 0x0d1017,
+    roughness: 0.9,
+    metalness: 0.1,
+    side: THREE.DoubleSide,
+  });
+  const corridorShell = new THREE.Mesh(
+    new THREE.BoxGeometry(2.2, 2.6, 2.8),
+    corridorMat,
+  );
+  corridorShell.position.set(0, 1.3, -4.35);
+  roomGroup.add(corridorShell);
+
+  const corridorLight = new THREE.PointLight(0xf59e0b, 0.0, 6.5, 1.6);
+  corridorLight.position.set(0, 2.05, -4.85);
+  scene.add(corridorLight);
+
+  // Mysterious Figure in Silhouette standing in the outer corridor
+  const figureGroup = new THREE.Group();
+  figureGroup.position.set(0, 0, -4.15);
+  figureGroup.visible = false;
+
+  const silhouetteMat = new THREE.MeshStandardMaterial({
+    color: 0x07090d,
+    roughness: 0.85,
+    metalness: 0.08,
+  });
+
+  const leftLeg = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.075, 0.065, 0.86, 12),
+    silhouetteMat,
+  );
+  leftLeg.position.set(-0.11, 0.43, 0);
+  figureGroup.add(leftLeg);
+
+  const rightLeg = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.075, 0.065, 0.86, 12),
+    silhouetteMat,
+  );
+  rightLeg.position.set(0.11, 0.43, 0);
+  figureGroup.add(rightLeg);
+
+  const torsoMesh = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.21, 0.17, 0.66, 16),
+    silhouetteMat,
+  );
+  torsoMesh.position.set(0, 1.16, 0);
+  figureGroup.add(torsoMesh);
+
+  const shouldersMesh = new THREE.Mesh(
+    new THREE.SphereGeometry(0.23, 16, 12),
+    silhouetteMat,
+  );
+  shouldersMesh.scale.set(1.15, 0.42, 0.68);
+  shouldersMesh.position.set(0, 1.44, 0);
+  figureGroup.add(shouldersMesh);
+
+  const neckMesh = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.058, 0.065, 0.12, 12),
+    silhouetteMat,
+  );
+  neckMesh.position.set(0, 1.54, 0);
+  figureGroup.add(neckMesh);
+
+  const headMesh = new THREE.Mesh(
+    new THREE.SphereGeometry(0.115, 16, 16),
+    silhouetteMat,
+  );
+  headMesh.scale.set(0.92, 1.12, 0.98);
+  headMesh.position.set(0, 1.69, 0);
+  figureGroup.add(headMesh);
+
+  const leftArm = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.055, 0.048, 0.62, 10),
+    silhouetteMat,
+  );
+  leftArm.position.set(-0.26, 1.15, 0.04);
+  leftArm.rotation.z = 0.08;
+  leftArm.rotation.x = -0.12;
+  figureGroup.add(leftArm);
+
+  const rightArm = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.055, 0.048, 0.62, 10),
+    silhouetteMat,
+  );
+  rightArm.position.set(0.26, 1.15, 0.04);
+  rightArm.rotation.z = -0.08;
+  rightArm.rotation.x = -0.12;
+  figureGroup.add(rightArm);
+
+  scene.add(figureGroup);
 
   // Overhead industrial pendant lamp fixture at ceiling center
   const fixtureGroup = new THREE.Group();
@@ -202,10 +378,8 @@ export function buildRoomProps(
   const bedGroup = new THREE.Group();
   bedGroup.position.set(-2.2, 0, 1.15);
 
-  // Contact shadow
   bedGroup.add(createContactShadow(1.55, 2.35, textures.shadowDecal));
 
-  // 4 iron corner legs
   const legGeo = new THREE.CylinderGeometry(0.03, 0.025, 0.36, 10);
   const bedLegCoords = [
     [-0.6, 0.18, -0.98],
@@ -220,7 +394,6 @@ export function buildRoomProps(
     bedGroup.add(leg);
   });
 
-  // Iron side frame rails
   const frameBase = new THREE.Mesh(
     new THREE.BoxGeometry(1.28, 0.08, 2.04),
     darkIronMat,
@@ -229,8 +402,8 @@ export function buildRoomProps(
   frameBase.castShadow = true;
   frameBase.receiveShadow = true;
   bedGroup.add(frameBase);
+  bedHitMeshes.push(frameBase);
 
-  // Headboard (at z = +1.0) with vertical iron bars
   const headboardTop = new THREE.Mesh(
     new THREE.CylinderGeometry(0.03, 0.03, 1.28, 10),
     darkIronMat,
@@ -250,7 +423,6 @@ export function buildRoomProps(
     bedGroup.add(bar);
   }
 
-  // Mattress
   const mattress = new THREE.Mesh(
     new THREE.BoxGeometry(1.2, 0.22, 1.92),
     mattressMat,
@@ -259,8 +431,8 @@ export function buildRoomProps(
   mattress.castShadow = true;
   mattress.receiveShadow = true;
   bedGroup.add(mattress);
+  bedHitMeshes.push(mattress);
 
-  // Disheveled blanket covering lower 2/3 of bed
   const blanket = new THREE.Mesh(
     new THREE.BoxGeometry(1.23, 0.23, 1.25),
     blanketMat,
@@ -269,8 +441,8 @@ export function buildRoomProps(
   blanket.castShadow = true;
   blanket.receiveShadow = true;
   bedGroup.add(blanket);
+  bedHitMeshes.push(blanket);
 
-  // Angled pillow near headboard
   const pillow = new THREE.Mesh(
     new THREE.BoxGeometry(0.76, 0.11, 0.42),
     pillowMat,
@@ -281,6 +453,7 @@ export function buildRoomProps(
   pillow.castShadow = true;
   pillow.receiveShadow = true;
   bedGroup.add(pillow);
+  bedHitMeshes.push(pillow);
 
   scene.add(bedGroup);
 
@@ -290,10 +463,8 @@ export function buildRoomProps(
   const deskGroup = new THREE.Group();
   deskGroup.position.set(2.15, 0, -0.2);
 
-  // Contact shadow
   deskGroup.add(createContactShadow(1.15, 1.85, textures.shadowDecal));
 
-  // Tabletop (0.85m deep along X, 1.6m wide along Z, at height 0.78m)
   const tabletop = new THREE.Mesh(
     new THREE.BoxGeometry(0.86, 0.06, 1.62),
     woodMat,
@@ -302,8 +473,8 @@ export function buildRoomProps(
   tabletop.castShadow = true;
   tabletop.receiveShadow = true;
   deskGroup.add(tabletop);
+  deskHitMeshes.push(tabletop);
 
-  // 4 Desk legs
   const deskLegGeo = new THREE.BoxGeometry(0.06, 0.75, 0.06);
   const deskLegPositions = [
     [-0.36, 0.375, -0.73],
@@ -318,7 +489,6 @@ export function buildRoomProps(
     deskGroup.add(leg);
   });
 
-  // Side drawer cabinet under the right side of the desk
   const drawerCabinet = new THREE.Mesh(
     new THREE.BoxGeometry(0.76, 0.46, 0.48),
     woodDarkMat,
@@ -327,8 +497,8 @@ export function buildRoomProps(
   drawerCabinet.castShadow = true;
   drawerCabinet.receiveShadow = true;
   deskGroup.add(drawerCabinet);
+  deskHitMeshes.push(drawerCabinet);
 
-  // Two drawer fronts + brass pulls facing the room (-X)
   [0.62, 0.41].forEach((dy) => {
     const front = new THREE.Mesh(
       new THREE.BoxGeometry(0.02, 0.17, 0.42),
@@ -336,6 +506,7 @@ export function buildRoomProps(
     );
     front.position.set(-0.39, dy, 0.48);
     deskGroup.add(front);
+    deskHitMeshes.push(front);
 
     const handle = new THREE.Mesh(
       new THREE.BoxGeometry(0.03, 0.025, 0.1),
@@ -345,7 +516,6 @@ export function buildRoomProps(
     deskGroup.add(handle);
   });
 
-  // Architect Desk Lamp on the north corner of the desk
   const deskLampGroup = new THREE.Group();
   deskLampGroup.position.set(0.18, 0.81, -0.52);
 
@@ -395,7 +565,7 @@ export function buildRoomProps(
   // ==========================================
   const chairGroup = new THREE.Group();
   chairGroup.position.set(1.32, 0, -0.35);
-  chairGroup.rotation.y = 0.28; // Slightly angled toward the bed/player
+  chairGroup.rotation.y = 0.28;
 
   chairGroup.add(createContactShadow(0.62, 0.62, textures.shadowDecal));
 
@@ -407,6 +577,7 @@ export function buildRoomProps(
   seatMesh.castShadow = true;
   seatMesh.receiveShadow = true;
   chairGroup.add(seatMesh);
+  chairHitMeshes.push(seatMesh);
 
   const chairLegGeo = new THREE.CylinderGeometry(0.022, 0.018, 0.46, 8);
   const chairLegs = [
@@ -422,7 +593,6 @@ export function buildRoomProps(
     chairGroup.add(cLeg);
   });
 
-  // Backrest posts (on -X side so chair faces +X toward desk)
   [-0.2, 0.2].forEach((bz) => {
     const post = new THREE.Mesh(
       new THREE.BoxGeometry(0.04, 0.48, 0.04),
@@ -432,9 +602,9 @@ export function buildRoomProps(
     post.rotation.z = 0.06;
     post.castShadow = true;
     chairGroup.add(post);
+    chairHitMeshes.push(post);
   });
 
-  // Horizontal backrest slats
   [0.65, 0.85].forEach((by) => {
     const slat = new THREE.Mesh(
       new THREE.BoxGeometry(0.028, 0.09, 0.44),
@@ -443,18 +613,17 @@ export function buildRoomProps(
     slat.position.set(-0.22, by, 0);
     slat.castShadow = true;
     chairGroup.add(slat);
+    chairHitMeshes.push(slat);
   });
 
   scene.add(chairGroup);
 
   // ==========================================
-  // 5. LOCKED STEEL DOOR (Composite 8-Part Group, North Wall)
+  // 5. LOCKED STEEL DOOR (Composite 8-Part Group, North Wall, Hinged for Finale)
   // ==========================================
   const doorGroup = new THREE.Group();
   doorGroup.position.set(0, 0, -2.96);
-  doorGroup.userData = { interactType: 'door', label: 'Locked Steel Door' };
 
-  // Heavy steel outer frame
   const frameLeft = new THREE.Mesh(
     new THREE.BoxGeometry(0.12, 2.24, 0.14),
     darkIronMat,
@@ -476,7 +645,10 @@ export function buildRoomProps(
   frameTop.position.set(0, 2.18, 0);
   doorGroup.add(frameTop);
 
-  // Door slab
+  const doorHingePivot = new THREE.Group();
+  doorHingePivot.position.set(-0.52, 0, 0);
+  doorGroup.add(doorHingePivot);
+
   const doorSlabMat = new THREE.MeshStandardMaterial({
     map: textures.doorSteel,
     roughness: 0.48,
@@ -486,46 +658,42 @@ export function buildRoomProps(
     new THREE.BoxGeometry(1.04, 2.12, 0.07),
     doorSlabMat,
   );
-  doorSlab.position.set(0, 1.06, 0);
+  doorSlab.position.set(0.52, 1.06, 0);
   doorSlab.castShadow = true;
   doorSlab.receiveShadow = true;
-  doorSlab.userData = { interactType: 'door' };
-  doorGroup.add(doorSlab);
-  interactables.push(doorSlab);
+  doorHingePivot.add(doorSlab);
+  doorHitMeshes.push(doorSlab);
 
-  // Barred observation slit at eye level
   const viewportFrame = new THREE.Mesh(
     new THREE.BoxGeometry(0.34, 0.18, 0.09),
     darkIronMat,
   );
-  viewportFrame.position.set(0, 1.62, 0.01);
-  doorGroup.add(viewportFrame);
+  viewportFrame.position.set(0.52, 1.62, 0.01);
+  doorHingePivot.add(viewportFrame);
 
   const viewportBacking = new THREE.Mesh(
     new THREE.PlaneGeometry(0.28, 0.12),
     new THREE.MeshBasicMaterial({ color: 0x050608 }),
   );
-  viewportBacking.position.set(0, 1.62, 0.056);
-  doorGroup.add(viewportBacking);
+  viewportBacking.position.set(0.52, 1.62, 0.056);
+  doorHingePivot.add(viewportBacking);
 
   for (let vx = -0.1; vx <= 0.11; vx += 0.065) {
     const vBar = new THREE.Mesh(
       new THREE.CylinderGeometry(0.008, 0.008, 0.14, 8),
       brushedSteelMat,
     );
-    vBar.position.set(vx, 1.62, 0.06);
-    doorGroup.add(vBar);
+    vBar.position.set(0.52 + vx, 1.62, 0.06);
+    doorHingePivot.add(vBar);
   }
 
-  // Electronic / heavy deadbolt lock housing + red locked LED
   const lockBox = new THREE.Mesh(
     new THREE.BoxGeometry(0.14, 0.24, 0.06),
     darkIronMat,
   );
-  lockBox.position.set(0.38, 1.05, 0.05);
-  lockBox.userData = { interactType: 'door' };
-  doorGroup.add(lockBox);
-  interactables.push(lockBox);
+  lockBox.position.set(0.9, 1.05, 0.05);
+  doorHingePivot.add(lockBox);
+  doorHitMeshes.push(lockBox);
 
   const doorStatusMat = new THREE.MeshStandardMaterial({
     color: 0xff2a2a,
@@ -537,12 +705,11 @@ export function buildRoomProps(
     new THREE.SphereGeometry(0.018, 12, 12),
     doorStatusMat,
   );
-  lockLed.position.set(0.38, 1.12, 0.082);
-  doorGroup.add(lockLed);
+  lockLed.position.set(0.9, 1.12, 0.082);
+  doorHingePivot.add(lockLed);
 
-  // Lever handle pivot (animates when rattled)
   const doorHandlePivot = new THREE.Group();
-  doorHandlePivot.position.set(0.38, 1.0, 0.08);
+  doorHandlePivot.position.set(0.9, 1.0, 0.08);
   const handleShaft = new THREE.Mesh(
     new THREE.CylinderGeometry(0.016, 0.016, 0.05, 10),
     brushedSteelMat,
@@ -555,21 +722,18 @@ export function buildRoomProps(
     brushedSteelMat,
   );
   handleGrip.position.set(-0.055, 0, 0.025);
-  handleGrip.userData = { interactType: 'door' };
   doorHandlePivot.add(handleGrip);
-  interactables.push(handleGrip);
+  doorHitMeshes.push(handleGrip);
 
-  doorGroup.add(doorHandlePivot);
+  doorHingePivot.add(doorHandlePivot);
   scene.add(doorGroup);
 
   // ==========================================
   // 6. ROTARY PHONE ON THE DESK (Composite 8-Part Group)
   // ==========================================
   const phoneGroup = new THREE.Group();
-  // Positioned right on top of the desk (y = 0.81m), facing the center of the room
   phoneGroup.position.set(2.04, 0.81, -0.05);
   phoneGroup.rotation.y = -Math.PI / 2 - 0.15;
-  phoneGroup.userData = { interactType: 'phone', label: 'Telephone' };
 
   const bakeliteMat = new THREE.MeshPhysicalMaterial({
     color: 0x141619,
@@ -579,17 +743,14 @@ export function buildRoomProps(
     clearcoatRoughness: 0.18,
   });
 
-  // Invisible slightly larger hitbox so raycasting/clicking the phone is effortless
   const phoneHitbox = new THREE.Mesh(
-    new THREE.BoxGeometry(0.42, 0.32, 0.42),
+    new THREE.BoxGeometry(0.32, 0.28, 0.32),
     new THREE.MeshBasicMaterial({ visible: false }),
   );
   phoneHitbox.position.set(0, 0.14, 0);
-  phoneHitbox.userData = { interactType: 'phone' };
   phoneGroup.add(phoneHitbox);
-  interactables.push(phoneHitbox);
+  phoneHitMeshes.push(phoneHitbox);
 
-  // 1. Base chassis
   const phoneBase = new THREE.Mesh(
     new THREE.BoxGeometry(0.24, 0.065, 0.22),
     bakeliteMat,
@@ -597,11 +758,9 @@ export function buildRoomProps(
   phoneBase.position.set(0, 0.0325, 0);
   phoneBase.castShadow = true;
   phoneBase.receiveShadow = true;
-  phoneBase.userData = { interactType: 'phone' };
   phoneGroup.add(phoneBase);
-  interactables.push(phoneBase);
+  phoneHitMeshes.push(phoneBase);
 
-  // 2. Sloped upper console
   const phoneConsole = new THREE.Mesh(
     new THREE.BoxGeometry(0.22, 0.075, 0.16),
     bakeliteMat,
@@ -609,11 +768,9 @@ export function buildRoomProps(
   phoneConsole.position.set(0, 0.08, -0.01);
   phoneConsole.rotation.x = 0.32;
   phoneConsole.castShadow = true;
-  phoneConsole.userData = { interactType: 'phone' };
   phoneGroup.add(phoneConsole);
-  interactables.push(phoneConsole);
+  phoneHitMeshes.push(phoneConsole);
 
-  // 3. Rotary dial wheel on sloped face
   const dialMat = new THREE.MeshStandardMaterial({
     map: textures.phoneDial,
     roughness: 0.35,
@@ -625,10 +782,8 @@ export function buildRoomProps(
   );
   dialWheel.position.set(0, 0.105, 0.035);
   dialWheel.rotation.x = 0.32;
-  dialWheel.userData = { interactType: 'phone' };
   phoneGroup.add(dialWheel);
 
-  // 4. Cradle prongs (left & right)
   [-0.065, 0.065].forEach((cx) => {
     const prong = new THREE.Mesh(
       new THREE.CylinderGeometry(0.012, 0.016, 0.045, 10),
@@ -638,7 +793,6 @@ export function buildRoomProps(
     phoneGroup.add(prong);
   });
 
-  // 5. Blinking red incoming-call LED on phone front corner
   const phoneLedMat = new THREE.MeshStandardMaterial({
     color: 0xff2222,
     emissive: 0xff1111,
@@ -652,7 +806,6 @@ export function buildRoomProps(
   phoneLed.position.set(0.085, 0.095, 0.075);
   phoneGroup.add(phoneLed);
 
-  // 6. Sculpted Handset (Group that vibrates when ringing and lifts when answered)
   const phoneHandset = new THREE.Group();
   phoneHandset.position.set(0, 0.155, -0.045);
 
@@ -662,8 +815,8 @@ export function buildRoomProps(
   );
   handleBar.rotation.z = Math.PI / 2;
   handleBar.castShadow = true;
-  handleBar.userData = { interactType: 'phone' };
   phoneHandset.add(handleBar);
+  phoneHitMeshes.push(handleBar);
 
   [-0.105, 0.105].forEach((earX) => {
     const cup = new THREE.Mesh(
@@ -672,12 +825,11 @@ export function buildRoomProps(
     );
     cup.position.set(earX, -0.012, 0);
     cup.castShadow = true;
-    cup.userData = { interactType: 'phone' };
     phoneHandset.add(cup);
+    phoneHitMeshes.push(cup);
   });
   phoneGroup.add(phoneHandset);
 
-  // 7. Coiled telephone cord (TubeGeometry)
   const cordCurve = new THREE.CatmullRomCurve3([
     new THREE.Vector3(-0.1, 0.04, -0.05),
     new THREE.Vector3(-0.16, 0.02, -0.02),
@@ -692,15 +844,473 @@ export function buildRoomProps(
 
   scene.add(phoneGroup);
 
+  // ==========================================
+  // 7. THE PHOTOGRAPH (14 / 02 / 2024) ON THE DESK (Properly Aligned Facing the Player)
+  // ==========================================
+  const photographGroup = new THREE.Group();
+  photographGroup.position.set(1.94, 0.814, 0.34);
+  // Rotate -90 deg so the top face (+Y) UVs align upright toward the player standing at -X looking +X
+  photographGroup.rotation.y = -Math.PI / 2;
+
+  const photoCardMatFront = new THREE.MeshStandardMaterial({
+    map: textures.photoFront,
+    roughness: 0.45,
+    metalness: 0.04,
+  });
+  const photoCardMatBack = new THREE.MeshStandardMaterial({
+    map: textures.photoBack,
+    roughness: 0.65,
+    metalness: 0.02,
+  });
+  const photoEdgeMat = new THREE.MeshStandardMaterial({
+    color: 0xe6decb,
+    roughness: 0.7,
+  });
+
+  // 4:5 Portrait aspect ratio matching the 512x640 textures (0.176m wide x 0.22m tall)
+  const photoCard = new THREE.Mesh(
+    new THREE.BoxGeometry(0.176, 0.004, 0.22),
+    [
+      photoEdgeMat,
+      photoEdgeMat,
+      photoCardMatBack, // +Y face (facing up on the desk with centered 14 / 02 / 2024)
+      photoCardMatFront, // -Y face (facing down on the desk)
+      photoEdgeMat,
+      photoEdgeMat,
+    ],
+  );
+  photoCard.castShadow = true;
+  photoCard.receiveShadow = true;
+  photographGroup.add(photoCard);
+  photographHitMeshes.push(photoCard);
+
+  const photoHitbox = new THREE.Mesh(
+    new THREE.BoxGeometry(0.28, 0.14, 0.3),
+    new THREE.MeshBasicMaterial({ visible: false }),
+  );
+  photoHitbox.position.set(0, 0.05, 0);
+  photographGroup.add(photoHitbox);
+  photographHitMeshes.push(photoHitbox);
+
+  scene.add(photographGroup);
+
+  // ==========================================
+  // 8. MEMORY I CLUE: REALISTIC EYEGLASSES & GLASS TUMBLER ON DESK
+  // ==========================================
+  const memoryHailMaryGroup = new THREE.Group();
+  memoryHailMaryGroup.position.set(1.92, 0.814, -0.46);
+  memoryHailMaryGroup.rotation.y = -Math.PI / 2 + 0.25;
+
+  // Soft folded microfiber lens-cleaning cloth underneath
+  const clothMesh = new THREE.Mesh(
+    new THREE.BoxGeometry(0.16, 0.003, 0.13),
+    new THREE.MeshStandardMaterial({
+      color: 0x334155,
+      roughness: 0.88,
+      metalness: 0.02,
+    }),
+  );
+  clothMesh.position.set(0, 0.0015, 0);
+  clothMesh.rotation.y = 0.08;
+  clothMesh.receiveShadow = true;
+  memoryHailMaryGroup.add(clothMesh);
+
+  // Realistic Eyeglasses Sub-Group resting on the cloth
+  const glassesRig = new THREE.Group();
+  glassesRig.position.set(0, 0.018, 0.015);
+  // Tilted slightly forward as natural eyeglasses rest on a table
+  glassesRig.rotation.x = 0.14;
+
+  const titaniumRimMat = new THREE.MeshStandardMaterial({
+    color: 0xd4af37,
+    roughness: 0.2,
+    metalness: 0.92,
+  });
+  const tortoiseBrowMat = new THREE.MeshPhysicalMaterial({
+    color: 0x1c1411,
+    roughness: 0.24,
+    metalness: 0.08,
+    clearcoat: 0.9,
+  });
+  const opticalLensMat = new THREE.MeshPhysicalMaterial({
+    color: 0xe0f2fe,
+    roughness: 0.06,
+    metalness: 0.05,
+    transmission: 0.86,
+    ior: 1.52,
+    reflectivity: 0.9,
+    clearcoat: 1.0,
+    clearcoatRoughness: 0.05,
+    transparent: true,
+    opacity: 0.82,
+  });
+  const nosePadMat = new THREE.MeshPhysicalMaterial({
+    color: 0xf8fafc,
+    roughness: 0.2,
+    transmission: 0.7,
+    transparent: true,
+    opacity: 0.75,
+  });
+
+  // Left and Right Optical Rims, Browline Bars, Meniscus Lenses, and Nose Pads
+  [-0.034, 0.034].forEach((lx, sideIdx) => {
+    const sign = sideIdx === 0 ? -1 : 1;
+
+    // 1. Sculpted oval-round metallic rim
+    const rimMesh = new THREE.Mesh(
+      new THREE.TorusGeometry(0.025, 0.0022, 14, 36),
+      titaniumRimMat,
+    );
+    rimMesh.scale.set(1.12, 0.92, 1.0);
+    rimMesh.position.set(lx, 0, 0);
+    rimMesh.castShadow = true;
+    glassesRig.add(rimMesh);
+
+    // 2. Clubmaster / acetate upper browline accent along top half of rim
+    const browArc = new THREE.Mesh(
+      new THREE.TorusGeometry(
+        0.0255,
+        0.0036,
+        12,
+        24,
+        Math.PI * 0.82,
+      ),
+      tortoiseBrowMat,
+    );
+    browArc.scale.set(1.12, 0.92, 1.1);
+    browArc.rotation.z = Math.PI * 0.09;
+    browArc.position.set(lx, 0.001, 0.0005);
+    glassesRig.add(browArc);
+
+    // 3. Curved meniscus optical lens (spherical cap)
+    const lensCap = new THREE.Mesh(
+      new THREE.SphereGeometry(
+        0.052,
+        24,
+        16,
+        0,
+        Math.PI * 2,
+        0,
+        0.48,
+      ),
+      opticalLensMat,
+    );
+    lensCap.scale.set(1.1, 0.9, 0.28);
+    lensCap.rotation.x = Math.PI / 2;
+    lensCap.position.set(lx, 0, -0.012);
+    glassesRig.add(lensCap);
+
+    // 4. Translucent silicone nose pad + pad arm on inner side of rim
+    const padMesh = new THREE.Mesh(
+      new THREE.SphereGeometry(0.0042, 10, 10),
+      nosePadMat,
+    );
+    padMesh.scale.set(0.65, 1.45, 0.45);
+    padMesh.position.set(lx - sign * 0.021, -0.004, -0.006);
+    padMesh.rotation.y = sign * 0.35;
+    glassesRig.add(padMesh);
+
+    // 5. Outer endpiece hinge block
+    const endpiece = new THREE.Mesh(
+      new THREE.BoxGeometry(0.006, 0.0045, 0.007),
+      titaniumRimMat,
+    );
+    endpiece.position.set(lx + sign * 0.029, 0.006, -0.002);
+    glassesRig.add(endpiece);
+
+    // 6. Realistic Temple Arm with anatomical ear bend (TubeGeometry)
+    const templeX = lx + sign * 0.031;
+    const templeCurve = new THREE.CatmullRomCurve3([
+      new THREE.Vector3(templeX, 0.006, -0.004),
+      new THREE.Vector3(templeX - sign * 0.002, 0.005, -0.052),
+      new THREE.Vector3(templeX - sign * 0.005, 0.004, -0.092),
+      new THREE.Vector3(templeX - sign * 0.008, -0.011, -0.114),
+    ]);
+    const templeArm = new THREE.Mesh(
+      new THREE.TubeGeometry(templeCurve, 20, 0.0021, 8, false),
+      titaniumRimMat,
+    );
+    templeArm.castShadow = true;
+    glassesRig.add(templeArm);
+
+    // Acetate ear-sock tip at the end of the temple
+    const earTipCurve = new THREE.CatmullRomCurve3([
+      new THREE.Vector3(templeX - sign * 0.004, 0.0045, -0.082),
+      new THREE.Vector3(templeX - sign * 0.006, 0.001, -0.102),
+      new THREE.Vector3(templeX - sign * 0.009, -0.013, -0.116),
+    ]);
+    const earTip = new THREE.Mesh(
+      new THREE.TubeGeometry(earTipCurve, 12, 0.0028, 8, false),
+      tortoiseBrowMat,
+    );
+    glassesRig.add(earTip);
+  });
+
+  // Curved anatomical nose bridge connecting the two rims
+  const bridgeCurve = new THREE.CatmullRomCurve3([
+    new THREE.Vector3(-0.008, 0.005, 0.001),
+    new THREE.Vector3(0, 0.0085, 0.003),
+    new THREE.Vector3(0.008, 0.005, 0.001),
+  ]);
+  const noseBridge = new THREE.Mesh(
+    new THREE.TubeGeometry(bridgeCurve, 12, 0.002, 8, false),
+    titaniumRimMat,
+  );
+  glassesRig.add(noseBridge);
+
+  memoryHailMaryGroup.add(glassesRig);
+
+  // Crystal water glass tumbler beside the eyeglasses (from the cinema interval memory)
+  const glassTumbler = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.032, 0.026, 0.088, 20, 1, true),
+    opticalLensMat,
+  );
+  glassTumbler.position.set(0.105, 0.045, -0.02);
+  glassTumbler.castShadow = true;
+  memoryHailMaryGroup.add(glassTumbler);
+
+  const glassBase = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.026, 0.026, 0.008, 20),
+    opticalLensMat,
+  );
+  glassBase.position.set(0.105, 0.004, -0.02);
+  memoryHailMaryGroup.add(glassBase);
+
+  const hailMaryHitbox = new THREE.Mesh(
+    new THREE.BoxGeometry(0.32, 0.16, 0.32),
+    new THREE.MeshBasicMaterial({ visible: false }),
+  );
+  hailMaryHitbox.position.set(0.02, 0.06, 0);
+  memoryHailMaryGroup.add(hailMaryHitbox);
+  memoryHailMaryHitMeshes.push(hailMaryHitbox, clothMesh, glassTumbler);
+
+  scene.add(memoryHailMaryGroup);
+
+  // ==========================================
+  // 9. MEMORY II CLUE: THE PINKY MOMENT (Keepsake & Bus Stop Card on the Chair)
+  // ==========================================
+  const memoryPinkyGroup = new THREE.Group();
+  memoryPinkyGroup.position.set(1.32, 0.485, -0.35);
+  memoryPinkyGroup.rotation.y = 0.42;
+
+  const busCardMesh = new THREE.Mesh(
+    new THREE.BoxGeometry(0.13, 0.004, 0.085),
+    new THREE.MeshStandardMaterial({
+      color: 0xf1e9db,
+      roughness: 0.6,
+    }),
+  );
+  busCardMesh.castShadow = true;
+  memoryPinkyGroup.add(busCardMesh);
+
+  const pinkyLoopMat = new THREE.MeshStandardMaterial({
+    color: 0xf4a261,
+    emissive: 0xd97706,
+    emissiveIntensity: 0.35,
+    roughness: 0.28,
+    metalness: 0.85,
+  });
+  const pinkyLoop = new THREE.Mesh(
+    new THREE.TorusGeometry(0.032, 0.0045, 12, 28),
+    pinkyLoopMat,
+  );
+  pinkyLoop.rotation.x = Math.PI / 2;
+  pinkyLoop.position.set(0.015, 0.006, 0.01);
+  memoryPinkyGroup.add(pinkyLoop);
+
+  const pinkyHitbox = new THREE.Mesh(
+    new THREE.BoxGeometry(0.28, 0.16, 0.28),
+    new THREE.MeshBasicMaterial({ visible: false }),
+  );
+  pinkyHitbox.position.set(0, 0.05, 0);
+  memoryPinkyGroup.add(pinkyHitbox);
+  memoryPinkyHitMeshes.push(pinkyHitbox, busCardMesh, pinkyLoop);
+
+  // In-Engine 3D Romantic Hands-Holding Hologram & Rose-Gold Ember VFX above the chair keepsake
+  const pinkyHandsVfxGroup = new THREE.Group();
+  pinkyHandsVfxGroup.position.set(0, 0.18, 0);
+  pinkyHandsVfxGroup.visible = false;
+
+  const warmHandLeftMat = new THREE.MeshPhysicalMaterial({
+    color: 0xfbd38d,
+    emissive: 0xd97706,
+    emissiveIntensity: 0.45,
+    roughness: 0.28,
+    transmission: 0.45,
+    transparent: true,
+    opacity: 0.88,
+  });
+  const warmHandRightMat = new THREE.MeshPhysicalMaterial({
+    color: 0xfbbf24,
+    emissive: 0xf43f5e,
+    emissiveIntensity: 0.48,
+    roughness: 0.25,
+    transmission: 0.45,
+    transparent: true,
+    opacity: 0.9,
+  });
+
+  function createSculpted3DHand(
+    mat: THREE.Material,
+    mirror: 1 | -1,
+  ): THREE.Group {
+    const hand = new THREE.Group();
+    const palm = new THREE.Mesh(
+      new THREE.BoxGeometry(0.052, 0.018, 0.044),
+      mat,
+    );
+    palm.position.set(-mirror * 0.022, 0, 0);
+    hand.add(palm);
+
+    // 4 sculpted fingers (index -> pinky, with the pinky curved forward to interlock)
+    const fingerSpecs = [
+      { z: -0.015, len: 0.034, pinky: false },
+      { z: -0.005, len: 0.038, pinky: false },
+      { z: 0.005, len: 0.035, pinky: false },
+      { z: 0.015, len: 0.029, pinky: true },
+    ];
+    fingerSpecs.forEach(({ z, len, pinky }) => {
+      const fMesh = new THREE.Mesh(
+        new THREE.CapsuleGeometry(0.0042, len, 6, 10),
+        mat,
+      );
+      fMesh.rotation.z = -mirror * (pinky ? Math.PI / 2.2 : Math.PI / 2.6);
+      fMesh.position.set(mirror * 0.012, pinky ? 0.002 : -0.003, z);
+      hand.add(fMesh);
+    });
+    return hand;
+  }
+
+  const pinkyLeftHand = createSculpted3DHand(warmHandLeftMat, 1);
+  pinkyLeftHand.position.set(-0.042, 0, 0);
+  pinkyHandsVfxGroup.add(pinkyLeftHand);
+
+  const pinkyRightHand = createSculpted3DHand(warmHandRightMat, -1);
+  pinkyRightHand.position.set(0.042, 0, 0);
+  pinkyHandsVfxGroup.add(pinkyRightHand);
+
+  // 48 Rising Rose-Gold & Amber Particle Embers
+  const emberCount = 48;
+  const emberPositions = new Float32Array(emberCount * 3);
+  for (let i = 0; i < emberCount; i++) {
+    const angle = (i / emberCount) * Math.PI * 2;
+    const radius = 0.02 + (i % 7) * 0.014;
+    emberPositions[i * 3] = Math.cos(angle) * radius;
+    emberPositions[i * 3 + 1] = (i / emberCount) * 0.22 - 0.04;
+    emberPositions[i * 3 + 2] = Math.sin(angle) * radius;
+  }
+  const emberGeo = new THREE.BufferGeometry();
+  emberGeo.setAttribute(
+    'position',
+    new THREE.BufferAttribute(emberPositions, 3),
+  );
+  const emberMat = new THREE.PointsMaterial({
+    color: 0xfbbf24,
+    size: 0.014,
+    transparent: true,
+    opacity: 0.85,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false,
+  });
+  const pinkyEmberPoints = new THREE.Points(emberGeo, emberMat);
+  pinkyHandsVfxGroup.add(pinkyEmberPoints);
+
+  const pinkyWarmLight = new THREE.PointLight(0xf59e0b, 0, 1.8, 1.8);
+  pinkyWarmLight.position.set(0, 0.06, 0);
+  pinkyHandsVfxGroup.add(pinkyWarmLight);
+
+  memoryPinkyGroup.add(pinkyHandsVfxGroup);
+  scene.add(memoryPinkyGroup);
+
+  // ==========================================
+  // 10. MEMORY III CLUE: THE CONFESSION (Late-Night Phone Keepsake on the Bed)
+  // ==========================================
+  const memoryConfessionGroup = new THREE.Group();
+  memoryConfessionGroup.position.set(-1.92, 0.608, 0.32);
+  memoryConfessionGroup.rotation.y = 0.48;
+
+  const pocketPhoneChassis = new THREE.Mesh(
+    new THREE.BoxGeometry(0.082, 0.01, 0.162),
+    new THREE.MeshStandardMaterial({
+      color: 0x111318,
+      roughness: 0.25,
+      metalness: 0.75,
+    }),
+  );
+  pocketPhoneChassis.castShadow = true;
+  memoryConfessionGroup.add(pocketPhoneChassis);
+
+  const confessionScreenMat = new THREE.MeshStandardMaterial({
+    color: 0x1e293b,
+    emissive: 0x38bdf8,
+    emissiveIntensity: 0.85,
+    roughness: 0.15,
+  });
+  const pocketPhoneScreen = new THREE.Mesh(
+    new THREE.PlaneGeometry(0.072, 0.148),
+    confessionScreenMat,
+  );
+  pocketPhoneScreen.rotation.x = -Math.PI / 2;
+  pocketPhoneScreen.position.y = 0.0055;
+  memoryConfessionGroup.add(pocketPhoneScreen);
+
+  const confessionHitbox = new THREE.Mesh(
+    new THREE.BoxGeometry(0.28, 0.16, 0.28),
+    new THREE.MeshBasicMaterial({ visible: false }),
+  );
+  confessionHitbox.position.set(0, 0.05, 0);
+  memoryConfessionGroup.add(confessionHitbox);
+  memoryConfessionHitMeshes.push(
+    confessionHitbox,
+    pocketPhoneChassis,
+    pocketPhoneScreen,
+  );
+
+  scene.add(memoryConfessionGroup);
+
   return {
     doorGroup,
+    doorHingePivot,
     doorHandlePivot,
     doorStatusMat,
+    doorHitMeshes,
+
     phoneGroup,
     phoneHandset,
     phoneLedMat,
+    phoneHitMeshes,
+
+    photographGroup,
+    photographHitMeshes,
+
+    memoryHailMaryGroup,
+    memoryHailMaryHitMeshes,
+
+    memoryPinkyGroup,
+    memoryPinkyHitMeshes,
+    pinkyHandsVfxGroup,
+    pinkyLeftHand,
+    pinkyRightHand,
+    pinkyEmberPoints,
+    pinkyWarmLight,
+
+    memoryConfessionGroup,
+    memoryConfessionHitMeshes,
+    confessionScreenMat,
+
+    bedGroup,
+    bedHitMeshes,
+
+    deskGroup,
+    deskHitMeshes,
+
+    chairGroup,
+    chairHitMeshes,
+
+    figureGroup,
+    corridorLight,
+
     overheadBulbMat,
     deskBulbMat,
-    interactables,
   };
 }

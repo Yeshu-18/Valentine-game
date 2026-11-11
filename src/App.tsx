@@ -54,6 +54,11 @@ import {
   HeartGalleryPlacementTool,
 } from './world/dreamscape/HeartGalleryPlacementTool';
 import {
+  createDreamWorldRevealDirector,
+  DreamWorldRevealDirector,
+  DreamWorldRevealUiState,
+} from './world/cinematics/DreamWorldRevealDirector';
+import {
   BROOM_STAND_POS,
   CASTLE_KEEP_POS,
   CASTLE_TERRACE_POS,
@@ -208,15 +213,50 @@ export default function App() {
     loadSavedStoryPhase(),
   );
   const storyPhaseRef = useRef<GameChapterPhase>(storyPhase);
+  const revealDirectorRef = useRef<DreamWorldRevealDirector | null>(null);
+  const hasTriggeredFromPrequelRef = useRef(false);
+  const [revealUiState, setRevealUiState] = useState<DreamWorldRevealUiState>({
+    active: false,
+    stage: 'IDLE',
+    stageLabel: '',
+    progress: 0,
+    warmVeilOpacity: 0,
+    warmTintOpacity: 0,
+    focusBlurPx: 0,
+    dedicationOpacity: 0,
+    interiorMistVeilOpacity: 0,
+  });
+  const [prequelTargetChapter, setPrequelTargetChapter] = useState<
+    'CHAPTER_1' | 'CHAPTER_2' | 'CELL_04'
+  >('CHAPTER_1');
+  const [prequelJumpSignal, setPrequelJumpSignal] = useState(0);
   const [nearSpecialGate, setNearSpecialGate] = useState(false);
   const nearSpecialGateRef = useRef(false);
   const [devSwitcherOpen, setDevSwitcherOpen] = useState(true);
 
+  const triggerDreamWorldReveal = (forceReplay = false) => {
+    if (!forceReplay && hasTriggeredFromPrequelRef.current) {
+      setStoryPhase('DREAM_WORLD');
+      return;
+    }
+    hasTriggeredFromPrequelRef.current = true;
+    setStoryPhase('DREAM_WORLD');
+    const spawnYaw = Math.atan2(
+      BROOM_STAND_POS.x - -16.5,
+      BROOM_STAND_POS.z - 16.0,
+    );
+    controllerRef.current?.teleportTo(-16.5, 16.0, spawnYaw);
+    revealDirectorRef.current?.startSequence();
+  };
+
   useEffect(() => {
     storyPhaseRef.current = storyPhase;
     saveStoryPhase(storyPhase);
-    if (storyPhase !== 'DREAM_WORLD' && document.pointerLockElement) {
-      document.exitPointerLock?.();
+    if (storyPhase !== 'DREAM_WORLD') {
+      revealDirectorRef.current?.skipToEnd();
+      if (document.pointerLockElement) {
+        document.exitPointerLock?.();
+      }
     }
   }, [storyPhase]);
 
@@ -233,10 +273,22 @@ export default function App() {
         setDevSwitcherOpen((prev) => !prev);
       } else if (e.altKey && e.code === 'Digit1') {
         e.preventDefault();
+        hasTriggeredFromPrequelRef.current = false;
+        setPrequelTargetChapter('CHAPTER_1');
+        setPrequelJumpSignal((s) => s + 1);
+        setStoryPhase('PROLOGUE');
+      } else if (e.altKey && e.code === 'Digit4') {
+        e.preventDefault();
+        hasTriggeredFromPrequelRef.current = false;
+        setPrequelTargetChapter('CELL_04');
+        setPrequelJumpSignal((s) => s + 1);
         setStoryPhase('PROLOGUE');
       } else if (e.altKey && e.code === 'Digit2') {
         e.preventDefault();
         setStoryPhase('DREAM_WORLD');
+      } else if (e.altKey && e.code === 'KeyR') {
+        e.preventDefault();
+        triggerDreamWorldReveal(true);
       } else if (e.altKey && e.code === 'Digit3') {
         e.preventDefault();
         setStoryPhase('EPILOGUE');
@@ -452,6 +504,41 @@ export default function App() {
     );
     controllerRef.current = playerController;
 
+    const revealDirector = createDreamWorldRevealDirector({
+      scene,
+      camera,
+      atmosphere,
+      groups: {
+        islandTerrain: islandTerrain.group,
+        centralPlaza: centralPlaza.group,
+        vegetation: vegetation.group,
+        magicFlight: magicFlight.group,
+        enchantedGarden: enchantedGarden.group,
+        carnivalDistrict: carnivalDistrict.group,
+        ancientForest: ancientForest.group,
+        heartlinePrecinct: heartlinePrecinct.group,
+        brickWorkshop: brickWorkshop.group,
+        wizardingSchool: wizardingSchool.group,
+        mysteryBox: mysteryBox.group,
+        dreamCastle: dreamCastle.group,
+        distantLandmarks: distantLandmarks.group,
+      },
+      setBloomStrength: (strength) => {
+        bloomPass.strength = strength;
+      },
+      setGradeExposureAndVignette: (exposure, vignette) => {
+        gradePass.uniforms.uToneMappingExposure.value = exposure;
+        gradePass.uniforms.uVignetteStrength.value = vignette;
+      },
+      onUiStateChange: (st) => {
+        setRevealUiState(st);
+      },
+      onComplete: () => {
+        setTelemetry(playerController.getTelemetry());
+      },
+    });
+    revealDirectorRef.current = revealDirector;
+
     // Pre-compile shaders on hardware GPUs
     if (!isSoftwareGl) {
       renderer.compile(scene, camera);
@@ -481,6 +568,14 @@ export default function App() {
         e.target instanceof HTMLInputElement ||
         e.target instanceof HTMLTextAreaElement
       ) {
+        return;
+      }
+      if (e.code === 'Escape' && revealDirector.isActive()) {
+        e.preventDefault();
+        revealDirector.skipToEnd();
+        return;
+      }
+      if (revealDirector.isActive()) {
         return;
       }
       if (e.code === 'KeyE' && nearSpecialGateRef.current) {
@@ -540,6 +635,36 @@ export default function App() {
       if (storyPhaseRef.current !== 'DREAM_WORLD') {
         if (isSoftwareGl) {
           frameId = window.setTimeout(tick, 120);
+        } else {
+          frameId = requestAnimationFrame(tick);
+        }
+        return;
+      }
+
+      if (revealDirector.isActive()) {
+        const playerPos = playerController.getPosition();
+        enchantedGarden.topiarySystem.group.visible = true;
+        enchantedGarden.magicalPlantSystem.group.visible = true;
+        ancientForest.floorSystem.group.visible = true;
+        ancientForest.mushroomGrove.group.visible = true;
+        ancientForest.wildlifeSystem.group.visible = true;
+        ancientForest.forestStream.group.visible = true;
+        ancientForest.ancientRuins.group.visible = true;
+        ancientForest.treeDetail.group.visible = true;
+
+        enchantedGarden.update(delta, elapsed, playerPos);
+        ancientForest.update(delta, elapsed, playerPos);
+        centralPlaza.update(elapsed);
+        distantLandmarks.update(elapsed);
+        vegetation.update(elapsed);
+        islandTerrain.update(elapsed);
+
+        revealDirector.update(delta, elapsed);
+        atmosphere.update(playerPos, delta, elapsed);
+        composer.render();
+
+        if (isSoftwareGl) {
+          afterDraw(tick);
         } else {
           frameId = requestAnimationFrame(tick);
         }
@@ -641,6 +766,8 @@ export default function App() {
       window.removeEventListener('resize', handleResize);
       window.removeEventListener('keydown', handleKeyHud);
 
+      revealDirector.dispose();
+      revealDirectorRef.current = null;
       galleryPlacementTool.dispose();
       placementToolRef.current = null;
       playerController.dispose();
@@ -742,11 +869,16 @@ export default function App() {
         ref={canvasMountRef}
         onClick={handleEngagePointerLock}
         className="w-full h-full cursor-grab active:cursor-grabbing"
+        style={
+          revealUiState.active && revealUiState.focusBlurPx > 0.15
+            ? { filter: `blur(${revealUiState.focusBlurPx.toFixed(1)}px)` }
+            : undefined
+        }
         aria-label="Heart Island 3D Viewport"
       />
 
       {/* Top-Left Minimal Region Discovery & Flight Telemetry Banner */}
-      {!isInMysteryCinematic && (
+      {!isInMysteryCinematic && !revealUiState.active && (
         <div className="pointer-events-none absolute top-5 left-6 z-10 flex flex-col gap-0.5 bg-slate-950/85 border border-white/10 rounded-xl px-4 py-3 text-white shadow-lg">
           <div className="flex items-center gap-2 text-xs font-medium text-amber-200/90">
             <Compass className="w-3.5 h-3.5 shrink-0" />
@@ -1818,7 +1950,9 @@ export default function App() {
       )}
 
       {/* Collapsible Bottom Control Dock (Zero Viewport Occlusion) */}
-      {!isInMysteryCinematic && telemetry.legoWorkshopState?.mode !== 'lego_build' && (
+      {!isInMysteryCinematic &&
+        !revealUiState.active &&
+        telemetry.legoWorkshopState?.mode !== 'lego_build' && (
         <div className="pointer-events-auto absolute bottom-5 left-1/2 -translate-x-1/2 z-10 flex flex-col items-center w-full max-w-[min(1020px,95vw)]">
           {/* Collapse / Expand Tab */}
           <button
@@ -2088,13 +2222,91 @@ export default function App() {
         className="hidden"
       />
 
+      {/* Cinematic 4-Stage Dream World Appearance Overlay (Stage A Veil, Stage D Dedication Card, Skip Control) */}
+      {storyPhase === 'DREAM_WORLD' && revealUiState.active && (
+        <div
+          className="pointer-events-none fixed inset-0 z-40 overflow-hidden"
+          aria-live="polite"
+        >
+          {/* Stage A: Blindfold Removal Dark-to-Golden Veil */}
+          {revealUiState.warmVeilOpacity > 0.01 && (
+            <div
+              className="absolute inset-0 bg-[#07080c]"
+              style={{ opacity: revealUiState.warmVeilOpacity }}
+            />
+          )}
+
+          {/* Stage A: Warm Golden-Rose Atmospheric Light Crest */}
+          {revealUiState.warmTintOpacity > 0.01 && (
+            <div
+              className="absolute inset-0"
+              style={{
+                opacity: revealUiState.warmTintOpacity,
+                background:
+                  'radial-gradient(circle at 50% 45%, rgba(251, 191, 36, 0.55), rgba(244, 114, 182, 0.28), rgba(9, 10, 13, 0.0))',
+              }}
+            />
+          )}
+
+          {/* Stage D: Soft Interior Mist & Depth Veil — Veils inner island contents while keeping the heart silhouette & warm lights visible */}
+          {revealUiState.interiorMistVeilOpacity > 0.01 && (
+            <div
+              className="absolute inset-0"
+              style={{
+                opacity: revealUiState.interiorMistVeilOpacity,
+                background:
+                  'radial-gradient(ellipse 36% 32% at 50% 52%, rgba(254, 243, 199, 0.24) 0%, rgba(244, 114, 182, 0.14) 48%, rgba(9, 11, 16, 0.42) 100%)',
+              }}
+            />
+          )}
+
+          {/* Stage D: Subtle Romantic Title Card During Grand Heart-Island Pullback */}
+          {revealUiState.dedicationOpacity > 0.01 && (
+            <div
+              className="absolute inset-x-0 top-[14%] flex flex-col items-center justify-center px-6 text-center"
+              style={{ opacity: revealUiState.dedicationOpacity }}
+            >
+              <div className="px-10 py-6 rounded-2xl bg-gradient-to-b from-slate-950/65 via-slate-950/35 to-transparent">
+                <p className="text-xs font-medium tracking-[0.28em] uppercase text-amber-200/90 mb-2">
+                  For Harsha &middot; Valentine&rsquo;s Day
+                </p>
+                <h2 className="font-display text-3xl sm:text-5xl font-semibold tracking-tight text-white drop-shadow-[0_4px_24px_rgba(0,0,0,0.75)]">
+                  &ldquo;This world is yours my love&rdquo;
+                </h2>
+              </div>
+            </div>
+          )}
+
+          {/* Bottom-Right Stage Indicator & Skip Reveal [Esc] Control */}
+          <div className="pointer-events-auto absolute bottom-6 right-6 flex items-center gap-3 px-4 py-2.5 rounded-xl bg-slate-950/88 border border-white/15 text-xs text-slate-200 shadow-2xl">
+            <span className="text-amber-200/90 font-medium">
+              {revealUiState.stageLabel}
+            </span>
+            <span aria-hidden="true" className="text-slate-600">
+              &middot;
+            </span>
+            <button
+              type="button"
+              onClick={() => revealDirectorRef.current?.skipToEnd()}
+              className="flex items-center gap-1.5 text-slate-200 hover:text-amber-300 font-semibold transition-colors cursor-pointer whitespace-nowrap shrink-0"
+            >
+              <span>Skip Reveal</span>
+              <kbd className="px-1.5 py-0.5 rounded bg-slate-900 border border-white/15 font-mono text-[11px] text-amber-300">
+                Esc
+              </kbd>
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Standalone Prequel Game Module (src/prequel — Prologue · Chapter 1: The Ordinary Night) */}
       {storyPhase === 'PROLOGUE' && (
         <div className="absolute inset-0 z-50">
           <PrequelGame
+            initialChapter={prequelTargetChapter}
+            chapterJumpSignal={prequelJumpSignal}
             onEnterDreamWorld={() => {
-              setStoryPhase('DREAM_WORLD');
-              handleTeleport(-16.5, 16.0, 0);
+              triggerDreamWorldReveal(false);
             }}
             onJumpToEpilogue={() => {
               setStoryPhase('EPILOGUE');
@@ -2112,13 +2324,16 @@ export default function App() {
               handleTeleport(0, -104.5, 0);
             }}
             onReplayFullStory={() => {
+              hasTriggeredFromPrequelRef.current = false;
+              setPrequelTargetChapter('CHAPTER_1');
+              setPrequelJumpSignal((s) => s + 1);
               setStoryPhase('PROLOGUE');
             }}
           />
         </div>
       )}
 
-      {/* Global Persistent Dev Mode Bar: Instant Switch Between Prequel, Dream World & Sequel */}
+      {/* Global Persistent Dev Mode Bar: Instant Switch Between Prequel, Cell 04, Dream World, Reveal Replay & Sequel */}
       <div className="pointer-events-auto fixed top-3 left-1/2 -translate-x-1/2 z-[100] flex items-center gap-1.5">
         {devSwitcherOpen ? (
           <div className="flex items-center gap-1 p-1 rounded-xl bg-slate-950/95 border border-white/15 shadow-2xl text-xs">
@@ -2127,10 +2342,16 @@ export default function App() {
             </span>
             <button
               type="button"
-              onClick={() => setStoryPhase('PROLOGUE')}
-              title="Switch to Prequel (Alt+1)"
+              onClick={() => {
+                hasTriggeredFromPrequelRef.current = false;
+                setPrequelTargetChapter('CHAPTER_1');
+                setPrequelJumpSignal((s) => s + 1);
+                setStoryPhase('PROLOGUE');
+              }}
+              title="Switch to Prequel Chapter 1 (Alt+1)"
               className={`px-3 py-1.5 rounded-lg font-medium transition-colors cursor-pointer whitespace-nowrap ${
-                storyPhase === 'PROLOGUE'
+                storyPhase === 'PROLOGUE' &&
+                prequelTargetChapter !== 'CELL_04'
                   ? 'bg-amber-400 text-slate-950 font-semibold shadow-sm'
                   : 'text-slate-300 hover:text-white hover:bg-white/5'
               }`}
@@ -2139,10 +2360,28 @@ export default function App() {
             </button>
             <button
               type="button"
+              onClick={() => {
+                hasTriggeredFromPrequelRef.current = false;
+                setPrequelTargetChapter('CELL_04');
+                setPrequelJumpSignal((s) => s + 1);
+                setStoryPhase('PROLOGUE');
+              }}
+              title="Jump directly to Cell 04: The Awakening (Alt+4)"
+              className={`px-3 py-1.5 rounded-lg font-medium transition-colors cursor-pointer whitespace-nowrap ${
+                storyPhase === 'PROLOGUE' &&
+                prequelTargetChapter === 'CELL_04'
+                  ? 'bg-amber-400 text-slate-950 font-semibold shadow-sm'
+                  : 'text-amber-300 hover:text-white hover:bg-amber-500/20 border border-amber-400/25'
+              }`}
+            >
+              Cell 04
+            </button>
+            <button
+              type="button"
               onClick={() => setStoryPhase('DREAM_WORLD')}
               title="Switch to 3D Dream World (Alt+2)"
               className={`px-3 py-1.5 rounded-lg font-medium transition-colors cursor-pointer whitespace-nowrap ${
-                storyPhase === 'DREAM_WORLD'
+                storyPhase === 'DREAM_WORLD' && !revealUiState.active
                   ? 'bg-rose-500 text-white font-semibold shadow-sm'
                   : 'text-slate-300 hover:text-white hover:bg-white/5'
               }`}
@@ -2151,7 +2390,20 @@ export default function App() {
             </button>
             <button
               type="button"
+              onClick={() => triggerDreamWorldReveal(true)}
+              title="Replay the 4-Stage Cinematic Dream World Appearance Sequence (Alt+R)"
+              className={`px-2.5 py-1.5 rounded-lg font-medium transition-colors cursor-pointer whitespace-nowrap ${
+                storyPhase === 'DREAM_WORLD' && revealUiState.active
+                  ? 'bg-amber-400 text-slate-950 font-semibold shadow-sm'
+                  : 'text-amber-200 hover:text-white hover:bg-amber-500/20 border border-amber-400/25'
+              }`}
+            >
+              Replay Reveal
+            </button>
+            <button
+              type="button"
               onClick={() => {
+                revealDirectorRef.current?.skipToEnd();
                 setStoryPhase('DREAM_WORLD');
                 window.setTimeout(() => {
                   handleTeleport(0, -105.5, Math.PI);

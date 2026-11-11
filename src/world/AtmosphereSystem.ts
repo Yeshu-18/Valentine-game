@@ -1,8 +1,18 @@
 import * as THREE from 'three';
 
+export interface AtmosphereRevealModulation {
+  active: boolean;
+  envLightFactor: number; // 0..1 multiplier for sun, hemisphere & environment reflection
+  pointLightFactor: number; // 0..1.35 multiplier for plaza & attraction lights
+  fogDensityOverride: number | null; // custom FogExp2 density during Stage A/B clearing
+  fogColorBlend: number; // 0 = deep twilight veil (#120e1c), 1 = golden hour (#e8b89a)
+  skyVisibilityFactor: number; // 0..1 controls sky dome & horizon mountain emergence
+}
+
 export interface AtmosphereBundle {
   registerPointLights: () => void;
   getActivePointLightCount: () => number;
+  setRevealModulation: (mod: Partial<AtmosphereRevealModulation>) => void;
   update: (
     playerPos: THREE.Vector3,
     delta: number,
@@ -61,6 +71,7 @@ export function createAtmosphereSystem(
     uSunColor: { value: new THREE.Color('#ffd9a0') },
     uSunDir: { value: sunDirection },
     uStarAlpha: { value: 0.22 },
+    uRevealBrightness: { value: 1.0 },
     uTime: { value: 0 },
   };
 
@@ -83,6 +94,7 @@ export function createAtmosphereSystem(
       uniform vec3 uSunColor;
       uniform vec3 uSunDir;
       uniform float uStarAlpha;
+      uniform float uRevealBrightness;
       uniform float uTime;
       varying vec3 vWorldDirection;
 
@@ -148,6 +160,9 @@ export function createAtmosphereSystem(
             skyCol += vec3(0.85, 0.92, 1.0) * starMask;
           }
         }
+
+        vec3 twilightVeil = vec3(0.07, 0.055, 0.11);
+        skyCol = mix(twilightVeil, skyCol, clamp(uRevealBrightness, 0.0, 1.0));
 
         gl_FragColor = vec4(skyCol, 1.0);
       }
@@ -246,7 +261,18 @@ export function createAtmosphereSystem(
   }
 
   const surfaceFogColor = new THREE.Color('#e8b89a');
+  const revealTwilightFogColor = new THREE.Color('#130f1e');
+  const blendedSurfaceFogColor = new THREE.Color('#e8b89a');
   const undergroundVoidColor = new THREE.Color('#01030a');
+
+  const revealMod: AtmosphereRevealModulation = {
+    active: false,
+    envLightFactor: 1.0,
+    pointLightFactor: 1.0,
+    fogDensityOverride: null,
+    fogColorBlend: 1.0,
+    skyVisibilityFactor: 1.0,
+  };
 
   // 8. Dynamic PointLight & SpotLight Distance Culler (35 lights -> max 10 active)
   const trackedLights: TrackedPointLight[] = [];
@@ -258,6 +284,10 @@ export function createAtmosphereSystem(
   function evaluatePointLightCulling(playerPos: THREE.Vector3) {
     const n = trackedLights.length;
     if (n === 0) return;
+
+    const effectiveRadius = revealMod.active ? 165.0 : POINT_LIGHT_CULL_RADIUS;
+    const effectiveRadiusSq = effectiveRadius * effectiveRadius;
+    const ptScale = revealMod.active ? revealMod.pointLightFactor : 1.0;
 
     for (let i = 0; i < n; i++) {
       const item = trackedLights[i];
@@ -276,13 +306,18 @@ export function createAtmosphereSystem(
       const item = trackedLights[i];
       if (
         activeCount < MAX_ACTIVE_POINT_LIGHTS &&
-        item.distSq <= POINT_LIGHT_CULL_RADIUS_SQ &&
-        item.baseIntensity > 0.01
+        item.distSq <= effectiveRadiusSq &&
+        item.baseIntensity > 0.01 &&
+        ptScale > 0.005
       ) {
         const dist = Math.sqrt(item.distSq);
-        const fade = THREE.MathUtils.clamp(1.0 - dist / POINT_LIGHT_CULL_RADIUS, 0.0, 1.0);
+        const fade = THREE.MathUtils.clamp(
+          1.0 - dist / effectiveRadius,
+          0.0,
+          1.0,
+        );
         item.light.visible = true;
-        item.light.intensity = item.baseIntensity * fade;
+        item.light.intensity = item.baseIntensity * fade * ptScale;
         activeCount++;
       } else {
         item.light.visible = false;
@@ -316,13 +351,27 @@ export function createAtmosphereSystem(
   return {
     registerPointLights,
     getActivePointLightCount: () => activePointLightCount,
+    setRevealModulation(mod: Partial<AtmosphereRevealModulation>) {
+      const wasActive = revealMod.active;
+      Object.assign(revealMod, mod);
+      if (wasActive && !revealMod.active) {
+        revealMod.envLightFactor = 1.0;
+        revealMod.pointLightFactor = 1.0;
+        revealMod.fogDensityOverride = null;
+        revealMod.fogColorBlend = 1.0;
+        revealMod.skyVisibilityFactor = 1.0;
+        skyUniforms.uRevealBrightness.value = 1.0;
+        mountainRingGroup.position.y = 0;
+        evaluatePointLightCulling(_spawnPos);
+      }
+    },
     update(playerPos: THREE.Vector3, delta: number, elapsedTime: number) {
       skyUniforms.uTime.value = elapsedTime;
       skyMesh.position.set(playerPos.x, 0, playerPos.z);
 
-      // Periodic Dynamic PointLight Distance Culler (runs every 0.15s)
+      // Periodic Dynamic PointLight Distance Culler (runs every 0.15s, or every frame during reveal Stage C)
       lightCullTimer += delta;
-      if (lightCullTimer >= 0.15) {
+      if (lightCullTimer >= (revealMod.active ? 0.05 : 0.15)) {
         lightCullTimer = 0;
         evaluatePointLightCulling(playerPos);
       }
@@ -333,16 +382,42 @@ export function createAtmosphereSystem(
         -11.0,
         2.2,
       );
-      sunLight.intensity = 2.2 * surfaceFactor;
-      hemiLight.intensity = 0.65 * surfaceFactor;
-      scene.environmentIntensity = 0.68 * surfaceFactor;
-      fog.color.lerpColors(undergroundVoidColor, surfaceFogColor, surfaceFactor);
+      const envScale = revealMod.active ? revealMod.envLightFactor : 1.0;
+      const fogBlend = revealMod.active ? revealMod.fogColorBlend : 1.0;
+      const skyVis = revealMod.active ? revealMod.skyVisibilityFactor : 1.0;
+
+      sunLight.intensity = 2.2 * surfaceFactor * envScale;
+      hemiLight.intensity = 0.65 * surfaceFactor * envScale;
+      scene.environmentIntensity = 0.68 * surfaceFactor * envScale;
+
+      blendedSurfaceFogColor.lerpColors(
+        revealTwilightFogColor,
+        surfaceFogColor,
+        fogBlend,
+      );
+      fog.color.lerpColors(
+        undergroundVoidColor,
+        blendedSurfaceFogColor,
+        surfaceFactor,
+      );
       if (scene.background instanceof THREE.Color) {
         scene.background.copy(fog.color);
       }
-      fog.density = THREE.MathUtils.lerp(0.00015, 0.0018, surfaceFactor);
-      skyMesh.visible = surfaceFactor > 0.01;
-      mountainRingGroup.visible = surfaceFactor > 0.01;
+
+      const targetFogDensity =
+        revealMod.active && revealMod.fogDensityOverride !== null
+          ? revealMod.fogDensityOverride
+          : 0.0018;
+      fog.density = THREE.MathUtils.lerp(
+        0.00015,
+        targetFogDensity,
+        surfaceFactor,
+      );
+
+      skyUniforms.uRevealBrightness.value = skyVis;
+      skyMesh.visible = surfaceFactor > 0.01 && skyVis > 0.01;
+      mountainRingGroup.visible = surfaceFactor > 0.01 && skyVis > 0.05;
+      mountainRingGroup.position.y = (1.0 - skyVis) * -35.0;
 
       // M6 Shadow camera tracking player snapped to texel grid ONLY when player moved > 2.0m (distSq > 4.0)
       if (playerPos.distanceToSquared(lastShadowSnapPos) > 4.0) {
