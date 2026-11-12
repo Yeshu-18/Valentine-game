@@ -10,6 +10,7 @@ import {
   createPrivateSeededRng,
   evaluatePrivatePathNetwork,
   getMemoryGardenBlendWeight,
+  getPondSteppingStoneIndexAt,
   getPrivateIslandMask,
   getPrivateTerrainHeight,
   getPrivateTerrainNormal,
@@ -23,6 +24,13 @@ import {
   PrivatePathLightingTelemetry,
   createPrivatePathLightingSystem,
 } from './PrivatePathLighting';
+import {
+  PrivateTrailSignSystemBundle,
+  TrailDestinationId,
+  createPrivateTrailSignSystem,
+} from './PrivateTrailSignSystem';
+import { POND_SHORE_BENCH_POS } from './PrivateWorldInteractionSystem';
+import { createPrivateHiddenGrotto } from './PrivateHiddenGrotto';
 
 export interface PrivateWorldSceneBundle {
   group: THREE.Group;
@@ -33,6 +41,19 @@ export interface PrivateWorldSceneBundle {
   isVegetationVisible: () => boolean;
   getPathLightingTelemetry: () => PrivatePathLightingTelemetry;
   resetPathLighting: () => void;
+  triggerPondRipple: (
+    worldX: number,
+    worldZ: number,
+    strength?: number,
+    exciteFlora?: boolean,
+  ) => void;
+  setTelescopeSkyState: (active: boolean, highlightStrength: number) => void;
+  getRouteDistanceTo: (
+    playerX: number,
+    playerZ: number,
+    destinationId: TrailDestinationId,
+  ) => number;
+  setOnSteppingStoneStep: (cb: ((stoneIndex: number) => void) | null) => void;
   update: (
     delta: number,
     elapsedTime: number,
@@ -553,11 +574,16 @@ export function createPrivateWorldScene(
   group.add(coastalRockInst);
 
   // ============================================================================
-  // 4. REACTIVE MAGICAL SIDEWAYS ILLUMINATION (Lights up path sides while walking)
+  // 4. REACTIVE MAGICAL SIDEWAYS ILLUMINATION & WOODEN TRAIL SIGN SYSTEM
   // ============================================================================
   const pathLighting: PrivatePathLightingBundle =
     createPrivatePathLightingSystem();
   group.add(pathLighting.group);
+
+  const trailSignSystem: PrivateTrailSignSystemBundle =
+    createPrivateTrailSignSystem(maxAniso);
+  group.add(trailSignSystem.group);
+  colliders.push(...trailSignSystem.colliders);
 
   // ============================================================================
   // 5. SHARED ARCHITECTURAL & BOTANICAL MATERIALS
@@ -1251,12 +1277,21 @@ export function createPrivateWorldScene(
     }),
   );
 
+  // Bounded Shader Uniform Array for Interactive Pond Ripples (up to 6 simultaneous ripples)
+  // Each vec4 stores: (worldX, worldZ, radiusMeters, strength01)
+  const MAX_POND_RIPPLES = 6;
+  const rippleUniformArray = Array.from(
+    { length: MAX_POND_RIPPLES },
+    () => new THREE.Vector4(0, 0, 0, 0),
+  );
+
   const pondUniforms = {
     uTime: { value: 0 },
     uDeepPondColor: { value: new THREE.Color('#061424') },
     uShallowPondColor: { value: new THREE.Color('#133b54') },
     uMoonHighlightColor: { value: new THREE.Color('#b8d8f8') },
     uBioRimColor: { value: new THREE.Color('#2dd4bf') },
+    uRipples: { value: rippleUniformArray },
   };
 
   pondWaterMat.onBeforeCompile = (shader) => {
@@ -1265,6 +1300,7 @@ export function createPrivateWorldScene(
     shader.uniforms.uShallowPondColor = pondUniforms.uShallowPondColor;
     shader.uniforms.uMoonHighlightColor = pondUniforms.uMoonHighlightColor;
     shader.uniforms.uBioRimColor = pondUniforms.uBioRimColor;
+    shader.uniforms.uRipples = pondUniforms.uRipples;
 
     shader.vertexShader =
       `
@@ -1289,6 +1325,7 @@ export function createPrivateWorldScene(
       uniform vec3 uShallowPondColor;
       uniform vec3 uMoonHighlightColor;
       uniform vec3 uBioRimColor;
+      uniform vec4 uRipples[${MAX_POND_RIPPLES}];
       varying vec3 vPondWorldPos;
       ` +
       shader.fragmentShader.replace(
@@ -1310,6 +1347,21 @@ export function createPrivateWorldScene(
         float moonSpec = smoothstep(0.45, 0.92, crossRipple * 0.5 + 0.5) * moonSideBias * (1.0 - radial * 0.45);
         basePond += uMoonHighlightColor * moonSpec * 0.22;
 
+        // Interactive expanding concentric water ripples from player touch & stepping stones
+        float interactiveRingGlow = 0.0;
+        for (int i = 0; i < ${MAX_POND_RIPPLES}; i++) {
+          vec4 rp = uRipples[i];
+          if (rp.w > 0.005) {
+            float d = length(vPondWorldPos.xz - rp.xy);
+            float band = abs(d - rp.z);
+            float w1 = exp(-band * band * 18.0) * (0.55 + 0.45 * cos((d - rp.z) * 16.0));
+            float band2 = abs(d - rp.z * 0.62);
+            float w2 = exp(-band2 * band2 * 22.0) * 0.65;
+            interactiveRingGlow += (w1 + w2) * rp.w;
+          }
+        }
+        basePond += mix(uMoonHighlightColor, uBioRimColor, 0.58) * clamp(interactiveRingGlow, 0.0, 1.15) * 0.48;
+
         // Subtle shoreline interaction & restrained bioluminescent water rim
         float shoreEdge = smoothstep(0.76, 0.98, radial) * (0.65 + 0.35 * rippleWave);
         basePond = mix(basePond, uBioRimColor, shoreEdge * 0.18);
@@ -1325,7 +1377,72 @@ export function createPrivateWorldScene(
   pondWaterMesh.receiveShadow = true;
   reflectivePondGroup.add(pondWaterMesh);
 
-  // 8B. Walkable Stepping Stones Crossing the Northern Section of the Pond
+  // 8A-bis. Bounded Pool of 3D Expanding Concentric Water Ripple Rings on the Pond Surface
+  interface ActivePondRipple {
+    active: boolean;
+    x: number;
+    z: number;
+    age: number;
+    duration: number;
+    maxRadius: number;
+    strength: number;
+    outerMesh: THREE.Mesh;
+    innerMesh: THREE.Mesh;
+    outerMat: THREE.MeshBasicMaterial;
+    innerMat: THREE.MeshBasicMaterial;
+  }
+
+  const ripplePoolGroup = new THREE.Group();
+  ripplePoolGroup.name = 'ReflectivePond_InteractiveRipplePool';
+  reflectivePondGroup.add(ripplePoolGroup);
+
+  const rippleRingUnitGeo = trackGeo(new THREE.RingGeometry(0.88, 1.0, 36));
+  rippleRingUnitGeo.rotateX(-Math.PI / 2);
+
+  const activeRipples: ActivePondRipple[] = [];
+  for (let i = 0; i < MAX_POND_RIPPLES; i++) {
+    const outerMat = trackMat(
+      new THREE.MeshBasicMaterial({
+        color: new THREE.Color('#67e8f9'),
+        transparent: true,
+        opacity: 0,
+        depthWrite: false,
+        side: THREE.DoubleSide,
+      }),
+    );
+    const innerMat = trackMat(
+      new THREE.MeshBasicMaterial({
+        color: new THREE.Color('#bae6fd'),
+        transparent: true,
+        opacity: 0,
+        depthWrite: false,
+        side: THREE.DoubleSide,
+      }),
+    );
+    const outerMesh = new THREE.Mesh(rippleRingUnitGeo, outerMat);
+    const innerMesh = new THREE.Mesh(rippleRingUnitGeo, innerMat);
+    outerMesh.visible = false;
+    innerMesh.visible = false;
+    outerMesh.position.y = REFLECTIVE_POND_WATER_LEVEL + 0.012;
+    innerMesh.position.y = REFLECTIVE_POND_WATER_LEVEL + 0.014;
+    ripplePoolGroup.add(outerMesh, innerMesh);
+
+    activeRipples.push({
+      active: false,
+      x: 0,
+      z: 0,
+      age: 0,
+      duration: 2.35,
+      maxRadius: 2.4,
+      strength: 1.0,
+      outerMesh,
+      innerMesh,
+      outerMat,
+      innerMat,
+    });
+  }
+
+  // 8B. Walkable Stepping Stones Crossing the Northern Section of the Pond (With Per-Stone Reactive Glow)
   const steppingStonesGroup = new THREE.Group();
   steppingStonesGroup.name = 'ReflectivePond_SteppingStones';
   reflectivePondGroup.add(steppingStonesGroup);
@@ -1335,6 +1452,17 @@ export function createPrivateWorldScene(
   );
   const stepStoneRimGeo = trackGeo(new THREE.RingGeometry(0.86, 0.98, 9));
   stepStoneRimGeo.rotateX(-Math.PI / 2);
+
+  interface SteppingStoneRuntimeState {
+    rimMat: THREE.MeshStandardMaterial;
+    glowBoost: number; // 0..1 smoothed step boost
+    targetBoost: number;
+    cooldownUntil: number;
+    x: number;
+    z: number;
+  }
+
+  const steppingStoneStates: SteppingStoneRuntimeState[] = [];
 
   REFLECTIVE_POND_STEPPING_STONES.forEach((st, idx) => {
     const stGroup = new THREE.Group();
@@ -1348,10 +1476,29 @@ export function createPrivateWorldScene(
     stoneMesh.receiveShadow = true;
     stGroup.add(stoneMesh);
 
-    const mossRim = new THREE.Mesh(stepStoneRimGeo, biolumTealMat);
+    // Individual cloned emissive rim material per stepping stone so each stone responds independently
+    const stoneRimMat = trackMat(
+      new THREE.MeshStandardMaterial({
+        color: new THREE.Color('#5eead4'),
+        emissive: new THREE.Color('#14b8a6'),
+        emissiveIntensity: 1.25,
+        roughness: 0.26,
+      }),
+    );
+
+    const mossRim = new THREE.Mesh(stepStoneRimGeo, stoneRimMat);
     mossRim.position.y = 0.185;
     mossRim.scale.set(st.radiusX, st.radiusZ, 1.0);
     stGroup.add(mossRim);
+
+    steppingStoneStates.push({
+      rimMat: stoneRimMat,
+      glowBoost: 0,
+      targetBoost: 0,
+      cooldownUntil: 0,
+      x: st.x,
+      z: st.z,
+    });
 
     steppingStonesGroup.add(stGroup);
   });
@@ -1364,15 +1511,15 @@ export function createPrivateWorldScene(
   const shoreBoulderCount = 28;
   for (let i = 0; i < shoreBoulderCount; i++) {
     const ang = (i / shoreBoulderCount) * Math.PI * 2 + (rng() - 0.5) * 0.08;
-    // Leave the stepping-stone crossing approaches at West (ang ~ 2.75) and East (ang ~ 0.45) clear
+    // Leave the stepping-stone crossing approaches and the southern Pond Bench area clear
     const shoreR = getReflectivePondShoreRadius(ang) + (rng() - 0.35) * 0.85;
     const px = -5.2 + Math.cos(ang) * shoreR * 1.14;
     const pz = -0.3 + Math.sin(ang) * shoreR * 0.94;
 
-    // Do not block the stepping-stone entry/exit banks
     if (
       Math.hypot(px - -12.2, pz - 2.3) < 1.8 ||
-      Math.hypot(px - -0.5, pz - 2.45) < 1.8
+      Math.hypot(px - -0.5, pz - 2.45) < 1.8 ||
+      Math.hypot(px - POND_SHORE_BENCH_POS.x, pz - POND_SHORE_BENCH_POS.z) < 2.5
     ) {
       continue;
     }
@@ -1398,10 +1545,18 @@ export function createPrivateWorldScene(
     pondShoreGroup.add(boulder);
   }
 
-  // 5 Subtle Bioluminescent Pond-Edge Plants that softly illuminate nearby water and stones
+  // 5 Subtle Bioluminescent Pond-Edge Plants that softly illuminate nearby water and brighten when water is touched
   const pondBioPlantAngles = [-0.85, -2.15, 1.55, -0.15, 2.35];
   const bioStemGeo = trackGeo(new THREE.CylinderGeometry(0.03, 0.05, 0.48, 6));
   const bioBloomGeo = trackGeo(new THREE.OctahedronGeometry(0.14, 1));
+
+  interface PondBioPlantRuntime {
+    x: number;
+    z: number;
+    bloomMats: THREE.MeshStandardMaterial[];
+    boost: number;
+  }
+  const pondBioPlants: PondBioPlantRuntime[] = [];
 
   pondBioPlantAngles.forEach((ang, idx) => {
     const shoreR = getReflectivePondShoreRadius(ang) - 0.15;
@@ -1416,6 +1571,8 @@ export function createPrivateWorldScene(
     cluster.name = `ReflectivePond_BiolumPlant_${idx + 1}`;
     cluster.position.set(bx, by, bz);
 
+    const bloomMats: THREE.MeshStandardMaterial[] = [];
+
     for (let s = 0; s < 3; s++) {
       const ox = (s - 1) * 0.18;
       const oz = ((s * 2) % 3 - 1) * 0.14;
@@ -1424,17 +1581,110 @@ export function createPrivateWorldScene(
       stem.position.set(ox, 0.22 * hScale, oz);
       stem.scale.y = hScale;
 
-      const bloom = new THREE.Mesh(
-        bioBloomGeo,
-        s % 2 === 0 ? biolumTealMat : biolumSilverBlueMat,
+      const plantBloomMat = trackMat(
+        (s % 2 === 0 ? biolumTealMat : biolumSilverBlueMat).clone(),
       );
+      bloomMats.push(plantBloomMat);
+
+      const bloom = new THREE.Mesh(bioBloomGeo, plantBloomMat);
       bloom.position.set(ox, 0.46 * hScale, oz);
       bloom.scale.set(1.1, 0.75, 1.1);
       cluster.add(stem, bloom);
     }
 
+    pondBioPlants.push({ x: bx, z: bz, bloomMats, boost: 0 });
     pondShoreGroup.add(cluster);
   });
+
+  // 8D. Natural Wooden Shoreline Bench Beside the Reflective Pond (`E  Sit beside the pond`)
+  //     Positioned at (-1.8, -7.8) outside the water and clear of the Garden Loop path
+  const pondBenchGroup = new THREE.Group();
+  pondBenchGroup.name = 'ReflectivePond_ShorelineWoodenBench';
+  const pondBenchY = getPrivateTerrainHeight(
+    POND_SHORE_BENCH_POS.x,
+    POND_SHORE_BENCH_POS.z,
+  );
+  pondBenchGroup.position.set(
+    POND_SHORE_BENCH_POS.x,
+    pondBenchY,
+    POND_SHORE_BENCH_POS.z,
+  );
+  pondBenchGroup.rotation.y = POND_SHORE_BENCH_POS.rotY;
+
+  const pondBenchSeat = new THREE.Mesh(benchSeatGeo, timberMat);
+  pondBenchSeat.position.y = 0.46;
+  pondBenchSeat.castShadow = true;
+  pondBenchSeat.receiveShadow = true;
+  pondBenchGroup.add(pondBenchSeat);
+
+  const pondBenchBack = new THREE.Mesh(benchBackGeo, timberMat);
+  pondBenchBack.position.set(0, 0.76, -0.28);
+  pondBenchBack.rotation.x = -0.14;
+  pondBenchBack.castShadow = true;
+  pondBenchGroup.add(pondBenchBack);
+
+  for (const side of [-0.85, 0.85]) {
+    const leg = new THREE.Mesh(benchLegGeo, mossyStoneMat);
+    leg.position.set(side, 0.22, 0);
+    leg.castShadow = true;
+    pondBenchGroup.add(leg);
+  }
+  reflectivePondGroup.add(pondBenchGroup);
+  colliders.push({
+    x: POND_SHORE_BENCH_POS.x,
+    z: POND_SHORE_BENCH_POS.z,
+    radius: 0.98,
+  });
+
+  function triggerPondRipple(
+    worldX: number,
+    worldZ: number,
+    strength = 1.0,
+    exciteFlora = true,
+  ) {
+    // Choose an inactive ripple slot, or recycle the oldest active ripple
+    let chosen = activeRipples.find((r) => !r.active);
+    if (!chosen) {
+      chosen = activeRipples.reduce((prev, curr) =>
+        curr.age > prev.age ? curr : prev,
+      );
+    }
+
+    chosen.active = true;
+    chosen.x = worldX;
+    chosen.z = worldZ;
+    chosen.age = 0;
+    chosen.duration = 2.2 + strength * 0.45;
+    chosen.maxRadius = 1.85 + strength * 1.15;
+    chosen.strength = THREE.MathUtils.clamp(strength, 0.35, 1.35);
+
+    chosen.outerMesh.position.set(
+      worldX,
+      REFLECTIVE_POND_WATER_LEVEL + 0.012,
+      worldZ,
+    );
+    chosen.innerMesh.position.set(
+      worldX,
+      REFLECTIVE_POND_WATER_LEVEL + 0.014,
+      worldZ,
+    );
+    chosen.outerMesh.scale.setScalar(0.15);
+    chosen.innerMesh.scale.setScalar(0.08);
+    chosen.outerMesh.visible = true;
+    chosen.innerMesh.visible = true;
+
+    // Briefly brighten nearby bioluminescent pond-edge plants
+    if (exciteFlora) {
+      for (let i = 0; i < pondBioPlants.length; i++) {
+        const pl = pondBioPlants[i];
+        const d = Math.hypot(pl.x - worldX, pl.z - worldZ);
+        if (d < 8.5) {
+          const proximity = 1.0 - d / 8.5;
+          pl.boost = Math.max(pl.boost, 0.65 + proximity * 1.15);
+        }
+      }
+    }
+  }
 
   // ============================================================================
   // 9. ISLAND-WIDE DETERMINISTIC VEGETATION & ENVIRONMENTAL DETAIL
@@ -2515,6 +2765,291 @@ export function createPrivateWorldScene(
   deckWarmLight.position.set(0.5, 2.2, 0.0);
   stargazingDeckGroup.add(deckWarmLight);
 
+  // 8. Curated 3D Star Field & Constellation Dome Centered on the Stargazing Deck
+  //    Provides a rich, interactive celestial dome with subtle constellation connections
+  //    and one highlighted distinctive constellation ("Cor Caroli & Cygnus — The Twin Stars").
+  const curatedSkyGroup = new THREE.Group();
+  curatedSkyGroup.name = 'StargazingDeck_CuratedStarSky';
+  stargazingDeckGroup.add(curatedSkyGroup);
+
+  const skyRadius = 460.0;
+  const skyPointFromAngles = (yaw: number, pitch: number, r = skyRadius) => {
+    const cosP = Math.cos(pitch);
+    return new THREE.Vector3(
+      Math.sin(yaw) * cosP * r,
+      Math.sin(pitch) * r,
+      Math.cos(yaw) * cosP * r,
+    );
+  };
+
+  // 8A. Background Curated Star Field (260 multi-magnitude stars across the upper hemisphere)
+  const starFieldRng = createPrivateSeededRng(20270214 ^ 0x9e3779b9);
+  const starPositions: number[] = [];
+  const starColors: number[] = [];
+  const cStarWarm = new THREE.Color('#fef3c7');
+  const cStarBlue = new THREE.Color('#bae6fd');
+  const cStarWhite = new THREE.Color('#f8fafc');
+  const cStarRose = new THREE.Color('#fbcfe8');
+
+  for (let i = 0; i < 260; i++) {
+    const yaw = (starFieldRng() - 0.5) * Math.PI * 2.0;
+    const pitch = 0.09 + Math.pow(starFieldRng(), 0.82) * 1.18;
+    const pt = skyPointFromAngles(yaw, pitch, skyRadius);
+    starPositions.push(pt.x, pt.y, pt.z);
+
+    const roll = starFieldRng();
+    const col =
+      roll < 0.45
+        ? cStarWhite
+        : roll < 0.75
+          ? cStarBlue
+          : roll < 0.92
+            ? cStarWarm
+            : cStarRose;
+    const brightness = 0.55 + starFieldRng() * 0.45;
+    starColors.push(
+      col.r * brightness,
+      col.g * brightness,
+      col.b * brightness,
+    );
+  }
+
+  const curatedStarsGeo = trackGeo(new THREE.BufferGeometry());
+  curatedStarsGeo.setAttribute(
+    'position',
+    new THREE.Float32BufferAttribute(starPositions, 3),
+  );
+  curatedStarsGeo.setAttribute(
+    'color',
+    new THREE.Float32BufferAttribute(starColors, 3),
+  );
+  const curatedStarsMat = trackMat(
+    new THREE.PointsMaterial({
+      size: 3.4,
+      sizeAttenuation: false,
+      vertexColors: true,
+      transparent: true,
+      opacity: 0.75,
+      depthWrite: false,
+    }),
+  );
+  const curatedStarsPoints = new THREE.Points(curatedStarsGeo, curatedStarsMat);
+  curatedSkyGroup.add(curatedStarsPoints);
+
+  // 8B. Three Subtle Companion Constellations Across the Eastern & Northern Sky
+  const subtleConstellationSegments: Array<[[number, number], [number, number]]> = [
+    // Cassiopeia W-arc (North-East, yaw ~ 0.72..0.96, pitch ~ 0.58..0.72)
+    [[0.72, 0.68], [0.78, 0.61]],
+    [[0.78, 0.61], [0.84, 0.66]],
+    [[0.84, 0.66], [0.90, 0.58]],
+    [[0.90, 0.58], [0.96, 0.67]],
+    // Delphinus Diamond (South-East, yaw ~ 1.82..1.96, pitch ~ 0.36..0.48)
+    [[1.84, 0.44], [1.88, 0.48]],
+    [[1.88, 0.48], [1.92, 0.44]],
+    [[1.92, 0.44], [1.88, 0.40]],
+    [[1.88, 0.40], [1.84, 0.44]],
+    [[1.88, 0.40], [1.93, 0.34]],
+    // Lyra Harp Parallelogram (East-Northeast, yaw ~ 1.10..1.20, pitch ~ 0.62..0.72)
+    [[1.11, 0.72], [1.14, 0.67]],
+    [[1.14, 0.67], [1.19, 0.68]],
+    [[1.19, 0.68], [1.17, 0.62]],
+    [[1.17, 0.62], [1.12, 0.61]],
+    [[1.12, 0.61], [1.14, 0.67]],
+  ];
+
+  const subtleLinePts: THREE.Vector3[] = [];
+  const subtleAnchorNodes = new Map<string, THREE.Vector3>();
+  subtleConstellationSegments.forEach(([a, b]) => {
+    const pa = skyPointFromAngles(a[0], a[1], skyRadius - 2.0);
+    const pb = skyPointFromAngles(b[0], b[1], skyRadius - 2.0);
+    subtleLinePts.push(pa, pb);
+    subtleAnchorNodes.set(`${a[0].toFixed(2)},${a[1].toFixed(2)}`, pa);
+    subtleAnchorNodes.set(`${b[0].toFixed(2)},${b[1].toFixed(2)}`, pb);
+  });
+
+  const subtleConstellationLineMat = trackMat(
+    new THREE.LineBasicMaterial({
+      color: new THREE.Color('#7dd3fc'),
+      transparent: true,
+      opacity: 0.16,
+      depthWrite: false,
+    }),
+  );
+  const subtleConstellationLines = new THREE.LineSegments(
+    trackGeo(new THREE.BufferGeometry().setFromPoints(subtleLinePts)),
+    subtleConstellationLineMat,
+  );
+  curatedSkyGroup.add(subtleConstellationLines);
+
+  const constellationStarNodeGeo = trackGeo(new THREE.OctahedronGeometry(2.1, 1));
+  const subtleNodeMat = trackMat(
+    new THREE.MeshBasicMaterial({
+      color: new THREE.Color('#e0f2fe'),
+      transparent: true,
+      opacity: 0.72,
+    }),
+  );
+  subtleAnchorNodes.forEach((pos) => {
+    const node = new THREE.Mesh(constellationStarNodeGeo, subtleNodeMat);
+    node.position.copy(pos);
+    curatedSkyGroup.add(node);
+  });
+
+  // 8C. Highlighted Distinctive Constellation ("I LOVE YOU" Joined with Stars in the Sky at yaw = 1.38, pitch = 0.46)
+  //     Uses a viewer-aligned tangent basis (skyRight = centerDir x worldUp, skyUp = skyRight x centerDir)
+  //     so every letter of "I LOVE YOU" and the celestial star-heart above it reads strictly left-to-right and upright.
+  const constCenterYaw = 1.38;
+  const constCenterPitch = 0.46;
+  const constCenterDir = skyPointFromAngles(
+    constCenterYaw,
+    constCenterPitch,
+    1.0,
+  ).normalize();
+  const constSkyRight = new THREE.Vector3()
+    .crossVectors(constCenterDir, new THREE.Vector3(0, 1, 0))
+    .normalize();
+  const constSkyUp = new THREE.Vector3()
+    .crossVectors(constSkyRight, constCenterDir)
+    .normalize();
+
+  const starConstellationPoint = (uRight: number, vUp: number, radiusOffset = -4.0) =>
+    constCenterDir
+      .clone()
+      .addScaledVector(constSkyRight, uRight - 0.016)
+      .addScaledVector(constSkyUp, vUp)
+      .normalize()
+      .multiplyScalar(skyRadius + radiusOffset);
+
+  const vTop = 0.016;
+  const vMid = -0.004;
+  const vBot = -0.024;
+
+  // Star segments spelling "I   L O V E   Y O U" + Celestial Heart Crest above "LOVE"
+  const iLoveYouConstellationSegments: Array<[[number, number], [number, number]]> = [
+    // --- "I" ---
+    [[-0.144, vTop], [-0.124, vTop]],
+    [[-0.134, vTop], [-0.134, vMid]],
+    [[-0.134, vMid], [-0.134, vBot]],
+    [[-0.144, vBot], [-0.124, vBot]],
+
+    // --- "L" ---
+    [[-0.094, vTop], [-0.094, vMid]],
+    [[-0.094, vMid], [-0.094, vBot]],
+    [[-0.094, vBot], [-0.072, vBot]],
+
+    // --- "O" ---
+    [[-0.056, vTop], [-0.036, vTop]],
+    [[-0.036, vTop], [-0.030, vMid]],
+    [[-0.030, vMid], [-0.036, vBot]],
+    [[-0.036, vBot], [-0.056, vBot]],
+    [[-0.056, vBot], [-0.062, vMid]],
+    [[-0.062, vMid], [-0.056, vTop]],
+
+    // --- "V" ---
+    [[-0.018, vTop], [-0.004, vBot]],
+    [[-0.004, vBot], [0.010, vTop]],
+
+    // --- "E" ---
+    [[0.022, vTop], [0.022, vMid]],
+    [[0.022, vMid], [0.022, vBot]],
+    [[0.022, vTop], [0.044, vTop]],
+    [[0.022, vMid], [0.039, vMid]],
+    [[0.022, vBot], [0.044, vBot]],
+
+    // --- "Y" ---
+    [[0.074, vTop], [0.086, vMid]],
+    [[0.098, vTop], [0.086, vMid]],
+    [[0.086, vMid], [0.086, vBot]],
+
+    // --- "O" ---
+    [[0.112, vTop], [0.132, vTop]],
+    [[0.132, vTop], [0.138, vMid]],
+    [[0.138, vMid], [0.132, vBot]],
+    [[0.132, vBot], [0.112, vBot]],
+    [[0.112, vBot], [0.106, vMid]],
+    [[0.106, vMid], [0.112, vTop]],
+
+    // --- "U" ---
+    [[0.150, vTop], [0.150, -0.015]],
+    [[0.150, -0.015], [0.156, vBot]],
+    [[0.156, vBot], [0.168, vBot]],
+    [[0.168, vBot], [0.174, -0.015]],
+    [[0.174, -0.015], [0.174, vTop]],
+
+    // --- Celestial Star-Heart Crest Above "I LOVE YOU" ---
+    [[0.016, 0.034], [-0.014, 0.055]],
+    [[0.016, 0.034], [0.046, 0.055]],
+    [[-0.014, 0.055], [-0.020, 0.074]],
+    [[0.046, 0.055], [0.052, 0.074]],
+    [[-0.020, 0.074], [-0.004, 0.084]],
+    [[0.052, 0.074], [0.036, 0.084]],
+    [[-0.004, 0.084], [0.016, 0.071]],
+    [[0.036, 0.084], [0.016, 0.071]],
+  ];
+
+  const highlightLinePts: THREE.Vector3[] = [];
+  const highlightHaloLinePts: THREE.Vector3[] = [];
+  const highlightNodeMap = new Map<string, THREE.Vector3>();
+  iLoveYouConstellationSegments.forEach(([a, b]) => {
+    const pa = starConstellationPoint(a[0], a[1], -4.0);
+    const pb = starConstellationPoint(b[0], b[1], -4.0);
+    highlightLinePts.push(pa, pb);
+    highlightHaloLinePts.push(
+      starConstellationPoint(a[0], a[1], -3.6),
+      starConstellationPoint(b[0], b[1], -3.6),
+    );
+    highlightNodeMap.set(`${a[0].toFixed(3)},${a[1].toFixed(3)}`, pa);
+    highlightNodeMap.set(`${b[0].toFixed(3)},${b[1].toFixed(3)}`, pb);
+  });
+
+  const highlightConstellationLineMat = trackMat(
+    new THREE.LineBasicMaterial({
+      color: new THREE.Color('#fde68a'),
+      transparent: true,
+      opacity: 0.72,
+      depthWrite: false,
+    }),
+  );
+  const highlightConstellationLines = new THREE.LineSegments(
+    trackGeo(new THREE.BufferGeometry().setFromPoints(highlightLinePts)),
+    highlightConstellationLineMat,
+  );
+  curatedSkyGroup.add(highlightConstellationLines);
+
+  const highlightHaloLineMat = trackMat(
+    new THREE.LineBasicMaterial({
+      color: new THREE.Color('#f472b6'),
+      transparent: true,
+      opacity: 0.45,
+      depthWrite: false,
+    }),
+  );
+  const highlightHaloLines = new THREE.LineSegments(
+    trackGeo(new THREE.BufferGeometry().setFromPoints(highlightHaloLinePts)),
+    highlightHaloLineMat,
+  );
+  curatedSkyGroup.add(highlightHaloLines);
+
+  const highlightNodeMat = trackMat(
+    new THREE.MeshBasicMaterial({
+      color: new THREE.Color('#fef9c3'),
+      transparent: true,
+      opacity: 0.96,
+    }),
+  );
+  const highlightStarHaloGeo = trackGeo(new THREE.OctahedronGeometry(1.45, 1));
+  const highlightStarMeshes: THREE.Mesh[] = [];
+  highlightNodeMap.forEach((pos) => {
+    const starMesh = new THREE.Mesh(highlightStarHaloGeo, highlightNodeMat);
+    starMesh.position.copy(pos);
+    starMesh.scale.setScalar(1.25);
+    curatedSkyGroup.add(starMesh);
+    highlightStarMeshes.push(starMesh);
+  });
+
+  let telescopeSkyActive = false;
+  let telescopeHighlightFactor = 0.0;
+
   // ----------------------------------------------------------------------------
   // 11B. NORTHERN RIDGE (0, +145, Elev +25.0m) — Dramatic Basalt Ridge & Lookout
   // ----------------------------------------------------------------------------
@@ -2677,36 +3212,6 @@ export function createPrivateWorldScene(
       metalness: 0.06,
     }),
   );
-  const caveMidBasaltMat = trackMat(
-    new THREE.MeshStandardMaterial({
-      color: new THREE.Color('#131822'),
-      roughness: 0.92,
-      metalness: 0.04,
-    }),
-  );
-  const caveDeepShadowMat = trackMat(
-    new THREE.MeshStandardMaterial({
-      color: new THREE.Color('#070a10'),
-      roughness: 0.96,
-      metalness: 0.02,
-    }),
-  );
-  const mineralSeamVioletMat = trackMat(
-    new THREE.MeshStandardMaterial({
-      color: new THREE.Color('#d8b4fe'),
-      emissive: new THREE.Color('#a855f7'),
-      emissiveIntensity: 1.15,
-      roughness: 0.26,
-    }),
-  );
-  const mineralSeamTealMat = trackMat(
-    new THREE.MeshStandardMaterial({
-      color: new THREE.Color('#5eead4'),
-      emissive: new THREE.Color('#0d9488'),
-      emissiveIntensity: 1.15,
-      roughness: 0.26,
-    }),
-  );
 
   // 1. Natural Eroded Basalt Cave Arch, Cliff Overhang & Flanking Outcrops
   const caveArchBlocks: Array<{
@@ -2806,168 +3311,12 @@ export function createPrivateWorldScene(
     hiddenCaveGroup.add(fern1, fern2);
   }
 
-  // 3. Walkable Descending Stone Tunnel (z_local: 0.0 -> +12.2, descending from y_local = 0.0 to -2.85m)
-  const tunnelGroup = new THREE.Group();
-  tunnelGroup.name = 'HiddenCave_DescendingTunnelPlaceholder';
-  hiddenCaveGroup.add(tunnelGroup);
-
-  const numTunnelRings = 8;
-  for (let r = 0; r < numTunnelRings; r++) {
-    const t = r / (numTunnelRings - 1); // 0.0 to 1.0
-    const smoothT = t * t * (3.0 - 2.0 * t);
-    const centerZ = 0.6 + t * 11.4; // z_local: +0.6 to +12.0
-    const centerX = -smoothT * 2.4; // Curves gently west toward the grotto
-    const floorY = -smoothT * 2.82; // Descends 2.82m along the tunnel
-
-    const ringMat =
-      r < 3
-        ? caveOuterBasaltMat
-        : r < 6
-          ? caveMidBasaltMat
-          : caveDeepShadowMat;
-
-    // Natural Uneven Stone Floor Slab flush with getHiddenCaveTunnelFloorHeightAt
-    const floorSlab = new THREE.Mesh(
-      trackGeo(new THREE.BoxGeometry(4.4, 0.36, 1.95)),
-      r < 4 ? stoneBlockMat : caveMidBasaltMat,
-    );
-    floorSlab.position.set(centerX, floorY - 0.19, centerZ);
-    floorSlab.rotation.x = 0.23; // Matches descending slope
-    floorSlab.rotation.y = -0.18 * (1 - Math.abs(t - 0.5));
-    floorSlab.receiveShadow = true;
-    tunnelGroup.add(floorSlab);
-
-    // Left & Right Ribbed Basalt Tunnel Walls
-    for (const side of [-1, 1] as const) {
-      const wallX = centerX + side * 2.45;
-      const wallRock = new THREE.Mesh(rockGeo, ringMat);
-      wallRock.position.set(wallX, floorY + 1.85, centerZ);
-      wallRock.scale.set(1.45, 2.35, 1.55);
-      wallRock.rotation.set(
-        0.15 * side,
-        r * 0.7 + side * 0.4,
-        side * -0.12,
-      );
-      wallRock.castShadow = true;
-      wallRock.receiveShadow = true;
-      tunnelGroup.add(wallRock);
-
-      // Register tunnel side-wall colliders so player stays cleanly inside the enclosed passage
-      colliders.push({
-        x: 35 + centerX + side * 2.48,
-        z: 110 + centerZ,
-        radius: 1.05,
-      });
-    }
-
-    // Vaulted Basalt Ceiling Arch Over the Tunnel Ring
-    const ceilingVault = new THREE.Mesh(rockGeo, ringMat);
-    ceilingVault.position.set(centerX, floorY + 4.05, centerZ);
-    ceilingVault.scale.set(3.45, 1.35, 1.65);
-    ceilingVault.rotation.set(0.22, r * 0.35, (r % 2 === 0 ? 1 : -1) * 0.06);
-    ceilingVault.castShadow = true;
-    tunnelGroup.add(ceilingVault);
-  }
-
-  // 4. Sealed Endpoint at Bottom of Descending Tunnel (z_local: +11.2..+12.8, y_local: -2.85m)
-  //    Natural Rockfall Boulders with Faint Bioluminescent Mineral Seams in Deep Shadow
-  const rockfallSealGroup = new THREE.Group();
-  rockfallSealGroup.name = 'HiddenCave_SealedRockfallEndpoint';
-  rockfallSealGroup.position.set(-2.35, -2.82, 11.65);
-  tunnelGroup.add(rockfallSealGroup);
-
-  // Deep-shadow occlusion backing wall behind the rockfall boulders (prevents any sky/ocean bleed)
-  const sealBackingWall = new THREE.Mesh(
-    trackGeo(new THREE.BoxGeometry(6.8, 6.4, 1.4)),
-    trackMat(new THREE.MeshBasicMaterial({ color: new THREE.Color('#020408') })),
-  );
-  sealBackingWall.position.set(0, 2.1, 0.95);
-  rockfallSealGroup.add(sealBackingWall);
-
-  // 14 Wedged Basalt Rockfall Boulders Sealing the Passage
-  const rockfallBoulders: Array<{
-    x: number;
-    y: number;
-    z: number;
-    sx: number;
-    sy: number;
-    sz: number;
-    ry: number;
-    rz: number;
-  }> = [
-    // Bottom tier boulders resting on tunnel floor
-    { x: -1.35, y: 0.65, z: -0.15, sx: 1.25, sy: 0.95, sz: 1.1, ry: 0.4, rz: 0.2 },
-    { x: 0.05, y: 0.72, z: -0.22, sx: 1.35, sy: 1.05, sz: 1.15, ry: 1.2, rz: -0.15 },
-    { x: 1.38, y: 0.68, z: -0.1, sx: 1.2, sy: 0.92, sz: 1.05, ry: 2.1, rz: 0.18 },
-    { x: -0.68, y: 0.42, z: -0.62, sx: 0.78, sy: 0.55, sz: 0.72, ry: 0.8, rz: -0.25 },
-    { x: 0.74, y: 0.45, z: -0.58, sx: 0.82, sy: 0.58, sz: 0.75, ry: 1.7, rz: 0.22 },
-    // Middle tier wedged boulders
-    { x: -1.1, y: 1.75, z: 0.05, sx: 1.18, sy: 0.95, sz: 1.05, ry: 2.5, rz: -0.3 },
-    { x: 0.15, y: 1.82, z: 0.02, sx: 1.28, sy: 1.02, sz: 1.08, ry: 0.6, rz: 0.12 },
-    { x: 1.25, y: 1.78, z: 0.08, sx: 1.15, sy: 0.94, sz: 1.02, ry: 1.5, rz: -0.22 },
-    // Upper tier boulders wedged against tunnel ceiling vault
-    { x: -0.75, y: 2.85, z: 0.18, sx: 1.32, sy: 0.98, sz: 1.12, ry: 1.1, rz: 0.28 },
-    { x: 0.68, y: 2.88, z: 0.15, sx: 1.36, sy: 1.02, sz: 1.15, ry: 2.3, rz: -0.18 },
-    { x: 0.0, y: 3.45, z: 0.25, sx: 1.55, sy: 0.85, sz: 1.2, ry: 0.3, rz: 0.08 },
-  ];
-
-  rockfallBoulders.forEach((rb, idx) => {
-    const bMesh = new THREE.Mesh(
-      rockGeo,
-      idx % 3 === 0 ? caveMidBasaltMat : caveDeepShadowMat,
-    );
-    bMesh.position.set(rb.x, rb.y, rb.z);
-    bMesh.scale.set(rb.sx, rb.sy, rb.sz);
-    bMesh.rotation.set(0.2, rb.ry, rb.rz);
-    bMesh.castShadow = true;
-    bMesh.receiveShadow = true;
-    rockfallSealGroup.add(bMesh);
-  });
-
-  // Faint Bioluminescent Mineral Seams Peeking Between the Deep-Shadow Rockfall Crevices
-  const mineralSeams: Array<{
-    x: number;
-    y: number;
-    z: number;
-    len: number;
-    rad: number;
-    rz: number;
-    ry: number;
-    isViolet: boolean;
-  }> = [
-    { x: -0.58, y: 1.18, z: -0.22, len: 0.92, rad: 0.036, rz: 0.68, ry: 0.15, isViolet: false },
-    { x: 0.62, y: 1.24, z: -0.18, len: 0.88, rad: 0.034, rz: -0.55, ry: -0.12, isViolet: true },
-    { x: -0.08, y: 1.38, z: -0.24, len: 0.74, rad: 0.03, rz: 1.15, ry: 0.08, isViolet: false },
-    { x: -0.45, y: 2.28, z: 0.02, len: 0.85, rad: 0.032, rz: -0.78, ry: 0.18, isViolet: true },
-    { x: 0.48, y: 2.32, z: 0.0, len: 0.82, rad: 0.032, rz: 0.62, ry: -0.14, isViolet: false },
-    { x: 0.04, y: 0.78, z: -0.32, len: 0.68, rad: 0.028, rz: -0.35, ry: 0.1, isViolet: true },
-    { x: -0.95, y: 1.65, z: -0.12, len: 0.64, rad: 0.026, rz: 0.42, ry: 0.22, isViolet: false },
-  ];
-
-  mineralSeams.forEach((ms) => {
-    const seamGeo = trackGeo(
-      new THREE.CylinderGeometry(ms.rad * 0.6, ms.rad, ms.len, 6),
-    );
-    const seamMesh = new THREE.Mesh(
-      seamGeo,
-      ms.isViolet ? mineralSeamVioletMat : mineralSeamTealMat,
-    );
-    seamMesh.position.set(ms.x, ms.y, ms.z);
-    seamMesh.rotation.set(0.15, ms.ry, ms.rz);
-    rockfallSealGroup.add(seamMesh);
-  });
-
-  // Subtle Restrained Mineral Glow PointLight inside the Deep Rockfall Seal
-  const rockfallSeamLight = new THREE.PointLight(0x2dd4bf, 0.48, 6.5, 2.0);
-  rockfallSeamLight.position.set(0.0, 1.45, -0.65);
-  rockfallSealGroup.add(rockfallSeamLight);
-
-  // Solid Barrier Colliders Across the Rockfall Seal at world Z ≈ 121.3
-  colliders.push(
-    { x: 35 - 2.35 - 1.1, z: 110 + 11.3, radius: 1.35 },
-    { x: 35 - 2.35, z: 110 + 11.25, radius: 1.45 },
-    { x: 35 - 2.35 + 1.1, z: 110 + 11.3, radius: 1.35 },
-  );
+  // 3. Complete Underground Hidden Grotto Lakeworld & Open Descending Entrance Tunnel
+  //    Replaces the temporary Phase 4.3 sealed rockfall blockade so the player walks directly
+  //    from the Hidden Cave Entrance (35, 110, Y=+12.0m) down into the underground lakeworld.
+  const hiddenGrotto = createPrivateHiddenGrotto();
+  group.add(hiddenGrotto.group);
+  colliders.push(...hiddenGrotto.colliders);
 
   // ============================================================================
   // 12. DEVELOPER-ONLY TERRAIN & PATH LIGHTING DEBUG VISUALIZATION GROUP
@@ -3138,6 +3487,8 @@ export function createPrivateWorldScene(
 
   let debugVisible = false;
   let vegetationVisible = true;
+  let currentSteppingStoneIndex = -1;
+  let onSteppingStoneStepCb: ((stoneIndex: number) => void) | null = null;
 
   return {
     group,
@@ -3163,27 +3514,177 @@ export function createPrivateWorldScene(
     resetPathLighting() {
       pathLighting.reset();
     },
+    triggerPondRipple,
+    setTelescopeSkyState(active: boolean, highlightStrength: number) {
+      telescopeSkyActive = active;
+      telescopeHighlightFactor = THREE.MathUtils.clamp(
+        highlightStrength,
+        0,
+        1,
+      );
+    },
+    getRouteDistanceTo(
+      playerX: number,
+      playerZ: number,
+      destinationId: TrailDestinationId,
+    ) {
+      return trailSignSystem.computePlayerRouteDistanceTo(
+        playerX,
+        playerZ,
+        destinationId,
+      );
+    },
+    setOnSteppingStoneStep(cb: ((stoneIndex: number) => void) | null) {
+      onSteppingStoneStepCb = cb;
+    },
     update(
       delta: number,
       elapsedTime: number,
       playerPos: THREE.Vector3,
       playerVel: THREE.Vector3,
     ) {
+      const dt = Math.min(Math.max(delta, 0.001), 0.1);
       oceanUniforms.uTime.value = elapsedTime;
       pondUniforms.uTime.value = elapsedTime;
       gateHeartCrest.rotation.y = elapsedTime * 0.65;
 
-      // Subtle breathing pulse on the Hidden Cave rockfall mineral seams
-      const seamPulse = 0.95 + Math.sin(elapsedTime * 1.8) * 0.25;
-      mineralSeamTealMat.emissiveIntensity = 1.05 * seamPulse;
-      mineralSeamVioletMat.emissiveIntensity =
-        1.05 * (0.95 + Math.cos(elapsedTime * 1.5) * 0.25);
+      // 1. Stepping-Stone Enter / Leave Detection & Per-Stone Cooldown / Glow Response
+      const activeStoneIdx = getPondSteppingStoneIndexAt(
+        playerPos.x,
+        playerPos.z,
+      );
+      if (activeStoneIdx !== currentSteppingStoneIndex) {
+        // Player left previous stone
+        if (
+          currentSteppingStoneIndex >= 0 &&
+          currentSteppingStoneIndex < steppingStoneStates.length
+        ) {
+          const prevStone = steppingStoneStates[currentSteppingStoneIndex];
+          prevStone.targetBoost = 0;
+          triggerPondRipple(prevStone.x, prevStone.z, 0.52, false);
+        }
+        // Player stepped onto a new stone
+        if (
+          activeStoneIdx >= 0 &&
+          activeStoneIdx < steppingStoneStates.length
+        ) {
+          const nextStone = steppingStoneStates[activeStoneIdx];
+          nextStone.targetBoost = 1.0;
+          if (elapsedTime >= nextStone.cooldownUntil) {
+            nextStone.cooldownUntil = elapsedTime + 0.85;
+            triggerPondRipple(nextStone.x, nextStone.z, 0.92, true);
+            onSteppingStoneStepCb?.(activeStoneIdx);
+          }
+        }
+        currentSteppingStoneIndex = activeStoneIdx;
+      }
 
-      // Update Reactive Grounded Bioluminescent Mushrooms & Land Glow
+      // Smoothly animate each stepping stone's individual bioluminescent rim glow
+      for (let i = 0; i < steppingStoneStates.length; i++) {
+        const stState = steppingStoneStates[i];
+        const rate = stState.targetBoost > stState.glowBoost ? 10.0 : 2.2;
+        stState.glowBoost +=
+          (stState.targetBoost - stState.glowBoost) *
+          (1.0 - Math.exp(-dt * rate));
+        stState.rimMat.emissiveIntensity = 1.25 + stState.glowBoost * 2.45;
+      }
+
+      // 2. Update Interactive Pond Water Ripples (3D concentric rings + shader uniform array)
+      for (let i = 0; i < MAX_POND_RIPPLES; i++) {
+        const rp = activeRipples[i];
+        const uVec = rippleUniformArray[i];
+        if (!rp.active) {
+          uVec.set(0, 0, 0, 0);
+          continue;
+        }
+        rp.age += dt;
+        const progress = rp.age / rp.duration;
+        if (progress >= 1.0) {
+          rp.active = false;
+          rp.outerMesh.visible = false;
+          rp.innerMesh.visible = false;
+          uVec.set(0, 0, 0, 0);
+          continue;
+        }
+
+        const eased = 1.0 - Math.pow(1.0 - progress, 2.1);
+        const outerR = 0.18 + eased * rp.maxRadius;
+        const innerR = Math.max(0.1, outerR * 0.62);
+        const fade = Math.sin(progress * Math.PI) * (1.0 - progress * 0.35);
+
+        rp.outerMesh.scale.setScalar(outerR);
+        rp.innerMesh.scale.setScalar(innerR);
+        rp.outerMat.opacity = fade * 0.58 * rp.strength;
+        rp.innerMat.opacity = fade * 0.42 * rp.strength;
+
+        uVec.set(rp.x, rp.z, outerR, fade * rp.strength);
+      }
+
+      // 3. Update Bioluminescent Pond-Edge Flora Boost Decay
+      for (let i = 0; i < pondBioPlants.length; i++) {
+        const pl = pondBioPlants[i];
+        if (pl.boost > 0.005) {
+          pl.boost *= Math.exp(-dt * 1.45);
+        } else {
+          pl.boost = 0;
+        }
+        const emissiveVal =
+          1.3 +
+          Math.sin(elapsedTime * 2.1 + i * 0.9) * 0.14 +
+          pl.boost * 1.85;
+        for (let m = 0; m < pl.bloomMats.length; m++) {
+          pl.bloomMats[m].emissiveIntensity = emissiveVal;
+        }
+      }
+
+      // 4. Update Telescope & Stargazing Deck "I LOVE YOU" Constellation Glow
+      const nearStargazingDeck =
+        Math.hypot(playerPos.x - 145.0, playerPos.z - 35.0) < 28.0;
+      const targetStarOpacity = telescopeSkyActive
+        ? 0.98
+        : nearStargazingDeck
+          ? 0.86
+          : 0.74;
+      curatedStarsMat.opacity +=
+        (targetStarOpacity - curatedStarsMat.opacity) *
+        (1.0 - Math.exp(-dt * 6.0));
+
+      const targetSubtleLineOp = telescopeSkyActive ? 0.42 : 0.16;
+      subtleConstellationLineMat.opacity +=
+        (targetSubtleLineOp - subtleConstellationLineMat.opacity) *
+        (1.0 - Math.exp(-dt * 6.0));
+
+      const pulseStar = 0.92 + 0.08 * Math.sin(elapsedTime * 2.6);
+      const targetHighlightOp = telescopeSkyActive
+        ? (0.76 + telescopeHighlightFactor * 0.24) * pulseStar
+        : nearStargazingDeck
+          ? 0.72 * pulseStar
+          : 0.48;
+      highlightConstellationLineMat.opacity +=
+        (targetHighlightOp - highlightConstellationLineMat.opacity) *
+        (1.0 - Math.exp(-dt * 7.0));
+      highlightHaloLineMat.opacity =
+        highlightConstellationLineMat.opacity * 0.65;
+
+      const nodeScale = telescopeSkyActive
+        ? 1.38 + telescopeHighlightFactor * 0.45 * pulseStar
+        : nearStargazingDeck
+          ? 1.28 * pulseStar
+          : 1.15;
+      for (let i = 0; i < highlightStarMeshes.length; i++) {
+        highlightStarMeshes[i].scale.setScalar(nodeScale);
+      }
+
+      // 5. Update Underground Hidden Grotto Lakeworld (Water shader, waterfall, and bioluminescence)
+      hiddenGrotto.update(delta, elapsedTime, playerPos);
+
+      // 6. Update Reactive Grounded Bioluminescent Mushrooms & Land Glow
       pathLighting.update(delta, elapsedTime, playerPos, playerVel);
     },
     dispose() {
+      hiddenGrotto.dispose();
       pathLighting.dispose();
+      trailSignSystem.dispose();
       geometries.forEach((g) => g.dispose());
       materials.forEach((m) => m.dispose());
       textures.forEach((t) => t.dispose());

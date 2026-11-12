@@ -23,6 +23,7 @@ import {
   RESERVED_GROTTO_VOLUME,
   getPrivateTerrainHeight,
 } from '../privateWorld/privateWorldMath';
+import { TrailDestinationId } from '../privateWorld/PrivateTrailSignSystem';
 
 export interface SequelSceneProps {
   telemetry: PrivateWorldTelemetry;
@@ -32,7 +33,14 @@ export interface SequelSceneProps {
   onToggleDebugVisible: () => void;
   onToggleVegetationVisible: () => void;
   onToggleTopDownView: () => void;
-  onTeleportToAnchor: (x: number, z: number, yawRadians?: number) => void;
+  onTeleportToAnchor: (
+    x: number,
+    z: number,
+    yawRadians?: number,
+    forcedElevationY?: number,
+  ) => void;
+  onTriggerPrimaryInteraction?: () => void;
+  onExitInteractionMode?: () => void;
   onReturnToDreamWorld: () => void;
   onReplayFullStory: () => void;
 }
@@ -46,6 +54,8 @@ export const SequelScene: React.FC<SequelSceneProps> = ({
   onToggleVegetationVisible,
   onToggleTopDownView,
   onTeleportToAnchor,
+  onTriggerPrimaryInteraction,
+  onExitInteractionMode,
   onReturnToDreamWorld,
   onReplayFullStory,
 }) => {
@@ -64,6 +74,16 @@ export const SequelScene: React.FC<SequelSceneProps> = ({
       audioRef.current = null;
     };
   }, []);
+
+  // Update underground Hidden Grotto water & crystal resonance when exploring beneath the cave
+  useEffect(() => {
+    audioRef.current?.updateGrottoAmbience(
+      telemetry.x,
+      telemetry.y,
+      telemetry.z,
+      audioMutedRef.current,
+    );
+  }, [telemetry.x, telemetry.y, telemetry.z, audioMuted]);
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
@@ -98,8 +118,104 @@ export const SequelScene: React.FC<SequelSceneProps> = ({
     audioMutedRef.current = next;
   };
 
+  const activePrompt = telemetry.activeInteractionPrompt;
+  const isTelescopeMode = telemetry.interactionMode === 'TELESCOPE';
+  const isSeatedMode =
+    telemetry.interactionMode === 'SEATED_LOVESEAT' ||
+    telemetry.interactionMode === 'SEATED_POND_BENCH' ||
+    telemetry.interactionMode === 'SEATED_GROTTO_ISLAND_BENCH' ||
+    telemetry.interactionMode === 'SEATED_GROTTO_OVERLOOK_BENCH';
+
   return (
     <div className="pointer-events-none fixed inset-0 z-30 select-none font-sans">
+      {/* Dedicated Telescope Eyepiece View Overlay (Active only during Stargazing Telescope interaction) */}
+      {isTelescopeMode && telemetry.telescopeView && (
+        <div className="pointer-events-none fixed inset-0 z-20 flex flex-col items-center justify-between p-8">
+          {/* Subtle Circular Optical Eyepiece Vignette & Brass Rim */}
+          <div
+            className="absolute inset-0"
+            style={{
+              background:
+                'radial-gradient(circle at 50% 50%, rgba(4, 10, 22, 0.0) 31%, rgba(6, 14, 28, 0.45) 42%, rgba(2, 6, 14, 0.94) 56%)',
+            }}
+          />
+          <div className="relative flex-1 w-full flex items-center justify-center">
+            <div className="relative w-[min(64vh,64vw)] h-[min(64vh,64vw)] rounded-full border border-amber-300/35 shadow-[0_0_60px_rgba(56,189,248,0.12)] flex items-center justify-center">
+              <div className="w-[96%] h-[96%] rounded-full border border-sky-200/15" />
+              {/* Fine Optical Crosshair Reticle */}
+              <div className="absolute inset-x-8 top-1/2 h-px bg-gradient-to-r from-transparent via-amber-200/25 to-transparent" />
+              <div className="absolute inset-y-8 left-1/2 w-px bg-gradient-to-b from-transparent via-amber-200/25 to-transparent" />
+              <div className="w-3.5 h-3.5 rounded-full border border-amber-200/45" />
+            </div>
+          </div>
+
+          {/* Highlighted Constellation Readout & Telescope Exit Control */}
+          <div className="pointer-events-auto relative z-30 mb-14 flex flex-col items-center gap-2.5 bg-slate-950/90 border border-amber-300/35 rounded-2xl px-6 py-3.5 text-center shadow-2xl backdrop-blur-md">
+            <div className="flex items-center gap-2 text-xs font-medium tracking-wider uppercase text-amber-200/90">
+              <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+              <span>
+                {telemetry.telescopeView.highlightStrength > 0.25
+                  ? telemetry.telescopeView.constellationName
+                  : 'Stargazing Deck · Brass Equatorial Refractor'}
+              </span>
+            </div>
+            <p className="text-xs text-slate-300 max-w-md">
+              {telemetry.telescopeView.highlightStrength > 0.25
+                ? 'Glowing stars joined across the eastern night sky spell “I LOVE YOU” beneath a celestial star-heart — move the mouse to explore the surrounding star field.'
+                : 'Move mouse to pan across the eastern night sky and align with the “I LOVE YOU” star constellation.'}
+            </p>
+            <div className="flex items-center gap-3 pt-1">
+              <button
+                type="button"
+                onClick={onExitInteractionMode}
+                className="px-3.5 py-1.5 rounded-lg bg-amber-400/20 hover:bg-amber-400/30 border border-amber-300/45 text-xs font-semibold text-amber-100 flex items-center gap-1.5 transition cursor-pointer"
+              >
+                <kbd className="px-1.5 py-0.5 bg-slate-900 rounded border border-white/15 font-mono text-[11px] text-amber-200">
+                  Esc
+                </kbd>
+                <span>Exit telescope</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Calm Seated Mode Prompt (Stargazing Loveseat, Reflective Pond Bench, or Hidden Grotto Sanctuary) */}
+      {isSeatedMode && (
+        <div className="pointer-events-auto absolute bottom-28 left-1/2 -translate-x-1/2 z-30 flex items-center gap-3.5 bg-slate-950/90 border border-sky-300/35 rounded-xl px-5 py-2.5 text-white shadow-2xl backdrop-blur-md">
+          <Sparkles className="w-4 h-4 text-amber-300 shrink-0" />
+          <div className="flex flex-col">
+            <span className="text-xs font-semibold text-sky-200">
+              {telemetry.interactionMode === 'SEATED_LOVESEAT'
+                ? 'Seated on the Stargazing Loveseat · “I LOVE YOU” Star Constellation Above'
+                : telemetry.interactionMode === 'SEATED_POND_BENCH'
+                  ? 'Seated Beside the Reflective Pond · Quiet Moonlit Glade'
+                  : telemetry.interactionMode === 'SEATED_GROTTO_ISLAND_BENCH'
+                    ? 'Seated on the Central Discovery Island · Hidden Grotto Lakeworld'
+                    : 'Seated at the Grotto Overlook · Underground Waterfall & Lake'}
+            </span>
+            <span className="text-xs text-slate-300">
+              Drag mouse to look around · Press{' '}
+              <kbd className="px-1.5 py-0.5 bg-slate-800 rounded border border-white/15 font-mono text-[11px] text-amber-200">
+                E
+              </kbd>{' '}
+              or{' '}
+              <kbd className="px-1.5 py-0.5 bg-slate-800 rounded border border-white/15 font-mono text-[11px] text-amber-200">
+                Esc
+              </kbd>{' '}
+              to stand up
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={onExitInteractionMode}
+            className="ml-1 px-3 py-1.5 rounded-lg bg-sky-500/25 hover:bg-sky-500/35 border border-sky-300/45 text-xs font-semibold text-sky-100 transition cursor-pointer"
+          >
+            Stand up
+          </button>
+        </div>
+      )}
+
       {/* Top-Left Region Discovery & Local Coordinate Telemetry Banner */}
       <div className="pointer-events-auto absolute top-5 left-6 flex flex-col gap-0.5 bg-slate-950/85 border border-sky-300/20 rounded-xl px-4 py-3 text-white shadow-2xl backdrop-blur-md">
         <div className="flex items-center gap-2 text-xs font-medium text-sky-200/90">
@@ -121,13 +237,17 @@ export const SequelScene: React.FC<SequelSceneProps> = ({
           </span>
           <span aria-hidden="true">·</span>
           <span>
-            {telemetry.isTopDownView
-              ? 'Top-Down Debug View'
-              : telemetry.isSprinting
-                ? `Sprinting (${telemetry.speed.toFixed(1)} m/s)`
-                : telemetry.speed > 0.25
-                  ? `Walking (${telemetry.speed.toFixed(1)} m/s)`
-                  : 'Standing'}
+            {isTelescopeMode
+              ? 'Looking Through Telescope'
+              : isSeatedMode
+                ? 'Seated'
+                : telemetry.isTopDownView
+                  ? 'Top-Down Debug View'
+                  : telemetry.isSprinting
+                    ? `Sprinting (${telemetry.speed.toFixed(1)} m/s)`
+                    : telemetry.speed > 0.25
+                      ? `Walking (${telemetry.speed.toFixed(1)} m/s)`
+                      : 'Standing'}
           </span>
           <span aria-hidden="true">·</span>
           <span className="text-slate-400">
@@ -163,13 +283,13 @@ export const SequelScene: React.FC<SequelSceneProps> = ({
         </button>
       </div>
 
-      {/* Dev-Only Anchor, Boundary & Reactive Pathway Illumination Inspector Panel */}
+      {/* Dev-Only Anchor, Trail Route Distance & Reactive Pathway Illumination Inspector Panel */}
       {import.meta.env.DEV && showAnchorInspector && (
-        <div className="pointer-events-auto absolute top-28 left-6 w-[445px] max-w-[calc(100vw-3rem)] bg-slate-950/92 border border-sky-400/35 rounded-xl p-3.5 text-xs text-slate-200 shadow-2xl backdrop-blur-md">
+        <div className="pointer-events-auto absolute top-28 left-6 w-[460px] max-w-[calc(100vw-3rem)] bg-slate-950/92 border border-sky-400/35 rounded-xl p-3.5 text-xs text-slate-200 shadow-2xl backdrop-blur-md">
           <div className="flex items-center justify-between border-b border-white/10 pb-2 mb-2.5">
             <div className="flex items-center gap-1.5 font-semibold text-sky-300">
               <Layers className="w-3.5 h-3.5" />
-              <span>Phase 4.2 Debug · Anchors &amp; Reactive Path Lighting</span>
+              <span>Phase 4.3.1 Debug · Trail Navigation &amp; Path Lighting</span>
             </div>
             <button
               type="button"
@@ -203,21 +323,17 @@ export const SequelScene: React.FC<SequelSceneProps> = ({
                 {pathTelemetry.routeTotalLengthMeters.toFixed(0)}m
               </span>
             </div>
-            <div className="flex items-center justify-between text-slate-300">
-              <span>Forward Illumination Wave Lead:</span>
-              <span className="text-teal-300">
-                +{pathTelemetry.waveLeadMeters.toFixed(1)}m ahead
-              </span>
-            </div>
           </div>
 
           <div className="space-y-1.5 font-mono-tabular text-[11px]">
             {PRIVATE_WORLD_ANCHOR_LIST.map((anchor) => {
               const actualY = getPrivateTerrainHeight(anchor.x, anchor.z);
-              const dist = Math.hypot(
+              const straightDist = Math.hypot(
                 telemetry.x - anchor.x,
                 telemetry.z - anchor.z,
               );
+              const routeDist =
+                telemetry.routeDistances?.[anchor.id as TrailDestinationId];
               return (
                 <div
                   key={anchor.id}
@@ -228,15 +344,22 @@ export const SequelScene: React.FC<SequelSceneProps> = ({
                       {anchor.name}
                     </span>
                     <span className="text-slate-400">
-                      Target ({anchor.x}, {anchor.z}) ·{' '}
-                      {anchor.elevationRangeLabel}
+                      ({anchor.x}, {anchor.z}) · Y +{actualY.toFixed(1)}m
                     </span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className="text-emerald-300">
-                      Y +{actualY.toFixed(2)}m
-                    </span>
-                    <span className="text-slate-400">{dist.toFixed(0)}m</span>
+                    {routeDist !== undefined ? (
+                      <span
+                        className="text-amber-300"
+                        title="True Trail Route Distance"
+                      >
+                        Trail {Math.round(routeDist)}m
+                      </span>
+                    ) : (
+                      <span className="text-slate-400">
+                        {straightDist.toFixed(0)}m
+                      </span>
+                    )}
                     <button
                       type="button"
                       onClick={() => {
@@ -273,30 +396,28 @@ export const SequelScene: React.FC<SequelSceneProps> = ({
         </div>
       )}
 
-      {/* Arrival Shore Special Gate Proximity Prompt: [E] Return to Heart Island */}
-      {telemetry.nearReturnGate && !telemetry.isTopDownView && (
-        <div className="pointer-events-auto absolute bottom-32 left-1/2 -translate-x-1/2 flex items-center gap-3 bg-slate-950/95 border border-rose-400/60 rounded-xl px-4 py-2.5 text-white shadow-[0_0_28px_rgba(244,63,94,0.35)]">
-          <Sparkles className="w-4 h-4 text-rose-400 shrink-0" />
-          <div className="flex flex-col">
-            <span className="text-xs font-semibold text-rose-200">
-              The Special Gate Arrival Threshold · Southern Shore
-            </span>
-            <span className="text-xs text-slate-200">
-              <kbd className="px-1.5 py-0.5 bg-slate-800 rounded border border-white/15 font-mono text-amber-200">
-                [E]
-              </kbd>{' '}
-              Step Through the Special Gate Back to Heart Island
-            </span>
+      {/* Contextual Proximity Interaction Prompt (Shown ONLY when within range of an interactable object) */}
+      {activePrompt &&
+        telemetry.interactionMode === 'NONE' &&
+        !telemetry.isTopDownView && (
+          <div className="pointer-events-auto absolute bottom-32 left-1/2 -translate-x-1/2 flex items-center gap-3 bg-slate-950/92 border border-amber-300/45 rounded-xl px-4 py-2.5 text-white shadow-[0_0_28px_rgba(251,191,36,0.22)] backdrop-blur-md">
+            <Sparkles className="w-4 h-4 text-amber-300 shrink-0" />
+            <button
+              type="button"
+              onClick={
+                activePrompt.id === 'arrival-return-gate'
+                  ? onReturnToDreamWorld
+                  : onTriggerPrimaryInteraction
+              }
+              className="flex items-center gap-2.5 text-sm font-medium text-slate-100 hover:text-amber-200 transition cursor-pointer"
+            >
+              <kbd className="px-2 py-0.5 bg-slate-800 rounded border border-amber-300/40 font-mono text-xs font-bold text-amber-200 shadow-sm">
+                {activePrompt.keyLabel}
+              </kbd>
+              <span>{activePrompt.actionLabel}</span>
+            </button>
           </div>
-          <button
-            type="button"
-            onClick={onReturnToDreamWorld}
-            className="ml-2 px-3.5 py-1.5 rounded-lg bg-gradient-to-r from-rose-500 to-amber-500 hover:from-rose-400 hover:to-amber-400 text-slate-950 text-xs font-bold transition-colors cursor-pointer"
-          >
-            [E] Return to Heart Island
-          </button>
-        </div>
-      )}
+        )}
 
       {/* Collapsible Bottom Control Dock (Anchor Fast-Travel & Dev Terrain Debug Tools) */}
       <div className="pointer-events-auto absolute bottom-5 left-1/2 -translate-x-1/2 flex flex-col items-center w-full max-w-[min(1060px,95vw)]">
@@ -332,7 +453,7 @@ export const SequelScene: React.FC<SequelSceneProps> = ({
                     Math.hypot(
                       telemetry.x - anchor.x,
                       telemetry.z - anchor.z,
-                    ) < 22;
+                    ) < 22 && telemetry.y >= 9.5;
                   return (
                     <button
                       key={anchor.id}
@@ -361,6 +482,26 @@ export const SequelScene: React.FC<SequelSceneProps> = ({
                     </button>
                   );
                 })}
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!audioMutedRef.current) {
+                      audioRef.current?.playIntimateMomentChord(0);
+                    }
+                    onTeleportToAnchor(22.0, 126.5, -0.42, 3.95);
+                  }}
+                  title="Underground Hidden Grotto Lakeworld (22, 127, Elev +3.95m)"
+                  className={`px-2.5 py-1 text-xs font-medium rounded-md border transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
+                    telemetry.y < 9.5 && telemetry.z > 115
+                      ? 'bg-teal-500/30 text-teal-100 border-teal-300/60 font-semibold shadow-sm'
+                      : 'bg-slate-900 hover:bg-slate-800 text-teal-200 border-teal-400/25'
+                  }`}
+                >
+                  Hidden Grotto Lake{' '}
+                  <span className="text-[10px] text-teal-300/80 font-mono">
+                    (22, 127)
+                  </span>
+                </button>
               </div>
 
               <button
@@ -379,7 +520,7 @@ export const SequelScene: React.FC<SequelSceneProps> = ({
               <div className="pt-2 border-t border-white/10 flex flex-wrap items-center justify-between gap-2 text-xs">
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className="px-2 py-0.5 rounded bg-sky-500/15 border border-sky-400/30 text-[10px] font-mono uppercase tracking-wider text-sky-300">
-                    Phase 4.2 Debug (DEV)
+                    Phase 4.3.1 Debug (DEV)
                   </span>
                   <button
                     type="button"
@@ -438,7 +579,7 @@ export const SequelScene: React.FC<SequelSceneProps> = ({
                         : 'bg-slate-900 hover:bg-slate-800 text-slate-300 border-white/15'
                     }`}
                   >
-                    <span>Path Wave &amp; Anchor Inspector</span>
+                    <span>Trail Route &amp; Path Inspector</span>
                   </button>
                 </div>
 
@@ -449,14 +590,14 @@ export const SequelScene: React.FC<SequelSceneProps> = ({
               </div>
             )}
 
-            {/* Row 3: Locomotion & Camera Instructions */}
+            {/* Row 3: Locomotion & Contextual Interaction Instructions */}
             <div className="pt-2 border-t border-white/10 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-400">
               <div className="flex flex-wrap items-center gap-2">
                 <span className="flex items-center gap-1 text-slate-200 font-medium">
                   <Footprints className="w-3.5 h-3.5 text-sky-300" />
                   <span>
-                    WASD / Arrows to Walk · Hold Shift to Sprint · Press E at
-                    Arrival Shore Gate to Return to Heart Island
+                    WASD / Arrows to Walk · Shift to Sprint · Press E near
+                    Telescope, Loveseat, Pond, or Gate
                   </span>
                 </span>
               </div>
@@ -465,7 +606,7 @@ export const SequelScene: React.FC<SequelSceneProps> = ({
                 <span>
                   {telemetry.isTopDownView
                     ? 'Top-Down Survey Camera Active (Press T for 3rd-Person)'
-                    : 'Click or drag mouse to rotate camera · Scroll to zoom'}
+                    : 'Follow wooden trail signs · Drag mouse to rotate camera'}
                 </span>
               </div>
             </div>

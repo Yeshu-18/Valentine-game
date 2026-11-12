@@ -88,6 +88,7 @@ import {
   getPrivatePlayerGroundHeight,
 } from './world/privateWorld/privateWorldMath';
 import { PrivatePathLightingTelemetry } from './world/privateWorld/PrivatePathLighting';
+import { StoryAudioSynthesizer } from './world/story/storyAudio';
 
 /**
  * Combined ACESFilmic Tone Mapping + Warm Golden-Hour Color-Grading + Soft Romantic Vignette + sRGB Output Pass.
@@ -290,6 +291,9 @@ export default function App() {
       nearReturnGate: true,
       isTopDownView: false,
       debugOverlayEnabled: false,
+      activeInteractionPrompt: null,
+      interactionMode: 'NONE',
+      telescopeView: null,
     }));
 
   const triggerDreamWorldReveal = (forceReplay = false) => {
@@ -607,15 +611,37 @@ export default function App() {
     );
     controllerRef.current = playerController;
 
+    const privateInteractionAudio = new StoryAudioSynthesizer();
+    privateWorldScene.setOnSteppingStoneStep((stoneIdx) => {
+      privateInteractionAudio.playSteppingStoneCue(stoneIdx);
+    });
+
     const privateWorldController = createPrivateWorldController(
       camera,
       renderer.domElement,
       avatar,
       privateWorldScene.colliders,
-      () => {
-        setStoryPhase('DREAM_WORLD');
-        playerController.teleportTo(0, -104.5, 0);
-        setTelemetry(playerController.getTelemetry());
+      {
+        onReturnGateInteract: () => {
+          setStoryPhase('DREAM_WORLD');
+          playerController.teleportTo(0, -104.5, 0);
+          setTelemetry(playerController.getTelemetry());
+        },
+        onTouchPondWater: (wx, wz) => {
+          privateWorldScene.triggerPondRipple(wx, wz, 1.15, true);
+          privateInteractionAudio.playWaterTouchCue();
+        },
+        onTelescopeStateChange: (active, highlightStrength, toggled) => {
+          privateWorldScene.setTelescopeSkyState(active, highlightStrength);
+          if (toggled) {
+            privateInteractionAudio.playTelescopeToggleCue(active);
+          }
+        },
+        onSeatedStateChange: (sitting) => {
+          privateInteractionAudio.playSeatToggleCue(sitting);
+        },
+        getRouteDistanceTo: (px, pz, destId) =>
+          privateWorldScene.getRouteDistanceTo(px, pz, destId),
       },
     );
     privateWorldControllerRef.current = privateWorldController;
@@ -925,6 +951,7 @@ export default function App() {
       revealDirectorRef.current = null;
       galleryPlacementTool.dispose();
       placementToolRef.current = null;
+      privateInteractionAudio.dispose();
       privateWorldController.dispose();
       privateWorldControllerRef.current = null;
       privateWorldScene.dispose();
@@ -2507,11 +2534,23 @@ export default function App() {
             );
             setPrivateWorldTelemetry(ctrl.getTelemetry());
           }}
-          onTeleportToAnchor={(x, z, yaw) => {
+          onTeleportToAnchor={(x, z, yaw, forcedElevationY) => {
             const ctrl = privateWorldControllerRef.current;
             if (!ctrl) return;
-            ctrl.teleportTo(x, z, yaw);
+            ctrl.teleportTo(x, z, yaw, forcedElevationY);
             atmosphereRef.current?.setPrivateWorldMoonlightMode(true, false);
+            setPrivateWorldTelemetry(ctrl.getTelemetry());
+          }}
+          onTriggerPrimaryInteraction={() => {
+            const ctrl = privateWorldControllerRef.current;
+            if (!ctrl) return;
+            ctrl.triggerPrimaryInteraction();
+            setPrivateWorldTelemetry(ctrl.getTelemetry());
+          }}
+          onExitInteractionMode={() => {
+            const ctrl = privateWorldControllerRef.current;
+            if (!ctrl) return;
+            ctrl.exitInteractionMode();
             setPrivateWorldTelemetry(ctrl.getTelemetry());
           }}
           onReturnToDreamWorld={() => {

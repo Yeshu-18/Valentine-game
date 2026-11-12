@@ -600,9 +600,10 @@ export function getPrivateTerrainHeight(x: number, z: number): number {
     landFactor;
 
   // 2. Sculpt the Northern Rocky Ridge mass (crowning at +25m around (0, +145))
-  const ridgeEllipDist = Math.hypot((x - 4.0) / 1.45, (z - 144.0) / 0.82);
-  if (ridgeEllipDist < 68.0) {
-    const ridgeWeight = 1.0 - smoothstep(14.0, 68.0, ridgeEllipDist);
+  //    Also ensures a solid >= +16.5m..+25.5m geological overburden above RESERVED_GROTTO_VOLUME (maxY = 14.5m)
+  const ridgeEllipDist = Math.hypot((x - 8.0) / 1.55, (z - 140.0) / 0.88);
+  if (ridgeEllipDist < 74.0) {
+    const ridgeWeight = 1.0 - smoothstep(16.0, 74.0, ridgeEllipDist);
     const cragDetail =
       privateFbm2D(x * 0.045 + 5.1, z * 0.045 - 3.3, 3) * 1.85;
     height = THREE.MathUtils.lerp(
@@ -618,7 +619,12 @@ export function getPrivateTerrainHeight(x: number, z: number): number {
     const d = Math.hypot(x - anchor.x, z - anchor.z);
     const totalR = anchor.radius + anchor.blendRadius;
     if (d < totalR) {
-      const w = 1.0 - smoothstep(anchor.radius * 0.55, totalR, d);
+      let w = 1.0 - smoothstep(anchor.radius * 0.55, totalR, d);
+      // For Hidden Cave Entrance (35, 110), flatten the southern approach forecourt (z <= 112),
+      // while allowing the mountain brow north of the arch (z > 113) to rise over the grotto ceiling.
+      if (anchor.id === 'hidden-cave' && z > 111.5) {
+        w *= 1.0 - smoothstep(111.5, 117.5, z);
+      }
       const subtleDetail =
         anchor.id === 'arrival-shore' ||
         anchor.id === 'stargazing-deck' ||
@@ -660,28 +666,64 @@ export function getPrivateTerrainHeight(x: number, z: number): number {
   if (x >= -18.0 && x <= 34.0 && z >= 92.0 && z <= 149.0) {
     const tRidge = THREE.MathUtils.clamp((z - 96.0) / 47.0, 0, 1);
     const saddleCenterX = THREE.MathUtils.lerp(26.0, 0.0, tRidge);
-    const saddleTargetY = THREE.MathUtils.lerp(11.8, 25.0, smoothstep(0.0, 1.0, tRidge));
+    const saddleTargetY = THREE.MathUtils.lerp(
+      11.8,
+      25.0,
+      smoothstep(0.0, 1.0, tRidge),
+    );
     const distFromSaddle = Math.abs(x - saddleCenterX);
     if (distFromSaddle < 12.0) {
-      const saddleW = (1.0 - smoothstep(3.5, 12.0, distFromSaddle)) * smoothstep(92.0, 102.0, z) * (1.0 - smoothstep(144.0, 149.0, z));
+      const saddleW =
+        (1.0 - smoothstep(3.5, 12.0, distFromSaddle)) *
+        smoothstep(92.0, 102.0, z) *
+        (1.0 - smoothstep(144.0, 149.0, z));
       height = THREE.MathUtils.lerp(height, saddleTargetY, saddleW * 0.72);
     }
   }
 
-  // 7. Carve the Descending Hidden Cave Tunnel Floor Channel (Z: 109.8 -> 123.2, curving slightly toward Reserved Grotto)
-  if (z >= 109.5 && z <= 124.0 && x >= 27.5 && x <= 40.5) {
-    const tunnelT = THREE.MathUtils.clamp((z - 110.2) / 11.8, 0, 1);
-    const tunnelCenterX = 35.0 - smoothstep(0.0, 1.0, tunnelT) * 2.4;
+  // 6b. Protective Overburden Guarantee above RESERVED_GROTTO_VOLUME (X: -32..52, Z: 115..158)
+  //     Ensures surface terrain stays >= +16.4m above the maxY = 14.5m grotto ceiling everywhere outside the cave mouth
+  if (
+    x >= RESERVED_GROTTO_VOLUME.minX - 4.0 &&
+    x <= RESERVED_GROTTO_VOLUME.maxX + 4.0 &&
+    z >= 114.5 &&
+    z <= RESERVED_GROTTO_VOLUME.maxZ + 3.0
+  ) {
+    const inCaveEntranceThroat =
+      z < 118.0 && Math.abs(x - 34.5) < 5.2
+        ? 1.0 - smoothstep(112.5, 118.0, z)
+        : 0.0;
+    const overburdenMask =
+      smoothstep(RESERVED_GROTTO_VOLUME.minX - 4.0, RESERVED_GROTTO_VOLUME.minX + 3.0, x) *
+      (1.0 - smoothstep(RESERVED_GROTTO_VOLUME.maxX - 3.0, RESERVED_GROTTO_VOLUME.maxX + 4.0, x)) *
+      smoothstep(114.5, 120.5, z) *
+      (1.0 - smoothstep(RESERVED_GROTTO_VOLUME.maxZ - 2.0, RESERVED_GROTTO_VOLUME.maxZ + 3.0, z)) *
+      (1.0 - inCaveEntranceThroat);
+    const minSurfaceY =
+      16.8 +
+      smoothstep(116.0, 142.0, z) * 3.8 +
+      privateNoise2D(x * 0.06, z * 0.06) * 0.65;
+    if (height < minSurfaceY && overburdenMask > 0.001) {
+      height = THREE.MathUtils.lerp(height, minSurfaceY, overburdenMask);
+    }
+  }
+
+  // 7. Carve the Outer Hidden Cave Threshold Channel (Z: 109.2 -> 116.5) so the player walks smoothly under the arch
+  if (z >= 109.2 && z <= 117.2 && x >= 28.0 && x <= 40.5) {
+    const tunnelT = THREE.MathUtils.clamp((z - 110.0) / 16.5, 0, 1);
+    const tunnelCenterX = 35.0 - smoothstep(0.0, 1.0, tunnelT) * 8.0;
     const lateralDist = Math.abs(x - tunnelCenterX);
     if (lateralDist < 4.2) {
       const channelW =
-        (1.0 - smoothstep(1.95, 4.2, lateralDist)) *
-        smoothstep(109.5, 111.0, z) *
-        (1.0 - smoothstep(122.0, 124.0, z));
-      const stepRipple = Math.sin((z - 110.2) * 2.4) * 0.04;
-      const targetTunnelFloorY =
-        THREE.MathUtils.lerp(12.0, 9.15, tunnelT) + stepRipple;
-      height = THREE.MathUtils.lerp(height, targetTunnelFloorY, channelW);
+        (1.0 - smoothstep(2.0, 4.2, lateralDist)) *
+        smoothstep(109.2, 110.6, z) *
+        (1.0 - smoothstep(114.8, 117.2, z));
+      const targetFloorY = THREE.MathUtils.lerp(
+        12.0,
+        3.95,
+        smoothstep(0.0, 1.0, tunnelT),
+      );
+      height = THREE.MathUtils.lerp(height, targetFloorY, channelW);
     }
   }
 
@@ -725,32 +767,309 @@ export function getPondSteppingStoneHeightAt(
 }
 
 /**
- * Evaluates whether (x, z) lies inside the walkable Hidden Cave descending tunnel corridor
- * (from the cave entrance threshold at Z = 109.8 down to the natural rockfall seal at Z = 120.9).
+ * Returns the 0-based index of the Reflective Pond stepping stone at (x, z), or -1 if not on a stone.
+ */
+export function getPondSteppingStoneIndexAt(x: number, z: number): number {
+  for (let i = 0; i < REFLECTIVE_POND_STEPPING_STONES.length; i++) {
+    const st = REFLECTIVE_POND_STEPPING_STONES[i];
+    if (Math.hypot(x - st.x, z - st.z) <= st.walkRadius) {
+      return i;
+    }
+  }
+  return -1;
+}
+
+// ============================================================================
+// PHASE 4.4: THE HIDDEN GROTTO — SPATIAL LAYOUT & UNDERGROUND NAVIGATION MATH
+// All coordinates strictly inside RESERVED_GROTTO_VOLUME:
+//   X: [-32, +52], Z: [114, 158], Y: [2.0, 14.5]
+// ============================================================================
+
+export const GROTTO_LAKE_WATER_LEVEL = 3.15;
+export const GROTTO_LAKE_BED_ELEVATION = 2.15;
+
+export const GROTTO_CENTRAL_ISLAND = {
+  x: 6.0,
+  z: 137.5,
+  radius: 6.8,
+  flatRadius: 4.5,
+  topY: 3.85,
+  rimY: 3.42,
+} as const;
+
+export const GROTTO_WATERFALL_CHAMBER = {
+  x: -16.5,
+  z: 150.5,
+  ledgeY: 11.8,
+  poolY: GROTTO_LAKE_WATER_LEVEL,
+  width: 5.2,
+} as const;
+
+export const GROTTO_BIOLUM_GARDEN = {
+  x: -11.5,
+  z: 126.5,
+  radiusX: 13.5,
+  radiusZ: 6.8,
+  baseY: 3.78,
+} as const;
+
+export const GROTTO_SECONDARY_VIEWPOINT = {
+  x: 17.5,
+  z: 148.2,
+  radiusX: 6.2,
+  radiusZ: 4.4,
+  topY: 5.65,
+} as const;
+
+export const GROTTO_STONE_BRIDGE = {
+  startX: 27.5,
+  startZ: 129.0,
+  startY: 3.95,
+  endX: 19.5,
+  endZ: 146.5,
+  endY: 5.65,
+  archCrownBoost: 1.18,
+  halfWidth: 1.85,
+} as const;
+
+export interface GrottoSteppingStoneSpec {
+  x: number;
+  z: number;
+  topY: number;
+  walkRadius: number;
+  scaleX: number;
+  scaleZ: number;
+  rotY: number;
+}
+
+/**
+ * Six wide, walkable natural basalt stepping stones leading from the southern cavern shore
+ * (18.8, 126.8) across the Underground Lake onto the Central Discovery Island (8.5, 132.2).
+ */
+export const GROTTO_ISLAND_STEPPING_STONES: readonly GrottoSteppingStoneSpec[] = [
+  { x: 18.2, z: 127.4, topY: 3.58, walkRadius: 1.55, scaleX: 1.42, scaleZ: 1.24, rotY: 0.35 },
+  { x: 16.3, z: 128.4, topY: 3.42, walkRadius: 1.52, scaleX: 1.36, scaleZ: 1.18, rotY: -0.22 },
+  { x: 14.4, z: 129.3, topY: 3.36, walkRadius: 1.52, scaleX: 1.38, scaleZ: 1.22, rotY: 0.48 },
+  { x: 12.5, z: 130.2, topY: 3.38, walkRadius: 1.52, scaleX: 1.34, scaleZ: 1.2, rotY: -0.41 },
+  { x: 10.7, z: 131.1, topY: 3.46, walkRadius: 1.52, scaleX: 1.38, scaleZ: 1.22, rotY: 0.19 },
+  { x: 9.0, z: 132.1, topY: 3.62, walkRadius: 1.58, scaleX: 1.46, scaleZ: 1.28, rotY: -0.28 },
+];
+
+/**
+ * Evaluates the centerline and floor height of the Descending Entrance Tunnel
+ * connecting the Hidden Cave Entrance (35.0, 110.0, Y = 12.0m) down into the
+ * southeastern Main Cavern threshold (27.0, 126.5, Y = 3.95m).
  */
 export function getHiddenCaveTunnelFloorHeightAt(
   x: number,
   z: number,
 ): number | null {
-  if (z < 109.6 || z > 121.2) return null;
-  const tunnelT = THREE.MathUtils.clamp((z - 110.2) / 11.8, 0, 1);
-  const tunnelCenterX = 35.0 - smoothstep(0.0, 1.0, tunnelT) * 2.4;
+  if (z < 109.5 || z > 126.8) return null;
+  const tunnelT = THREE.MathUtils.clamp((z - 110.0) / 16.5, 0, 1);
+  const smoothT = smoothstep(0.0, 1.0, tunnelT);
+  const tunnelCenterX = 35.0 - smoothT * 8.0;
+  // Tunnel gradually widens from 2.15m half-width to 4.1m as it opens into the cavern
+  const maxHalfWidth = THREE.MathUtils.lerp(2.15, 4.1, smoothstep(0.6, 1.0, tunnelT));
   const lateralDist = Math.abs(x - tunnelCenterX);
-  if (lateralDist > 1.85) return null;
+  if (lateralDist > maxHalfWidth) return null;
 
-  const stepRipple = Math.sin((z - 110.2) * 2.4) * 0.035;
-  return THREE.MathUtils.lerp(12.0, 9.22, tunnelT) + stepRipple;
+  const stepRipple = Math.sin((z - 110.0) * 2.1) * 0.03 * (1.0 - tunnelT * 0.5);
+  return THREE.MathUtils.lerp(12.0, 3.95, smoothT) + stepRipple;
+}
+
+/**
+ * Evaluates the Natural Stone Bridge spanning the eastern arm of the Underground Lake
+ * from (27.5, 129.0, Y = 3.95m) to the Secondary Rock Viewpoint at (19.5, 146.5, Y = 5.65m).
+ */
+export function getGrottoStoneBridgeHeightAt(
+  x: number,
+  z: number,
+): number | null {
+  if (z < 128.0 || z > 147.5 || x < 16.5 || x > 31.5) return null;
+  const t = THREE.MathUtils.clamp(
+    (z - GROTTO_STONE_BRIDGE.startZ) /
+      (GROTTO_STONE_BRIDGE.endZ - GROTTO_STONE_BRIDGE.startZ),
+    0,
+    1,
+  );
+  const archCurveX =
+    THREE.MathUtils.lerp(GROTTO_STONE_BRIDGE.startX, GROTTO_STONE_BRIDGE.endX, t) +
+    Math.sin(t * Math.PI) * 1.45;
+  const lateralDist = Math.abs(x - archCurveX);
+  if (lateralDist > GROTTO_STONE_BRIDGE.halfWidth) return null;
+
+  const baseRampY = THREE.MathUtils.lerp(
+    GROTTO_STONE_BRIDGE.startY,
+    GROTTO_STONE_BRIDGE.endY,
+    smoothstep(0.0, 1.0, t),
+  );
+  const archBump = Math.sin(t * Math.PI) * GROTTO_STONE_BRIDGE.archCrownBoost;
+  const stoneMicro = Math.sin(z * 1.8 + x * 1.2) * 0.025;
+  return baseRampY + archBump + stoneMicro;
+}
+
+/**
+ * Evaluates whether (x, z) is on one of the 6 stepping stones leading to the Central Discovery Island.
+ */
+export function getGrottoSteppingStoneHeightAt(
+  x: number,
+  z: number,
+): number | null {
+  for (let i = 0; i < GROTTO_ISLAND_STEPPING_STONES.length; i++) {
+    const st = GROTTO_ISLAND_STEPPING_STONES[i];
+    if (Math.hypot(x - st.x, z - st.z) <= st.walkRadius) {
+      return st.topY;
+    }
+  }
+  return null;
+}
+
+/**
+ * Signed distance function for the Underground Lake water body (Y = 3.15m):
+ * Returns < 0 inside the water basin, > 0 on the surrounding cavern shore shelves.
+ */
+export function getGrottoLakeSignedDistance(x: number, z: number): number {
+  const cx = 4.5;
+  const cz = 139.2;
+  const dx = (x - cx) / 26.5;
+  const dz = (z - cz) / 11.8;
+  const angle = Math.atan2(dz, dx);
+  const organicLobe =
+    1.0 +
+    0.12 * Math.sin(angle * 2.0 + 0.4) +
+    0.08 * Math.cos(angle * 3.0 - 0.9) +
+    0.05 * Math.sin(angle * 5.0 + 1.1);
+  return (Math.hypot(dx, dz) - organicLobe) * 14.5;
+}
+
+/**
+ * Returns the exact walkable floor elevation inside the Underground Grotto (or null if over deep water / solid wall).
+ */
+export function getGrottoWalkableGroundHeightAt(
+  x: number,
+  z: number,
+): number | null {
+  // 1. Descending Entrance Tunnel (Z: 109.5 -> 126.8)
+  const tunnelH = getHiddenCaveTunnelFloorHeightAt(x, z);
+  if (tunnelH !== null && z <= 125.2) {
+    return tunnelH;
+  }
+
+  // Must lie inside the cavern horizontal envelope within RESERVED_GROTTO_VOLUME
+  if (
+    x < RESERVED_GROTTO_VOLUME.minX + 2.5 ||
+    x > RESERVED_GROTTO_VOLUME.maxX - 2.5 ||
+    z < 118.5 ||
+    z > RESERVED_GROTTO_VOLUME.maxZ - 3.5
+  ) {
+    return tunnelH;
+  }
+
+  // 2. Natural Stone Bridge spanning the eastern lake arm (overrides lake water underneath!)
+  const bridgeH = getGrottoStoneBridgeHeightAt(x, z);
+  if (bridgeH !== null) {
+    return bridgeH;
+  }
+
+  // 3. Central Discovery Island (center (6.0, 137.5), radius 6.8m)
+  const distIsland = Math.hypot(
+    x - GROTTO_CENTRAL_ISLAND.x,
+    z - GROTTO_CENTRAL_ISLAND.z,
+  );
+  if (distIsland <= GROTTO_CENTRAL_ISLAND.radius) {
+    const rimT = smoothstep(
+      GROTTO_CENTRAL_ISLAND.flatRadius,
+      GROTTO_CENTRAL_ISLAND.radius,
+      distIsland,
+    );
+    return THREE.MathUtils.lerp(
+      GROTTO_CENTRAL_ISLAND.topY,
+      GROTTO_CENTRAL_ISLAND.rimY,
+      rimT,
+    );
+  }
+
+  // 4. Stepping-Stone Approach from Southern Shore to Central Discovery Island
+  const stepStoneH = getGrottoSteppingStoneHeightAt(x, z);
+  if (stepStoneH !== null) {
+    return stepStoneH;
+  }
+
+  // 5. Secondary Rock Viewpoint Ledge on the Northeastern Cavern Wall (X: 10.5..24.0, Z: 145.0..153.5)
+  const vpDx = (x - GROTTO_SECONDARY_VIEWPOINT.x) / GROTTO_SECONDARY_VIEWPOINT.radiusX;
+  const vpDz = (z - GROTTO_SECONDARY_VIEWPOINT.z) / GROTTO_SECONDARY_VIEWPOINT.radiusZ;
+  if (Math.hypot(vpDx, vpDz) <= 1.05) {
+    const ripple = privateNoise2D(x * 0.18, z * 0.18) * 0.08;
+    return GROTTO_SECONDARY_VIEWPOINT.topY + ripple;
+  }
+
+  // 6. Southern Arrival Shore, Eastern Bridge Abutment & Southwestern Bioluminescent Garden Terraces
+  const lakeDist = getGrottoLakeSignedDistance(x, z);
+  // Prevent walking into the deep Underground Lake water (lakeDist < -0.25)
+  if (lakeDist < -0.25) {
+    return null;
+  }
+
+  // Walkable Southern & Southwestern Shore Belt (Z: 119.5..135.5, X: -26.5..+33.5)
+  if (z >= 119.5 && z <= 135.5 && x >= -26.5 && x <= 33.5) {
+    // Blend smoothly from tunnel exit (27, 126, Y = 3.95m) across the southern shore and Bioluminescent Garden
+    const gardenSlope = smoothstep(130.0, 121.0, z) * 0.42;
+    const westTerrace = smoothstep(0.0, -22.0, x) * 0.35;
+    const micro = privateNoise2D(x * 0.14, z * 0.14) * 0.06;
+    const shoreY = 3.68 + gardenSlope + westTerrace + micro;
+    if (tunnelH !== null) {
+      const blendT = smoothstep(123.5, 126.5, z);
+      return THREE.MathUtils.lerp(tunnelH, shoreY, blendT);
+    }
+    return shoreY;
+  }
+
+  return tunnelH;
+}
+
+/**
+ * Returns the vaulted cavern ceiling height at (x, z) inside the Hidden Grotto
+ * so the third-person camera stays cleanly inside the cavern below the rock roof.
+ */
+export function getGrottoCeilingHeightAt(x: number, z: number): number {
+  if (z < 123.5) {
+    const tunnelFloor = getHiddenCaveTunnelFloorHeightAt(x, z) ?? 9.0;
+    return tunnelFloor + 3.95;
+  }
+  const dx = (x - RESERVED_GROTTO_VOLUME.centerX) / 40.0;
+  const dz = (z - RESERVED_GROTTO_VOLUME.centerZ) / 21.0;
+  const dome = Math.max(0.0, 1.0 - (dx * dx + dz * dz) * 0.38);
+  return 11.2 + dome * 2.85; // ~11.2m at walls up to ~14.05m at central vault (<= 14.5m maxY)
+}
+
+/**
+ * Determines whether a player at (x, z, currentY) is currently in the underground tunnel or Hidden Grotto
+ * rather than on the outdoor Northern Ridge surface above (+17m..+25m).
+ */
+export function isPositionInUndergroundGrotto(
+  x: number,
+  z: number,
+  currentY?: number,
+): boolean {
+  if (z < 109.6) return false;
+  if (currentY !== undefined) {
+    if (currentY < 13.6 && z >= 110.2) {
+      return true;
+    }
+    return false;
+  }
+  return getHiddenCaveTunnelFloorHeightAt(x, z) !== null && z <= 116.5;
 }
 
 /**
  * Checks whether (x, z) in Private World local coordinates is walkable by the player:
- * - Prevents walking into the surrounding ocean (h < minWalkableHeight)
- * - Allows walking onto the Arrival Shore wooden pier (x in [-2.2, +2.2], z in [-162, -144])
- * - Allows walking across the Reflective Pond stepping stones while preventing walking into the deep pond water
- * - Allows walking onto the Stargazing Deck, down the Hidden Cave descending tunnel (to the rockfall seal),
- *   and up the Northern Ridge lookout trail while blocking the sheer northern cliff drop-off.
+ * - Supports both outdoor surface exploration and underground Hidden Grotto exploration (when currentY < 13.6m).
  */
-export function isPrivateWalkablePosition(x: number, z: number): boolean {
+export function isPrivateWalkablePosition(
+  x: number,
+  z: number,
+  currentY?: number,
+): boolean {
   if (
     x < PRIVATE_ISLAND_BOUNDS.minX ||
     x > PRIVATE_ISLAND_BOUNDS.maxX ||
@@ -760,7 +1079,18 @@ export function isPrivateWalkablePosition(x: number, z: number): boolean {
     return false;
   }
 
-  // Prevent walking past the sheer Northern Ridge sea-cliff brink
+  // If the player is underground inside the Hidden Cave tunnel or Hidden Grotto (currentY < 13.6m),
+  // validate strictly against the underground grotto walkable surfaces (tunnel, shore, garden, bridge, stepping stones, island, viewpoint).
+  if (isPositionInUndergroundGrotto(x, z, currentY)) {
+    return getGrottoWalkableGroundHeightAt(x, z) !== null;
+  }
+
+  // Allow entering the Hidden Cave tunnel from the outdoor forecourt (Z: 109.6..115.0)
+  if (z >= 109.6 && z <= 115.0 && getHiddenCaveTunnelFloorHeightAt(x, z) !== null) {
+    return true;
+  }
+
+  // Prevent walking past the sheer Northern Ridge sea-cliff brink on the outdoor surface
   if (z > 150.2) {
     return false;
   }
@@ -772,11 +1102,6 @@ export function isPrivateWalkablePosition(x: number, z: number): boolean {
 
   // Allow walking across the Reflective Pond stepping stones
   if (getPondSteppingStoneHeightAt(x, z) !== null) {
-    return true;
-  }
-
-  // Allow walking down the Hidden Cave descending tunnel up to the rockfall seal (Z <= 120.9)
-  if (getHiddenCaveTunnelFloorHeightAt(x, z) !== null) {
     return true;
   }
 
@@ -822,37 +1147,52 @@ export function isPrivateWalkablePosition(x: number, z: number): boolean {
 }
 
 /**
- * Returns the floor height for the player at (x, z), accounting for the wooden Arrival Pier,
- * the Reflective Pond stepping stones, the Stargazing Deck platform & steps, and the Hidden Cave descending tunnel.
+ * Returns the floor height for the player at (x, z), accounting for the underground Hidden Grotto
+ * (when currentY < 13.6m), the wooden Arrival Pier, the Reflective Pond stepping stones,
+ * the Stargazing Deck platform & steps, and the Hidden Cave descending tunnel.
  */
-export function getPrivatePlayerGroundHeight(x: number, z: number): number {
-  // 1. Inside the Hidden Cave descending tunnel (Z: 109.6 -> 121.2)
-  const caveTunnelFloor = getHiddenCaveTunnelFloorHeightAt(x, z);
-  if (caveTunnelFloor !== null) {
-    return caveTunnelFloor;
+export function getPrivatePlayerGroundHeight(
+  x: number,
+  z: number,
+  currentY?: number,
+): number {
+  // 1. If player is inside the underground Hidden Grotto or descending tunnel
+  if (isPositionInUndergroundGrotto(x, z, currentY)) {
+    const grottoH = getGrottoWalkableGroundHeightAt(x, z);
+    if (grottoH !== null) {
+      return grottoH;
+    }
+  }
+
+  // 2. Outer Hidden Cave tunnel mouth threshold (Z: 109.6 -> 115.5)
+  if (z >= 109.6 && z <= 115.5) {
+    const caveTunnelFloor = getHiddenCaveTunnelFloorHeightAt(x, z);
+    if (caveTunnelFloor !== null && (currentY === undefined || currentY < 14.2)) {
+      return caveTunnelFloor;
+    }
   }
 
   const terrainH = getPrivateTerrainHeight(x, z);
 
-  // 2. Wooden pier deck at Arrival Shore (x: -2.1..+2.1, z: -161.5..-144.0) sits at Y = 1.65m
+  // 3. Wooden pier deck at Arrival Shore (x: -2.1..+2.1, z: -161.5..-144.0) sits at Y = 1.65m
   if (Math.abs(x) <= 2.1 && z >= -161.5 && z <= -144.0) {
     return Math.max(terrainH, 1.65);
   }
 
-  // 3. Walkable stepping stones crossing the northern end of the Reflective Pond
+  // 4. Walkable stepping stones crossing the northern end of the Reflective Pond
   const stoneH = getPondSteppingStoneHeightAt(x, z);
   if (stoneH !== null) {
     return Math.max(terrainH, stoneH);
   }
 
-  // 4. Stargazing Deck western stone approach steps (X: 132.5..135.8, Z: 32.5..37.5)
+  // 5. Stargazing Deck western stone approach steps (X: 132.5..135.8, Z: 32.5..37.5)
   if (x >= 132.5 && x <= 136.0 && Math.abs(z - 35.0) <= 2.8) {
     const stepT = THREE.MathUtils.clamp((x - 132.5) / 3.3, 0, 1);
     const steppedElev = THREE.MathUtils.lerp(18.0, 18.28, stepT);
     return Math.max(terrainH, steppedElev);
   }
 
-  // 5. Stargazing Deck timber floorboards at (+145, +35, radius 9.4m) sit at Y = 18.28m
+  // 6. Stargazing Deck timber floorboards at (+145, +35, radius 9.4m) sit at Y = 18.28m
   if (Math.hypot(x - 145.0, z - 35.0) <= 9.35) {
     return Math.max(terrainH, 18.28);
   }
@@ -863,11 +1203,57 @@ export function getPrivatePlayerGroundHeight(x: number, z: number): number {
 export function getPrivateRegionAtPosition(
   x: number,
   z: number,
+  currentY?: number,
 ): {
   id: string;
   name: string;
   subtitle: string;
 } {
+  // Underground Hidden Grotto sub-region detection
+  if (isPositionInUndergroundGrotto(x, z, currentY) && z > 121.0) {
+    if (
+      Math.hypot(x - GROTTO_CENTRAL_ISLAND.x, z - GROTTO_CENTRAL_ISLAND.z) <=
+      GROTTO_CENTRAL_ISLAND.radius + 2.5
+    ) {
+      return {
+        id: 'grotto-central-island',
+        name: 'Central Discovery Island',
+        subtitle: 'Secluded Sanctuary in the Underground Lake',
+      };
+    }
+    if (getGrottoStoneBridgeHeightAt(x, z) !== null) {
+      return {
+        id: 'grotto-stone-bridge',
+        name: 'Natural Stone Bridge',
+        subtitle: 'Subterranean Arch Overlooking the Grotto Lake',
+      };
+    }
+    if (
+      Math.hypot(
+        x - GROTTO_SECONDARY_VIEWPOINT.x,
+        z - GROTTO_SECONDARY_VIEWPOINT.z,
+      ) <= 7.5
+    ) {
+      return {
+        id: 'grotto-secondary-viewpoint',
+        name: 'Grotto Overlook Ledge',
+        subtitle: 'Elevated Cavern Viewpoint Across the Waterfall & Island',
+      };
+    }
+    if (x < 2.0 && z < 136.5) {
+      return {
+        id: 'grotto-biolum-garden',
+        name: 'Bioluminescent Cavern Garden',
+        subtitle: 'Luminous Subterranean Flora & Mineral Terraces',
+      };
+    }
+    return {
+      id: 'hidden-grotto-cavern',
+      name: 'The Hidden Grotto',
+      subtitle: 'Vast Subterranean Cavern & Midnight-Sapphire Lake',
+    };
+  }
+
   let closest: PrivateWorldAnchor = PRIVATE_WORLD_ANCHORS.MEMORY_GARDEN;
   let minD = Infinity;
 

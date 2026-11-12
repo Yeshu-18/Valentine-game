@@ -612,6 +612,44 @@ export function createPrivatePathLightingSystem(): PrivatePathLightingBundle {
   let activeGlowingMushroomsCount = 0;
   let walkingActivity = 0; // 0..1 smooth walking factor (lights up while walking, fades when stopped)
 
+  // Junction Signpost Arc-S Coordinates on `primary-route` (routeIndex === 0):
+  // Approaching Signpost B (-31.4, -17.6), Signpost C (-26.6, 14.2), or Signpost D (21.2, 92.8)
+  // gently brightens the outgoing path branch toward the Hidden Cave.
+  const JUNCTION_SIGN_ARCS = [
+    { x: -31.4, z: -17.6, arcS: 132.5 },
+    { x: -26.6, z: 14.2, arcS: 165.0 },
+    { x: 21.2, z: 92.8, arcS: 263.5 },
+  ];
+
+  function evaluateCaveJunctionGuidance(
+    el: GroundedMushroomElement,
+    playerPos: THREE.Vector3,
+    elapsedTime: number,
+  ): number {
+    if (el.routeIndex !== 0) return 0.0;
+    let bestBoost = 0.0;
+    for (let j = 0; j < JUNCTION_SIGN_ARCS.length; j++) {
+      const junc = JUNCTION_SIGN_ARCS[j];
+      const dSign = Math.hypot(playerPos.x - junc.x, playerPos.z - junc.z);
+      if (dSign < 11.5) {
+        const signProx =
+          1.0 - THREE.MathUtils.smoothstep(dSign, 2.8, 11.5);
+        const forwardDelta = el.arcS - junc.arcS;
+        if (forwardDelta >= -1.5 && forwardDelta <= 24.5) {
+          const env = Math.sin(((forwardDelta + 1.5) / 26.0) * Math.PI);
+          const pulse =
+            0.84 +
+            0.16 *
+              Math.sin(
+                elapsedTime * 3.2 - forwardDelta * 0.45 + el.phaseOffset,
+              );
+          bestBoost = Math.max(bestBoost, signProx * env * pulse * 0.56);
+        }
+      }
+    }
+    return bestBoost;
+  }
+
   function evaluateMushroomExcitation(
     el: GroundedMushroomElement,
     playerPos: THREE.Vector3,
@@ -619,8 +657,14 @@ export function createPrivatePathLightingSystem(): PrivatePathLightingBundle {
     walkFactor: number,
     elapsedTime: number,
   ): number {
+    const junctionBoost = evaluateCaveJunctionGuidance(
+      el,
+      playerPos,
+      elapsedTime,
+    );
+
     if (walkFactor <= 0.004) {
-      return 0.0;
+      return junctionBoost;
     }
 
     // 1. Direct land proximity around Harsha as she walks across any part of the island
@@ -643,7 +687,7 @@ export function createPrivatePathLightingSystem(): PrivatePathLightingBundle {
     // 2. Path-side mushroom colonies: combine local halo + forward-sweeping sideways wave along the path
     const rState = routeStates[el.routeIndex];
     if (rState.proximityWeight <= 0.004) {
-      return localLandHalo * walkFactor;
+      return Math.max(junctionBoost, localLandHalo * walkFactor);
     }
 
     const deltaS = el.arcS - rState.smoothedArcS;
@@ -676,8 +720,12 @@ export function createPrivatePathLightingSystem(): PrivatePathLightingBundle {
 
     const pathExcitation =
       Math.max(forwardWave, sidewaysCorridor) * rState.proximityWeight;
-    return Math.max(localLandHalo, pathExcitation) * walkFactor;
+    return Math.max(
+      junctionBoost,
+      Math.max(localLandHalo, pathExcitation) * walkFactor,
+    );
   }
+
 
   return {
     group,
