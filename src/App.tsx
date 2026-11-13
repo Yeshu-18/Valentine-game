@@ -294,6 +294,7 @@ export default function App() {
       activeInteractionPrompt: null,
       interactionMode: 'NONE',
       telescopeView: null,
+      connectedSkyNodesCount: 1,
     }));
 
   const triggerDreamWorldReveal = (forceReplay = false) => {
@@ -631,8 +632,21 @@ export default function App() {
           privateWorldScene.triggerPondRipple(wx, wz, 1.15, true);
           privateInteractionAudio.playWaterTouchCue();
         },
-        onTelescopeStateChange: (active, highlightStrength, toggled) => {
-          privateWorldScene.setTelescopeSkyState(active, highlightStrength);
+        onTelescopeStateChange: (
+          active,
+          highlightStrength,
+          toggled,
+          connectedCount,
+          focusedIdx,
+          discoveredMask,
+        ) => {
+          privateWorldScene.setTelescopeSkyState(
+            active,
+            highlightStrength,
+            connectedCount,
+            focusedIdx,
+            discoveredMask,
+          );
           if (toggled) {
             privateInteractionAudio.playTelescopeToggleCue(active);
           }
@@ -801,7 +815,7 @@ export default function App() {
         privateWorldController.update(delta, elapsed);
         const privPos = privateWorldController.getPosition();
         const privVel = privateWorldController.getVelocity();
-        privateWorldScene.update(delta, elapsed, privPos, privVel);
+        privateWorldScene.update(delta, elapsed, privPos, privVel, camera);
         atmosphere.update(privPos, delta, elapsed);
         composer.render();
 

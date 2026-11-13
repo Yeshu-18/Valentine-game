@@ -1,14 +1,8 @@
 import * as THREE from 'three';
 import {
-  getPondSteppingStoneIndexAt,
-  getPrivateTerrainHeight,
-  getReflectivePondSignedDistance,
+  PRIVATE_ARRIVAL_GATE_POS,
   isNearPrivateReturnGate,
 } from './privateWorldMath';
-import {
-  GROTTO_ISLAND_BENCH_POS,
-  GROTTO_OVERLOOK_BENCH_POS,
-} from './PrivateHiddenGrotto';
 
 export type PrivateInteractionMode =
   | 'NONE'
@@ -36,12 +30,106 @@ export interface PrivateInteractionTarget {
   onInteract: (playerX: number, playerZ: number) => void;
 }
 
+export interface StargazingSkySequenceNode {
+  index: number; // 1..8
+  letter: string; // 'I' | 'L' | 'O' | 'V' | 'E' | 'Y' | 'O' | 'U'
+  wordGroup: 1 | 2 | 3; // 1 = "I", 2 = "LOVE", 3 = "YOU"
+  yaw: number;
+  pitch: number;
+  text: string;
+  subtitle: string;
+}
+
+/**
+ * 8 Scattered Star-Letter Constellations ("I", "L", "O", "V", "E", "Y", "O", "U")
+ * ordered Left-to-Right across the eastern sky dome (from yaw = 2.36 on the left
+ * to yaw = 0.76 on the right when facing East).
+ * Visible exclusively when looking through the brass telescope.
+ */
+export const STARGAZING_SKY_SEQUENCE: readonly StargazingSkySequenceNode[] = [
+  {
+    index: 1,
+    letter: 'I',
+    wordGroup: 1,
+    yaw: 2.36,
+    pitch: 0.42,
+    text: 'Constellation I — “I”',
+    subtitle: 'First Star Letter · Pan right through the telescope to connect I LOVE YOU',
+  },
+  {
+    index: 2,
+    letter: 'L',
+    wordGroup: 2,
+    yaw: 2.08,
+    pitch: 0.56,
+    text: 'Constellation II — “L”',
+    subtitle: 'High in the Sky · Keep panning right across the stars',
+  },
+  {
+    index: 3,
+    letter: 'O',
+    wordGroup: 2,
+    yaw: 1.88,
+    pitch: 0.36,
+    text: 'Constellation III — “O”',
+    subtitle: 'Lower Polygonal Star Ring · Follow the faint starlight thread',
+  },
+  {
+    index: 4,
+    letter: 'V',
+    wordGroup: 2,
+    yaw: 1.68,
+    pitch: 0.58,
+    text: 'Constellation IV — “V”',
+    subtitle: 'High Celestial Crest · Halfway through I LOVE YOU',
+  },
+  {
+    index: 5,
+    letter: 'E',
+    wordGroup: 2,
+    yaw: 1.48,
+    pitch: 0.43,
+    text: 'Constellation V — “E”',
+    subtitle: 'Completes “I LOVE” · Pan further right for “YOU”',
+  },
+  {
+    index: 6,
+    letter: 'Y',
+    wordGroup: 3,
+    yaw: 1.2,
+    pitch: 0.6,
+    text: 'Constellation VI — “Y”',
+    subtitle: 'Forked Star Branch High in the ENE Sky',
+  },
+  {
+    index: 7,
+    letter: 'O',
+    wordGroup: 3,
+    yaw: 0.98,
+    pitch: 0.37,
+    text: 'Constellation VII — “O”',
+    subtitle: 'Six-Star Diamond Loop Above the Horizon',
+  },
+  {
+    index: 8,
+    letter: 'U',
+    wordGroup: 3,
+    yaw: 0.76,
+    pitch: 0.51,
+    text: 'Constellation VIII — “U” (I LOVE YOU)',
+    subtitle: 'Final Star Constellation · Complete I LOVE YOU Canopy Illuminated',
+  },
+];
+
 export interface TelescopeViewState {
-  yaw: number; // Horizontal sky exploration yaw (centered on East +X = PI/2)
-  pitch: number; // Vertical sky elevation pitch (radians above horizon)
+  yaw: number;
+  pitch: number;
   constellationName: string;
   constellationSubtitle: string;
-  highlightStrength: number; // 0..1 based on how close the telescope reticle is to the constellation center
+  highlightStrength: number;
+  connectedNodesCount: number; // 1..8 letters connected
+  focusedNodeIndex: number; // 1..8 currently looked-at letter
+  discoveredMask: number; // 8-bit mask of discovered letters (bits 0..7)
 }
 
 export interface PrivateWorldInteractionSystemBundle {
@@ -54,6 +142,9 @@ export interface PrivateWorldInteractionSystemBundle {
   handleKeyEscape: () => boolean;
   cancelActiveMode: () => void;
   adjustTelescopeLook: (deltaYaw: number, deltaPitch: number) => void;
+  observeSkyDirection: (lookYaw: number, lookPitch: number) => number;
+  getConnectedSkyNodesCount: () => number;
+  getDiscoveredLettersMask: () => number;
   getTelescopeState: () => TelescopeViewState;
 }
 
@@ -66,25 +157,18 @@ export interface CreatePrivateInteractionSystemOptions {
   ) => void;
 }
 
-// Pond shoreline bench world coordinates (outside water & clear of Garden Loop path)
-export const POND_SHORE_BENCH_POS = {
-  x: -1.8,
-  z: -7.8,
-  rotY: -0.34, // Faces NNW across the Reflective Pond & Stepping Stones
-} as const;
-
-// Stargazing Deck interactive anchors in Private World local coordinates
+// Stargazing Sanctuary interactive anchors centered around (0, 0)
 export const STARGAZING_TELESCOPE_POS = {
-  x: 145.0 + 3.2, // 148.2
-  y: 18.28,
-  z: 35.0,
+  x: 3.2,
+  y: 3.48,
+  z: 0.0,
 } as const;
 
 export const STARGAZING_LOVESEAT_POS = {
-  x: 145.0 - 1.8, // 143.2
-  y: 18.28,
-  z: 35.0 - 3.1, // 31.9
-  seatFacingYaw: 1.38, // Facing directly toward the "I LOVE YOU" Star Constellation & Eastern Horizon
+  x: -1.8,
+  y: 3.48,
+  z: -3.1,
+  seatFacingYaw: Math.PI / 2, // Facing East toward the MANDU & I LOVE YOU sky arc
 } as const;
 
 function wrapAnglePi(a: number): number {
@@ -93,24 +177,12 @@ function wrapAnglePi(a: number): number {
   return r - Math.PI;
 }
 
-/**
- * Computes the closest water-surface touch coordinate along the Reflective Pond rim
- * when the player stands near the shoreline.
- */
-export function computePondWaterTouchPoint(
-  playerX: number,
-  playerZ: number,
-): { x: number; z: number } {
-  const pondCenterX = -5.2;
-  const pondCenterZ = -0.3;
-  const dx = pondCenterX - playerX;
-  const dz = pondCenterZ - playerZ;
-  const len = Math.hypot(dx, dz) || 1.0;
-  // Step 1.15m from the player's shoreline position toward the water surface
-  return {
-    x: playerX + (dx / len) * 1.15,
-    z: playerZ + (dz / len) * 1.15,
-  };
+function countBits8(mask: number): number {
+  let c = 0;
+  for (let i = 0; i < 8; i++) {
+    if ((mask & (1 << i)) !== 0) c++;
+  }
+  return c;
 }
 
 export function createPrivateWorldInteractionSystem(
@@ -119,17 +191,55 @@ export function createPrivateWorldInteractionSystem(
   const targets: PrivateInteractionTarget[] = [];
   let currentMode: PrivateInteractionMode = 'NONE';
   let nearestPrompt: PrivateInteractionPrompt | null = null;
-  let lastPlayerY = 12.0;
 
-  // Telescope sky exploration state:
-  // Centered directly on the "I LOVE YOU" Star Constellation at yaw = 1.38 rad, pitch = 0.46 rad
-  const DEFAULT_TELE_YAW = 1.38;
-  const DEFAULT_TELE_PITCH = 0.46;
-  const HIGHLIGHT_CONSTELLATION_YAW = 1.38;
-  const HIGHLIGHT_CONSTELLATION_PITCH = 0.46;
+  // Start telescope aimed at Letter 1 ("I") on the left side of the eastern sky (yaw = 2.34, pitch = 0.42)
+  const DEFAULT_TELE_YAW = 2.34;
+  const DEFAULT_TELE_PITCH = 0.42;
 
   let telescopeYaw = DEFAULT_TELE_YAW;
   let telescopePitch = DEFAULT_TELE_PITCH;
+
+  // Bit 0 ('I') starts illuminated when looking through the telescope; panning across the sky illuminates all 8
+  let discoveredMask = 0b00000001;
+  let connectedNodesCount = 1;
+  let focusedNodeIndex = 1;
+
+  function evaluateSkySequenceAt(lookYaw: number, lookPitch: number): {
+    bestNode: StargazingSkySequenceNode;
+    highlightStrength: number;
+    connectedCount: number;
+  } {
+    let bestIdx = 0;
+    let minAngDist = Infinity;
+
+    for (let i = 0; i < STARGAZING_SKY_SEQUENCE.length; i++) {
+      const node = STARGAZING_SKY_SEQUENCE[i];
+      const d = Math.hypot(
+        wrapAnglePi(lookYaw - node.yaw),
+        lookPitch - node.pitch,
+      );
+      if (d < minAngDist) {
+        minAngDist = d;
+        bestIdx = i;
+      }
+      if (d < 0.27) {
+        discoveredMask |= 1 << i;
+      }
+    }
+
+    const bestNode = STARGAZING_SKY_SEQUENCE[bestIdx];
+    focusedNodeIndex = bestNode.index;
+    connectedNodesCount = Math.max(1, countBits8(discoveredMask));
+
+    const highlightStrength =
+      1.0 - THREE.MathUtils.smoothstep(minAngDist, 0.05, 0.34);
+
+    return {
+      bestNode,
+      highlightStrength,
+      connectedCount: connectedNodesCount,
+    };
+  }
 
   function setMode(nextMode: PrivateInteractionMode) {
     if (nextMode === currentMode) return;
@@ -138,6 +248,7 @@ export function createPrivateWorldInteractionSystem(
     if (nextMode === 'TELESCOPE') {
       telescopeYaw = DEFAULT_TELE_YAW;
       telescopePitch = DEFAULT_TELE_PITCH;
+      evaluateSkySequenceAt(telescopeYaw, telescopePitch);
     }
     options.onModeChanged?.(nextMode, prev);
   }
@@ -151,12 +262,12 @@ export function createPrivateWorldInteractionSystem(
     }
   }
 
-  // 1. Stargazing Deck: Telescope Interaction ("E  Look through telescope")
+  // 1. Stargazing Sanctuary: Brass Telescope ("E  Look through telescope")
   registerInteraction({
     id: 'stargazing-telescope',
     keyLabel: 'E',
     actionLabel: 'Look through telescope',
-    radius: 2.85,
+    radius: 2.95,
     getPosition: () => ({
       x: STARGAZING_TELESCOPE_POS.x - 0.55,
       z: STARGAZING_TELESCOPE_POS.z,
@@ -166,12 +277,12 @@ export function createPrivateWorldInteractionSystem(
     },
   });
 
-  // 2. Stargazing Deck: Curved Loveseat Interaction ("E  Sit and watch the stars")
+  // 2. Stargazing Sanctuary: Curved Loveseat ("E  Sit and watch the stars")
   registerInteraction({
     id: 'stargazing-loveseat',
     keyLabel: 'E',
     actionLabel: 'Sit and watch the stars',
-    radius: 2.75,
+    radius: 2.85,
     getPosition: () => ({
       x: STARGAZING_LOVESEAT_POS.x,
       z: STARGAZING_LOVESEAT_POS.z,
@@ -181,83 +292,16 @@ export function createPrivateWorldInteractionSystem(
     },
   });
 
-  // 3. Reflective Pond: Natural Wooden Bench ("E  Sit beside the pond")
-  registerInteraction({
-    id: 'pond-shore-bench',
-    keyLabel: 'E',
-    actionLabel: 'Sit beside the pond',
-    radius: 2.45,
-    getPosition: () => ({
-      x: POND_SHORE_BENCH_POS.x,
-      z: POND_SHORE_BENCH_POS.z,
-    }),
-    onInteract: () => {
-      setMode('SEATED_POND_BENCH');
-    },
-  });
-
-  // 4. Reflective Pond: Accessible Shoreline Water Touch ("E  Touch the water")
-  registerInteraction({
-    id: 'pond-touch-water',
-    keyLabel: 'E',
-    actionLabel: 'Touch the water',
-    radius: 2.15,
-    getPosition: (px, pz) => ({ x: px, z: pz }),
-    isAvailable: (px, pz) => {
-      if (getPondSteppingStoneIndexAt(px, pz) >= 0) return false;
-      const distBench = Math.hypot(
-        px - POND_SHORE_BENCH_POS.x,
-        pz - POND_SHORE_BENCH_POS.z,
-      );
-      if (distBench < 2.2) return false;
-      const signedDist = getReflectivePondSignedDistance(px, pz);
-      return signedDist >= -0.45 && signedDist <= 1.75;
-    },
-    onInteract: (px, pz) => {
-      const touchPt = computePondWaterTouchPoint(px, pz);
-      options.onTouchPondWater?.(touchPt.x, touchPt.z);
-    },
-  });
-
-  // 5. Underground Hidden Grotto: Central Discovery Island Bench ("E  Sit at the island sanctuary")
-  registerInteraction({
-    id: 'grotto-island-bench',
-    keyLabel: 'E',
-    actionLabel: 'Sit at the island sanctuary',
-    radius: 2.35,
-    getPosition: () => ({
-      x: GROTTO_ISLAND_BENCH_POS.x,
-      z: GROTTO_ISLAND_BENCH_POS.z,
-    }),
-    isAvailable: () => lastPlayerY < 9.5,
-    onInteract: () => {
-      setMode('SEATED_GROTTO_ISLAND_BENCH');
-    },
-  });
-
-  // 6. Underground Hidden Grotto: Secondary Rock Viewpoint Bench ("E  Sit at the grotto overlook")
-  registerInteraction({
-    id: 'grotto-overlook-bench',
-    keyLabel: 'E',
-    actionLabel: 'Sit at the grotto overlook',
-    radius: 2.45,
-    getPosition: () => ({
-      x: GROTTO_OVERLOOK_BENCH_POS.x,
-      z: GROTTO_OVERLOOK_BENCH_POS.z,
-    }),
-    isAvailable: () => lastPlayerY < 9.5,
-    onInteract: () => {
-      setMode('SEATED_GROTTO_OVERLOOK_BENCH');
-    },
-  });
-
-  // 7. Arrival Shore: Special Gate Return Interaction
+  // 3. Stargazing Sanctuary: Return Portal Gate ("E  Return to Heart Island")
   registerInteraction({
     id: 'arrival-return-gate',
     keyLabel: 'E',
     actionLabel: 'Return to Heart Island',
-    radius: 4.5,
-    getPosition: () => ({ x: 0.0, z: -146.2 }),
+    radius: 3.4,
+    getPosition: () => ({
+      x: PRIVATE_ARRIVAL_GATE_POS.x,
+      z: PRIVATE_ARRIVAL_GATE_POS.z,
+    }),
     isAvailable: (px, pz) => isNearPrivateReturnGate(px, pz),
     onInteract: () => {
       options.onReturnGateInteract?.();
@@ -267,9 +311,7 @@ export function createPrivateWorldInteractionSystem(
   return {
     registerInteraction,
 
-    updateProximity(playerX: number, playerZ: number, playerY = 12.0) {
-      lastPlayerY = playerY;
-      // While in a dedicated camera mode (telescope or seated), hide normal proximity prompts
+    updateProximity(playerX: number, playerZ: number) {
       if (currentMode !== 'NONE') {
         nearestPrompt = null;
         return;
@@ -317,15 +359,13 @@ export function createPrivateWorldInteractionSystem(
       return currentMode !== 'NONE';
     },
 
-    handleKeyE(playerX: number, playerZ: number, playerY = lastPlayerY): boolean {
-      // If currently seated or in telescope mode, pressing E cleanly exits back to third-person
+    handleKeyE(playerX: number, playerZ: number): boolean {
       if (currentMode !== 'NONE') {
         setMode('NONE');
         return true;
       }
 
-      // Re-evaluate proximity at exact key-press coordinate
-      this.updateProximity(playerX, playerZ, playerY);
+      this.updateProximity(playerX, playerZ);
       if (!nearestPrompt) return false;
 
       const chosen = targets.find((t) => t.id === nearestPrompt?.id);
@@ -351,41 +391,50 @@ export function createPrivateWorldInteractionSystem(
 
     adjustTelescopeLook(deltaYaw: number, deltaPitch: number) {
       if (currentMode !== 'TELESCOPE') return;
-      // Allow smooth exploration across the eastern & northern night sky
       telescopeYaw = THREE.MathUtils.clamp(
         wrapAnglePi(telescopeYaw + deltaYaw),
-        0.42,
-        2.45,
+        0.4,
+        2.75,
       );
       telescopePitch = THREE.MathUtils.clamp(
         telescopePitch + deltaPitch,
-        0.14,
-        1.08,
+        0.12,
+        1.05,
       );
+      evaluateSkySequenceAt(telescopeYaw, telescopePitch);
+    },
+
+    observeSkyDirection(lookYaw: number, lookPitch: number): number {
+      const res = evaluateSkySequenceAt(lookYaw, lookPitch);
+      return res.connectedCount;
+    },
+
+    getConnectedSkyNodesCount(): number {
+      return connectedNodesCount;
+    },
+
+    getDiscoveredLettersMask(): number {
+      return discoveredMask;
     },
 
     getTelescopeState(): TelescopeViewState {
-      const angDist = Math.hypot(
-        wrapAnglePi(telescopeYaw - HIGHLIGHT_CONSTELLATION_YAW),
-        telescopePitch - HIGHLIGHT_CONSTELLATION_PITCH,
-      );
-      const highlightStrength =
-        1.0 - THREE.MathUtils.smoothstep(angDist, 0.08, 0.48);
+      const evalRes = evaluateSkySequenceAt(telescopeYaw, telescopePitch);
       return {
         yaw: telescopeYaw,
         pitch: telescopePitch,
-        constellationName: '“I LOVE YOU” — Joined in the Stars',
-        constellationSubtitle:
-          'Highlighted Star Constellation · Eastern Sky Above the Sea',
-        highlightStrength,
+        constellationName: evalRes.bestNode.text,
+        constellationSubtitle: evalRes.bestNode.subtitle,
+        highlightStrength: evalRes.highlightStrength,
+        connectedNodesCount: evalRes.connectedCount,
+        focusedNodeIndex,
+        discoveredMask,
       };
     },
   };
 }
 
 /**
- * Helper returning the exact seated camera pose for the Stargazing Loveseat, Pond Shoreline Bench,
- * or Underground Hidden Grotto benches.
+ * Helper returning the seated camera pose for the Stargazing Loveseat at (-1.8, 3.48, -3.1).
  */
 export function getSeatedCameraPose(mode: PrivateInteractionMode): {
   camPos: THREE.Vector3;
@@ -394,65 +443,13 @@ export function getSeatedCameraPose(mode: PrivateInteractionMode): {
   avatarYaw: number;
 } | null {
   if (mode === 'SEATED_LOVESEAT') {
-    const deckY = 18.28;
+    const deckY = 3.48;
     return {
-      camPos: new THREE.Vector3(143.45, deckY + 1.18, 32.05),
-      // Aim directly toward the "I LOVE YOU" star constellation at yaw = 1.38, pitch = 0.42
-      lookAt: new THREE.Vector3(169.5, deckY + 13.0, 37.2),
-      avatarPos: new THREE.Vector3(143.25, deckY + 0.04, 31.95),
+      camPos: new THREE.Vector3(-1.55, deckY + 1.18, -2.95),
+      // Aim due East toward the MANDU star constellation canopy
+      lookAt: new THREE.Vector3(26.0, deckY + 11.5, -2.95),
+      avatarPos: new THREE.Vector3(-1.75, deckY + 0.04, -3.05),
       avatarYaw: STARGAZING_LOVESEAT_POS.seatFacingYaw,
-    };
-  }
-  if (mode === 'SEATED_POND_BENCH') {
-    const benchGroundY = getPrivateTerrainHeight(
-      POND_SHORE_BENCH_POS.x,
-      POND_SHORE_BENCH_POS.z,
-    );
-    return {
-      camPos: new THREE.Vector3(
-        POND_SHORE_BENCH_POS.x - 0.12,
-        benchGroundY + 1.14,
-        POND_SHORE_BENCH_POS.z + 0.18,
-      ),
-      lookAt: new THREE.Vector3(-5.6, benchGroundY + 1.05, 1.4),
-      avatarPos: new THREE.Vector3(
-        POND_SHORE_BENCH_POS.x,
-        benchGroundY + 0.02,
-        POND_SHORE_BENCH_POS.z,
-      ),
-      avatarYaw: Math.PI + POND_SHORE_BENCH_POS.rotY,
-    };
-  }
-  if (mode === 'SEATED_GROTTO_ISLAND_BENCH') {
-    return {
-      camPos: new THREE.Vector3(
-        GROTTO_ISLAND_BENCH_POS.x + 0.35,
-        GROTTO_ISLAND_BENCH_POS.y + 1.15,
-        GROTTO_ISLAND_BENCH_POS.z - 0.25,
-      ),
-      lookAt: new THREE.Vector3(-12.5, 6.2, 148.5),
-      avatarPos: new THREE.Vector3(
-        GROTTO_ISLAND_BENCH_POS.x,
-        GROTTO_ISLAND_BENCH_POS.y + 0.02,
-        GROTTO_ISLAND_BENCH_POS.z,
-      ),
-      avatarYaw: -0.92,
-    };
-  }
-  if (mode === 'SEATED_GROTTO_OVERLOOK_BENCH') {
-    return {
-      camPos: new THREE.Vector3(
-        GROTTO_OVERLOOK_BENCH_POS.x + 0.35,
-        GROTTO_OVERLOOK_BENCH_POS.y + 1.18,
-        GROTTO_OVERLOOK_BENCH_POS.z + 0.35,
-      ),
-      lookAt: new THREE.Vector3(2.0, 4.2, 138.0),
-      avatarPos: new THREE.Vector3(
-        GROTTO_OVERLOOK_BENCH_POS.x,
-        GROTTO_OVERLOOK_BENCH_POS.y + 0.02,
-        GROTTO_OVERLOOK_BENCH_POS.z,
-      ),
-      avatarYaw: -2.25,
     };
   }
   return null;

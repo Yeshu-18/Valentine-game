@@ -301,7 +301,7 @@ export class StoryAudioSynthesizer {
     playerZ: number,
     isMuted: boolean,
   ): void {
-    const isUnderground = playerY < 13.6 && playerZ > 109.8;
+    const isUnderground = playerY < 11.8 && playerZ > 55.2;
     if (!isUnderground && !this.grottoStarted) return;
 
     const ctx = this.ensureContext();
@@ -316,25 +316,25 @@ export class StoryAudioSynthesizer {
       return;
     }
 
-    // Depth factor from tunnel threshold (Z = 110) into the main cavern (Z >= 125)
+    // Depth factor from tunnel threshold (Z = 55.5) into the main cavern (Z >= 66)
     const tunnelDepthFactor = Math.min(
       1.0,
-      Math.max(0.0, (playerZ - 110.0) / 15.0),
+      Math.max(0.0, (playerZ - 55.5) / 10.5),
     );
 
     // 1. Subterranean cavern resonance
     const targetDroneGain = 0.004 + tunnelDepthFactor * 0.014;
     this.cavernDroneGain?.gain.setTargetAtTime(targetDroneGain, now, 0.35);
 
-    // 2. Proximity to Waterfall Chamber at (-16.5, 3.15, 150.5)
+    // 2. Proximity to Waterfall Chamber at (-11.5, 3.15, 82.5)
     const distWaterfall = Math.hypot(
-      playerX - -16.5,
+      playerX - -11.5,
       playerY - 4.0,
-      playerZ - 150.5,
+      playerZ - 82.5,
     );
     const waterfallProx = Math.max(
       0.0,
-      1.0 - Math.min(1.0, (distWaterfall - 5.0) / 48.0),
+      1.0 - Math.min(1.0, (distWaterfall - 4.0) / 32.0),
     );
     const targetWaterfallGain =
       (0.004 + waterfallProx * waterfallProx * 0.068) * tunnelDepthFactor;

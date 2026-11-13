@@ -245,9 +245,9 @@ export function createPrivatePathLightingSystem(): PrivatePathLightingBundle {
   ) {
     // Exclude Stargazing Deck timber platform, Hidden Cave interior tunnel floor, and Northern Ridge summit rock slab
     if (
-      Math.hypot(centerX - 145.0, centerZ - 35.0) < 10.2 ||
-      (centerZ > 109.8 && centerZ < 123.5 && Math.abs(centerX - 34.0) < 4.2) ||
-      Math.hypot(centerX, centerZ - 144.5) < 4.8
+      Math.hypot(centerX - 72.0, centerZ - 18.0) < 10.2 ||
+      (centerZ > 55.4 && centerZ < 65.5 && Math.abs(centerX - 16.5) < 4.2) ||
+      Math.hypot(centerX, centerZ - 73.5) < 4.8
     ) {
       return;
     }
@@ -343,18 +343,18 @@ export function createPrivatePathLightingSystem(): PrivatePathLightingBundle {
   // 2A. Plant Paired Left & Right Mushroom Colonies Along All 3 Pathways
   routeStates.forEach((rState, routeIdx) => {
     const halfW = rState.route.halfWidth;
-    const stepMeters = 2.1;
+    const stepMeters = 2.0;
     let stepIdx = 0;
 
-    for (let s = 1.5; s < rState.totalLength - 1.2; s += stepMeters) {
+    for (let s = 1.4; s < rState.totalLength - 1.1; s += stepMeters) {
       stepIdx++;
       const sample = sampleRouteAtArcLength(rState, s);
       const normalX = -sample.tangentZ;
       const normalZ = sample.tangentX;
 
       for (const side of [-1, 1] as const) {
-        const lat = side * (halfW + 0.38 + rng() * 1.35);
-        const along = (rng() - 0.5) * 0.65;
+        const lat = side * (halfW + 0.36 + rng() * 1.25);
+        const along = (rng() - 0.5) * 0.55;
         const cx = sample.x + normalX * lat + sample.tangentX * along;
         const cz = sample.z + normalZ * lat + sample.tangentZ * along;
 
@@ -365,18 +365,18 @@ export function createPrivatePathLightingSystem(): PrivatePathLightingBundle {
     }
   });
 
-  // 2A-bis. Plant Paired Mushroom Colonies Along the Highland Ridge Saddle Trail ((26, 98) -> (0, 141))
-  // and Flanking the Hidden Cave Entrance Threshold (+35, +106..+112)
-  const ridgeDirX = -26.0 / Math.hypot(-26.0, 43.0);
-  const ridgeDirZ = 43.0 / Math.hypot(-26.0, 43.0);
+  // 2A-bis. Plant Paired Mushroom Colonies Along the Highland Ridge Saddle Trail ((13, 49) -> (0, 72))
+  // and Flanking the Hidden Cave Entrance Threshold (+18, +53.5..+57)
+  const ridgeDirX = -13.0 / Math.hypot(-13.0, 23.0);
+  const ridgeDirZ = 23.0 / Math.hypot(-13.0, 23.0);
   const ridgeNormalX = -ridgeDirZ;
   const ridgeNormalZ = ridgeDirX;
-  for (let step = 0; step < 18; step++) {
-    const t = (step + 0.5) / 18;
-    const baseX = 26.0 - 26.0 * t + Math.sin(t * Math.PI * 2.0) * 2.2;
-    const baseZ = 98.0 + 43.0 * t;
+  for (let step = 0; step < 12; step++) {
+    const t = (step + 0.5) / 12;
+    const baseX = 13.0 - 13.0 * t + Math.sin(t * Math.PI * 2.0) * 1.3;
+    const baseZ = 49.0 + 23.0 * t;
     for (const side of [-1, 1] as const) {
-      const lat = side * (2.6 + rng() * 1.4);
+      const lat = side * (2.3 + rng() * 1.2);
       const cx = baseX + ridgeNormalX * lat;
       const cz = baseZ + ridgeNormalZ * lat;
       const colorFam = ((step + (side === 1 ? 1 : 0)) % 3) as 0 | 1 | 2;
@@ -386,12 +386,12 @@ export function createPrivatePathLightingSystem(): PrivatePathLightingBundle {
 
   // Subtle Bioluminescent Mushroom Clusters Flanking the Hidden Cave Entrance Arch & Outer Threshold
   const caveEntranceColonies: Array<{ x: number; z: number; color: 0 | 1 | 2 }> = [
-    { x: 30.8, z: 106.8, color: 0 },
-    { x: 39.2, z: 106.6, color: 2 },
-    { x: 31.2, z: 109.2, color: 2 },
-    { x: 38.8, z: 109.0, color: 0 },
-    { x: 31.9, z: 111.4, color: 1 },
-    { x: 37.9, z: 111.2, color: 0 },
+    { x: 14.5, z: 53.5, color: 0 },
+    { x: 21.5, z: 53.4, color: 2 },
+    { x: 14.9, z: 55.1, color: 2 },
+    { x: 21.1, z: 55.0, color: 0 },
+    { x: 15.4, z: 56.6, color: 1 },
+    { x: 20.6, z: 56.5, color: 0 },
   ];
   caveEntranceColonies.forEach((col, idx) => {
     addMushroomColony(
@@ -406,20 +406,20 @@ export function createPrivatePathLightingSystem(): PrivatePathLightingBundle {
   });
 
   // 2B. Plant Fixed Land Mushroom Colonies Across the Memory Garden, Pond Banks & Surrounding Meadow
-  const LAND_COLONY_CANDIDATES = 220;
+  const LAND_COLONY_CANDIDATES = 180;
   for (let i = 0; i < LAND_COLONY_CANDIDATES; i++) {
     let lx = 0;
     let lz = 0;
-    if (i < 135) {
+    if (i < 110) {
       // Concentrated in the Memory Garden, Reflective Pond glade, and central basin
       const ang = rng() * Math.PI * 2;
-      const rad = 4.0 + Math.pow(rng(), 0.75) * 72.0;
-      lx = -22.0 + Math.cos(ang) * rad;
-      lz = -8.0 + Math.sin(ang) * rad;
+      const rad = 3.5 + Math.pow(rng(), 0.75) * 42.0;
+      lx = -12.0 + Math.cos(ang) * rad;
+      lz = -4.0 + Math.sin(ang) * rad;
     } else {
       // Scattered across the broader walkable island land
-      lx = (rng() - 0.5) * 280.0;
-      lz = (rng() - 0.5) * 240.0;
+      lx = (rng() - 0.5) * 160.0;
+      lz = (rng() - 0.5) * 135.0;
     }
 
     // Skip reserved grotto volume, pier, deck, cave forecourt, or middle of paths
@@ -432,15 +432,15 @@ export function createPrivatePathLightingSystem(): PrivatePathLightingBundle {
       continue;
     }
     if (
-      (Math.abs(lx) < 6.0 && lz < -138.0) ||
-      Math.hypot(lx - 145, lz - 35) < 11.5 ||
-      Math.hypot(lx - 35, lz - 112) < 9.5
+      (Math.abs(lx) < 5.0 && lz < -71.0) ||
+      Math.hypot(lx - 72, lz - 18) < 11.0 ||
+      Math.hypot(lx - 18, lz - 56) < 8.5
     ) {
       continue;
     }
 
     const pathEval = evaluatePrivatePathNetwork(lx, lz);
-    if (pathEval.minDist < 2.6) continue; // Keep path centers clean
+    if (pathEval.minDist < 2.4) continue; // Keep path centers clean
 
     const ly = getPrivateTerrainHeight(lx, lz);
     if (ly < 1.1 || ly > 20.5) continue;
@@ -613,12 +613,12 @@ export function createPrivatePathLightingSystem(): PrivatePathLightingBundle {
   let walkingActivity = 0; // 0..1 smooth walking factor (lights up while walking, fades when stopped)
 
   // Junction Signpost Arc-S Coordinates on `primary-route` (routeIndex === 0):
-  // Approaching Signpost B (-31.4, -17.6), Signpost C (-26.6, 14.2), or Signpost D (21.2, 92.8)
+  // Approaching Signpost B (-15.8, -8.8), Signpost C (-13.2, 7.2), or Signpost D (10.5, 47.2)
   // gently brightens the outgoing path branch toward the Hidden Cave.
   const JUNCTION_SIGN_ARCS = [
-    { x: -31.4, z: -17.6, arcS: 132.5 },
-    { x: -26.6, z: 14.2, arcS: 165.0 },
-    { x: 21.2, z: 92.8, arcS: 263.5 },
+    { x: -15.8, z: -8.8, arcS: 68.5 },
+    { x: -13.2, z: 7.2, arcS: 85.0 },
+    { x: 10.5, z: 47.2, arcS: 134.0 },
   ];
 
   function evaluateCaveJunctionGuidance(

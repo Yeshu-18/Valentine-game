@@ -3,14 +3,11 @@ import { PlayerAvatarBundle } from '../PlayerCharacter';
 import { CircleCollider } from '../VegetationSystem';
 import { dampAlpha, dampValue } from '../terrainMath';
 import {
-  GROTTO_LAKE_WATER_LEVEL,
   PRIVATE_WORLD_ANCHORS,
-  getGrottoCeilingHeightAt,
   getPrivatePlayerGroundHeight,
   getPrivateRegionAtPosition,
   getPrivateTerrainHeight,
   isNearPrivateReturnGate,
-  isPositionInUndergroundGrotto,
   isPrivateWalkablePosition,
 } from './privateWorldMath';
 import {
@@ -38,6 +35,8 @@ export interface PrivateWorldTelemetry {
   activeInteractionPrompt: PrivateInteractionPrompt | null;
   interactionMode: PrivateInteractionMode;
   telescopeView: TelescopeViewState | null;
+  connectedSkyNodesCount: number;
+  discoveredLettersMask?: number;
   routeDistances?: Record<TrailDestinationId, number>;
 }
 
@@ -48,6 +47,9 @@ export interface PrivateWorldControllerCallbacks {
     active: boolean,
     highlightStrength: number,
     enteringOrExiting?: boolean,
+    connectedSkyNodesCount?: number,
+    focusedNodeIndex?: number,
+    discoveredLettersMask?: number,
   ) => void;
   onSeatedStateChange?: (sitting: boolean) => void;
   getRouteDistanceTo?: (
@@ -118,10 +120,10 @@ export function createPrivateWorldController(
   const savedBeforeSeatPos = new THREE.Vector3().copy(playerPos);
   let savedBeforeSeatYaw = arrivalAnchor.defaultFacingYaw;
 
-  let cameraYaw = arrivalAnchor.defaultFacingYaw; // 0 = facing North (+Z) inland
-  let cameraPitch = 0.16;
+  let cameraYaw = arrivalAnchor.defaultFacingYaw; // Facing East (+X) toward the Stargazing Sanctuary & sky
+  let cameraPitch = -0.14; // Tilted slightly upward so the starry sky & constellations are immediately visible!
   let facingYaw = arrivalAnchor.defaultFacingYaw;
-  let cameraDistance = 6.2;
+  let cameraDistance = 5.6;
 
   // Seated camera gentle look-around offsets
   let seatedLookYawOffset = 0;
@@ -132,30 +134,17 @@ export function createPrivateWorldController(
   let prevMouseX = 0;
   let prevMouseY = 0;
 
-  // Reusable Proximity-Based Interaction System
   const interactionSystem = createPrivateWorldInteractionSystem({
     onReturnGateInteract: () => {
       callbacks.onReturnGateInteract?.();
     },
-    onTouchPondWater: (wx, wz) => {
-      // Turn Harsha toward the pond water she is touching
-      facingYaw = Math.atan2(wx - playerPos.x, wz - playerPos.z);
-      callbacks.onTouchPondWater?.(wx, wz);
-    },
     onModeChanged: (nextMode, prevMode) => {
-      // Clear movement keys whenever mode changes
       Object.keys(keys).forEach((k) => {
         keys[k] = false;
       });
       playerVel.set(0, 0, 0);
       seatedLookYawOffset = 0;
       seatedLookPitchOffset = 0;
-
-      const isSeatedMode = (m: PrivateInteractionMode) =>
-        m === 'SEATED_LOVESEAT' ||
-        m === 'SEATED_POND_BENCH' ||
-        m === 'SEATED_GROTTO_ISLAND_BENCH' ||
-        m === 'SEATED_GROTTO_OVERLOOK_BENCH';
 
       if (nextMode === 'TELESCOPE') {
         avatar.group.visible = false;
@@ -164,9 +153,12 @@ export function createPrivateWorldController(
           true,
           tState.highlightStrength,
           true,
+          tState.connectedNodesCount,
+          tState.focusedNodeIndex,
+          tState.discoveredMask,
         );
-      } else if (isSeatedMode(nextMode)) {
-        if (!isSeatedMode(prevMode)) {
+      } else if (nextMode === 'SEATED_LOVESEAT') {
+        if (prevMode !== 'SEATED_LOVESEAT') {
           savedBeforeSeatPos.copy(playerPos);
           savedBeforeSeatYaw = facingYaw;
         }
@@ -176,18 +168,37 @@ export function createPrivateWorldController(
           avatar.group.position.copy(seatPose.avatarPos);
           avatar.group.rotation.set(0, seatPose.avatarYaw, 0);
         }
-        if (nextMode === 'SEATED_LOVESEAT') {
-          callbacks.onTelescopeStateChange?.(true, 1.0, false);
-        }
+        const tState = interactionSystem.getTelescopeState();
+        callbacks.onTelescopeStateChange?.(
+          false,
+          0,
+          false,
+          tState.connectedNodesCount,
+          tState.focusedNodeIndex,
+          tState.discoveredMask,
+        );
         callbacks.onSeatedStateChange?.(true);
       } else if (nextMode === 'NONE') {
         avatar.group.visible = true;
+        const tState = interactionSystem.getTelescopeState();
         if (prevMode === 'TELESCOPE') {
-          callbacks.onTelescopeStateChange?.(false, 0, true);
-        } else if (isSeatedMode(prevMode)) {
-          if (prevMode === 'SEATED_LOVESEAT') {
-            callbacks.onTelescopeStateChange?.(false, 0, false);
-          }
+          callbacks.onTelescopeStateChange?.(
+            false,
+            0,
+            true,
+            tState.connectedNodesCount,
+            tState.focusedNodeIndex,
+            tState.discoveredMask,
+          );
+        } else if (prevMode === 'SEATED_LOVESEAT') {
+          callbacks.onTelescopeStateChange?.(
+            false,
+            0,
+            false,
+            tState.connectedNodesCount,
+            tState.focusedNodeIndex,
+            tState.discoveredMask,
+          );
           playerPos.copy(savedBeforeSeatPos);
           facingYaw = savedBeforeSeatYaw;
           avatar.group.position.copy(playerPos);
@@ -215,7 +226,7 @@ export function createPrivateWorldController(
     }
 
     if (e.code === 'KeyE') {
-      if (interactionSystem.handleKeyE(playerPos.x, playerPos.z)) {
+      if (interactionSystem.handleKeyE(playerPos.x, playerPos.z, playerPos.y)) {
         e.preventDefault();
         return;
       }
@@ -246,14 +257,13 @@ export function createPrivateWorldController(
     const isLocked = document.pointerLockElement === domElement;
     const mode = interactionSystem.getMode();
 
-    // In Telescope Mode, allow effortless sky exploration by moving the mouse (even without holding click)
     if (mode === 'TELESCOPE') {
       const dx = isLocked ? e.movementX : e.clientX - prevMouseX;
       const dy = isLocked ? e.movementY : e.clientY - prevMouseY;
       prevMouseX = e.clientX;
       prevMouseY = e.clientY;
       if (Math.abs(dx) < 120 && Math.abs(dy) < 120) {
-        const teleSens = isLocked || isDragging ? 0.0018 : 0.0011;
+        const teleSens = isLocked || isDragging ? 0.0018 : 0.0012;
         interactionSystem.adjustTelescopeLook(-dx * teleSens, -dy * teleSens);
       }
       return;
@@ -266,22 +276,17 @@ export function createPrivateWorldController(
     prevMouseX = e.clientX;
     prevMouseY = e.clientY;
 
-    if (
-      mode === 'SEATED_LOVESEAT' ||
-      mode === 'SEATED_POND_BENCH' ||
-      mode === 'SEATED_GROTTO_ISLAND_BENCH' ||
-      mode === 'SEATED_GROTTO_OVERLOOK_BENCH'
-    ) {
-      const seatSens = 0.002;
+    if (mode === 'SEATED_LOVESEAT') {
+      const seatSens = 0.0022;
       seatedLookYawOffset = THREE.MathUtils.clamp(
         seatedLookYawOffset - dx * seatSens,
-        -0.75,
-        0.75,
+        -1.15,
+        1.15,
       );
       seatedLookPitchOffset = THREE.MathUtils.clamp(
         seatedLookPitchOffset - dy * seatSens,
-        -0.32,
-        0.52,
+        -0.35,
+        0.65,
       );
       return;
     }
@@ -290,8 +295,8 @@ export function createPrivateWorldController(
     cameraYaw = wrapAnglePi(cameraYaw - dx * sens);
     cameraPitch = THREE.MathUtils.clamp(
       cameraPitch + dy * sens,
-      -0.38,
-      1.15,
+      -0.68,
+      1.05,
     );
   };
 
@@ -315,7 +320,7 @@ export function createPrivateWorldController(
     cameraDistance = THREE.MathUtils.clamp(
       cameraDistance + e.deltaY * 0.004,
       2.4,
-      12.5,
+      11.5,
     );
   };
 
@@ -334,23 +339,10 @@ export function createPrivateWorldController(
   ): { x: number; z: number } {
     let nx = targetX;
     let nz = targetZ;
-    const playerRadius = 0.45;
-    const inUnderground = isPositionInUndergroundGrotto(
-      nx,
-      nz,
-      playerPos.y,
-    );
+    const playerRadius = 0.44;
 
-    // 1. Layer-Aware Circle Collider Push-Out
     for (let i = 0; i < colliders.length; i++) {
       const c = colliders[i];
-      if (inUnderground) {
-        if (c.y === undefined && c.z > 118.0) continue;
-        if (c.y !== undefined && c.y >= 13.6) continue;
-      } else {
-        if (c.y !== undefined && c.y < 11.0) continue;
-      }
-
       const dx = nx - c.x;
       const dz = nz - c.z;
       const minDist = c.radius + playerRadius;
@@ -363,11 +355,10 @@ export function createPrivateWorldController(
       }
     }
 
-    // 2. Terrain / Underground Grotto Walkability & Water Boundary Check
-    if (!isPrivateWalkablePosition(nx, nz, playerPos.y)) {
-      if (isPrivateWalkablePosition(nx, startZ, playerPos.y)) {
+    if (!isPrivateWalkablePosition(nx, nz)) {
+      if (isPrivateWalkablePosition(nx, startZ)) {
         nz = startZ;
-      } else if (isPrivateWalkablePosition(startX, nz, playerPos.y)) {
+      } else if (isPrivateWalkablePosition(startX, nz)) {
         nx = startX;
       } else {
         nx = startX;
@@ -383,19 +374,7 @@ export function createPrivateWorldController(
     camZ: number,
     vertOffset: number,
   ): number {
-    if (isPositionInUndergroundGrotto(playerPos.x, playerPos.z, playerPos.y)) {
-      const minCamY = Math.max(
-        playerPos.y + 0.65,
-        GROTTO_LAKE_WATER_LEVEL + 0.45,
-      );
-      const maxCamY = getGrottoCeilingHeightAt(camX, camZ) - 0.65;
-      return THREE.MathUtils.clamp(
-        playerPos.y + vertOffset,
-        minCamY,
-        Math.max(minCamY + 0.3, maxCamY),
-      );
-    }
-    const camTerrainFloor = getPrivateTerrainHeight(camX, camZ) + 0.65;
+    const camTerrainFloor = Math.max(0.85, getPrivateTerrainHeight(camX, camZ) + 0.65);
     return Math.max(playerPos.y + vertOffset, camTerrainFloor);
   }
 
@@ -405,9 +384,9 @@ export function createPrivateWorldController(
       camera.updateProjectionMatrix();
     }
     if (topDownView) {
-      camera.position.set(0, 395, -24);
-      camera.lookAt(0, 0, 0);
-      _currentLookAt.set(0, 0, 0);
+      camera.position.set(0, 48, -6);
+      camera.lookAt(0, 3.48, 0);
+      _currentLookAt.set(0, 3.48, 0);
       return;
     }
     const horizDist = Math.cos(cameraPitch) * cameraDistance;
@@ -423,16 +402,15 @@ export function createPrivateWorldController(
   function teleportTo(
     x: number,
     z: number,
-    facingYawRadians = 0,
-    forcedElevationY?: number,
+    facingYawRadians = Math.PI / 2,
   ) {
     interactionSystem.cancelActiveMode();
-    const groundY = getPrivatePlayerGroundHeight(x, z, forcedElevationY);
+    const groundY = getPrivatePlayerGroundHeight(x, z);
     playerPos.set(x, groundY, z);
     playerVel.set(0, 0, 0);
     facingYaw = facingYawRadians;
     cameraYaw = facingYawRadians;
-    cameraPitch = 0.16;
+    cameraPitch = -0.14;
 
     avatar.group.visible = true;
     avatar.setFirstPersonVisibility(false);
@@ -441,7 +419,7 @@ export function createPrivateWorldController(
     avatar.group.position.copy(playerPos);
     avatar.group.rotation.set(0, facingYaw, 0);
 
-    interactionSystem.updateProximity(playerPos.x, playerPos.z);
+    interactionSystem.updateProximity(playerPos.x, playerPos.z, playerPos.y);
     snapCameraBehindPlayer();
   }
 
@@ -489,7 +467,7 @@ export function createPrivateWorldController(
 
     triggerPrimaryInteraction() {
       if (!active) return;
-      interactionSystem.handleKeyE(playerPos.x, playerPos.z);
+      interactionSystem.handleKeyE(playerPos.x, playerPos.z, playerPos.y);
     },
 
     exitInteractionMode() {
@@ -501,23 +479,24 @@ export function createPrivateWorldController(
 
       const mode = interactionSystem.getMode();
 
-      // 1. Smooth Camera FOV Interpolation (30 deg in Telescope Mode vs 60 deg Normal)
-      const targetFov = mode === 'TELESCOPE' ? 30.0 : 60.0;
+      const targetFov = mode === 'TELESCOPE' ? 34.0 : 60.0;
       if (Math.abs(camera.fov - targetFov) > 0.02) {
         camera.fov = dampValue(camera.fov, targetFov, 9.5, delta);
         camera.updateProjectionMatrix();
       }
 
-      // 2. Dedicated Telescope Eyepiece Camera Mode
+      // 1. Dedicated Telescope Eyepiece Camera Mode
       if (mode === 'TELESCOPE') {
         const teleState = interactionSystem.getTelescopeState();
         callbacks.onTelescopeStateChange?.(
           true,
           teleState.highlightStrength,
           false,
+          teleState.connectedNodesCount,
+          teleState.focusedNodeIndex,
+          teleState.discoveredMask,
         );
 
-        // Position camera at the telescope eyepiece on the Stargazing Deck
         _desiredCamPos.set(
           STARGAZING_TELESCOPE_POS.x - 0.88,
           STARGAZING_TELESCOPE_POS.y + 1.56,
@@ -538,13 +517,8 @@ export function createPrivateWorldController(
         return;
       }
 
-      // 3. Dedicated Seated Viewing Modes (Stargazing Loveseat, Reflective Pond Bench, or Hidden Grotto Benches)
-      if (
-        mode === 'SEATED_LOVESEAT' ||
-        mode === 'SEATED_POND_BENCH' ||
-        mode === 'SEATED_GROTTO_ISLAND_BENCH' ||
-        mode === 'SEATED_GROTTO_OVERLOOK_BENCH'
-      ) {
+      // 2. Seated Stargazing Loveseat Mode
+      if (mode === 'SEATED_LOVESEAT') {
         const seatPose = getSeatedCameraPose(mode);
         if (seatPose) {
           avatar.group.position.copy(seatPose.avatarPos);
@@ -568,13 +542,17 @@ export function createPrivateWorldController(
           const baseDist = baseDir.length();
           const baseYaw = Math.atan2(baseDir.x, baseDir.z);
           const basePitch = Math.asin(
-            THREE.MathUtils.clamp(baseDir.y / Math.max(0.1, baseDist), -0.9, 0.9),
+            THREE.MathUtils.clamp(
+              baseDir.y / Math.max(0.1, baseDist),
+              -0.9,
+              0.9,
+            ),
           );
 
           const adjYaw = baseYaw + seatedLookYawOffset;
           const adjPitch = THREE.MathUtils.clamp(
             basePitch + seatedLookPitchOffset,
-            -0.35,
+            0.12,
             0.95,
           );
           const cosP = Math.cos(adjPitch);
@@ -582,6 +560,16 @@ export function createPrivateWorldController(
             _desiredCamPos.x + Math.sin(adjYaw) * cosP * baseDist,
             _desiredCamPos.y + Math.sin(adjPitch) * baseDist,
             _desiredCamPos.z + Math.cos(adjYaw) * cosP * baseDist,
+          );
+
+          const tState = interactionSystem.getTelescopeState();
+          callbacks.onTelescopeStateChange?.(
+            false,
+            0,
+            false,
+            tState.connectedNodesCount,
+            tState.focusedNodeIndex,
+            tState.discoveredMask,
           );
 
           const camAlpha = dampAlpha(8.5, delta);
@@ -592,7 +580,7 @@ export function createPrivateWorldController(
         return;
       }
 
-      // 4. Normal Third-Person Exploration Movement
+      // 3. Normal Third-Person Movement on the Stargazing Sanctuary Deck
       const moveForward = Boolean(keys['KeyW'] || keys['ArrowUp']);
       const moveBackward = Boolean(keys['KeyS'] || keys['ArrowDown']);
       const moveLeft = Boolean(keys['KeyA'] || keys['ArrowLeft']);
@@ -616,7 +604,7 @@ export function createPrivateWorldController(
         _moveDir.normalize();
       }
 
-      const maxSpeed = isSprinting ? 8.2 : 4.8;
+      const maxSpeed = isSprinting ? 6.8 : 4.2;
       const targetVx = hasInput ? _moveDir.x * maxSpeed : 0;
       const targetVz = hasInput ? _moveDir.z * maxSpeed : 0;
 
@@ -646,20 +634,27 @@ export function createPrivateWorldController(
       const targetGroundY = getPrivatePlayerGroundHeight(
         playerPos.x,
         playerPos.z,
-        playerPos.y,
       );
       playerPos.y = dampValue(playerPos.y, targetGroundY, 18.0, delta);
 
-      // Update proximity detection for all registered Private World interactions
       interactionSystem.updateProximity(playerPos.x, playerPos.z, playerPos.y);
 
-      // Sync shared Harsha avatar position, rotation, and procedural walk/sprint animation
+      const tState = interactionSystem.getTelescopeState();
+      callbacks.onTelescopeStateChange?.(
+        false,
+        0,
+        false,
+        tState.connectedNodesCount,
+        tState.focusedNodeIndex,
+        tState.discoveredMask,
+      );
+
       avatar.group.position.copy(playerPos);
       avatar.group.rotation.set(0, facingYaw, 0);
       avatar.updateAnimation(
         delta,
         speed,
-        isSprinting && speed > 5.2,
+        isSprinting && speed > 4.6,
         elapsedTime,
         false,
         false,
@@ -668,12 +663,11 @@ export function createPrivateWorldController(
         false,
       );
 
-      // Update Camera (Top-Down Debug View vs Smooth Grounded Third-Person View)
       if (topDownView) {
-        _desiredCamPos.set(0, 395, -24);
-        _desiredLookAt.set(0, 0, 0);
+        _desiredCamPos.set(0, 48, -6);
+        _desiredLookAt.set(0, 3.48, 0);
         camera.position.lerp(_desiredCamPos, dampAlpha(8.0, delta));
-        _currentLookAt.set(0, 0, 0);
+        _currentLookAt.set(0, 3.48, 0);
         camera.lookAt(_currentLookAt);
       } else {
         const horizDist = Math.cos(cameraPitch) * cameraDistance;
@@ -701,57 +695,17 @@ export function createPrivateWorldController(
     },
 
     getTelemetry(): PrivateWorldTelemetry {
-      const reg = getPrivateRegionAtPosition(
-        playerPos.x,
-        playerPos.z,
-        playerPos.y,
-      );
+      const reg = getPrivateRegionAtPosition();
       const speed = Math.hypot(playerVel.x, playerVel.z);
-      const inGrotto = isPositionInUndergroundGrotto(
-        playerPos.x,
-        playerPos.z,
-        playerPos.y,
-      );
       const mode = interactionSystem.getMode();
-      const routeDistances = callbacks.getRouteDistanceTo
-        ? {
-            'memory-garden': callbacks.getRouteDistanceTo(
-              playerPos.x,
-              playerPos.z,
-              'memory-garden',
-            ),
-            'stargazing-deck': callbacks.getRouteDistanceTo(
-              playerPos.x,
-              playerPos.z,
-              'stargazing-deck',
-            ),
-            'reflective-pond': callbacks.getRouteDistanceTo(
-              playerPos.x,
-              playerPos.z,
-              'reflective-pond',
-            ),
-            'hidden-cave': callbacks.getRouteDistanceTo(
-              playerPos.x,
-              playerPos.z,
-              'hidden-cave',
-            ),
-            'northern-ridge': callbacks.getRouteDistanceTo(
-              playerPos.x,
-              playerPos.z,
-              'northern-ridge',
-            ),
-          }
-        : undefined;
 
       return {
         x: playerPos.x,
         y: playerPos.y,
         z: playerPos.z,
-        terrainElevation: inGrotto
-          ? playerPos.y
-          : getPrivateTerrainHeight(playerPos.x, playerPos.z),
+        terrainElevation: playerPos.y,
         speed,
-        isSprinting: !!(keys['ShiftLeft'] || keys['ShiftRight']) && speed > 5.0,
+        isSprinting: !!(keys['ShiftLeft'] || keys['ShiftRight']) && speed > 4.5,
         regionName: reg.name,
         regionSubtitle: reg.subtitle,
         nearReturnGate: isNearPrivateReturnGate(playerPos.x, playerPos.z),
@@ -761,7 +715,8 @@ export function createPrivateWorldController(
         interactionMode: mode,
         telescopeView:
           mode === 'TELESCOPE' ? interactionSystem.getTelescopeState() : null,
-        routeDistances,
+        connectedSkyNodesCount: interactionSystem.getConnectedSkyNodesCount(),
+        discoveredLettersMask: interactionSystem.getDiscoveredLettersMask(),
       };
     },
 

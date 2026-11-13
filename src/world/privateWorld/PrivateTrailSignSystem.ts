@@ -339,28 +339,28 @@ export function createPrivateTrailSignSystem(
   const gardenLoopCache = routeCaches['garden-loop'];
 
   // Key Landmark & Junction Arc-Length Positions on the Curved Path Network:
-  // - Memory Garden Junction (-35, -20) on primary-route
-  const sGardenOnPrimary = projectPointOnRoute(primaryCache, -35.0, -20.0).arcS;
-  // - Northern Foothill Junction (-30, +12) on primary-route (where garden-loop reconnects)
-  const sFoothillOnPrimary = projectPointOnRoute(primaryCache, -30.0, 12.0).arcS;
-  // - Cave Approach Saddle Split (24, +90) on primary-route
-  const sCaveSplitOnPrimary = projectPointOnRoute(primaryCache, 24.0, 90.0).arcS;
-  // - Hidden Cave Entrance (35, +110) at end of primary-route
+  // - Memory Garden Junction (-18, -10) on primary-route
+  const sGardenOnPrimary = projectPointOnRoute(primaryCache, -18.0, -10.0).arcS;
+  // - Northern Foothill Junction (-15, +6) on primary-route (where garden-loop reconnects)
+  const sFoothillOnPrimary = projectPointOnRoute(primaryCache, -15.0, 6.0).arcS;
+  // - Cave Approach Saddle Split (12, +46) on primary-route
+  const sCaveSplitOnPrimary = projectPointOnRoute(primaryCache, 12.0, 46.0).arcS;
+  // - Hidden Cave Entrance (18, +56) at end of primary-route
   const sHiddenCaveOnPrimary = primaryCache.totalLength;
-  // - Stargazing Deck (145, +35) at end of eastern-branch (starts at Memory Garden (-35, -20))
+  // - Stargazing Deck (72, +18) at end of eastern-branch (starts at Memory Garden (-18, -10))
   const lenEasternBranch = easternCache.totalLength;
-  // - Reflective Pond Southern Rim (-5, -11) along garden-loop from Memory Garden (-35, -20)
-  const sPondOnGardenLoop = projectPointOnRoute(gardenLoopCache, -5.0, -11.0).arcS;
+  // - Reflective Pond Southern Rim (-3, -6.4) along garden-loop from Memory Garden (-18, -10)
+  const sPondOnGardenLoop = projectPointOnRoute(gardenLoopCache, -3.0, -6.4).arcS;
   const lenGardenLoop = gardenLoopCache.totalLength;
-  // - Highland Ridge Saddle Trail from Cave Approach (24, 90) up to Northern Ridge (0, 145)
+  // - Highland Ridge Saddle Trail from Cave Approach (12, 46) up to Northern Ridge (0, 74)
   const lenSaddleToNorthernRidge = (() => {
     let total = 0;
-    let prevX = 24.0;
-    let prevZ = 90.0;
-    for (let i = 1; i <= 24; i++) {
-      const t = i / 24;
-      const sx = 24.0 - 24.0 * t + Math.sin(t * Math.PI * 2.0) * 2.2;
-      const sz = 90.0 + 55.0 * t;
+    let prevX = 12.0;
+    let prevZ = 46.0;
+    for (let i = 1; i <= 20; i++) {
+      const t = i / 20;
+      const sx = 12.0 - 12.0 * t + Math.sin(t * Math.PI * 2.0) * 1.3;
+      const sz = 46.0 + 28.0 * t;
       total += Math.hypot(sx - prevX, sz - prevZ);
       prevX = sx;
       prevZ = sz;
@@ -445,7 +445,7 @@ export function createPrivateTrailSignSystem(
           );
       }
     } else {
-      // On garden-loop (0 = Memory Garden (-35, -20), lenGardenLoop = Foothill Junction (-30, +12))
+      // On garden-loop (0 = Memory Garden (-18, -10), lenGardenLoop = Foothill Junction (-15, +6))
       const sLoop = pLoop.arcS;
       const distToGarden = sLoop;
       const distToFoothill = Math.max(0, lenGardenLoop - sLoop);
@@ -494,7 +494,7 @@ export function createPrivateTrailSignSystem(
     const cache = routeCaches[routeId];
     const proj = projectPointOnRoute(cache, x, z);
     const lookAheadS = THREE.MathUtils.clamp(
-      proj.arcS + (forwardAlongRoute ? 6.5 : -6.5),
+      proj.arcS + (forwardAlongRoute ? 5.0 : -5.0),
       0,
       cache.totalLength,
     );
@@ -595,42 +595,42 @@ export function createPrivateTrailSignSystem(
       yOffset: number;
     }>;
   }> = [
-    // Signpost A — Arrival Shore Path Start (beside right edge of Primary Route at (3.1, -136.5))
+    // Signpost A — Arrival Shore Path Start (beside right edge of Primary Route at (2.6, -69.5))
     {
       id: 'signpost-arrival-shore',
       title: 'Arrival Shore Trailhead Signpost',
-      x: 3.1,
-      z: -136.5,
+      x: 2.6,
+      z: -69.5,
       hasLantern: true,
       boards: [
         {
           destinationId: 'memory-garden',
           label: 'Memory Garden',
-          boardYaw: getRouteDirectionYawAt('primary-route', 0, -136.5, true),
+          boardYaw: getRouteDirectionYawAt('primary-route', 0, -69.5, true),
           yOffset: 2.22,
         },
         {
           destinationId: 'stargazing-deck',
           label: 'Stargazing Deck',
           boardYaw:
-            getRouteDirectionYawAt('primary-route', 0, -136.5, true) + 0.18,
+            getRouteDirectionYawAt('primary-route', 0, -69.5, true) + 0.18,
           yOffset: 1.9,
         },
         {
           destinationId: 'hidden-cave',
           label: 'Hidden Cave',
           boardYaw:
-            getRouteDirectionYawAt('primary-route', 0, -136.5, true) + 0.06,
+            getRouteDirectionYawAt('primary-route', 0, -69.5, true) + 0.06,
           yOffset: 1.58,
         },
       ],
     },
-    // Signpost B — Memory Garden Junction (beside junction at (-31.4, -17.6))
+    // Signpost B — Memory Garden Junction (beside junction at (-15.8, -8.8))
     {
       id: 'signpost-memory-garden-junction',
       title: 'Memory Garden Route Junction Signpost',
-      x: -31.4,
-      z: -17.6,
+      x: -15.8,
+      z: -8.8,
       hasLantern: true,
       boards: [
         {
@@ -638,8 +638,8 @@ export function createPrivateTrailSignSystem(
           label: 'Hidden Cave',
           boardYaw: getRouteDirectionYawAt(
             'primary-route',
-            -35.0,
-            -20.0,
+            -18.0,
+            -10.0,
             true,
           ),
           yOffset: 2.22,
@@ -649,8 +649,8 @@ export function createPrivateTrailSignSystem(
           label: 'Stargazing Deck',
           boardYaw: getRouteDirectionYawAt(
             'eastern-branch',
-            -35.0,
-            -20.0,
+            -18.0,
+            -10.0,
             true,
           ),
           yOffset: 1.9,
@@ -660,26 +660,26 @@ export function createPrivateTrailSignSystem(
           label: 'Reflective Pond',
           boardYaw: getRouteDirectionYawAt(
             'garden-loop',
-            -35.0,
-            -20.0,
+            -18.0,
+            -10.0,
             true,
           ),
           yOffset: 1.58,
         },
       ],
     },
-    // Signpost C — Northern Foothill Junction (where Garden Loop reconnects to Primary Route at (-26.6, +14.2))
+    // Signpost C — Northern Foothill Junction (where Garden Loop reconnects to Primary Route at (-13.2, +7.2))
     {
       id: 'signpost-northern-foothill-junction',
       title: 'Northern Foothill Junction Signpost',
-      x: -26.6,
-      z: 14.2,
+      x: -13.2,
+      z: 7.2,
       hasLantern: true,
       boards: [
         {
           destinationId: 'hidden-cave',
           label: 'Hidden Cave',
-          boardYaw: getRouteDirectionYawAt('primary-route', -30.0, 12.0, true),
+          boardYaw: getRouteDirectionYawAt('primary-route', -15.0, 6.0, true),
           yOffset: 2.16,
         },
         {
@@ -687,32 +687,32 @@ export function createPrivateTrailSignSystem(
           label: 'Memory Garden',
           boardYaw: getRouteDirectionYawAt(
             'primary-route',
-            -30.0,
-            12.0,
+            -15.0,
+            6.0,
             false,
           ),
           yOffset: 1.82,
         },
       ],
     },
-    // Signpost D — Cave Approach Split (where Highland Ridge Saddle splits from Primary Route at (21.2, +92.8))
+    // Signpost D — Cave Approach Split (where Highland Ridge Saddle splits from Primary Route at (10.5, +47.2))
     {
       id: 'signpost-cave-approach',
       title: 'Cave Approach & Northern Ridge Split Signpost',
-      x: 21.2,
-      z: 92.8,
+      x: 10.5,
+      z: 47.2,
       hasLantern: true,
       boards: [
         {
           destinationId: 'hidden-cave',
           label: 'Hidden Cave',
-          boardYaw: getRouteDirectionYawAt('primary-route', 24.0, 90.0, true),
+          boardYaw: getRouteDirectionYawAt('primary-route', 12.0, 46.0, true),
           yOffset: 2.16,
         },
         {
           destinationId: 'northern-ridge',
           label: 'Northern Ridge',
-          boardYaw: Math.atan2(0.0 - 24.0, 145.0 - 90.0),
+          boardYaw: Math.atan2(0.0 - 12.0, 74.0 - 46.0),
           yOffset: 1.82,
         },
       ],
@@ -831,11 +831,11 @@ export function createPrivateTrailSignSystem(
   });
 
   // ============================================================================
-  // 4. REASSURANCE TRAIL MARKERS EVERY ~34m ALONG THE PRIMARY ROUTE
+  // 4. REASSURANCE TRAIL MARKERS ALONG THE COMPACT PRIMARY ROUTE
   //    Small handcrafted wooden trail posts with carved directional chevrons
   // ============================================================================
   const reassuranceArcPositions = [
-    36.0, 72.0, 106.0, 174.0, 206.0, 238.0, 266.0,
+    20.0, 42.0, 64.0, 96.0, 118.0, 138.0,
   ];
   const markerPostGeo = trackGeo(
     new THREE.BoxGeometry(0.16, 0.88, 0.14),
@@ -849,9 +849,9 @@ export function createPrivateTrailSignSystem(
   const _markerNormal = new THREE.Vector3();
 
   reassuranceArcPositions.forEach((arcS, idx) => {
-    if (arcS >= primaryCache.totalLength - 12.0) return;
+    if (arcS >= primaryCache.totalLength - 8.0) return;
     const sample = sampleRouteAtArcS(primaryCache, arcS);
-    // Place alternating left/right just outside the path edge (halfWidth + 0.95m)
+    // Place alternating left/right just outside the path edge (halfWidth + 0.92m)
     const side = idx % 2 === 0 ? 1 : -1;
     const normalX = -sample.tangentZ;
     const normalZ = sample.tangentX;
@@ -860,7 +860,7 @@ export function createPrivateTrailSignSystem(
 
     // Skip if too close to one of the 4 main signposts
     const nearMainSign = signposts.some(
-      (sp) => Math.hypot(mx - sp.x, mz - sp.z) < 9.5,
+      (sp) => Math.hypot(mx - sp.x, mz - sp.z) < 7.5,
     );
     if (nearMainSign) return;
 
@@ -904,18 +904,18 @@ export function createPrivateTrailSignSystem(
   // so approaching a junction signpost gently brightens the outgoing path branch toward the Hidden Cave.
   const junctionSignArcs = [
     {
-      x: -31.4,
-      z: -17.6,
+      x: -15.8,
+      z: -8.8,
       arcS: sGardenOnPrimary,
     },
     {
-      x: -26.6,
-      z: 14.2,
+      x: -13.2,
+      z: 7.2,
       arcS: sFoothillOnPrimary,
     },
     {
-      x: 21.2,
-      z: 92.8,
+      x: 10.5,
+      z: 47.2,
       arcS: sCaveSplitOnPrimary,
     },
   ];
