@@ -17,6 +17,7 @@ export interface AtmosphereBundle {
     enabled: boolean,
     topDownDebug?: boolean,
   ) => void;
+  setPrivateWorldCelebrationFactor: (factor: number) => void;
   update: (
     playerPos: THREE.Vector3,
     delta: number,
@@ -269,9 +270,24 @@ export function createAtmosphereSystem(
   const blendedSurfaceFogColor = new THREE.Color('#e8b89a');
   const undergroundVoidColor = new THREE.Color('#01030a');
   const privateMoonlightFogColor = new THREE.Color('#1e2944');
+  const privateFestivalFogColor = new THREE.Color('#3a2e4c');
+
+  const privMoonZenith = new THREE.Color('#141e38');
+  const privFestZenith = new THREE.Color('#192646');
+  const privMoonMidSky = new THREE.Color('#2a365c');
+  const privFestMidSky = new THREE.Color('#563e6c');
+  const privMoonHorizon = new THREE.Color('#4c436b');
+  const privFestHorizon = new THREE.Color('#d89b7c');
+  const privMoonSun = new THREE.Color('#e8dcf8');
+  const privFestSun = new THREE.Color('#ffdfa8');
+  const privMoonHemiSky = new THREE.Color('#8494c4');
+  const privFestHemiSky = new THREE.Color('#ffe6b8');
+  const privMoonHemiGround = new THREE.Color('#34453e');
+  const privFestHemiGround = new THREE.Color('#6e525f');
 
   let privateMoonlightMode = false;
   let privateTopDownDebug = false;
+  let privateCelebrationFactor = 0;
 
   const revealMod: AtmosphereRevealModulation = {
     active: false,
@@ -367,6 +383,35 @@ export function createAtmosphereSystem(
     evaluatePointLightCulling(_spawnPos);
   }
 
+  function applyPrivateWorldColors() {
+    const cf = privateCelebrationFactor;
+    skyUniforms.uZenithColor.value.lerpColors(
+      privMoonZenith,
+      privFestZenith,
+      cf,
+    );
+    skyUniforms.uMidSkyColor.value.lerpColors(
+      privMoonMidSky,
+      privFestMidSky,
+      cf,
+    );
+    skyUniforms.uHorizonColor.value.lerpColors(
+      privMoonHorizon,
+      privFestHorizon,
+      cf,
+    );
+    skyUniforms.uSunColor.value.lerpColors(privMoonSun, privFestSun, cf);
+    skyUniforms.uStarAlpha.value = 0.78;
+    skyUniforms.uRevealBrightness.value = 1.0;
+    sunLight.color.lerpColors(privMoonSun, privFestSun, cf);
+    hemiLight.color.lerpColors(privMoonHemiSky, privFestHemiSky, cf);
+    hemiLight.groundColor.lerpColors(
+      privMoonHemiGround,
+      privFestHemiGround,
+      cf,
+    );
+  }
+
   return {
     registerPointLights,
     getActivePointLightCount: () => activePointLightCount,
@@ -388,17 +433,10 @@ export function createAtmosphereSystem(
       privateMoonlightMode = enabled;
       privateTopDownDebug = topDownDebug;
       if (enabled) {
-        skyUniforms.uZenithColor.value.set('#141e38');
-        skyUniforms.uMidSkyColor.value.set('#2a365c');
-        skyUniforms.uHorizonColor.value.set('#4c436b');
-        skyUniforms.uSunColor.value.set('#e8dcf8');
-        skyUniforms.uStarAlpha.value = 0.78;
-        skyUniforms.uRevealBrightness.value = 1.0;
-        sunLight.color.set('#e8dcf8');
-        hemiLight.color.set('#8494c4');
-        hemiLight.groundColor.set('#34453e');
+        applyPrivateWorldColors();
         mountainRingGroup.visible = false;
       } else {
+        privateCelebrationFactor = 0;
         skyUniforms.uZenithColor.value.set('#223b6e');
         skyUniforms.uMidSkyColor.value.set('#845882');
         skyUniforms.uHorizonColor.value.set('#e8b89a');
@@ -409,6 +447,14 @@ export function createAtmosphereSystem(
         hemiLight.color.set('#ffcaa6');
         hemiLight.groundColor.set('#3a2d4c');
         mountainRingGroup.visible = true;
+      }
+    },
+    setPrivateWorldCelebrationFactor(factor: number) {
+      const clamped = THREE.MathUtils.clamp(factor, 0, 1);
+      if (Math.abs(clamped - privateCelebrationFactor) < 0.0005) return;
+      privateCelebrationFactor = clamped;
+      if (privateMoonlightMode) {
+        applyPrivateWorldColors();
       }
     },
     update(playerPos: THREE.Vector3, delta: number, elapsedTime: number) {
@@ -423,14 +469,22 @@ export function createAtmosphereSystem(
       }
 
       if (privateMoonlightMode) {
-        sunLight.intensity = 2.35;
-        hemiLight.intensity = 1.28;
-        scene.environmentIntensity = 0.88;
-        fog.color.copy(privateMoonlightFogColor);
+        const cf = privateCelebrationFactor;
+        applyPrivateWorldColors();
+        sunLight.intensity = THREE.MathUtils.lerp(2.35, 3.95, cf);
+        hemiLight.intensity = THREE.MathUtils.lerp(1.28, 2.45, cf);
+        scene.environmentIntensity = THREE.MathUtils.lerp(0.88, 1.45, cf);
+        fog.color.lerpColors(
+          privateMoonlightFogColor,
+          privateFestivalFogColor,
+          cf,
+        );
         if (scene.background instanceof THREE.Color) {
-          scene.background.copy(privateMoonlightFogColor);
+          scene.background.copy(fog.color);
         }
-        fog.density = privateTopDownDebug ? 0.00018 : 0.00062;
+        fog.density = privateTopDownDebug
+          ? 0.00018
+          : THREE.MathUtils.lerp(0.00062, 0.00042, cf);
         skyMesh.visible = true;
         mountainRingGroup.visible = false;
 

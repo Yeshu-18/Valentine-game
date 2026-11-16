@@ -1,10 +1,12 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
+  ArrowRight,
   ChevronDown,
   ChevronUp,
   Compass,
   Eye,
   Footprints,
+  Heart,
   MousePointerClick,
   RotateCcw,
   Sparkles,
@@ -31,6 +33,8 @@ export interface SequelSceneProps {
     forcedElevationY?: number,
   ) => void;
   onTriggerPrimaryInteraction?: () => void;
+  onAdvanceProposalSequence?: () => void;
+  onTriggerWeddingCelebration?: () => void;
   onExitInteractionMode?: () => void;
   onReturnToDreamWorld: () => void;
   onReplayFullStory: () => void;
@@ -41,6 +45,8 @@ export const SequelScene: React.FC<SequelSceneProps> = ({
   onToggleTopDownView,
   onTeleportToAnchor,
   onTriggerPrimaryInteraction,
+  onAdvanceProposalSequence,
+  onTriggerWeddingCelebration,
   onExitInteractionMode,
   onReturnToDreamWorld,
   onReplayFullStory,
@@ -49,6 +55,9 @@ export const SequelScene: React.FC<SequelSceneProps> = ({
   const [audioMuted, setAudioMuted] = useState(false);
   const audioRef = useRef<StoryAudioSynthesizer | null>(null);
   const audioMutedRef = useRef(false);
+  const lastPlayedMsgIdxRef = useRef<number>(-1);
+  const lastPhaseRef = useRef<string>('IDLE');
+  const hasPlayedFanfareRef = useRef(false);
 
   useEffect(() => {
     const synth = new StoryAudioSynthesizer();
@@ -59,6 +68,60 @@ export const SequelScene: React.FC<SequelSceneProps> = ({
       audioRef.current = null;
     };
   }, []);
+
+  const proposalState = telemetry.proposalState;
+  const isCelebrationActive = (proposalState?.celebrationProgress ?? 0) > 0.08;
+
+  // Play gentle musical cues when the proposal sequence advances and fanfare when wedding celebration starts
+  useEffect(() => {
+    if (!proposalState) return;
+    if (proposalState.phase === 'MIST_GATHER') {
+      hasPlayedFanfareRef.current = false;
+    }
+    if (audioMutedRef.current) return;
+
+    if (proposalState.phase !== lastPhaseRef.current) {
+      lastPhaseRef.current = proposalState.phase;
+      if (proposalState.phase === 'MIST_GATHER') {
+        audioRef.current?.playIntimateMomentChord(0);
+      } else if (proposalState.phase === 'CONSTELLATION_REVEAL') {
+        audioRef.current?.playSpecialGatePortalChime();
+      } else if (proposalState.phase === 'FINAL_HOLD') {
+        if (!hasPlayedFanfareRef.current) {
+          hasPlayedFanfareRef.current = true;
+          audioRef.current?.playWeddingCelebrationFanfare();
+        }
+      }
+    }
+    if (
+      (proposalState.celebrationProgress ?? 0) > 0.05 &&
+      !hasPlayedFanfareRef.current
+    ) {
+      hasPlayedFanfareRef.current = true;
+      audioRef.current?.playWeddingCelebrationFanfare();
+    }
+    if (
+      proposalState.phase === 'MESSAGE' &&
+      proposalState.messageIndex !== lastPlayedMsgIdxRef.current
+    ) {
+      lastPlayedMsgIdxRef.current = proposalState.messageIndex;
+      audioRef.current?.playIntimateMomentChord(
+        proposalState.messageIndex % 4,
+      );
+    }
+  }, [proposalState]);
+
+  // Periodic festive firework burst audio while the celebration is active
+  useEffect(() => {
+    if (!isCelebrationActive) return;
+    let shellCounter = 0;
+    const intervalId = window.setInterval(() => {
+      if (!audioMutedRef.current) {
+        audioRef.current?.playFireworkBurstCue(shellCounter++);
+      }
+    }, 2100);
+    return () => window.clearInterval(intervalId);
+  }, [isCelebrationActive]);
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
@@ -90,26 +153,30 @@ export const SequelScene: React.FC<SequelSceneProps> = ({
   const activePrompt = telemetry.activeInteractionPrompt;
   const isTelescopeMode = telemetry.interactionMode === 'TELESCOPE';
   const isSeatedMode = telemetry.interactionMode === 'SEATED_LOVESEAT';
-  const discoveredMask = telemetry.discoveredLettersMask ?? 0b00000001;
+  const isProposalMode = telemetry.interactionMode === 'PROPOSAL_SEQUENCE';
+  const discoveredMask = telemetry.discoveredLettersMask ?? 0;
   const connectedCount = telemetry.connectedSkyNodesCount;
 
   const renderConstellationLettersBar = () => (
     <div className="flex items-center gap-1.5 flex-wrap">
       {STARGAZING_SKY_SEQUENCE.map((node, idx) => {
-        const isLit =
-          (discoveredMask & (1 << idx)) !== 0 || node.index <= connectedCount;
+        const isLit = (discoveredMask & (1 << idx)) !== 0;
         const addWordGap = idx === 0 || idx === 4;
         return (
           <React.Fragment key={node.index}>
             <span
-              title={`${node.text} — ${node.subtitle}`}
+              title={
+                isLit
+                  ? `${node.text} — ${node.subtitle}`
+                  : `Star Letter ${node.index} (Undiscovered)`
+              }
               className={`w-7 h-7 rounded-lg flex items-center justify-center font-display text-xs font-bold border transition-colors ${
                 isLit
                   ? 'bg-amber-400/25 border-amber-300/70 text-amber-200 shadow-[0_0_12px_rgba(251,191,36,0.3)]'
-                  : 'bg-slate-900/90 border-white/15 text-slate-400'
+                  : 'bg-slate-900/90 border-white/15 text-transparent'
               }`}
             >
-              {node.letter}
+              {isLit ? node.letter : ''}
             </span>
             {addWordGap && (
               <span
@@ -155,11 +222,6 @@ export const SequelScene: React.FC<SequelSceneProps> = ({
               </span>
             </div>
             {renderConstellationLettersBar()}
-            <p className="text-xs text-slate-300 max-w-md">
-              {connectedCount >= 8
-                ? 'All 8 star-letter constellations of “I LOVE YOU” are illuminated across the night sky!'
-                : 'Pan across the night sky to spot and connect each scattered star-letter constellation of I LOVE YOU.'}
-            </p>
             <div className="flex items-center gap-3 pt-1">
               <button
                 type="button"
@@ -173,6 +235,93 @@ export const SequelScene: React.FC<SequelSceneProps> = ({
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Phase 4.6B: Personal Proposal Message & Kneeling Mist Figure Sequence Overlay */}
+      {isProposalMode && proposalState && (
+        <div
+          className={`pointer-events-auto absolute left-1/2 -translate-x-1/2 z-40 w-full max-w-sm px-3 transition-all ${
+            hudCollapsed ? 'bottom-4' : 'bottom-14'
+          }`}
+        >
+          {proposalState.phase === 'MIST_GATHER' && (
+            <div className="bg-gradient-to-b from-pink-500/85 via-pink-600/88 to-rose-700/90 border border-pink-200/70 rounded-xl px-3.5 py-2 text-center shadow-[0_4px_20px_rgba(244,114,182,0.35)]">
+              <p className="font-serif italic text-xs text-pink-50 tracking-wide">
+                A soft silver-blue mist gathers upon the Proposal Stage before
+                you...
+              </p>
+            </div>
+          )}
+
+          {proposalState.phase === 'MESSAGE' && (
+            <div
+              key={proposalState.messageIndex}
+              className="bg-gradient-to-b from-pink-500/85 via-pink-600/88 to-rose-700/90 border border-pink-200/75 rounded-xl px-4 py-2 text-center shadow-[0_4px_22px_rgba(244,114,182,0.4)] transition-opacity duration-500"
+            >
+              <div className="flex items-center justify-center gap-1.5 text-[10px] font-semibold text-pink-100/95 mb-0.5">
+                <Heart className="w-2.5 h-2.5 text-pink-100 fill-pink-200/50" />
+                <span>Proposal Garden</span>
+                <span aria-hidden="true">·</span>
+                <span className="font-mono tabular-nums">
+                  {proposalState.messageIndex + 1} /{' '}
+                  {proposalState.totalMessages}
+                </span>
+              </div>
+
+              <p className="font-serif text-xs md:text-sm leading-snug text-white font-medium tracking-wide">
+                “{proposalState.currentMessageText}”
+              </p>
+
+              <div className="mt-1.5 pt-1 border-t border-pink-200/30 flex items-center justify-between gap-2">
+                <button
+                  type="button"
+                  onClick={onExitInteractionMode}
+                  className="px-1.5 py-0.5 rounded text-[10px] text-pink-100/90 hover:text-white transition-colors cursor-pointer"
+                >
+                  <kbd className="px-1 py-0.5 bg-rose-900/70 rounded border border-pink-200/40 font-mono text-[9px] text-pink-100 mr-1">
+                    Esc
+                  </kbd>
+                  Close
+                </button>
+
+                <button
+                  type="button"
+                  onClick={onAdvanceProposalSequence}
+                  className="px-2.5 py-0.5 rounded-lg bg-white/25 hover:bg-white/35 border border-pink-100/70 text-[11px] font-semibold text-white flex items-center gap-1 shadow-sm transition-colors cursor-pointer"
+                >
+                  <span>
+                    {proposalState.messageIndex + 1 <
+                    proposalState.totalMessages
+                      ? 'Next'
+                      : 'Complete Message'}
+                  </span>
+                  <ArrowRight className="w-3 h-3 text-pink-100" />
+                  <kbd className="ml-0.5 px-1 py-0.5 bg-rose-900/75 rounded border border-pink-100/45 font-mono text-[9px] text-pink-50">
+                    Enter
+                  </kbd>
+                </button>
+              </div>
+            </div>
+          )}
+
+          {proposalState.phase === 'FIGURE_DISSOLVE' && (
+            <div className="bg-gradient-to-b from-pink-500/85 via-pink-600/88 to-rose-700/90 border border-pink-200/70 rounded-xl px-3.5 py-2 text-center shadow-[0_4px_20px_rgba(244,114,182,0.35)]">
+              <p className="font-serif italic text-xs text-pink-50">
+                The mist figure dissolves gently into starlight, rising toward
+                the night sky...
+              </p>
+            </div>
+          )}
+
+          {proposalState.phase === 'CONSTELLATION_REVEAL' && (
+            <div className="bg-gradient-to-b from-pink-500/85 via-pink-600/88 to-rose-700/90 border border-pink-200/70 rounded-xl px-3.5 py-2 text-center shadow-[0_4px_20px_rgba(244,114,182,0.35)]">
+              <p className="font-serif text-xs text-pink-50">
+                Look up above the ocean horizon — the stars are aligning for
+                you...
+              </p>
+            </div>
+          )}
         </div>
       )}
 
@@ -207,16 +356,18 @@ export const SequelScene: React.FC<SequelSceneProps> = ({
         </div>
       )}
 
-      {/* Top-Left Stargazing Sanctuary & Constellation Progress Banner */}
+      {/* Top-Left Stargazing Sanctuary & Proposal Garden Banner */}
       <div className="pointer-events-auto absolute top-5 left-6 flex flex-col gap-1.5 bg-slate-950/90 border border-sky-300/20 rounded-xl px-4 py-3 text-white shadow-2xl">
         <div className="flex items-center gap-2 text-xs font-medium text-sky-200/90">
           <Compass className="w-3.5 h-3.5 shrink-0 text-sky-300" />
-          <span>Private Stargazing Sanctuary</span>
+          <span>Private Stargazing World</span>
           <span aria-hidden="true">·</span>
           <span className="text-amber-200 font-semibold">
             {isTelescopeMode
               ? `Telescope View (${connectedCount}/8 Letters)`
-              : 'MANDU Sky Constellation · Look Through Telescope for I LOVE YOU'}
+              : proposalState?.phase === 'FINAL_HOLD'
+                ? "HAPPY VALENTINE'S DAY, MY LOVE · Fireworks & Wedding Celebration"
+                : telemetry.regionSubtitle}
           </span>
         </div>
         <div className="flex items-center gap-3">
@@ -276,28 +427,38 @@ export const SequelScene: React.FC<SequelSceneProps> = ({
           </div>
         )}
 
-      {/* Collapsible Bottom Stargazing Controls Bar */}
-      <div className="pointer-events-auto absolute bottom-5 left-1/2 -translate-x-1/2 flex flex-col items-center w-full max-w-[min(860px,95vw)]">
-        <button
-          type="button"
-          onClick={() => setHudCollapsed((prev) => !prev)}
-          className="mb-1.5 flex items-center gap-1.5 px-3.5 py-1 rounded-lg bg-slate-950/90 border border-white/10 text-xs font-medium text-slate-200 hover:text-white hover:bg-slate-900 transition-colors whitespace-nowrap shrink-0 shadow cursor-pointer"
-        >
-          {hudCollapsed ? (
-            <>
-              <ChevronUp className="w-3.5 h-3.5" />
-              <span>Show Stargazing Controls (H)</span>
-            </>
-          ) : (
-            <>
-              <ChevronDown className="w-3.5 h-3.5" />
-              <span>Hide Controls (H)</span>
-            </>
-          )}
-        </button>
+      {/* Collapsible Bottom Stargazing & Proposal Garden Controls Bar */}
+      <div
+        className={`pointer-events-auto absolute left-1/2 -translate-x-1/2 flex flex-col items-center w-full max-w-[min(860px,95vw)] ${
+          isProposalMode ? 'bottom-2.5' : 'bottom-5'
+        }`}
+      >
+        {!isProposalMode && (
+          <button
+            type="button"
+            onClick={() => setHudCollapsed((prev) => !prev)}
+            className="mb-1.5 flex items-center gap-1.5 px-3.5 py-1 rounded-lg bg-slate-950/90 border border-white/10 text-xs font-medium text-slate-200 hover:text-white hover:bg-slate-900 transition-colors whitespace-nowrap shrink-0 shadow cursor-pointer"
+          >
+            {hudCollapsed ? (
+              <>
+                <ChevronUp className="w-3.5 h-3.5" />
+                <span>Show Stargazing Controls (H)</span>
+              </>
+            ) : (
+              <>
+                <ChevronDown className="w-3.5 h-3.5" />
+                <span>Hide Controls (H)</span>
+              </>
+            )}
+          </button>
+        )}
 
         {!hudCollapsed && (
-          <div className="w-full bg-slate-950/92 border border-white/12 rounded-2xl px-5 py-3 text-white shadow-2xl flex flex-col gap-2">
+          <div
+            className={`w-full bg-slate-950/92 border border-white/12 rounded-2xl text-white shadow-2xl flex flex-col gap-2 ${
+              isProposalMode ? 'px-4 py-1.5' : 'px-5 py-3'
+            }`}
+          >
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div className="flex items-center gap-2 flex-wrap">
                 <button
@@ -308,9 +469,37 @@ export const SequelScene: React.FC<SequelSceneProps> = ({
                     }
                     onTeleportToAnchor(-1.8, -1.2, Math.PI / 2);
                   }}
-                  className="px-3 py-1 text-xs font-semibold rounded-md bg-sky-500/25 hover:bg-sky-500/35 text-sky-100 border border-sky-300/50 transition-colors cursor-pointer"
+                  className="px-3 py-1 text-xs font-semibold rounded-md bg-sky-500/25 hover:bg-sky-500/35 text-sky-100 border border-sky-300/50 transition-colors cursor-pointer whitespace-nowrap"
                 >
-                  Center on Stargazing Deck
+                  Stargazing Deck
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!audioMutedRef.current) {
+                      audioRef.current?.playIntimateMomentChord(2);
+                    }
+                    onTeleportToAnchor(19.2, 15.6, 0.72);
+                  }}
+                  className="px-3 py-1 text-xs font-semibold rounded-md bg-amber-400/20 hover:bg-amber-400/30 text-amber-100 border border-amber-300/50 flex items-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap"
+                >
+                  <Heart className="w-3 h-3 text-amber-300" />
+                  <span>Proposal Garden</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    onTeleportToAnchor(19.6, 15.8, 0.72);
+                    onTriggerWeddingCelebration?.();
+                  }}
+                  className="px-3 py-1 text-xs font-semibold rounded-md bg-rose-500/25 hover:bg-rose-500/35 text-rose-100 border border-rose-300/50 flex items-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap"
+                >
+                  <Sparkles className="w-3 h-3 text-amber-300" />
+                  <span>
+                    {isCelebrationActive
+                      ? 'Replay Wedding Ceremony'
+                      : 'Celebrate Wedding Finale'}
+                  </span>
                 </button>
                 {import.meta.env.DEV && (
                   <button
@@ -342,21 +531,22 @@ export const SequelScene: React.FC<SequelSceneProps> = ({
               </button>
             </div>
 
-            <div className="pt-2 border-t border-white/10 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-400">
-              <span className="flex items-center gap-1.5 text-slate-200 font-medium">
-                <Footprints className="w-3.5 h-3.5 text-sky-300" />
-                <span>
-                  WASD / Arrows to Walk · Press E at the Telescope or Loveseat
+            {!isProposalMode && (
+              <div className="pt-2 border-t border-white/10 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-400">
+                <span className="flex items-center gap-1.5 text-slate-200 font-medium">
+                  <Footprints className="w-3.5 h-3.5 text-sky-300" />
+                  <span>
+                    WASD / Arrows to Walk · Mouse to Orbit & Zoom Camera Freely
+                  </span>
                 </span>
-              </span>
-              <span className="flex items-center gap-1.5 text-slate-300">
-                <MousePointerClick className="w-3.5 h-3.5 text-amber-300 shrink-0" />
-                <span>
-                  Look around the night sky to connect the scattered I LOVE YOU
-                  star constellations
+                <span className="flex items-center gap-1.5 text-slate-300">
+                  <MousePointerClick className="w-3.5 h-3.5 text-amber-300 shrink-0" />
+                  <span>
+                    Press E at the Telescope, Loveseat, or Proposal Stage
+                  </span>
                 </span>
-              </span>
-            </div>
+              </div>
+            )}
           </div>
         )}
       </div>

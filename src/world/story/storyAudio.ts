@@ -221,6 +221,35 @@ export class StoryAudioSynthesizer {
     }
   }
 
+  /**
+   * Joyous bridal harp & bell wedding fanfare when the post-constellation marriage celebration begins.
+   */
+  public playWeddingCelebrationFanfare(): void {
+    const fanfareNotes = [
+      261.63, 329.63, 392.0, 523.25, 659.25, 783.99, 1046.5, 1318.51,
+    ];
+    fanfareNotes.forEach((freq, idx) => {
+      this.playTone(freq, 1.85, idx * 0.1, 'sine', 0.068);
+      this.playTone(freq * 0.5, 2.0, idx * 0.1, 'triangle', 0.032);
+    });
+  }
+
+  /**
+   * Festive firework launch whistle, soft pop, and shimmering starlight crackle.
+   */
+  public playFireworkBurstCue(shellIndex = 0): void {
+    const rootNotes = [523.25, 587.33, 659.25, 783.99, 880.0];
+    const base = rootNotes[Math.abs(shellIndex) % rootNotes.length];
+    // Soft low thump + rising whistle pop
+    this.playTone(115, 0.18, 0.0, 'triangle', 0.052, 52);
+    this.playTone(280, 0.14, 0.02, 'sine', 0.03, base);
+    // Shimmering chrysanthemum sparkle cascade
+    this.playTone(base, 0.42, 0.12, 'sine', 0.045);
+    this.playTone(base * 1.25, 0.48, 0.18, 'sine', 0.04);
+    this.playTone(base * 1.5, 0.55, 0.24, 'triangle', 0.035);
+    this.playTone(base * 2.0, 0.65, 0.3, 'sine', 0.028);
+  }
+
   private grottoStarted = false;
   private waterfallSource: AudioBufferSourceNode | null = null;
   private waterfallFilter: BiquadFilterNode | null = null;

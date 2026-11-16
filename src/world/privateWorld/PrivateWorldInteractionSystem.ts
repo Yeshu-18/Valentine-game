@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import {
   PRIVATE_ARRIVAL_GATE_POS,
+  PROPOSAL_GARDEN_CENTER,
   isNearPrivateReturnGate,
 } from './privateWorldMath';
 
@@ -8,9 +9,44 @@ export type PrivateInteractionMode =
   | 'NONE'
   | 'TELESCOPE'
   | 'SEATED_LOVESEAT'
+  | 'PROPOSAL_SEQUENCE'
   | 'SEATED_POND_BENCH'
   | 'SEATED_GROTTO_ISLAND_BENCH'
   | 'SEATED_GROTTO_OVERLOOK_BENCH';
+
+export type ProposalSequencePhase =
+  | 'IDLE'
+  | 'MIST_GATHER'
+  | 'MESSAGE'
+  | 'FIGURE_DISSOLVE'
+  | 'CONSTELLATION_REVEAL'
+  | 'FINAL_HOLD';
+
+/**
+ * Exact 6-part personal proposal message delivered by the kneeling mist figure (verbatim).
+ */
+export const PROPOSAL_MESSAGE_SECTIONS: readonly string[] = [
+  'Thank you for coming into my life',
+  'You have made my life sooo beautiful in ways you have never imagined',
+  'Thank you for everything',
+  'I am really happy and grateful that you came into my life...',
+  'Not just in this birth, will you find me and become my life partner in every birth, Harsha... ?',
+  'Once again, I love you mandu.... Thank you for everything..',
+];
+
+export interface ProposalSequenceState {
+  phase: ProposalSequencePhase;
+  messageIndex: number; // 0..5
+  totalMessages: number; // 6
+  currentMessageText: string | null;
+  figureOpacity: number; // 0..1 opacity of the kneeling mist figure
+  mistIntensity: number; // 0..1 ground mist & particle swirl intensity
+  dissolveProgress: number; // 0..1 rising particle dissolution progress
+  constellationRevealProgress: number; // 0..1 progressive L->R reveal of HAPPY VALENTINE'S DAY, MY LOVE
+  celebrationProgress: number; // 0..1 post-constellation fireworks, festival lighting & wedding ceremony factor
+  weddingAnimTime: number; // continuous elapsed seconds for the bride & groom marriage animation
+  hasCompletedOnce: boolean;
+}
 
 export interface PrivateInteractionPrompt {
   id: string;
@@ -22,7 +58,7 @@ export interface PrivateInteractionPrompt {
 
 export interface PrivateInteractionTarget {
   id: string;
-  actionLabel: string;
+  actionLabel: string | ((playerX: number, playerZ: number) => string);
   keyLabel?: string;
   radius: number;
   getPosition: (playerX: number, playerZ: number) => { x: number; z: number };
@@ -116,8 +152,8 @@ export const STARGAZING_SKY_SEQUENCE: readonly StargazingSkySequenceNode[] = [
     wordGroup: 3,
     yaw: 0.76,
     pitch: 0.51,
-    text: 'Constellation VIII — “U” (I LOVE YOU)',
-    subtitle: 'Final Star Constellation · Complete I LOVE YOU Canopy Illuminated',
+    text: 'Constellation VIII — “U”',
+    subtitle: 'Final Star Constellation Illuminated',
   },
 ];
 
@@ -146,6 +182,10 @@ export interface PrivateWorldInteractionSystemBundle {
   getConnectedSkyNodesCount: () => number;
   getDiscoveredLettersMask: () => number;
   getTelescopeState: () => TelescopeViewState;
+  updateProposalSequence: (delta: number) => ProposalSequenceState;
+  advanceProposalMessage: () => boolean;
+  triggerWeddingCelebration: () => void;
+  getProposalState: () => ProposalSequenceState;
 }
 
 export interface CreatePrivateInteractionSystemOptions {
@@ -155,6 +195,7 @@ export interface CreatePrivateInteractionSystemOptions {
     nextMode: PrivateInteractionMode,
     prevMode: PrivateInteractionMode,
   ) => void;
+  onProposalPhaseChanged?: (phase: ProposalSequencePhase) => void;
 }
 
 // Stargazing Sanctuary interactive anchors centered around (0, 0)
@@ -168,7 +209,22 @@ export const STARGAZING_LOVESEAT_POS = {
   x: -1.8,
   y: 3.48,
   z: -3.1,
-  seatFacingYaw: Math.PI / 2, // Facing East toward the MANDU & I LOVE YOU sky arc
+  seatFacingYaw: Math.PI / 2,
+} as const;
+
+// Proposal Garden Stage interactive focal point at (22.0, 4.36, 18.0)
+export const PROPOSAL_STAGE_POS = {
+  x: PROPOSAL_GARDEN_CENTER.x,
+  y: PROPOSAL_GARDEN_CENTER.stageY,
+  z: PROPOSAL_GARDEN_CENTER.z,
+  // Harsha stands on the SW edge of the stage looking NE (yaw = 0.72) toward the kneeling figure & horizon
+  playerStandX: 20.1,
+  playerStandZ: 16.3,
+  playerFacingYaw: 0.72,
+  // Kneeling mist figure materializes ~2.55m in front of Harsha facing her
+  figureX: 21.8,
+  figureZ: 18.2,
+  figureFacingYaw: 0.72 + Math.PI,
 } as const;
 
 function wrapAnglePi(a: number): number {
@@ -185,6 +241,11 @@ function countBits8(mask: number): number {
   return c;
 }
 
+function smoothstep(edge0: number, edge1: number, x: number): number {
+  const t = THREE.MathUtils.clamp((x - edge0) / (edge1 - edge0), 0, 1);
+  return t * t * (3.0 - 2.0 * t);
+}
+
 export function createPrivateWorldInteractionSystem(
   options: CreatePrivateInteractionSystemOptions = {},
 ): PrivateWorldInteractionSystemBundle {
@@ -199,10 +260,58 @@ export function createPrivateWorldInteractionSystem(
   let telescopeYaw = DEFAULT_TELE_YAW;
   let telescopePitch = DEFAULT_TELE_PITCH;
 
-  // Bit 0 ('I') starts illuminated when looking through the telescope; panning across the sky illuminates all 8
   let discoveredMask = 0b00000001;
   let connectedNodesCount = 1;
   let focusedNodeIndex = 1;
+
+  // Proposal Sequence State Machine
+  let proposalPhase: ProposalSequencePhase = 'IDLE';
+  let proposalPhaseTimer = 0;
+  let proposalMessageIndex = 0;
+  let figureOpacity = 0;
+  let mistIntensity = 0;
+  let dissolveProgress = 0;
+  let constellationRevealProgress = 0;
+  let celebrationProgress = 0;
+  let weddingAnimTime = 0;
+  let hasCompletedProposalOnce = false;
+
+  const MIST_GATHER_DURATION = 2.3;
+  const FIGURE_DISSOLVE_DURATION = 3.2;
+  const CONSTELLATION_REVEAL_DURATION = 4.8;
+  const CELEBRATION_RAMP_DURATION = 2.4;
+
+  function setProposalPhase(nextPhase: ProposalSequencePhase) {
+    if (proposalPhase === nextPhase) return;
+    proposalPhase = nextPhase;
+    proposalPhaseTimer = 0;
+    options.onProposalPhaseChanged?.(nextPhase);
+  }
+
+  function startOrReplayProposalSequence() {
+    proposalMessageIndex = 0;
+    figureOpacity = 0;
+    mistIntensity = 0;
+    dissolveProgress = 0;
+    // Reset constellation reveal and celebration so replaying performs the full sequence cleanly
+    constellationRevealProgress = 0;
+    celebrationProgress = 0;
+    weddingAnimTime = 0;
+    setProposalPhase('MIST_GATHER');
+    setMode('PROPOSAL_SEQUENCE');
+  }
+
+  function triggerWeddingCelebration() {
+    figureOpacity = 0;
+    mistIntensity = 0;
+    dissolveProgress = 0;
+    constellationRevealProgress = 1.0;
+    celebrationProgress = Math.max(celebrationProgress, 0.08);
+    weddingAnimTime = 0;
+    hasCompletedProposalOnce = true;
+    setProposalPhase('FINAL_HOLD');
+    setMode('NONE');
+  }
 
   function evaluateSkySequenceAt(lookYaw: number, lookPitch: number): {
     bestNode: StargazingSkySequenceNode;
@@ -222,14 +331,14 @@ export function createPrivateWorldInteractionSystem(
         minAngDist = d;
         bestIdx = i;
       }
-      if (d < 0.27) {
+      if (currentMode === 'TELESCOPE' && d < 0.27) {
         discoveredMask |= 1 << i;
       }
     }
 
     const bestNode = STARGAZING_SKY_SEQUENCE[bestIdx];
     focusedNodeIndex = bestNode.index;
-    connectedNodesCount = Math.max(1, countBits8(discoveredMask));
+    connectedNodesCount = countBits8(discoveredMask);
 
     const highlightStrength =
       1.0 - THREE.MathUtils.smoothstep(minAngDist, 0.05, 0.34);
@@ -249,6 +358,20 @@ export function createPrivateWorldInteractionSystem(
       telescopeYaw = DEFAULT_TELE_YAW;
       telescopePitch = DEFAULT_TELE_PITCH;
       evaluateSkySequenceAt(telescopeYaw, telescopePitch);
+    }
+    if (prev === 'PROPOSAL_SEQUENCE' && nextMode === 'NONE') {
+      // If user exits early via Esc before completion, cleanly hide figure and restore state
+      if (proposalPhase !== 'FINAL_HOLD') {
+        figureOpacity = 0;
+        mistIntensity = 0;
+        dissolveProgress = 0;
+        if (hasCompletedProposalOnce) {
+          constellationRevealProgress = 1.0;
+          setProposalPhase('FINAL_HOLD');
+        } else {
+          setProposalPhase('IDLE');
+        }
+      }
     }
     options.onModeChanged?.(nextMode, prev);
   }
@@ -292,7 +415,25 @@ export function createPrivateWorldInteractionSystem(
     },
   });
 
-  // 3. Stargazing Sanctuary: Return Portal Gate ("E  Return to Heart Island")
+  // 3. Connected Proposal Garden: Central Proposal Stage ("E  Open the proposal message")
+  registerInteraction({
+    id: 'proposal-stage',
+    keyLabel: 'E',
+    actionLabel: () =>
+      hasCompletedProposalOnce
+        ? 'Replay the proposal & wedding celebration'
+        : 'Open the proposal message',
+    radius: 3.5,
+    getPosition: () => ({
+      x: PROPOSAL_STAGE_POS.x,
+      z: PROPOSAL_STAGE_POS.z,
+    }),
+    onInteract: () => {
+      startOrReplayProposalSequence();
+    },
+  });
+
+  // 4. Stargazing Sanctuary: Return Portal Gate ("E  Return to Heart Island")
   registerInteraction({
     id: 'arrival-return-gate',
     keyLabel: 'E',
@@ -335,11 +476,15 @@ export function createPrivateWorldInteractionSystem(
 
       if (bestTarget) {
         const keyLabel = bestTarget.keyLabel ?? 'E';
+        const resolvedAction =
+          typeof bestTarget.actionLabel === 'function'
+            ? bestTarget.actionLabel(playerX, playerZ)
+            : bestTarget.actionLabel;
         nearestPrompt = {
           id: bestTarget.id,
           keyLabel,
-          actionLabel: bestTarget.actionLabel,
-          fullPrompt: `${keyLabel}  ${bestTarget.actionLabel}`,
+          actionLabel: resolvedAction,
+          fullPrompt: `${keyLabel}  ${resolvedAction}`,
           distance: bestDist,
         };
       } else {
@@ -356,10 +501,14 @@ export function createPrivateWorldInteractionSystem(
     },
 
     isMovementLocked() {
-      return currentMode !== 'NONE';
+      return currentMode === 'TELESCOPE' || currentMode === 'SEATED_LOVESEAT';
     },
 
     handleKeyE(playerX: number, playerZ: number): boolean {
+      // In PROPOSAL_SEQUENCE mode, E advances the message while allowing full free movement
+      if (currentMode === 'PROPOSAL_SEQUENCE') {
+        return this.advanceProposalMessage();
+      }
       if (currentMode !== 'NONE') {
         setMode('NONE');
         return true;
@@ -419,15 +568,163 @@ export function createPrivateWorldInteractionSystem(
 
     getTelescopeState(): TelescopeViewState {
       const evalRes = evaluateSkySequenceAt(telescopeYaw, telescopePitch);
+      const isBestDiscovered =
+        (discoveredMask & (1 << (evalRes.bestNode.index - 1))) !== 0;
       return {
         yaw: telescopeYaw,
         pitch: telescopePitch,
-        constellationName: evalRes.bestNode.text,
-        constellationSubtitle: evalRes.bestNode.subtitle,
+        constellationName: isBestDiscovered
+          ? evalRes.bestNode.text
+          : 'Searching the Night Sky',
+        constellationSubtitle: isBestDiscovered
+          ? evalRes.bestNode.subtitle
+          : 'Uncharted Star Cluster',
         highlightStrength: evalRes.highlightStrength,
         connectedNodesCount: evalRes.connectedCount,
         focusedNodeIndex,
         discoveredMask,
+      };
+    },
+
+    updateProposalSequence(delta: number): ProposalSequenceState {
+      if (proposalPhase === 'MIST_GATHER') {
+        proposalPhaseTimer += delta;
+        const t = THREE.MathUtils.clamp(
+          proposalPhaseTimer / MIST_GATHER_DURATION,
+          0,
+          1,
+        );
+        mistIntensity = smoothstep(0.0, 0.55, t);
+        figureOpacity = smoothstep(0.18, 1.0, t);
+        dissolveProgress = 0;
+        celebrationProgress = 0;
+
+        if (proposalPhaseTimer >= MIST_GATHER_DURATION) {
+          figureOpacity = 1.0;
+          mistIntensity = 1.0;
+          setProposalPhase('MESSAGE');
+        }
+      } else if (proposalPhase === 'MESSAGE') {
+        proposalPhaseTimer += delta;
+        figureOpacity = 1.0;
+        mistIntensity = 1.0;
+        dissolveProgress = 0;
+        celebrationProgress = 0;
+      } else if (proposalPhase === 'FIGURE_DISSOLVE') {
+        proposalPhaseTimer += delta;
+        celebrationProgress = 0;
+        // Brief 0.9s pause after final message before dissolving
+        if (proposalPhaseTimer <= 0.9) {
+          figureOpacity = 1.0;
+          mistIntensity = 1.0;
+          dissolveProgress = 0;
+        } else {
+          const dissolveT = THREE.MathUtils.clamp(
+            (proposalPhaseTimer - 0.9) / (FIGURE_DISSOLVE_DURATION - 0.9),
+            0,
+            1,
+          );
+          const smoothD = smoothstep(0.0, 1.0, dissolveT);
+          figureOpacity = 1.0 - smoothD;
+          mistIntensity = 1.0 - smoothD * 0.85;
+          dissolveProgress = smoothD;
+        }
+
+        if (proposalPhaseTimer >= FIGURE_DISSOLVE_DURATION) {
+          figureOpacity = 0;
+          mistIntensity = 0;
+          dissolveProgress = 1.0;
+          setProposalPhase('CONSTELLATION_REVEAL');
+        }
+      } else if (proposalPhase === 'CONSTELLATION_REVEAL') {
+        proposalPhaseTimer += delta;
+        figureOpacity = 0;
+        mistIntensity = 0;
+        dissolveProgress = 1.0;
+        const revT = THREE.MathUtils.clamp(
+          proposalPhaseTimer / CONSTELLATION_REVEAL_DURATION,
+          0,
+          1,
+        );
+        constellationRevealProgress = smoothstep(0.0, 1.0, revT);
+
+        // Once the constellation finishes revealing, begin ramping up the fireworks, festival illumination, and wedding ceremony!
+        if (proposalPhaseTimer >= CONSTELLATION_REVEAL_DURATION) {
+          const postT = proposalPhaseTimer - CONSTELLATION_REVEAL_DURATION;
+          celebrationProgress = smoothstep(
+            0.0,
+            1.0,
+            THREE.MathUtils.clamp(postT / CELEBRATION_RAMP_DURATION, 0, 1),
+          );
+          weddingAnimTime += delta;
+        } else {
+          celebrationProgress = 0;
+        }
+
+        if (proposalPhaseTimer >= CONSTELLATION_REVEAL_DURATION + 1.2) {
+          constellationRevealProgress = 1.0;
+          hasCompletedProposalOnce = true;
+          setProposalPhase('FINAL_HOLD');
+          setMode('NONE');
+        }
+      } else if (proposalPhase === 'FINAL_HOLD') {
+        proposalPhaseTimer += delta;
+        figureOpacity = 0;
+        mistIntensity = 0;
+        dissolveProgress = 0;
+        constellationRevealProgress = 1.0;
+        celebrationProgress = THREE.MathUtils.clamp(
+          celebrationProgress + delta / CELEBRATION_RAMP_DURATION,
+          0,
+          1,
+        );
+        weddingAnimTime += delta;
+      }
+
+      return this.getProposalState();
+    },
+
+    advanceProposalMessage(): boolean {
+      if (currentMode !== 'PROPOSAL_SEQUENCE') return false;
+      if (proposalPhase === 'MIST_GATHER') {
+        // Allow skipping straight to Message 1 if pressed during mist gather
+        figureOpacity = 1.0;
+        mistIntensity = 1.0;
+        setProposalPhase('MESSAGE');
+        return true;
+      }
+      if (proposalPhase === 'MESSAGE') {
+        if (proposalMessageIndex < PROPOSAL_MESSAGE_SECTIONS.length - 1) {
+          proposalMessageIndex += 1;
+          proposalPhaseTimer = 0;
+          return true;
+        } else {
+          // Completed the 6th and final message section -> begin figure dissolution
+          setProposalPhase('FIGURE_DISSOLVE');
+          return true;
+        }
+      }
+      return false;
+    },
+
+    triggerWeddingCelebration,
+
+    getProposalState(): ProposalSequenceState {
+      return {
+        phase: proposalPhase,
+        messageIndex: proposalMessageIndex,
+        totalMessages: PROPOSAL_MESSAGE_SECTIONS.length,
+        currentMessageText:
+          proposalPhase === 'MESSAGE'
+            ? PROPOSAL_MESSAGE_SECTIONS[proposalMessageIndex]
+            : null,
+        figureOpacity,
+        mistIntensity,
+        dissolveProgress,
+        constellationRevealProgress,
+        celebrationProgress,
+        weddingAnimTime,
+        hasCompletedOnce: hasCompletedProposalOnce,
       };
     },
   };
@@ -446,7 +743,6 @@ export function getSeatedCameraPose(mode: PrivateInteractionMode): {
     const deckY = 3.48;
     return {
       camPos: new THREE.Vector3(-1.55, deckY + 1.18, -2.95),
-      // Aim due East toward the MANDU star constellation canopy
       lookAt: new THREE.Vector3(26.0, deckY + 11.5, -2.95),
       avatarPos: new THREE.Vector3(-1.75, deckY + 0.04, -3.05),
       avatarYaw: STARGAZING_LOVESEAT_POS.seatFacingYaw,

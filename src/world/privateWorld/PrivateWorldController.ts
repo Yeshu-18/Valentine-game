@@ -13,6 +13,7 @@ import {
 import {
   PrivateInteractionMode,
   PrivateInteractionPrompt,
+  ProposalSequenceState,
   STARGAZING_TELESCOPE_POS,
   TelescopeViewState,
   createPrivateWorldInteractionSystem,
@@ -37,6 +38,7 @@ export interface PrivateWorldTelemetry {
   telescopeView: TelescopeViewState | null;
   connectedSkyNodesCount: number;
   discoveredLettersMask?: number;
+  proposalState?: ProposalSequenceState;
   routeDistances?: Record<TrailDestinationId, number>;
 }
 
@@ -52,6 +54,7 @@ export interface PrivateWorldControllerCallbacks {
     discoveredLettersMask?: number,
   ) => void;
   onSeatedStateChange?: (sitting: boolean) => void;
+  onProposalStateChange?: (state: ProposalSequenceState) => void;
   getRouteDistanceTo?: (
     playerX: number,
     playerZ: number,
@@ -72,6 +75,8 @@ export interface PrivateWorldControllerBundle {
   setTopDownView: (topDown: boolean) => void;
   isTopDownView: () => boolean;
   triggerPrimaryInteraction: () => void;
+  advanceProposalSequence: () => void;
+  triggerWeddingCelebration: () => void;
   exitInteractionMode: () => void;
   update: (delta: number, elapsedTime: number) => void;
   getPosition: () => THREE.Vector3;
@@ -139,12 +144,20 @@ export function createPrivateWorldController(
       callbacks.onReturnGateInteract?.();
     },
     onModeChanged: (nextMode, prevMode) => {
-      Object.keys(keys).forEach((k) => {
-        keys[k] = false;
-      });
-      playerVel.set(0, 0, 0);
-      seatedLookYawOffset = 0;
-      seatedLookPitchOffset = 0;
+      // Only clear movement keys when entering or leaving a movement-locked mode (TELESCOPE or SEATED_LOVESEAT)
+      if (
+        nextMode === 'TELESCOPE' ||
+        nextMode === 'SEATED_LOVESEAT' ||
+        prevMode === 'TELESCOPE' ||
+        prevMode === 'SEATED_LOVESEAT'
+      ) {
+        Object.keys(keys).forEach((k) => {
+          keys[k] = false;
+        });
+        playerVel.set(0, 0, 0);
+        seatedLookYawOffset = 0;
+        seatedLookPitchOffset = 0;
+      }
 
       if (nextMode === 'TELESCOPE') {
         avatar.group.visible = false;
@@ -178,6 +191,19 @@ export function createPrivateWorldController(
           tState.discoveredMask,
         );
         callbacks.onSeatedStateChange?.(true);
+      } else if (nextMode === 'PROPOSAL_SEQUENCE') {
+        // Keep full player movement and camera freedom active while the kneeling mist figure appears!
+        avatar.group.visible = true;
+        const tState = interactionSystem.getTelescopeState();
+        callbacks.onTelescopeStateChange?.(
+          false,
+          0,
+          false,
+          tState.connectedNodesCount,
+          tState.focusedNodeIndex,
+          tState.discoveredMask,
+        );
+        callbacks.onProposalStateChange?.(interactionSystem.getProposalState());
       } else if (nextMode === 'NONE') {
         avatar.group.visible = true;
         const tState = interactionSystem.getTelescopeState();
@@ -204,6 +230,8 @@ export function createPrivateWorldController(
           avatar.group.position.copy(playerPos);
           avatar.group.rotation.set(0, facingYaw, 0);
           callbacks.onSeatedStateChange?.(false);
+        } else if (prevMode === 'PROPOSAL_SEQUENCE') {
+          callbacks.onProposalStateChange?.(interactionSystem.getProposalState());
         }
       }
     },
@@ -220,6 +248,16 @@ export function createPrivateWorldController(
 
     if (e.code === 'Escape') {
       if (interactionSystem.handleKeyEscape()) {
+        e.preventDefault();
+        return;
+      }
+    }
+
+    if (
+      interactionSystem.getMode() === 'PROPOSAL_SEQUENCE' &&
+      (e.code === 'Enter' || e.code === 'NumpadEnter' || e.code === 'Space')
+    ) {
+      if (interactionSystem.advanceProposalMessage()) {
         e.preventDefault();
         return;
       }
@@ -310,7 +348,7 @@ export function createPrivateWorldController(
       );
       return;
     }
-    if (mode !== 'NONE') return;
+    if (mode !== 'NONE' && mode !== 'PROPOSAL_SEQUENCE') return;
 
     if (Math.abs(e.deltaX) > 0.25 && Math.abs(e.deltaX) >= Math.abs(e.deltaY)) {
       const panDx = THREE.MathUtils.clamp(e.deltaX, -60, 60);
@@ -374,7 +412,10 @@ export function createPrivateWorldController(
     camZ: number,
     vertOffset: number,
   ): number {
-    const camTerrainFloor = Math.max(0.85, getPrivateTerrainHeight(camX, camZ) + 0.65);
+    const camTerrainFloor = Math.max(
+      0.85,
+      getPrivateTerrainHeight(camX, camZ) + 0.65,
+    );
     return Math.max(playerPos.y + vertOffset, camTerrainFloor);
   }
 
@@ -384,9 +425,9 @@ export function createPrivateWorldController(
       camera.updateProjectionMatrix();
     }
     if (topDownView) {
-      camera.position.set(0, 48, -6);
-      camera.lookAt(0, 3.48, 0);
-      _currentLookAt.set(0, 3.48, 0);
+      camera.position.set(11, 56, 4);
+      camera.lookAt(11, 3.8, 9);
+      _currentLookAt.set(11, 3.8, 9);
       return;
     }
     const horizDist = Math.cos(cameraPitch) * cameraDistance;
@@ -470,12 +511,26 @@ export function createPrivateWorldController(
       interactionSystem.handleKeyE(playerPos.x, playerPos.z, playerPos.y);
     },
 
+    advanceProposalSequence() {
+      if (!active) return;
+      interactionSystem.advanceProposalMessage();
+    },
+
+    triggerWeddingCelebration() {
+      if (!active) return;
+      interactionSystem.triggerWeddingCelebration();
+      callbacks.onProposalStateChange?.(interactionSystem.getProposalState());
+    },
+
     exitInteractionMode() {
       interactionSystem.cancelActiveMode();
     },
 
     update(delta: number, elapsedTime: number) {
       if (!active) return;
+
+      const propState = interactionSystem.updateProposalSequence(delta);
+      callbacks.onProposalStateChange?.(propState);
 
       const mode = interactionSystem.getMode();
 
@@ -580,7 +635,8 @@ export function createPrivateWorldController(
         return;
       }
 
-      // 3. Normal Third-Person Movement on the Stargazing Sanctuary Deck
+      // 3. Normal Third-Person Movement & Full Camera Freedom across Stargazing Deck, Lantern Path, and Proposal Garden
+      // (Remains 100% active during PROPOSAL_SEQUENCE so the player can walk, orbit, and zoom freely while the mist figure appears!)
       const moveForward = Boolean(keys['KeyW'] || keys['ArrowUp']);
       const moveBackward = Boolean(keys['KeyS'] || keys['ArrowDown']);
       const moveLeft = Boolean(keys['KeyA'] || keys['ArrowLeft']);
@@ -664,10 +720,10 @@ export function createPrivateWorldController(
       );
 
       if (topDownView) {
-        _desiredCamPos.set(0, 48, -6);
-        _desiredLookAt.set(0, 3.48, 0);
+        _desiredCamPos.set(11, 56, 4);
+        _desiredLookAt.set(11, 3.8, 9);
         camera.position.lerp(_desiredCamPos, dampAlpha(8.0, delta));
-        _currentLookAt.set(0, 3.48, 0);
+        _currentLookAt.set(11, 3.8, 9);
         camera.lookAt(_currentLookAt);
       } else {
         const horizDist = Math.cos(cameraPitch) * cameraDistance;
@@ -695,7 +751,7 @@ export function createPrivateWorldController(
     },
 
     getTelemetry(): PrivateWorldTelemetry {
-      const reg = getPrivateRegionAtPosition();
+      const reg = getPrivateRegionAtPosition(playerPos.x, playerPos.z);
       const speed = Math.hypot(playerVel.x, playerVel.z);
       const mode = interactionSystem.getMode();
 
@@ -717,6 +773,7 @@ export function createPrivateWorldController(
           mode === 'TELESCOPE' ? interactionSystem.getTelescopeState() : null,
         connectedSkyNodesCount: interactionSystem.getConnectedSkyNodesCount(),
         discoveredLettersMask: interactionSystem.getDiscoveredLettersMask(),
+        proposalState: interactionSystem.getProposalState(),
       };
     },
 

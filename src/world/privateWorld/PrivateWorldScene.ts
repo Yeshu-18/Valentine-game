@@ -3,10 +3,14 @@ import { CircleCollider } from '../VegetationSystem';
 import {
   PRIVATE_ARRIVAL_GATE_POS,
   PRIVATE_ISLAND_BOUNDS,
+  PROPOSAL_GARDEN_CENTER,
+  PROPOSAL_PATH_SAMPLES,
   createPrivateSeededRng,
   getPrivateTerrainHeight,
 } from './privateWorldMath';
 import {
+  PROPOSAL_STAGE_POS,
+  ProposalSequenceState,
   STARGAZING_LOVESEAT_POS,
   STARGAZING_SKY_SEQUENCE,
   STARGAZING_TELESCOPE_POS,
@@ -44,6 +48,7 @@ export interface PrivateWorldSceneBundle {
     focusedNodeIndex?: number,
     discoveredLettersMask?: number,
   ) => void;
+  setProposalSequenceState: (state: ProposalSequenceState) => void;
   getPathLightingTelemetry: () => PrivatePathLightingTelemetry;
   getRouteDistanceTo: (
     playerX: number,
@@ -96,12 +101,12 @@ const MANDU_CONSTELLATION_BLUEPRINTS: readonly OrganicLetterConstellationBluepri
       tiltRad: 0.06,
       anchorStarIdx: 2,
       stars: [
-        { u: -0.62, v: -0.86, mag: 1.05, colorHex: 0x9eb8d6 }, // 0: Bottom-left foot
-        { u: -0.48, v: 0.92, mag: 1.25, colorHex: 0xd4c7ad }, // 1: Top-left peak (Alpha)
-        { u: -0.03, v: -0.12, mag: 1.12, colorHex: 0xb4cce4 }, // 2: Central valley star
-        { u: 0.45, v: 0.88, mag: 1.22, colorHex: 0xc8daec }, // 3: Top-right peak (Beta)
-        { u: 0.64, v: -0.84, mag: 1.02, colorHex: 0x9eb8d6 }, // 4: Bottom-right foot
-        { u: -0.82, v: 0.54, mag: 0.62, colorHex: 0x8aa6c4, isSpur: true }, // 5: Faint western spur
+        { u: -0.62, v: -0.86, mag: 1.05, colorHex: 0x9eb8d6 },
+        { u: -0.48, v: 0.92, mag: 1.25, colorHex: 0xd4c7ad },
+        { u: -0.03, v: -0.12, mag: 1.12, colorHex: 0xb4cce4 },
+        { u: 0.45, v: 0.88, mag: 1.22, colorHex: 0xc8daec },
+        { u: 0.64, v: -0.84, mag: 1.02, colorHex: 0x9eb8d6 },
+        { u: -0.82, v: 0.54, mag: 0.62, colorHex: 0x8aa6c4, isSpur: true },
       ],
       mainEdges: [
         [0, 1],
@@ -121,12 +126,12 @@ const MANDU_CONSTELLATION_BLUEPRINTS: readonly OrganicLetterConstellationBluepri
       tiltRad: -0.05,
       anchorStarIdx: 2,
       stars: [
-        { u: -0.55, v: -0.88, mag: 1.02, colorHex: 0x9eb8d6 }, // 0: Bottom-left leg
-        { u: -0.27, v: 0.04, mag: 1.1, colorHex: 0xb8cfe6 }, // 1: Mid-left crossbar node
-        { u: 0.04, v: 0.94, mag: 1.28, colorHex: 0xd6c8ae }, // 2: Apex star (Alpha)
-        { u: 0.31, v: -0.03, mag: 1.08, colorHex: 0xb8cfe6 }, // 3: Mid-right crossbar node
-        { u: 0.54, v: -0.86, mag: 1.04, colorHex: 0xa4bedb }, // 4: Bottom-right leg
-        { u: 0.28, v: 1.14, mag: 0.6, colorHex: 0x8aa6c4, isSpur: true }, // 5: Faint apex spur
+        { u: -0.55, v: -0.88, mag: 1.02, colorHex: 0x9eb8d6 },
+        { u: -0.27, v: 0.04, mag: 1.1, colorHex: 0xb8cfe6 },
+        { u: 0.04, v: 0.94, mag: 1.28, colorHex: 0xd6c8ae },
+        { u: 0.31, v: -0.03, mag: 1.08, colorHex: 0xb8cfe6 },
+        { u: 0.54, v: -0.86, mag: 1.04, colorHex: 0xa4bedb },
+        { u: 0.28, v: 1.14, mag: 0.6, colorHex: 0x8aa6c4, isSpur: true },
       ],
       mainEdges: [
         [0, 1],
@@ -147,13 +152,13 @@ const MANDU_CONSTELLATION_BLUEPRINTS: readonly OrganicLetterConstellationBluepri
       tiltRad: 0.07,
       anchorStarIdx: 3,
       stars: [
-        { u: -0.52, v: -0.88, mag: 1.04, colorHex: 0xa4bedb }, // 0: Bottom-left star
-        { u: -0.45, v: 0.14, mag: 0.92, colorHex: 0x9eb8d6 }, // 1: Left shaft kink
-        { u: -0.49, v: 0.92, mag: 1.24, colorHex: 0xd4c7ad }, // 2: Top-left peak (Alpha)
-        { u: 0.05, v: -0.06, mag: 1.0, colorHex: 0xb8cfe6 }, // 3: Diagonal bridge kink
-        { u: 0.47, v: -0.9, mag: 1.18, colorHex: 0xc8daec }, // 4: Bottom-right corner (Beta)
-        { u: 0.53, v: 0.9, mag: 1.16, colorHex: 0xb8cfe6 }, // 5: Top-right tip
-        { u: 0.76, v: 1.06, mag: 0.58, colorHex: 0x8aa6c4, isSpur: true }, // 6: Faint upper-right spur
+        { u: -0.52, v: -0.88, mag: 1.04, colorHex: 0xa4bedb },
+        { u: -0.45, v: 0.14, mag: 0.92, colorHex: 0x9eb8d6 },
+        { u: -0.49, v: 0.92, mag: 1.24, colorHex: 0xd4c7ad },
+        { u: 0.05, v: -0.06, mag: 1.0, colorHex: 0xb8cfe6 },
+        { u: 0.47, v: -0.9, mag: 1.18, colorHex: 0xc8daec },
+        { u: 0.53, v: 0.9, mag: 1.16, colorHex: 0xb8cfe6 },
+        { u: 0.76, v: 1.06, mag: 0.58, colorHex: 0x8aa6c4, isSpur: true },
       ],
       mainEdges: [
         [0, 1],
@@ -174,13 +179,13 @@ const MANDU_CONSTELLATION_BLUEPRINTS: readonly OrganicLetterConstellationBluepri
       tiltRad: -0.06,
       anchorStarIdx: 1,
       stars: [
-        { u: -0.46, v: 0.92, mag: 1.24, colorHex: 0xd4c7ad }, // 0: Top-left corner (Alpha)
-        { u: -0.52, v: -0.04, mag: 1.02, colorHex: 0xb4cce4 }, // 1: Spine middle kink
-        { u: -0.44, v: -0.88, mag: 1.16, colorHex: 0xc8daec }, // 2: Bottom-left corner
-        { u: 0.19, v: -0.74, mag: 0.98, colorHex: 0x9eb8d6 }, // 3: Lower-right curve star
-        { u: 0.52, v: -0.02, mag: 1.2, colorHex: 0xb8cfe6 }, // 4: Outer-right belly star (Beta)
-        { u: 0.22, v: 0.76, mag: 1.04, colorHex: 0xa4bedb }, // 5: Upper-right curve star
-        { u: -0.74, v: 0.62, mag: 0.6, colorHex: 0x8aa6c4, isSpur: true }, // 6: Faint western spur
+        { u: -0.46, v: 0.92, mag: 1.24, colorHex: 0xd4c7ad },
+        { u: -0.52, v: -0.04, mag: 1.02, colorHex: 0xb4cce4 },
+        { u: -0.44, v: -0.88, mag: 1.16, colorHex: 0xc8daec },
+        { u: 0.19, v: -0.74, mag: 0.98, colorHex: 0x9eb8d6 },
+        { u: 0.52, v: -0.02, mag: 1.2, colorHex: 0xb8cfe6 },
+        { u: 0.22, v: 0.76, mag: 1.04, colorHex: 0xa4bedb },
+        { u: -0.74, v: 0.62, mag: 0.6, colorHex: 0x8aa6c4, isSpur: true },
       ],
       mainEdges: [
         [0, 1],
@@ -202,13 +207,13 @@ const MANDU_CONSTELLATION_BLUEPRINTS: readonly OrganicLetterConstellationBluepri
       tiltRad: 0.05,
       anchorStarIdx: 3,
       stars: [
-        { u: -0.48, v: 0.9, mag: 1.22, colorHex: 0xc8daec }, // 0: Top-left rim
-        { u: -0.52, v: -0.16, mag: 0.98, colorHex: 0x9eb8d6 }, // 1: Left flank kink
-        { u: -0.24, v: -0.86, mag: 1.06, colorHex: 0xb4cce4 }, // 2: Bottom-left keel
-        { u: 0.24, v: -0.84, mag: 1.14, colorHex: 0xd4c7ad }, // 3: Bottom-right keel (Alpha)
-        { u: 0.5, v: -0.14, mag: 1.0, colorHex: 0xa4bedb }, // 4: Right flank kink
-        { u: 0.48, v: 0.92, mag: 1.24, colorHex: 0xb8cfe6 }, // 5: Top-right rim (Beta)
-        { u: 0.74, v: 1.08, mag: 0.6, colorHex: 0x8aa6c4, isSpur: true }, // 6: Faint right spur
+        { u: -0.48, v: 0.9, mag: 1.22, colorHex: 0xc8daec },
+        { u: -0.52, v: -0.16, mag: 0.98, colorHex: 0x9eb8d6 },
+        { u: -0.24, v: -0.86, mag: 1.06, colorHex: 0xb4cce4 },
+        { u: 0.24, v: -0.84, mag: 1.14, colorHex: 0xd4c7ad },
+        { u: 0.5, v: -0.14, mag: 1.0, colorHex: 0xa4bedb },
+        { u: 0.48, v: 0.92, mag: 1.24, colorHex: 0xb8cfe6 },
+        { u: 0.74, v: 1.08, mag: 0.6, colorHex: 0x8aa6c4, isSpur: true },
       ],
       mainEdges: [
         [0, 1],
@@ -228,7 +233,7 @@ const MANDU_CONSTELLATION_BLUEPRINTS: readonly OrganicLetterConstellationBluepri
  */
 const ORGANIC_LETTER_CONSTELLATION_BLUEPRINTS: readonly OrganicLetterConstellationBlueprint[] =
   [
-    // 1. "I" — Crooked 3-star spine with a slight knee bend, asymmetric canted serifs, and a side companion spur
+    // 1. "I"
     {
       letter: 'I',
       yaw: STARGAZING_SKY_SEQUENCE[0].yaw,
@@ -237,14 +242,14 @@ const ORGANIC_LETTER_CONSTELLATION_BLUEPRINTS: readonly OrganicLetterConstellati
       tiltRad: 0.11,
       anchorStarIdx: 1,
       stars: [
-        { u: 0.05, v: 0.92, mag: 1.18, colorHex: 0xd6c8ad }, // 0: Top crown star (Alpha)
-        { u: -0.09, v: 0.11, mag: 1.02, colorHex: 0xb4cce4 }, // 1: Crooked middle knee star (Beta)
-        { u: 0.04, v: -0.88, mag: 1.14, colorHex: 0xcfc2a8 }, // 2: Bottom base star
-        { u: -0.34, v: 0.81, mag: 0.82, colorHex: 0x9eb8d6 }, // 3: Top-left crooked crossbar star
-        { u: 0.39, v: 1.02, mag: 0.86, colorHex: 0xc8d8e8 }, // 4: Top-right tilted crossbar star
-        { u: -0.38, v: -0.96, mag: 0.84, colorHex: 0xa4bedb }, // 5: Bottom-left crossbar star
-        { u: 0.35, v: -0.76, mag: 0.8, colorHex: 0xcab8c8 }, // 6: Bottom-right canted crossbar star
-        { u: -0.48, v: 0.28, mag: 0.58, colorHex: 0x8aa6c4, isSpur: true }, // 7: Faint western spur star
+        { u: 0.05, v: 0.92, mag: 1.18, colorHex: 0xd6c8ad },
+        { u: -0.09, v: 0.11, mag: 1.02, colorHex: 0xb4cce4 },
+        { u: 0.04, v: -0.88, mag: 1.14, colorHex: 0xcfc2a8 },
+        { u: -0.34, v: 0.81, mag: 0.82, colorHex: 0x9eb8d6 },
+        { u: 0.39, v: 1.02, mag: 0.86, colorHex: 0xc8d8e8 },
+        { u: -0.38, v: -0.96, mag: 0.84, colorHex: 0xa4bedb },
+        { u: 0.35, v: -0.76, mag: 0.8, colorHex: 0xcab8c8 },
+        { u: -0.48, v: 0.28, mag: 0.58, colorHex: 0x8aa6c4, isSpur: true },
       ],
       mainEdges: [
         [3, 0],
@@ -257,7 +262,7 @@ const ORGANIC_LETTER_CONSTELLATION_BLUEPRINTS: readonly OrganicLetterConstellati
       spurEdges: [[1, 7]],
     },
 
-    // 2. "L" — Bowed 4-star vertical shaft with a kicked-up 3-star foot and an upper tail star
+    // 2. "L"
     {
       letter: 'L',
       yaw: STARGAZING_SKY_SEQUENCE[1].yaw,
@@ -266,14 +271,14 @@ const ORGANIC_LETTER_CONSTELLATION_BLUEPRINTS: readonly OrganicLetterConstellati
       tiltRad: -0.09,
       anchorStarIdx: 3,
       stars: [
-        { u: -0.26, v: 0.98, mag: 1.2, colorHex: 0xd6c8ad }, // 0: Upper apex star (Alpha)
-        { u: -0.38, v: 0.31, mag: 0.94, colorHex: 0xa4bedb }, // 1: Upper-mid bowed shaft star
-        { u: -0.24, v: -0.32, mag: 0.88, colorHex: 0xb8cfe6 }, // 2: Lower-mid kinked shaft star
-        { u: -0.33, v: -0.89, mag: 1.16, colorHex: 0xcfc2a8 }, // 3: Corner heel star (Beta)
-        { u: 0.14, v: -0.96, mag: 0.96, colorHex: 0xc8d8e8 }, // 4: Mid-foot dip star
-        { u: 0.54, v: -0.74, mag: 1.08, colorHex: 0xb4cce4 }, // 5: Upturned toe star
-        { u: -0.62, v: 0.78, mag: 0.58, colorHex: 0x8aa6c4, isSpur: true }, // 6: Faint upper-left spur
-        { u: 0.78, v: -0.92, mag: 0.55, colorHex: 0xbca8bc, isSpur: true }, // 7: Faint toe tip spur
+        { u: -0.26, v: 0.98, mag: 1.2, colorHex: 0xd6c8ad },
+        { u: -0.38, v: 0.31, mag: 0.94, colorHex: 0xa4bedb },
+        { u: -0.24, v: -0.32, mag: 0.88, colorHex: 0xb8cfe6 },
+        { u: -0.33, v: -0.89, mag: 1.16, colorHex: 0xcfc2a8 },
+        { u: 0.14, v: -0.96, mag: 0.96, colorHex: 0xc8d8e8 },
+        { u: 0.54, v: -0.74, mag: 1.08, colorHex: 0xb4cce4 },
+        { u: -0.62, v: 0.78, mag: 0.58, colorHex: 0x8aa6c4, isSpur: true },
+        { u: 0.78, v: -0.92, mag: 0.55, colorHex: 0xbca8bc, isSpur: true },
       ],
       mainEdges: [
         [0, 1],
@@ -288,7 +293,7 @@ const ORGANIC_LETTER_CONSTELLATION_BLUEPRINTS: readonly OrganicLetterConstellati
       ],
     },
 
-    // 3. "O" — Asymmetric 7-star polygonal ring (like Corona Borealis / Auriga) with an outer guide spur
+    // 3. "O"
     {
       letter: 'O',
       yaw: STARGAZING_SKY_SEQUENCE[2].yaw,
@@ -297,14 +302,14 @@ const ORGANIC_LETTER_CONSTELLATION_BLUEPRINTS: readonly OrganicLetterConstellati
       tiltRad: 0.08,
       anchorStarIdx: 2,
       stars: [
-        { u: -0.08, v: 0.96, mag: 1.18, colorHex: 0xd6c8ad }, // 0: North crown star (Alpha)
-        { u: 0.44, v: 0.64, mag: 0.95, colorHex: 0xb4cce4 }, // 1: North-east shoulder star
-        { u: 0.58, v: -0.06, mag: 1.12, colorHex: 0xcfc2a8 }, // 2: Eastern flank star (Beta)
-        { u: 0.31, v: -0.81, mag: 0.88, colorHex: 0x9eb8d6 }, // 3: South-east keel star
-        { u: -0.19, v: -0.93, mag: 1.04, colorHex: 0xc8d8e8 }, // 4: Southern base star
-        { u: -0.56, v: -0.38, mag: 0.86, colorHex: 0xa4bedb }, // 5: Western lower star
-        { u: -0.48, v: 0.48, mag: 1.0, colorHex: 0xcab8c8 }, // 6: North-west upper star
-        { u: 0.82, v: 0.88, mag: 0.58, colorHex: 0x8aa6c4, isSpur: true }, // 7: North-east spur star
+        { u: -0.08, v: 0.96, mag: 1.18, colorHex: 0xd6c8ad },
+        { u: 0.44, v: 0.64, mag: 0.95, colorHex: 0xb4cce4 },
+        { u: 0.58, v: -0.06, mag: 1.12, colorHex: 0xcfc2a8 },
+        { u: 0.31, v: -0.81, mag: 0.88, colorHex: 0x9eb8d6 },
+        { u: -0.19, v: -0.93, mag: 1.04, colorHex: 0xc8d8e8 },
+        { u: -0.56, v: -0.38, mag: 0.86, colorHex: 0xa4bedb },
+        { u: -0.48, v: 0.48, mag: 1.0, colorHex: 0xcab8c8 },
+        { u: 0.82, v: 0.88, mag: 0.58, colorHex: 0x8aa6c4, isSpur: true },
       ],
       mainEdges: [
         [0, 1],
@@ -318,7 +323,7 @@ const ORGANIC_LETTER_CONSTELLATION_BLUEPRINTS: readonly OrganicLetterConstellati
       spurEdges: [[1, 7]],
     },
 
-    // 4. "V" — Taurus Hyades-inspired crooked V constellation with bent arms and a trailing wing star
+    // 4. "V"
     {
       letter: 'V',
       yaw: STARGAZING_SKY_SEQUENCE[3].yaw,
@@ -327,13 +332,13 @@ const ORGANIC_LETTER_CONSTELLATION_BLUEPRINTS: readonly OrganicLetterConstellati
       tiltRad: -0.07,
       anchorStarIdx: 2,
       stars: [
-        { u: -0.58, v: 0.95, mag: 1.14, colorHex: 0xb4cce4 }, // 0: Left wingtip star
-        { u: -0.26, v: 0.14, mag: 0.92, colorHex: 0xc8d8e8 }, // 1: Left inner kink star
-        { u: -0.03, v: -0.92, mag: 1.24, colorHex: 0xd6c8ad }, // 2: Bright vertex star (Alpha)
-        { u: 0.29, v: -0.08, mag: 0.96, colorHex: 0xa4bedb }, // 3: Right inner elbow star
-        { u: 0.54, v: 0.88, mag: 1.16, colorHex: 0xcfc2a8 }, // 4: Right wingtip star (Beta)
-        { u: 0.81, v: 1.06, mag: 0.6, colorHex: 0x8aa6c4, isSpur: true }, // 5: Right outer spur star
-        { u: -0.79, v: 0.68, mag: 0.55, colorHex: 0xbca8bc, isSpur: true }, // 6: Left outer spur star
+        { u: -0.58, v: 0.95, mag: 1.14, colorHex: 0xb4cce4 },
+        { u: -0.26, v: 0.14, mag: 0.92, colorHex: 0xc8d8e8 },
+        { u: -0.03, v: -0.92, mag: 1.24, colorHex: 0xd6c8ad },
+        { u: 0.29, v: -0.08, mag: 0.96, colorHex: 0xa4bedb },
+        { u: 0.54, v: 0.88, mag: 1.16, colorHex: 0xcfc2a8 },
+        { u: 0.81, v: 1.06, mag: 0.6, colorHex: 0x8aa6c4, isSpur: true },
+        { u: -0.79, v: 0.68, mag: 0.55, colorHex: 0xbca8bc, isSpur: true },
       ],
       mainEdges: [
         [0, 1],
@@ -347,7 +352,7 @@ const ORGANIC_LETTER_CONSTELLATION_BLUEPRINTS: readonly OrganicLetterConstellati
       ],
     },
 
-    // 5. "E" — Kinked 3-star spine with three canted, uneven star-branches
+    // 5. "E"
     {
       letter: 'E',
       yaw: STARGAZING_SKY_SEQUENCE[4].yaw,
@@ -356,15 +361,15 @@ const ORGANIC_LETTER_CONSTELLATION_BLUEPRINTS: readonly OrganicLetterConstellati
       tiltRad: 0.09,
       anchorStarIdx: 1,
       stars: [
-        { u: -0.34, v: 0.93, mag: 1.16, colorHex: 0xd6c8ad }, // 0: Top-left spine corner (Alpha)
-        { u: -0.44, v: 0.07, mag: 1.08, colorHex: 0xb4cce4 }, // 1: Mid-spine outward kink (Beta)
-        { u: -0.29, v: -0.89, mag: 1.12, colorHex: 0xcfc2a8 }, // 2: Bottom-left spine corner
-        { u: 0.11, v: 1.01, mag: 0.88, colorHex: 0x9eb8d6 }, // 3: Top branch mid kink
-        { u: 0.52, v: 0.84, mag: 1.02, colorHex: 0xc8d8e8 }, // 4: Top branch tip
-        { u: 0.28, v: 0.16, mag: 1.0, colorHex: 0xcab8c8 }, // 5: Middle bar tilted tip
-        { u: 0.16, v: -0.96, mag: 0.86, colorHex: 0xa4bedb }, // 6: Bottom branch mid dip
-        { u: 0.5, v: -0.76, mag: 1.04, colorHex: 0xc8d8e8 }, // 7: Bottom branch tip
-        { u: -0.72, v: -0.22, mag: 0.58, colorHex: 0x8aa6c4, isSpur: true }, // 8: Spine western spur star
+        { u: -0.34, v: 0.93, mag: 1.16, colorHex: 0xd6c8ad },
+        { u: -0.44, v: 0.07, mag: 1.08, colorHex: 0xb4cce4 },
+        { u: -0.29, v: -0.89, mag: 1.12, colorHex: 0xcfc2a8 },
+        { u: 0.11, v: 1.01, mag: 0.88, colorHex: 0x9eb8d6 },
+        { u: 0.52, v: 0.84, mag: 1.02, colorHex: 0xc8d8e8 },
+        { u: 0.28, v: 0.16, mag: 1.0, colorHex: 0xcab8c8 },
+        { u: 0.16, v: -0.96, mag: 0.86, colorHex: 0xa4bedb },
+        { u: 0.5, v: -0.76, mag: 1.04, colorHex: 0xc8d8e8 },
+        { u: -0.72, v: -0.22, mag: 0.58, colorHex: 0x8aa6c4, isSpur: true },
       ],
       mainEdges: [
         [4, 3],
@@ -378,7 +383,7 @@ const ORGANIC_LETTER_CONSTELLATION_BLUEPRINTS: readonly OrganicLetterConstellati
       spurEdges: [[1, 8]],
     },
 
-    // 6. "Y" — Cygnus-like forked star branch high in the sky with a crooked lower stem
+    // 6. "Y"
     {
       letter: 'Y',
       yaw: STARGAZING_SKY_SEQUENCE[5].yaw,
@@ -387,14 +392,14 @@ const ORGANIC_LETTER_CONSTELLATION_BLUEPRINTS: readonly OrganicLetterConstellati
       tiltRad: -0.1,
       anchorStarIdx: 2,
       stars: [
-        { u: -0.56, v: 0.96, mag: 1.14, colorHex: 0xc8d8e8 }, // 0: Upper-left fork tip
-        { u: -0.22, v: 0.48, mag: 0.88, colorHex: 0x9eb8d6 }, // 1: Upper-left fork elbow
-        { u: 0.03, v: 0.06, mag: 1.22, colorHex: 0xd6c8ad }, // 2: Central heart junction star (Alpha)
-        { u: 0.58, v: 0.89, mag: 1.16, colorHex: 0xb4cce4 }, // 3: Upper-right fork tip (Beta)
-        { u: -0.09, v: -0.44, mag: 0.92, colorHex: 0xa4bedb }, // 4: Lower stem kink
-        { u: 0.06, v: -0.93, mag: 1.1, colorHex: 0xcab8c8 }, // 5: Base stem star
-        { u: -0.8, v: 0.72, mag: 0.58, colorHex: 0x8aa6c4, isSpur: true }, // 6: Left wing spur
-        { u: 0.79, v: 0.56, mag: 0.56, colorHex: 0xbca8bc, isSpur: true }, // 7: Right wing spur
+        { u: -0.56, v: 0.96, mag: 1.14, colorHex: 0xc8d8e8 },
+        { u: -0.22, v: 0.48, mag: 0.88, colorHex: 0x9eb8d6 },
+        { u: 0.03, v: 0.06, mag: 1.22, colorHex: 0xd6c8ad },
+        { u: 0.58, v: 0.89, mag: 1.16, colorHex: 0xb4cce4 },
+        { u: -0.09, v: -0.44, mag: 0.92, colorHex: 0xa4bedb },
+        { u: 0.06, v: -0.93, mag: 1.1, colorHex: 0xcab8c8 },
+        { u: -0.8, v: 0.72, mag: 0.58, colorHex: 0x8aa6c4, isSpur: true },
+        { u: 0.79, v: 0.56, mag: 0.56, colorHex: 0xbca8bc, isSpur: true },
       ],
       mainEdges: [
         [0, 1],
@@ -409,7 +414,7 @@ const ORGANIC_LETTER_CONSTELLATION_BLUEPRINTS: readonly OrganicLetterConstellati
       ],
     },
 
-    // 7. "O" — Distinct 6-star diamond-hexagon loop so the second "O" has its own unique astronomical character
+    // 7. "O"
     {
       letter: 'O',
       yaw: STARGAZING_SKY_SEQUENCE[6].yaw,
@@ -418,13 +423,13 @@ const ORGANIC_LETTER_CONSTELLATION_BLUEPRINTS: readonly OrganicLetterConstellati
       tiltRad: -0.11,
       anchorStarIdx: 1,
       stars: [
-        { u: 0.09, v: 0.95, mag: 1.16, colorHex: 0xb4cce4 }, // 0: Upper apex star (Alpha)
-        { u: 0.54, v: 0.36, mag: 1.04, colorHex: 0xd6c8ad }, // 1: Upper-right star
-        { u: 0.39, v: -0.66, mag: 0.92, colorHex: 0xcab8c8 }, // 2: Lower-right star
-        { u: -0.14, v: -0.94, mag: 1.14, colorHex: 0xcfc2a8 }, // 3: Southern nadir star (Beta)
-        { u: -0.55, v: -0.24, mag: 0.88, colorHex: 0x9eb8d6 }, // 4: Western flank star
-        { u: -0.37, v: 0.64, mag: 1.0, colorHex: 0xc8d8e8 }, // 5: North-west star
-        { u: -0.78, v: -0.62, mag: 0.58, colorHex: 0x8aa6c4, isSpur: true }, // 6: South-west tail spur
+        { u: 0.09, v: 0.95, mag: 1.16, colorHex: 0xb4cce4 },
+        { u: 0.54, v: 0.36, mag: 1.04, colorHex: 0xd6c8ad },
+        { u: 0.39, v: -0.66, mag: 0.92, colorHex: 0xcab8c8 },
+        { u: -0.14, v: -0.94, mag: 1.14, colorHex: 0xcfc2a8 },
+        { u: -0.55, v: -0.24, mag: 0.88, colorHex: 0x9eb8d6 },
+        { u: -0.37, v: 0.64, mag: 1.0, colorHex: 0xc8d8e8 },
+        { u: -0.78, v: -0.62, mag: 0.58, colorHex: 0x8aa6c4, isSpur: true },
       ],
       mainEdges: [
         [0, 1],
@@ -437,7 +442,7 @@ const ORGANIC_LETTER_CONSTELLATION_BLUEPRINTS: readonly OrganicLetterConstellati
       spurEdges: [[4, 6]],
     },
 
-    // 8. "U" — Organic 7-star celestial cup constellation on the right of the I LOVE YOU arc
+    // 8. "U"
     {
       letter: 'U',
       yaw: STARGAZING_SKY_SEQUENCE[7].yaw,
@@ -446,14 +451,14 @@ const ORGANIC_LETTER_CONSTELLATION_BLUEPRINTS: readonly OrganicLetterConstellati
       tiltRad: 0.08,
       anchorStarIdx: 3,
       stars: [
-        { u: -0.49, v: 0.93, mag: 1.16, colorHex: 0xd6c8ad }, // 0: Upper-left rim star (Alpha)
-        { u: -0.54, v: 0.14, mag: 0.92, colorHex: 0xb4cce4 }, // 1: Left flank bowed star
-        { u: -0.35, v: -0.68, mag: 0.88, colorHex: 0xcfc2a8 }, // 2: Lower-left curve star
-        { u: 0.04, v: -0.94, mag: 1.14, colorHex: 0xcab8c8 }, // 3: Bottom keel star (Beta)
-        { u: 0.39, v: -0.61, mag: 0.9, colorHex: 0x9eb8d6 }, // 4: Lower-right curve star
-        { u: 0.47, v: 0.18, mag: 0.98, colorHex: 0xc8d8e8 }, // 5: Right flank star
-        { u: 0.54, v: 0.96, mag: 1.2, colorHex: 0xd6c8ad }, // 6: Upper-right rim star
-        { u: 0.84, v: 1.14, mag: 0.62, colorHex: 0xbca8bc, isSpur: true }, // 7: Eastern culminating spur star
+        { u: -0.49, v: 0.93, mag: 1.16, colorHex: 0xd6c8ad },
+        { u: -0.54, v: 0.14, mag: 0.92, colorHex: 0xb4cce4 },
+        { u: -0.35, v: -0.68, mag: 0.88, colorHex: 0xcfc2a8 },
+        { u: 0.04, v: -0.94, mag: 1.14, colorHex: 0xcab8c8 },
+        { u: 0.39, v: -0.61, mag: 0.9, colorHex: 0x9eb8d6 },
+        { u: 0.47, v: 0.18, mag: 0.98, colorHex: 0xc8d8e8 },
+        { u: 0.54, v: 0.96, mag: 1.2, colorHex: 0xd6c8ad },
+        { u: 0.84, v: 1.14, mag: 0.62, colorHex: 0xbca8bc, isSpur: true },
       ],
       mainEdges: [
         [0, 1],
@@ -467,6 +472,281 @@ const ORGANIC_LETTER_CONSTELLATION_BLUEPRINTS: readonly OrganicLetterConstellati
     },
   ];
 
+/**
+ * DETERMINISTIC STAR-CONSTELLATION GLYPHS FOR "HAPPY VALENTINE'S DAY, MY LOVE"
+ * Every letter is defined in local `(u, v)` coordinates (`u ∈ [-0.45, +0.45]` left-to-right,
+ * `v ∈ [-0.85, +0.85]` bottom-to-top) with explicit star vertices and constellation line edges.
+ */
+interface StarGlyphTemplate {
+  width: number;
+  points: ReadonlyArray<readonly [number, number]>;
+  edges: ReadonlyArray<readonly [number, number]>;
+}
+
+const PROPOSAL_SKY_GLYPHS: Record<string, StarGlyphTemplate> = {
+  H: {
+    width: 1.0,
+    points: [
+      [-0.4, -0.84],
+      [-0.38, 0.02],
+      [-0.41, 0.85],
+      [0.39, -0.83],
+      [0.37, -0.02],
+      [0.41, 0.84],
+    ],
+    edges: [
+      [0, 1],
+      [1, 2],
+      [3, 4],
+      [4, 5],
+      [1, 4],
+    ],
+  },
+  A: {
+    width: 1.0,
+    points: [
+      [-0.44, -0.84],
+      [-0.22, -0.04],
+      [0.02, 0.86],
+      [0.24, -0.05],
+      [0.43, -0.83],
+    ],
+    edges: [
+      [0, 1],
+      [1, 2],
+      [2, 3],
+      [3, 4],
+      [1, 3],
+    ],
+  },
+  P: {
+    width: 0.95,
+    points: [
+      [-0.38, -0.84],
+      [-0.39, 0.04],
+      [-0.37, 0.84],
+      [0.22, 0.81],
+      [0.41, 0.44],
+      [0.2, 0.05],
+    ],
+    edges: [
+      [0, 1],
+      [1, 2],
+      [2, 3],
+      [3, 4],
+      [4, 5],
+      [5, 1],
+    ],
+  },
+  Y: {
+    width: 1.0,
+    points: [
+      [-0.44, 0.85],
+      [0.0, 0.06],
+      [0.44, 0.84],
+      [-0.02, -0.84],
+    ],
+    edges: [
+      [0, 1],
+      [2, 1],
+      [1, 3],
+    ],
+  },
+  V: {
+    width: 1.0,
+    points: [
+      [-0.44, 0.85],
+      [-0.21, -0.05],
+      [0.01, -0.85],
+      [0.23, -0.03],
+      [0.44, 0.84],
+    ],
+    edges: [
+      [0, 1],
+      [1, 2],
+      [2, 3],
+      [3, 4],
+    ],
+  },
+  L: {
+    width: 0.9,
+    points: [
+      [-0.36, 0.85],
+      [-0.39, -0.02],
+      [-0.35, -0.83],
+      [0.38, -0.81],
+    ],
+    edges: [
+      [0, 1],
+      [1, 2],
+      [2, 3],
+    ],
+  },
+  E: {
+    width: 0.95,
+    points: [
+      [0.38, 0.84],
+      [-0.38, 0.85],
+      [-0.4, 0.02],
+      [0.26, 0.03],
+      [-0.37, -0.83],
+      [0.4, -0.82],
+    ],
+    edges: [
+      [0, 1],
+      [1, 2],
+      [2, 3],
+      [2, 4],
+      [4, 5],
+    ],
+  },
+  N: {
+    width: 1.05,
+    points: [
+      [-0.41, -0.84],
+      [-0.39, 0.85],
+      [0.02, 0.02],
+      [0.41, -0.83],
+      [0.42, 0.85],
+    ],
+    edges: [
+      [0, 1],
+      [1, 2],
+      [2, 3],
+      [3, 4],
+    ],
+  },
+  T: {
+    width: 0.95,
+    points: [
+      [-0.44, 0.84],
+      [0.0, 0.85],
+      [0.44, 0.83],
+      [-0.02, 0.0],
+      [0.01, -0.84],
+    ],
+    edges: [
+      [0, 1],
+      [1, 2],
+      [1, 3],
+      [3, 4],
+    ],
+  },
+  I: {
+    width: 0.65,
+    points: [
+      [-0.24, 0.84],
+      [0.01, 0.85],
+      [0.25, 0.84],
+      [-0.01, 0.0],
+      [-0.24, -0.84],
+      [0.0, -0.84],
+      [0.25, -0.83],
+    ],
+    edges: [
+      [0, 1],
+      [1, 2],
+      [1, 3],
+      [3, 5],
+      [4, 5],
+      [5, 6],
+    ],
+  },
+  "'": {
+    width: 0.42,
+    points: [
+      [0.05, 0.92],
+      [-0.06, 0.52],
+    ],
+    edges: [[0, 1]],
+  },
+  S: {
+    width: 0.95,
+    points: [
+      [0.36, 0.72],
+      [-0.04, 0.86],
+      [-0.38, 0.52],
+      [-0.02, 0.04],
+      [0.39, -0.44],
+      [0.02, -0.85],
+      [-0.38, -0.66],
+    ],
+    edges: [
+      [0, 1],
+      [1, 2],
+      [2, 3],
+      [3, 4],
+      [4, 5],
+      [5, 6],
+    ],
+  },
+  D: {
+    width: 1.0,
+    points: [
+      [-0.38, -0.84],
+      [-0.39, 0.84],
+      [0.14, 0.76],
+      [0.42, 0.02],
+      [0.16, -0.75],
+    ],
+    edges: [
+      [0, 1],
+      [1, 2],
+      [2, 3],
+      [3, 4],
+      [4, 0],
+    ],
+  },
+  ',': {
+    width: 0.45,
+    points: [
+      [0.04, -0.68],
+      [-0.1, -1.08],
+    ],
+    edges: [[0, 1]],
+  },
+  M: {
+    width: 1.15,
+    points: [
+      [-0.48, -0.84],
+      [-0.44, 0.85],
+      [0.0, -0.08],
+      [0.44, 0.85],
+      [0.48, -0.84],
+    ],
+    edges: [
+      [0, 1],
+      [1, 2],
+      [2, 3],
+      [3, 4],
+    ],
+  },
+  O: {
+    width: 1.0,
+    points: [
+      [0.0, 0.86],
+      [0.41, 0.42],
+      [0.39, -0.44],
+      [0.0, -0.85],
+      [-0.4, -0.42],
+      [-0.41, 0.44],
+    ],
+    edges: [
+      [0, 1],
+      [1, 2],
+      [2, 3],
+      [3, 4],
+      [4, 5],
+      [5, 0],
+    ],
+  },
+  ' ': {
+    width: 0.72,
+    points: [],
+    edges: [],
+  },
+};
+
 interface BuiltLetterConstellationRuntime {
   index: number;
   letter: string;
@@ -479,12 +759,22 @@ interface BuiltLetterConstellationRuntime {
   anchorWorldPos: THREE.Vector3;
 }
 
+interface ProposalConstellationCharacterRuntime {
+  normU: number; // Normalized left-to-right progress [0..1]
+  group: THREE.Group;
+  starMeshes: THREE.Mesh[];
+  starMats: THREE.MeshBasicMaterial[];
+  haloMats: THREE.MeshBasicMaterial[];
+  lineMat: THREE.LineBasicMaterial;
+  baseScales: number[];
+}
+
 /**
  * Projects a 2D point `(u, v)` in the viewer-aligned tangent plane of `(yaw, pitch)`
  * onto the 3D celestial sphere of radius `skyRadius`, applying the constellation's organic `tiltRad`.
  *
  * Guarantees that `+u` is always to the viewer's RIGHT and `+v` is always UPWARD when looking
- * from the Stargazing Sanctuary at `(0, 0, 0)` toward `(yaw, pitch)`.
+ * toward `(yaw, pitch)`.
  */
 function projectConstellationPointToSky(
   yaw: number,
@@ -494,6 +784,9 @@ function projectConstellationPointToSky(
   tiltRad: number,
   u: number,
   v: number,
+  originX = 0,
+  originY = 3.5,
+  originZ = 0,
 ): THREE.Vector3 {
   const cosP = Math.cos(pitch);
   const centerDir = new THREE.Vector3(
@@ -519,7 +812,9 @@ function projectConstellationPointToSky(
   worldPos.addScaledVector(skyRight, ru * scale);
   worldPos.addScaledVector(skyUp, rv * scale);
   worldPos.normalize().multiplyScalar(skyRadius);
-  worldPos.y += 3.5;
+  worldPos.x += originX;
+  worldPos.y += originY;
+  worldPos.z += originZ;
   return worldPos;
 }
 
@@ -544,30 +839,37 @@ export function createPrivateWorldScene(
   };
 
   // ==========================================================================
-  // 1. COMPACT MOONLIT STARGAZING SANCTUARY ISLAND & CALM NIGHT OCEAN
+  // 1. CONNECTED MOONLIT SANCTUARY ISLAND, PENINSULA & PROPOSAL GARDEN TERRAIN
   // ==========================================================================
-  const terrainSize = 44;
+  const terrainSize = 96;
   const terrainGeo = trackGeo(
-    new THREE.PlaneGeometry(terrainSize, terrainSize, 48, 48),
+    new THREE.PlaneGeometry(terrainSize, terrainSize, 84, 84),
   );
   terrainGeo.rotateX(-Math.PI / 2);
   const posAttr = terrainGeo.attributes.position;
   const colors = new Float32Array(posAttr.count * 3);
   const cRock = new THREE.Color(0x182538);
-  const cMoss = new THREE.Color(0x1f3642);
+  const cMoss = new THREE.Color(0x1f3844);
+  const cMeadow = new THREE.Color(0x234248);
   const cSand = new THREE.Color(0x233044);
   const tmpColor = new THREE.Color();
 
   for (let i = 0; i < posAttr.count; i++) {
-    const x = posAttr.getX(i);
-    const z = posAttr.getZ(i);
+    const x = posAttr.getX(i) + 12.0;
+    const z = posAttr.getZ(i) + 10.0;
+    posAttr.setX(i, x);
+    posAttr.setZ(i, z);
+
     const y = getPrivateTerrainHeight(x, z);
     posAttr.setY(i, y);
 
-    const hT = THREE.MathUtils.clamp((y + 1.5) / 4.8, 0, 1);
+    const hT = THREE.MathUtils.clamp((y + 1.5) / 5.2, 0, 1);
     tmpColor.copy(cSand).lerp(cRock, hT);
     if (y > 2.6) {
-      tmpColor.lerp(cMoss, 0.45);
+      tmpColor.lerp(cMoss, 0.5);
+    }
+    if (x > 11.0 && z > 7.0 && y > 3.6) {
+      tmpColor.lerp(cMeadow, 0.55);
     }
     colors[i * 3] = tmpColor.r;
     colors[i * 3 + 1] = tmpColor.g;
@@ -588,7 +890,7 @@ export function createPrivateWorldScene(
   group.add(terrainMesh);
 
   // Calm Moonlit Ocean Plane reflecting the night sky
-  const waterGeo = trackGeo(new THREE.PlaneGeometry(520, 520, 1, 1));
+  const waterGeo = trackGeo(new THREE.PlaneGeometry(560, 560, 1, 1));
   waterGeo.rotateX(-Math.PI / 2);
   const waterMat = trackMat(
     new THREE.MeshStandardMaterial({
@@ -724,17 +1026,21 @@ export function createPrivateWorldScene(
   }
 
   // Low Open-Sky Perimeter Bollards & Rope Railings
+  // Leave clear openings at Western Portal (-PI), Eastern sky view (0), and North-Eastern Proposal Garden Path (+0.76 rad)
   const postGeo = trackGeo(new THREE.CylinderGeometry(0.1, 0.12, 0.64, 10));
   const postCapGeo = trackGeo(new THREE.SphereGeometry(0.085, 10, 8));
-  const railBeamGeo = trackGeo(new THREE.CylinderGeometry(0.035, 0.035, 1.0, 8));
+  const railBeamGeo = trackGeo(
+    new THREE.CylinderGeometry(0.035, 0.035, 1.0, 8),
+  );
   railBeamGeo.rotateZ(Math.PI / 2);
 
   const postAngles: number[] = [];
-  const numPosts = 18;
+  const numPosts = 20;
   for (let i = 0; i < numPosts; i++) {
     const a = -Math.PI + (i / numPosts) * Math.PI * 2;
-    if (Math.abs(Math.abs(a) - Math.PI) < 0.26) continue;
-    if (Math.abs(a) < 0.48) continue;
+    if (Math.abs(Math.abs(a) - Math.PI) < 0.26) continue; // Western portal opening
+    if (Math.abs(a) < 0.42) continue; // Eastern telescope sky opening
+    if (Math.abs(a - 0.76) < 0.32) continue; // North-Eastern Proposal Garden Path opening!
     postAngles.push(a);
   }
 
@@ -759,7 +1065,7 @@ export function createPrivateWorldScene(
     const pA = postPositions[i];
     const pB = postPositions[i + 1];
     const dist = pA.distanceTo(pB);
-    if (dist < 4.2) {
+    if (dist < 3.6) {
       const rail = new THREE.Mesh(railBeamGeo, deckTimberMat);
       rail.position.lerpVectors(pA, pB, 0.5);
       rail.scale.x = dist;
@@ -922,10 +1228,1539 @@ export function createPrivateWorldScene(
   });
 
   const deckWarmLight = new THREE.PointLight(0xffcb88, 1.15, 18.0, 1.8);
+  deckWarmLight.userData.skipAtmosphereCull = true;
   deckWarmLight.position.set(0, 1.6, 0);
   deckGroup.add(deckWarmLight);
 
   group.add(deckGroup);
+
+  // ==========================================================================
+  // 2B. CURVED STONE-AND-TIMBER PATH & OPEN-AIR PROPOSAL GARDEN (22.0, 18.0)
+  // ==========================================================================
+  const proposalGardenGroup = new THREE.Group();
+  proposalGardenGroup.name = 'ConnectedProposalGardenPeninsula';
+
+  const paverStoneGeo = trackGeo(new THREE.CylinderGeometry(0.88, 0.96, 0.09, 10));
+  const timberSleeperGeo = trackGeo(new THREE.BoxGeometry(2.15, 0.07, 0.34));
+  const lanternPostGeo = trackGeo(new THREE.CylinderGeometry(0.055, 0.075, 0.58, 8));
+  const lanternGlobeGeo = trackGeo(new THREE.SphereGeometry(0.11, 10, 8));
+
+  // Stone and timber pavers along the curved path from Stargazing Deck NE exit (5.8, 5.6) to Proposal Garden (22.0, 18.0)
+  for (let i = 2; i < PROPOSAL_PATH_SAMPLES.length - 5; i++) {
+    const s = PROPOSAL_PATH_SAMPLES[i];
+    const sNext = PROPOSAL_PATH_SAMPLES[i + 1];
+    const dx = sNext.x - s.x;
+    const dz = sNext.z - s.z;
+    const segLen = Math.max(0.001, Math.hypot(dx, dz));
+    const tx = dx / segLen;
+    const tz = dz / segLen;
+    const yaw = Math.atan2(tx, tz);
+    const py = getPrivateTerrainHeight(s.x, s.z);
+
+    if (i % 2 === 0) {
+      const stone = new THREE.Mesh(paverStoneGeo, deckStoneMat);
+      stone.position.set(s.x, py - 0.01, s.z);
+      stone.rotation.y = yaw + (i % 4) * 0.4;
+      stone.scale.set(1.15, 1.0, 0.72);
+      stone.receiveShadow = true;
+      proposalGardenGroup.add(stone);
+    } else {
+      const sleeper = new THREE.Mesh(timberSleeperGeo, deckTimberMat);
+      sleeper.position.set(s.x, py - 0.01, s.z);
+      sleeper.rotation.y = yaw;
+      sleeper.receiveShadow = true;
+      proposalGardenGroup.add(sleeper);
+    }
+
+    // Place low warm path lanterns along the path edges
+    if (i % 4 === 3) {
+      const side = i % 8 === 3 ? 1 : -1;
+      const nx = -tz * side;
+      const nz = tx * side;
+      const lx = s.x + nx * 1.48;
+      const lz = s.z + nz * 1.48;
+      const ly = getPrivateTerrainHeight(lx, lz);
+
+      const post = new THREE.Mesh(lanternPostGeo, deckDarkTrimMat);
+      post.position.set(lx, ly + 0.26, lz);
+      proposalGardenGroup.add(post);
+
+      const globe = new THREE.Mesh(lanternGlobeGeo, warmDeckGlowMat);
+      globe.position.set(lx, ly + 0.58, lz);
+      proposalGardenGroup.add(globe);
+    }
+  }
+
+  // Proposal Garden Central Stage & Flower Meadow at (22.0, 18.0)
+  const gcx = PROPOSAL_GARDEN_CENTER.x;
+  const gcz = PROPOSAL_GARDEN_CENTER.z;
+  const meadowY = PROPOSAL_GARDEN_CENTER.meadowY;
+  const stageY = PROPOSAL_GARDEN_CENTER.stageY;
+
+  // Raised Circular Stone & Timber Proposal Stage (top surface at Y = 4.36m)
+  const stageStoneBase = new THREE.Mesh(
+    trackGeo(
+      new THREE.CylinderGeometry(
+        PROPOSAL_GARDEN_CENTER.stageRadius + 0.25,
+        PROPOSAL_GARDEN_CENTER.stageRadius + 0.55,
+        0.24,
+        36,
+      ),
+    ),
+    deckStoneMat,
+  );
+  stageStoneBase.position.set(gcx, meadowY + 0.04, gcz);
+  stageStoneBase.receiveShadow = true;
+  proposalGardenGroup.add(stageStoneBase);
+
+  const stageTimberTop = new THREE.Mesh(
+    trackGeo(
+      new THREE.CylinderGeometry(
+        PROPOSAL_GARDEN_CENTER.stageRadius,
+        PROPOSAL_GARDEN_CENTER.stageRadius + 0.1,
+        0.1,
+        36,
+      ),
+    ),
+    deckTimberMat,
+  );
+  stageTimberTop.position.set(gcx, stageY - 0.05, gcz);
+  stageTimberTop.receiveShadow = true;
+  proposalGardenGroup.add(stageTimberTop);
+
+  // Brass Celestial Inlay Ring on the Proposal Stage
+  const stageBrassRing = new THREE.Mesh(
+    trackGeo(new THREE.RingGeometry(2.12, 2.24, 48)),
+    brassMat,
+  );
+  stageBrassRing.rotation.x = -Math.PI / 2;
+  stageBrassRing.position.set(gcx, stageY + 0.005, gcz);
+  proposalGardenGroup.add(stageBrassRing);
+
+  const stageInnerBrassRing = new THREE.Mesh(
+    trackGeo(new THREE.RingGeometry(0.95, 1.03, 36)),
+    brassMat,
+  );
+  stageInnerBrassRing.rotation.x = -Math.PI / 2;
+  stageInnerBrassRing.position.set(gcx, stageY + 0.005, gcz);
+  proposalGardenGroup.add(stageInnerBrassRing);
+
+  // Subtle Low Starlight Focal Marker at the Stage Center (triggers E prompt without blocking the kneeling figure)
+  const focalCrystalMat = trackMat(
+    new THREE.MeshStandardMaterial({
+      color: 0xe0f2fe,
+      emissive: 0x7dd3fc,
+      emissiveIntensity: 0.75,
+      roughness: 0.18,
+      metalness: 0.35,
+    }),
+  );
+  const stageFocalMarker = new THREE.Mesh(
+    trackGeo(new THREE.OctahedronGeometry(0.14, 0)),
+    focalCrystalMat,
+  );
+  stageFocalMarker.position.set(gcx - 0.55, stageY + 0.18, gcz - 0.55);
+  proposalGardenGroup.add(stageFocalMarker);
+
+  // Warm Pavilion / Garden Lighting
+  const gardenWarmLight = new THREE.PointLight(0xffd296, 1.25, 22.0, 1.6);
+  gardenWarmLight.userData.skipAtmosphereCull = true;
+  gardenWarmLight.position.set(gcx, stageY + 2.4, gcz);
+  proposalGardenGroup.add(gardenWarmLight);
+
+  // Open-Air Flower Meadow & Perimeter Lantern Bollards (leaving NE ocean horizon open)
+  const flowerStemGeo = trackGeo(new THREE.CylinderGeometry(0.018, 0.024, 0.32, 6));
+  const flowerBlossomGeo = trackGeo(new THREE.SphereGeometry(0.085, 8, 6));
+  const stemMat = trackMat(
+    new THREE.MeshStandardMaterial({
+      color: 0x2a5246,
+      roughness: 0.85,
+    }),
+  );
+  const blossomIvoryMat = trackMat(
+    new THREE.MeshStandardMaterial({
+      color: 0xfef3c7,
+      emissive: 0xfde68a,
+      emissiveIntensity: 0.35,
+      roughness: 0.5,
+    }),
+  );
+  const blossomRoseMat = trackMat(
+    new THREE.MeshStandardMaterial({
+      color: 0xfecdd3,
+      emissive: 0xfda4af,
+      emissiveIntensity: 0.32,
+      roughness: 0.5,
+    }),
+  );
+  const blossomSkyMat = trackMat(
+    new THREE.MeshStandardMaterial({
+      color: 0xe0f2fe,
+      emissive: 0x7dd3fc,
+      emissiveIntensity: 0.35,
+      roughness: 0.5,
+    }),
+  );
+
+  const gardenRng = createPrivateSeededRng(20270218);
+  const numGardenLanterns = 12;
+  for (let i = 0; i < numGardenLanterns; i++) {
+    const angle = -Math.PI + (i / numGardenLanterns) * Math.PI * 2;
+    // Leave SW path entrance (-2.35 rad) clear
+    if (Math.abs(angle - -2.35) < 0.38) continue;
+
+    const lx = gcx + Math.cos(angle) * (PROPOSAL_GARDEN_CENTER.radiusX - 0.55);
+    const lz = gcz + Math.sin(angle) * (PROPOSAL_GARDEN_CENTER.radiusZ - 0.55);
+    const ly = getPrivateTerrainHeight(lx, lz);
+
+    const post = new THREE.Mesh(lanternPostGeo, deckDarkTrimMat);
+    post.position.set(lx, ly + 0.28, lz);
+    proposalGardenGroup.add(post);
+
+    const globe = new THREE.Mesh(lanternGlobeGeo, warmDeckGlowMat);
+    globe.position.set(lx, ly + 0.6, lz);
+    proposalGardenGroup.add(globe);
+  }
+
+  // Scatter 54 moonlit coastal flowers around the meadow ring (outside the central stage, keeping walking space clear)
+  for (let f = 0; f < 54; f++) {
+    const angle = gardenRng() * Math.PI * 2;
+    if (Math.abs(angle - -2.35) < 0.32) continue; // Keep path entry clear
+    const dist = 3.15 + gardenRng() * 3.1;
+    const fx = gcx + Math.cos(angle) * dist * 0.92;
+    const fz = gcz + Math.sin(angle) * dist * 1.02;
+    const fy = getPrivateTerrainHeight(fx, fz);
+
+    const stem = new THREE.Mesh(flowerStemGeo, stemMat);
+    stem.position.set(fx, fy + 0.14, fz);
+    proposalGardenGroup.add(stem);
+
+    const bMat =
+      f % 3 === 0
+        ? blossomIvoryMat
+        : f % 3 === 1
+          ? blossomRoseMat
+          : blossomSkyMat;
+    const blossom = new THREE.Mesh(flowerBlossomGeo, bMat);
+    blossom.position.set(fx, fy + 0.31, fz);
+    blossom.scale.set(1.15, 0.75, 1.15);
+    proposalGardenGroup.add(blossom);
+  }
+
+  // 1. Softly Glowing Heart-Shaped Stone & Rose-Gold Inlay on the Proposal Stage
+  const heartInlayPoints: THREE.Vector3[] = [];
+  const heartNodeGeo = trackGeo(new THREE.CylinderGeometry(0.032, 0.038, 0.016, 8));
+  const heartGlowMat = trackMat(
+    new THREE.MeshStandardMaterial({
+      color: 0xfecdd3,
+      emissive: 0xfb7185,
+      emissiveIntensity: 0.85,
+      roughness: 0.25,
+      metalness: 0.5,
+    }),
+  );
+  const numHeartPts = 40;
+  for (let h = 0; h <= numHeartPts; h++) {
+    const t = (h / numHeartPts) * Math.PI * 2;
+    const hxLocal = 16 * Math.pow(Math.sin(t), 3) * 0.082;
+    const hzLocal =
+      -(
+        13 * Math.cos(t) -
+        5 * Math.cos(2 * t) -
+        2 * Math.cos(3 * t) -
+        Math.cos(4 * t)
+      ) * 0.082;
+    // Rotate heart inlay to align with the NE axis (yaw = 0.72)
+    const cosH = Math.cos(0.72);
+    const sinH = Math.sin(0.72);
+    const wx = gcx + hxLocal * cosH + hzLocal * sinH;
+    const wz = gcz - hxLocal * sinH + hzLocal * cosH;
+    heartInlayPoints.push(new THREE.Vector3(wx, stageY + 0.008, wz));
+
+    if (h < numHeartPts && h % 2 === 0) {
+      const node = new THREE.Mesh(heartNodeGeo, heartGlowMat);
+      node.position.set(wx, stageY + 0.006, wz);
+      proposalGardenGroup.add(node);
+    }
+  }
+  const heartLineGeo = trackGeo(
+    new THREE.BufferGeometry().setFromPoints(heartInlayPoints),
+  );
+  const heartLineMat = trackMat(
+    new THREE.LineBasicMaterial({
+      color: 0xfda4af,
+      transparent: true,
+      opacity: 0.72,
+    }),
+  );
+  const heartInlayLoop = new THREE.Line(heartLineGeo, heartLineMat);
+  proposalGardenGroup.add(heartInlayLoop);
+
+  // 2. Delicate Rose & Ivory Petals Scattered Across the Proposal Stage
+  const petalGeo = trackGeo(new THREE.CircleGeometry(0.052, 7));
+  petalGeo.rotateX(-Math.PI / 2);
+  const petalRoseMat = trackMat(
+    new THREE.MeshStandardMaterial({
+      color: 0xfda4af,
+      emissive: 0xf43f5e,
+      emissiveIntensity: 0.28,
+      roughness: 0.6,
+      polygonOffset: true,
+      polygonOffsetFactor: -1,
+      polygonOffsetUnits: -1,
+    }),
+  );
+  const petalIvoryMat = trackMat(
+    new THREE.MeshStandardMaterial({
+      color: 0xfef3c7,
+      emissive: 0xfde68a,
+      emissiveIntensity: 0.25,
+      roughness: 0.6,
+      polygonOffset: true,
+      polygonOffsetFactor: -1,
+      polygonOffsetUnits: -1,
+    }),
+  );
+  for (let pt = 0; pt < 44; pt++) {
+    const pAngle = gardenRng() * Math.PI * 2;
+    const pDist = 0.35 + Math.pow(gardenRng(), 0.7) * 2.15;
+    const px = gcx + Math.cos(pAngle) * pDist;
+    const pz = gcz + Math.sin(pAngle) * pDist;
+    const petal = new THREE.Mesh(
+      petalGeo,
+      pt % 3 === 0 ? petalIvoryMat : petalRoseMat,
+    );
+    petal.position.set(px, stageY + 0.007 + (pt % 3) * 0.001, pz);
+    petal.rotation.y = gardenRng() * Math.PI * 2;
+    petal.scale.set(0.85 + gardenRng() * 0.45, 1.0, 0.65 + gardenRng() * 0.35);
+    proposalGardenGroup.add(petal);
+  }
+
+  // 3. Candlelit Floral Arch Framing the Proposal Stage & NE Horizon
+  const floralArchGroup = new THREE.Group();
+  floralArchGroup.name = 'RomanticCandlelitFloralArch';
+  floralArchGroup.position.set(gcx + 1.58, stageY, gcz + 1.82);
+  floralArchGroup.rotation.y = 0.72; // Perpendicular to NE gaze so it frames the kneeling figure & sky
+
+  const archSpanRadius = 1.92;
+  const archColumnGeo = trackGeo(
+    new THREE.CylinderGeometry(0.085, 0.11, 2.15, 12),
+  );
+  const archPlinthGeo = trackGeo(
+    new THREE.CylinderGeometry(0.22, 0.26, 0.24, 12),
+  );
+
+  for (const side of [-1, 1]) {
+    const colX = side * archSpanRadius;
+    const plinth = new THREE.Mesh(archPlinthGeo, deckStoneMat);
+    plinth.position.set(colX, 0.12, 0);
+    floralArchGroup.add(plinth);
+
+    const col = new THREE.Mesh(archColumnGeo, deckDarkTrimMat);
+    col.position.set(colX, 1.15, 0);
+    floralArchGroup.add(col);
+  }
+
+  const archCrownTorus = new THREE.Mesh(
+    trackGeo(new THREE.TorusGeometry(archSpanRadius, 0.075, 12, 36, Math.PI)),
+    deckDarkTrimMat,
+  );
+  archCrownTorus.position.set(0, 2.18, 0);
+  floralArchGroup.add(archCrownTorus);
+
+  // Garland of glowing rose, ivory, and starlight blossoms woven along the arch
+  const archBlossomGeo = trackGeo(new THREE.SphereGeometry(0.13, 10, 8));
+  for (let b = 0; b <= 20; b++) {
+    const theta = (b / 20) * Math.PI;
+    const bx = Math.cos(theta) * archSpanRadius;
+    const by = 2.18 + Math.sin(theta) * archSpanRadius;
+    const bz = Math.sin(b * 1.7) * 0.08;
+    const bMat =
+      b % 3 === 0
+        ? blossomRoseMat
+        : b % 3 === 1
+          ? blossomIvoryMat
+          : blossomSkyMat;
+    const cluster = new THREE.Mesh(archBlossomGeo, bMat);
+    cluster.position.set(bx, by, bz);
+    cluster.scale.set(1.2, 0.85, 1.1);
+    floralArchGroup.add(cluster);
+  }
+
+  // Warm Pillar Candles around the Floral Arch Base & Proposal Stage Rim
+  const candleBodyGeo = trackGeo(
+    new THREE.CylinderGeometry(0.048, 0.052, 0.22, 10),
+  );
+  const candleFlameGeo = trackGeo(new THREE.ConeGeometry(0.026, 0.075, 8));
+  const candleWaxMat = trackMat(
+    new THREE.MeshStandardMaterial({
+      color: 0xfef3c7,
+      emissive: 0xfde68a,
+      emissiveIntensity: 0.25,
+      roughness: 0.55,
+    }),
+  );
+  const candleFlameMat = trackMat(
+    new THREE.MeshBasicMaterial({
+      color: 0xffedd5,
+    }),
+  );
+
+  const candleOffsets: ReadonlyArray<readonly [number, number, number]> = [
+    [-archSpanRadius - 0.28, 0, 0.18],
+    [-archSpanRadius + 0.26, 0, 0.22],
+    [archSpanRadius - 0.26, 0, 0.22],
+    [archSpanRadius + 0.28, 0, 0.18],
+    [-archSpanRadius - 0.18, 0, -0.22],
+    [archSpanRadius + 0.18, 0, -0.22],
+  ];
+  for (let c = 0; c < candleOffsets.length; c++) {
+    const [cx, cy, cz] = candleOffsets[c];
+    const hScale = 0.75 + (c % 3) * 0.22;
+    const candle = new THREE.Mesh(candleBodyGeo, candleWaxMat);
+    candle.scale.y = hScale;
+    candle.position.set(cx, cy + 0.11 * hScale, cz);
+    floralArchGroup.add(candle);
+
+    const flame = new THREE.Mesh(candleFlameGeo, candleFlameMat);
+    flame.position.set(cx, cy + 0.22 * hScale + 0.04, cz);
+    floralArchGroup.add(flame);
+  }
+
+  proposalGardenGroup.add(floralArchGroup);
+
+  // 4. Two Glowing Moonlit Cherry-Blossom Trees Flanking the Proposal Clearing
+  const createRomanticBlossomTree = (
+    tx: number,
+    tz: number,
+    scale: number,
+    seedOffset: number,
+  ) => {
+    const treeGroup = new THREE.Group();
+    const ty = getPrivateTerrainHeight(tx, tz);
+    treeGroup.position.set(tx, ty, tz);
+    treeGroup.scale.setScalar(scale);
+
+    const trunk = new THREE.Mesh(
+      trackGeo(new THREE.CylinderGeometry(0.18, 0.28, 2.4, 10)),
+      deckDarkTrimMat,
+    );
+    trunk.position.y = 1.15;
+    trunk.rotation.z = 0.06;
+    treeGroup.add(trunk);
+
+    const boughGeo = trackGeo(new THREE.CylinderGeometry(0.08, 0.14, 1.65, 8));
+    const canopyGeo = trackGeo(new THREE.SphereGeometry(0.82, 12, 10));
+
+    for (let b = 0; b < 4; b++) {
+      const ba = (b / 4) * Math.PI * 2 + seedOffset;
+      const bough = new THREE.Mesh(boughGeo, deckDarkTrimMat);
+      bough.position.set(Math.cos(ba) * 0.48, 2.35, Math.sin(ba) * 0.48);
+      bough.rotation.z = -Math.cos(ba) * 0.52;
+      bough.rotation.x = Math.sin(ba) * 0.52;
+      treeGroup.add(bough);
+
+      const cx = Math.cos(ba) * 1.15;
+      const cz = Math.sin(ba) * 1.15;
+      const canopy = new THREE.Mesh(
+        canopyGeo,
+        b % 2 === 0 ? blossomRoseMat : blossomIvoryMat,
+      );
+      canopy.position.set(cx, 2.95 + (b % 2) * 0.22, cz);
+      canopy.scale.set(1.35, 0.68, 1.25);
+      treeGroup.add(canopy);
+    }
+
+    const crownCanopy = new THREE.Mesh(canopyGeo, blossomRoseMat);
+    crownCanopy.position.set(0, 3.35, 0);
+    crownCanopy.scale.set(1.55, 0.72, 1.55);
+    treeGroup.add(crownCanopy);
+
+    proposalGardenGroup.add(treeGroup);
+    colliders.push({ x: tx, z: tz, radius: 0.48 * scale });
+  };
+
+  createRomanticBlossomTree(16.8, 21.6, 1.05, 0.4);
+  createRomanticBlossomTree(26.2, 13.8, 0.98, 1.7);
+
+  // 5. Coastal Water-Edge Lanterns Along the Peninsula Shoreline
+  const waterEdgeCoords: ReadonlyArray<readonly [number, number]> = [
+    [8.2, 12.6],
+    [12.5, 16.2],
+    [14.2, 7.2],
+    [18.8, 10.4],
+    [15.4, 23.6],
+    [21.6, 25.4],
+    [27.8, 21.8],
+    [28.6, 15.2],
+  ];
+  for (let w = 0; w < waterEdgeCoords.length; w++) {
+    const [wx, wz] = waterEdgeCoords[w];
+    const wy = Math.max(0.18, getPrivateTerrainHeight(wx, wz));
+    const post = new THREE.Mesh(lanternPostGeo, deckDarkTrimMat);
+    post.position.set(wx, wy + 0.24, wz);
+    proposalGardenGroup.add(post);
+
+    const globe = new THREE.Mesh(lanternGlobeGeo, warmDeckGlowMat);
+    globe.position.set(wx, wy + 0.54, wz);
+    proposalGardenGroup.add(globe);
+  }
+
+  // 6. Floating Warm Fireflies & Rose-Gold Light Motes across the Proposal Garden & Path
+  const fireflyCount = 48;
+  const fireflyBasePos = new Float32Array(fireflyCount * 3);
+  const fireflyPositions = new Float32Array(fireflyCount * 3);
+  const fireflyColors = new Float32Array(fireflyCount * 3);
+  const cFireflyGold = new THREE.Color(0xfde68a);
+  const cFireflyRose = new THREE.Color(0xfda4af);
+
+  for (let f = 0; f < fireflyCount; f++) {
+    const angle = gardenRng() * Math.PI * 2;
+    const rad = 1.2 + gardenRng() * 7.8;
+    const fx = gcx - 1.5 + Math.cos(angle) * rad;
+    const fz = gcz - 1.2 + Math.sin(angle) * rad;
+    const fy = getPrivateTerrainHeight(fx, fz) + 0.45 + gardenRng() * 2.4;
+
+    fireflyBasePos[f * 3] = fx;
+    fireflyBasePos[f * 3 + 1] = fy;
+    fireflyBasePos[f * 3 + 2] = fz;
+
+    fireflyPositions[f * 3] = fx;
+    fireflyPositions[f * 3 + 1] = fy;
+    fireflyPositions[f * 3 + 2] = fz;
+
+    const col = f % 3 === 0 ? cFireflyRose : cFireflyGold;
+    fireflyColors[f * 3] = col.r;
+    fireflyColors[f * 3 + 1] = col.g;
+    fireflyColors[f * 3 + 2] = col.b;
+  }
+
+  const fireflyGeo = trackGeo(new THREE.BufferGeometry());
+  fireflyGeo.setAttribute(
+    'position',
+    new THREE.BufferAttribute(fireflyPositions, 3),
+  );
+  fireflyGeo.setAttribute(
+    'color',
+    new THREE.BufferAttribute(fireflyColors, 3),
+  );
+  const fireflyMat = trackMat(
+    new THREE.PointsMaterial({
+      size: 0.14,
+      sizeAttenuation: true,
+      vertexColors: true,
+      transparent: true,
+      opacity: 0.78,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+    }),
+  );
+  const firefliesPoints = new THREE.Points(fireflyGeo, fireflyMat);
+  firefliesPoints.frustumCulled = false;
+  proposalGardenGroup.add(firefliesPoints);
+
+  group.add(proposalGardenGroup);
+
+  // ==========================================================================
+  // 2C. PHASE 4.6B: ETHEREAL KNEELING MIST-LIKE HUMAN FIGURE AT PROPOSAL STAGE
+  //     Built from basic Three.js shapes with a transparent, slightly glowing
+  //     blue-white material, smooth fade-in to the kneeling pose, and dynamic
+  //     orientation facing Harsha as she moves freely.
+  // ==========================================================================
+  const mistFigureGroup = new THREE.Group();
+  mistFigureGroup.name = 'EtherealKneelingMistFigure';
+  mistFigureGroup.position.set(
+    PROPOSAL_STAGE_POS.figureX,
+    PROPOSAL_STAGE_POS.y,
+    PROPOSAL_STAGE_POS.figureZ,
+  );
+  let currentFigureYaw = PROPOSAL_STAGE_POS.figureFacingYaw;
+  mistFigureGroup.rotation.y = currentFigureYaw;
+  mistFigureGroup.visible = false;
+
+  // Transparent, slightly glowing blue-white material for the core human shapes
+  const mistBodyCoreMat = trackMat(
+    new THREE.MeshStandardMaterial({
+      color: 0xe6f4ff,
+      emissive: 0x7dd3fc,
+      emissiveIntensity: 0.68,
+      roughness: 0.28,
+      metalness: 0.08,
+      transparent: true,
+      opacity: 0.0,
+      depthWrite: false,
+    }),
+  );
+
+  // Soft outer glowing blue-white mist aura shell
+  const mistBodyAuraMat = trackMat(
+    new THREE.MeshBasicMaterial({
+      color: 0xbae6fd,
+      transparent: true,
+      opacity: 0.0,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+    }),
+  );
+
+  const mistGroundRingMat = trackMat(
+    new THREE.MeshBasicMaterial({
+      color: 0xe0f2fe,
+      transparent: true,
+      opacity: 0.0,
+      side: THREE.DoubleSide,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+    }),
+  );
+
+  const figureBodyGroup = new THREE.Group();
+  const addMistBodyPart = (
+    geo: THREE.BufferGeometry,
+    x: number,
+    y: number,
+    z: number,
+    rx = 0,
+    ry = 0,
+    rz = 0,
+    auraScale = 1.16,
+  ) => {
+    const core = new THREE.Mesh(geo, mistBodyCoreMat);
+    core.position.set(x, y, z);
+    core.rotation.set(rx, ry, rz);
+    figureBodyGroup.add(core);
+
+    const aura = new THREE.Mesh(geo, mistBodyAuraMat);
+    aura.position.set(x, y, z);
+    aura.rotation.set(rx, ry, rz);
+    aura.scale.setScalar(auraScale);
+    figureBodyGroup.add(aura);
+  };
+
+  // Static Kneeling Human Silhouette (Facing local +Z toward Harsha)
+  // 1. Head & Neck (No facial features, soft human silhouette)
+  addMistBodyPart(
+    trackGeo(new THREE.SphereGeometry(0.135, 16, 14)),
+    0,
+    1.18,
+    0.04,
+    0.12,
+    0,
+    0,
+    1.18,
+  );
+  addMistBodyPart(
+    trackGeo(new THREE.CylinderGeometry(0.052, 0.064, 0.12, 10)),
+    0,
+    1.03,
+    0.02,
+    0.08,
+    0,
+    0,
+  );
+
+  // 2. Torso, Shoulders & Waist (Slight reverent forward inclination)
+  addMistBodyPart(
+    trackGeo(new THREE.CylinderGeometry(0.185, 0.145, 0.44, 14)),
+    0,
+    0.78,
+    0.0,
+    0.08,
+    0,
+    0,
+    1.15,
+  );
+  addMistBodyPart(
+    trackGeo(new THREE.CapsuleGeometry(0.075, 0.34, 8, 12)),
+    0,
+    0.94,
+    0.0,
+    0,
+    0,
+    Math.PI / 2,
+    1.16,
+  );
+  addMistBodyPart(
+    trackGeo(new THREE.CylinderGeometry(0.145, 0.155, 0.2, 12)),
+    0,
+    0.49,
+    -0.02,
+    0,
+    0,
+    0,
+    1.15,
+  );
+
+  // 3. Right Leg (Kneeling down onto the stage: thigh vertical, shin resting back)
+  addMistBodyPart(
+    trackGeo(new THREE.CapsuleGeometry(0.076, 0.32, 8, 10)),
+    -0.11,
+    0.26,
+    -0.02,
+    0.08,
+    0,
+    0,
+  );
+  addMistBodyPart(
+    trackGeo(new THREE.CapsuleGeometry(0.066, 0.34, 8, 10)),
+    -0.11,
+    0.07,
+    -0.22,
+    Math.PI / 2,
+    0,
+    0,
+  );
+
+  // 4. Left Leg (Bent forward in a classic proposal kneel: thigh forward, shin vertical)
+  addMistBodyPart(
+    trackGeo(new THREE.CapsuleGeometry(0.076, 0.3, 8, 10)),
+    0.11,
+    0.42,
+    0.15,
+    Math.PI / 2 - 0.12,
+    0,
+    0,
+  );
+  addMistBodyPart(
+    trackGeo(new THREE.CapsuleGeometry(0.066, 0.34, 8, 10)),
+    0.11,
+    0.21,
+    0.32,
+    0.04,
+    0,
+    0,
+  );
+  addMistBodyPart(
+    trackGeo(new THREE.BoxGeometry(0.1, 0.06, 0.2)),
+    0.11,
+    0.04,
+    0.38,
+    0,
+    0,
+    0,
+  );
+
+  // 5. Arms & Cupped Hands Extended Gently Forward Toward Harsha
+  // Right arm
+  addMistBodyPart(
+    trackGeo(new THREE.CapsuleGeometry(0.054, 0.25, 8, 10)),
+    -0.21,
+    0.79,
+    0.08,
+    0.58,
+    0.15,
+    -0.12,
+  );
+  addMistBodyPart(
+    trackGeo(new THREE.CapsuleGeometry(0.046, 0.24, 8, 10)),
+    -0.13,
+    0.69,
+    0.28,
+    1.18,
+    0.26,
+    0,
+  );
+  // Left arm
+  addMistBodyPart(
+    trackGeo(new THREE.CapsuleGeometry(0.054, 0.25, 8, 10)),
+    0.21,
+    0.79,
+    0.08,
+    0.58,
+    -0.15,
+    0.12,
+  );
+  addMistBodyPart(
+    trackGeo(new THREE.CapsuleGeometry(0.046, 0.24, 8, 10)),
+    0.13,
+    0.69,
+    0.28,
+    1.18,
+    -0.26,
+    0,
+  );
+  // Cupped hands & warm starlight mote held between them
+  addMistBodyPart(
+    trackGeo(new THREE.SphereGeometry(0.058, 10, 8)),
+    0,
+    0.68,
+    0.42,
+    0,
+    0,
+    0,
+    1.3,
+  );
+
+  mistFigureGroup.add(figureBodyGroup);
+
+  // Soft layered ground mist discs around the kneeling figure
+  const groundMistOuter = new THREE.Mesh(
+    trackGeo(new THREE.CircleGeometry(1.35, 32)),
+    mistGroundRingMat,
+  );
+  groundMistOuter.rotation.x = -Math.PI / 2;
+  groundMistOuter.position.y = 0.02;
+  mistFigureGroup.add(groundMistOuter);
+
+  const groundMistInner = new THREE.Mesh(
+    trackGeo(new THREE.RingGeometry(0.42, 0.98, 32)),
+    mistGroundRingMat,
+  );
+  groundMistInner.rotation.x = -Math.PI / 2;
+  groundMistInner.position.y = 0.05;
+  mistFigureGroup.add(groundMistInner);
+
+  // 28 Restrained Mist & Rising Starlight Particles around the Figure
+  const mistParticleCount = 28;
+  const mistParticleBasePos = new Float32Array(mistParticleCount * 3);
+  const mistParticlePositions = new Float32Array(mistParticleCount * 3);
+  for (let p = 0; p < mistParticleCount; p++) {
+    const a = (p / mistParticleCount) * Math.PI * 2 + gardenRng() * 0.4;
+    const r = 0.22 + gardenRng() * 0.68;
+    const py = 0.08 + gardenRng() * 1.25;
+    mistParticleBasePos[p * 3] = Math.cos(a) * r;
+    mistParticleBasePos[p * 3 + 1] = py;
+    mistParticleBasePos[p * 3 + 2] = Math.sin(a) * r;
+
+    mistParticlePositions[p * 3] = mistParticleBasePos[p * 3];
+    mistParticlePositions[p * 3 + 1] = mistParticleBasePos[p * 3 + 1];
+    mistParticlePositions[p * 3 + 2] = mistParticleBasePos[p * 3 + 2];
+  }
+  const mistParticlesGeo = trackGeo(new THREE.BufferGeometry());
+  mistParticlesGeo.setAttribute(
+    'position',
+    new THREE.BufferAttribute(mistParticlePositions, 3),
+  );
+  const mistParticlesMat = trackMat(
+    new THREE.PointsMaterial({
+      color: 0xe0f2fe,
+      size: 0.09,
+      sizeAttenuation: true,
+      transparent: true,
+      opacity: 0.0,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+    }),
+  );
+  const mistParticlesPoints = new THREE.Points(
+    mistParticlesGeo,
+    mistParticlesMat,
+  );
+  mistFigureGroup.add(mistParticlesPoints);
+
+  group.add(mistFigureGroup);
+
+  // ==========================================================================
+  // 2D. POST-CONSTELLATION GRAND FINALE:
+  //     - Warm Golden Festival Stage & Arch Illumination
+  //     - Continuous Multi-Color Sky Fireworks & Ascending Rocket Trails
+  //     - Golden Stage Sparkler Fountains around the Proposal Stage & Arch
+  //     - Choreographed Bride & Groom Marriage Ceremony Beneath the Floral Arch
+  // ==========================================================================
+  const celebrationGroup = new THREE.Group();
+  celebrationGroup.name = 'PostConstellationWeddingCelebrationGroup';
+  celebrationGroup.visible = false;
+
+  // Dedicated Festival PointLights (marked skipAtmosphereCull so they stay bright)
+  const stageFestivalLight = new THREE.PointLight(0xffdf9e, 0.0, 28.0, 1.45);
+  stageFestivalLight.userData.skipAtmosphereCull = true;
+  stageFestivalLight.position.set(gcx + 0.5, stageY + 3.2, gcz + 0.6);
+  celebrationGroup.add(stageFestivalLight);
+
+  const archFestivalLight = new THREE.PointLight(0xffb4c8, 0.0, 18.0, 1.5);
+  archFestivalLight.userData.skipAtmosphereCull = true;
+  archFestivalLight.position.set(gcx + 1.45, stageY + 2.4, gcz + 1.65);
+  celebrationGroup.add(archFestivalLight);
+
+  const fireworkSkyFlashLight = new THREE.PointLight(0xfde047, 0.0, 85.0, 1.2);
+  fireworkSkyFlashLight.userData.skipAtmosphereCull = true;
+  fireworkSkyFlashLight.position.set(gcx + 18.0, stageY + 22.0, gcz + 18.0);
+  celebrationGroup.add(fireworkSkyFlashLight);
+
+  // --------------------------------------------------------------------------
+  // A. BRIDE & GROOM MARRIAGE CEREMONY ON THE PROPOSAL STAGE BENEATH THE ARCH
+  // --------------------------------------------------------------------------
+  const weddingCoupleGroup = new THREE.Group();
+  weddingCoupleGroup.name = 'BrideAndGroomWeddingCeremony';
+  // Positioned on the Proposal Stage directly in front of the Candlelit Floral Arch
+  weddingCoupleGroup.position.set(gcx + 0.96, stageY, gcz + 1.12);
+  // Oriented facing SW (toward the stage center & Harsha) so local +Z faces the viewer
+  weddingCoupleGroup.rotation.y = 0.72 + Math.PI;
+
+  const weddingMaterials: { mat: THREE.Material; baseOpacity: number }[] = [];
+  const createWeddingStdMat = (
+    params: THREE.MeshStandardMaterialParameters,
+    baseOpacity = 1.0,
+  ) => {
+    const m = trackMat(
+      new THREE.MeshStandardMaterial({
+        ...params,
+        transparent: true,
+        opacity: 0.0,
+      }),
+    );
+    weddingMaterials.push({ mat: m, baseOpacity });
+    return m;
+  };
+
+  const skinMat = createWeddingStdMat({
+    color: 0xfbd3b4,
+    emissive: 0xd97706,
+    emissiveIntensity: 0.14,
+    roughness: 0.52,
+    metalness: 0.04,
+  });
+  const darkHairMat = createWeddingStdMat({
+    color: 0x1e1b24,
+    roughness: 0.68,
+    metalness: 0.08,
+  });
+  const groomSherwaniMat = createWeddingStdMat({
+    color: 0xfef3c7,
+    emissive: 0xf59e0b,
+    emissiveIntensity: 0.22,
+    roughness: 0.42,
+    metalness: 0.18,
+  });
+  const groomGoldTrimMat = createWeddingStdMat({
+    color: 0xfbbf24,
+    emissive: 0xd97706,
+    emissiveIntensity: 0.38,
+    roughness: 0.24,
+    metalness: 0.82,
+  });
+  const groomStoleMat = createWeddingStdMat({
+    color: 0xe11d48,
+    emissive: 0xbe123c,
+    emissiveIntensity: 0.28,
+    roughness: 0.45,
+    metalness: 0.15,
+  });
+  const brideCrimsonMat = createWeddingStdMat({
+    color: 0xf43f5e,
+    emissive: 0xe11d48,
+    emissiveIntensity: 0.3,
+    roughness: 0.38,
+    metalness: 0.16,
+  });
+  const brideRoseSilkMat = createWeddingStdMat({
+    color: 0xfda4af,
+    emissive: 0xfb7185,
+    emissiveIntensity: 0.26,
+    roughness: 0.35,
+    metalness: 0.12,
+  });
+  const brideVeilMat = createWeddingStdMat(
+    {
+      color: 0xffe4e6,
+      emissive: 0xfda4af,
+      emissiveIntensity: 0.35,
+      roughness: 0.25,
+      metalness: 0.08,
+      side: THREE.DoubleSide,
+      depthWrite: false,
+    },
+    0.46,
+  );
+  const garlandRoseMat = createWeddingStdMat({
+    color: 0xfb7185,
+    emissive: 0xf43f5e,
+    emissiveIntensity: 0.48,
+    roughness: 0.35,
+  });
+  const garlandGoldMat = createWeddingStdMat({
+    color: 0xfde047,
+    emissive: 0xf59e0b,
+    emissiveIntensity: 0.52,
+    roughness: 0.3,
+  });
+
+  // 1. GROOM COMPOSITE FIGURE (Starts on local left X = -0.46)
+  const groomRoot = new THREE.Group();
+  groomRoot.position.set(-0.46, 0, 0);
+
+  // Legs & Shoes
+  const legGeo = trackGeo(new THREE.CapsuleGeometry(0.052, 0.34, 8, 10));
+  const shoeGeo = trackGeo(new THREE.BoxGeometry(0.09, 0.05, 0.18));
+  for (const lx of [-0.075, 0.075]) {
+    const leg = new THREE.Mesh(legGeo, groomSherwaniMat);
+    leg.position.set(lx, 0.24, 0);
+    groomRoot.add(leg);
+    const shoe = new THREE.Mesh(shoeGeo, groomGoldTrimMat);
+    shoe.position.set(lx, 0.025, 0.03);
+    groomRoot.add(shoe);
+  }
+
+  // Sherwani Tunic Coat & Flared Skirt Hem
+  const sherwaniTorso = new THREE.Mesh(
+    trackGeo(new THREE.CylinderGeometry(0.155, 0.185, 0.56, 16)),
+    groomSherwaniMat,
+  );
+  sherwaniTorso.position.set(0, 0.66, 0);
+  groomRoot.add(sherwaniTorso);
+
+  const sherwaniCollar = new THREE.Mesh(
+    trackGeo(new THREE.CylinderGeometry(0.082, 0.095, 0.08, 14)),
+    groomGoldTrimMat,
+  );
+  sherwaniCollar.position.set(0, 0.96, 0.01);
+  groomRoot.add(sherwaniCollar);
+
+  // Gold button placket down the front (+Z)
+  const btnGeo = trackGeo(new THREE.SphereGeometry(0.014, 8, 6));
+  for (let b = 0; b < 5; b++) {
+    const btn = new THREE.Mesh(btnGeo, groomGoldTrimMat);
+    btn.position.set(0, 0.88 - b * 0.075, 0.162);
+    groomRoot.add(btn);
+  }
+
+  // Royal Crimson & Gold Ceremonial Stole (Dupatta) Draped Across Chest
+  const groomStole = new THREE.Mesh(
+    trackGeo(new THREE.TorusGeometry(0.168, 0.028, 10, 24)),
+    groomStoleMat,
+  );
+  groomStole.position.set(0, 0.78, 0.02);
+  groomStole.rotation.set(0.55, 0.25, 0.42);
+  groomRoot.add(groomStole);
+
+  // Groom Head, Hair & Ceremonial Ivory-Gold Turban (Pagri)
+  const groomHeadGroup = new THREE.Group();
+  groomHeadGroup.position.set(0, 1.09, 0);
+  const groomHead = new THREE.Mesh(
+    trackGeo(new THREE.SphereGeometry(0.116, 16, 14)),
+    skinMat,
+  );
+  groomHeadGroup.add(groomHead);
+
+  const groomHair = new THREE.Mesh(
+    trackGeo(new THREE.SphereGeometry(0.119, 14, 12, 0, Math.PI * 2, 0, Math.PI * 0.58)),
+    darkHairMat,
+  );
+  groomHair.rotation.x = -0.22;
+  groomHeadGroup.add(groomHair);
+
+  const groomTurban = new THREE.Mesh(
+    trackGeo(new THREE.TorusGeometry(0.095, 0.042, 10, 20)),
+    groomGoldTrimMat,
+  );
+  groomTurban.position.set(0, 0.068, 0.01);
+  groomTurban.rotation.x = Math.PI / 2 - 0.18;
+  groomHeadGroup.add(groomTurban);
+
+  const groomKalgi = new THREE.Mesh(
+    trackGeo(new THREE.OctahedronGeometry(0.028, 0)),
+    groomStoleMat,
+  );
+  groomKalgi.position.set(0, 0.11, 0.115);
+  groomHeadGroup.add(groomKalgi);
+  groomRoot.add(groomHeadGroup);
+
+  // Groom Articulated Arms (Pivot at shoulders)
+  const armSleeveGeo = trackGeo(new THREE.CapsuleGeometry(0.042, 0.26, 8, 10));
+  const handSphereGeo = trackGeo(new THREE.SphereGeometry(0.038, 10, 8));
+
+  const groomLeftArm = new THREE.Group(); // +X side (inner side facing Bride)
+  groomLeftArm.position.set(0.175, 0.88, 0);
+  const gLArmMesh = new THREE.Mesh(armSleeveGeo, groomSherwaniMat);
+  gLArmMesh.position.set(0, -0.14, 0.06);
+  gLArmMesh.rotation.x = -0.45;
+  groomLeftArm.add(gLArmMesh);
+  const gLHand = new THREE.Mesh(handSphereGeo, skinMat);
+  gLHand.position.set(0, -0.28, 0.14);
+  groomLeftArm.add(gLHand);
+  groomRoot.add(groomLeftArm);
+
+  const groomRightArm = new THREE.Group(); // -X side (outer side)
+  groomRightArm.position.set(-0.175, 0.88, 0);
+  const gRArmMesh = new THREE.Mesh(armSleeveGeo, groomSherwaniMat);
+  gRArmMesh.position.set(0, -0.14, 0.06);
+  gRArmMesh.rotation.x = -0.45;
+  groomRightArm.add(gRArmMesh);
+  const gRHand = new THREE.Mesh(handSphereGeo, skinMat);
+  gRHand.position.set(0, -0.28, 0.14);
+  groomRightArm.add(gRHand);
+  groomRoot.add(groomRightArm);
+
+  weddingCoupleGroup.add(groomRoot);
+
+  // 2. BRIDE COMPOSITE FIGURE (Starts on local right X = +0.46)
+  const brideRoot = new THREE.Group();
+  brideRoot.position.set(0.46, 0, 0);
+
+  // Flared Bridal Lehenga / Gown Skirt with Dual Gold Zardozi Borders
+  const brideSkirt = new THREE.Mesh(
+    trackGeo(new THREE.CylinderGeometry(0.135, 0.35, 0.58, 22)),
+    brideCrimsonMat,
+  );
+  brideSkirt.position.set(0, 0.29, 0);
+  brideRoot.add(brideSkirt);
+
+  const brideHemGoldRing = new THREE.Mesh(
+    trackGeo(new THREE.TorusGeometry(0.342, 0.018, 10, 28)),
+    groomGoldTrimMat,
+  );
+  brideHemGoldRing.rotation.x = Math.PI / 2;
+  brideHemGoldRing.position.set(0, 0.04, 0);
+  brideRoot.add(brideHemGoldRing);
+
+  const brideMidGoldRing = new THREE.Mesh(
+    trackGeo(new THREE.TorusGeometry(0.285, 0.012, 8, 28)),
+    groomGoldTrimMat,
+  );
+  brideMidGoldRing.rotation.x = Math.PI / 2;
+  brideMidGoldRing.position.set(0, 0.18, 0);
+  brideRoot.add(brideMidGoldRing);
+
+  // Bridal Bodice (Choli) & Golden Waist Belt (Kamarbandh)
+  const brideBodice = new THREE.Mesh(
+    trackGeo(new THREE.CylinderGeometry(0.142, 0.128, 0.34, 16)),
+    brideRoseSilkMat,
+  );
+  brideBodice.position.set(0, 0.72, 0);
+  brideRoot.add(brideBodice);
+
+  const brideWaistBelt = new THREE.Mesh(
+    trackGeo(new THREE.TorusGeometry(0.136, 0.016, 8, 24)),
+    groomGoldTrimMat,
+  );
+  brideWaistBelt.rotation.x = Math.PI / 2;
+  brideWaistBelt.position.set(0, 0.57, 0);
+  brideRoot.add(brideWaistBelt);
+
+  const brideNecklace = new THREE.Mesh(
+    trackGeo(new THREE.TorusGeometry(0.088, 0.014, 8, 20)),
+    groomGoldTrimMat,
+  );
+  brideNecklace.rotation.x = Math.PI / 2 + 0.35;
+  brideNecklace.position.set(0, 0.89, 0.02);
+  brideRoot.add(brideNecklace);
+
+  // Bride Head, Floral Hair Bun, Golden Maang-Tikka & Translucent Bridal Veil
+  const brideHeadGroup = new THREE.Group();
+  brideHeadGroup.position.set(0, 1.04, 0);
+  const brideHead = new THREE.Mesh(
+    trackGeo(new THREE.SphereGeometry(0.11, 16, 14)),
+    skinMat,
+  );
+  brideHeadGroup.add(brideHead);
+
+  const brideHairCap = new THREE.Mesh(
+    trackGeo(new THREE.SphereGeometry(0.113, 14, 12, 0, Math.PI * 2, 0, Math.PI * 0.6)),
+    darkHairMat,
+  );
+  brideHairCap.rotation.x = -0.25;
+  brideHeadGroup.add(brideHairCap);
+
+  const brideHairBun = new THREE.Mesh(
+    trackGeo(new THREE.SphereGeometry(0.058, 12, 10)),
+    darkHairMat,
+  );
+  brideHairBun.position.set(0, 0.02, -0.11);
+  brideHeadGroup.add(brideHairBun);
+
+  const brideCrownTikka = new THREE.Mesh(
+    trackGeo(new THREE.OctahedronGeometry(0.024, 0)),
+    groomGoldTrimMat,
+  );
+  brideCrownTikka.position.set(0, 0.075, 0.102);
+  brideHeadGroup.add(brideCrownTikka);
+
+  // Translucent Rose-Blush Bridal Veil Draping from Crown Over Back & Shoulders
+  const brideVeil = new THREE.Mesh(
+    trackGeo(
+      new THREE.CylinderGeometry(
+        0.09,
+        0.32,
+        0.78,
+        18,
+        1,
+        true,
+        Math.PI * 0.55,
+        Math.PI * 1.9,
+      ),
+    ),
+    brideVeilMat,
+  );
+  brideVeil.position.set(0, -0.26, -0.05);
+  brideVeil.rotation.x = 0.14;
+  brideHeadGroup.add(brideVeil);
+
+  brideRoot.add(brideHeadGroup);
+
+  // Bride Articulated Arms with Golden Bangles
+  const bangleGeo = trackGeo(new THREE.TorusGeometry(0.042, 0.009, 8, 16));
+  const brideLeftArm = new THREE.Group(); // +X side (outer side)
+  brideLeftArm.position.set(0.16, 0.84, 0);
+  const bLArmMesh = new THREE.Mesh(armSleeveGeo, skinMat);
+  bLArmMesh.position.set(0, -0.13, 0.06);
+  bLArmMesh.rotation.x = -0.45;
+  brideLeftArm.add(bLArmMesh);
+  const bLBangle = new THREE.Mesh(bangleGeo, groomGoldTrimMat);
+  bLBangle.position.set(0, -0.22, 0.11);
+  bLBangle.rotation.x = Math.PI / 2 - 0.45;
+  brideLeftArm.add(bLBangle);
+  const bLHand = new THREE.Mesh(handSphereGeo, skinMat);
+  bLHand.position.set(0, -0.26, 0.14);
+  brideLeftArm.add(bLHand);
+  brideRoot.add(brideLeftArm);
+
+  const brideRightArm = new THREE.Group(); // -X side (inner side facing Groom)
+  brideRightArm.position.set(-0.16, 0.84, 0);
+  const bRArmMesh = new THREE.Mesh(armSleeveGeo, skinMat);
+  bRArmMesh.position.set(0, -0.13, 0.06);
+  bRArmMesh.rotation.x = -0.45;
+  brideRightArm.add(bRArmMesh);
+  const bRBangle = new THREE.Mesh(bangleGeo, groomGoldTrimMat);
+  bRBangle.position.set(0, -0.22, 0.11);
+  bRBangle.rotation.x = Math.PI / 2 - 0.45;
+  brideRightArm.add(bRBangle);
+  const bRHand = new THREE.Mesh(handSphereGeo, skinMat);
+  bRHand.position.set(0, -0.26, 0.14);
+  brideRightArm.add(bRHand);
+  brideRoot.add(brideRightArm);
+
+  weddingCoupleGroup.add(brideRoot);
+
+  // 3. CEREMONIAL FLORAL GARLANDS (JAIMALA) EXCHANGED BETWEEN BRIDE & GROOM
+  const createCeremonialGarland = () => {
+    const gGroup = new THREE.Group();
+    const ring = new THREE.Mesh(
+      trackGeo(new THREE.TorusGeometry(0.148, 0.026, 10, 24)),
+      garlandRoseMat,
+    );
+    ring.rotation.x = Math.PI / 2 + 0.38;
+    gGroup.add(ring);
+
+    const beadGeo = trackGeo(new THREE.SphereGeometry(0.032, 8, 6));
+    for (let i = 0; i < 8; i++) {
+      const a = (i / 8) * Math.PI * 2;
+      const bead = new THREE.Mesh(
+        beadGeo,
+        i % 2 === 0 ? garlandGoldMat : garlandRoseMat,
+      );
+      bead.position.set(
+        Math.cos(a) * 0.148,
+        Math.sin(a) * 0.148 * Math.sin(0.38),
+        Math.sin(a) * 0.148 * Math.cos(0.38),
+      );
+      gGroup.add(bead);
+    }
+    return gGroup;
+  };
+
+  const groomGarland = createCeremonialGarland();
+  const brideGarland = createCeremonialGarland();
+  weddingCoupleGroup.add(groomGarland);
+  weddingCoupleGroup.add(brideGarland);
+
+  // 4. INTERLOCKING GOLDEN WEDDING RINGS & FLOATING ROSE-GOLD HEART EMBLEM
+  const weddingSymbolGroup = new THREE.Group();
+  weddingSymbolGroup.position.set(0, 1.38, 0.16);
+
+  const weddingRingGeo = trackGeo(new THREE.TorusGeometry(0.078, 0.015, 12, 28));
+  const ringLeft = new THREE.Mesh(weddingRingGeo, groomGoldTrimMat);
+  ringLeft.position.set(-0.042, 0, 0);
+  ringLeft.rotation.y = 0.35;
+  weddingSymbolGroup.add(ringLeft);
+
+  const ringRight = new THREE.Mesh(weddingRingGeo, groomGoldTrimMat);
+  ringRight.position.set(0.042, 0, 0);
+  ringRight.rotation.y = -0.35;
+  weddingSymbolGroup.add(ringRight);
+
+  const heartLobeGeo = trackGeo(new THREE.SphereGeometry(0.055, 12, 10));
+  const heartTipGeo = trackGeo(new THREE.ConeGeometry(0.076, 0.11, 12));
+  const floatingHeartMesh = new THREE.Group();
+  floatingHeartMesh.position.set(0, 0.18, 0);
+  const hLobeL = new THREE.Mesh(heartLobeGeo, garlandRoseMat);
+  hLobeL.position.set(-0.036, 0.03, 0);
+  floatingHeartMesh.add(hLobeL);
+  const hLobeR = new THREE.Mesh(heartLobeGeo, garlandRoseMat);
+  hLobeR.position.set(0.036, 0.03, 0);
+  floatingHeartMesh.add(hLobeR);
+  const hTip = new THREE.Mesh(heartTipGeo, garlandRoseMat);
+  hTip.position.set(0, -0.032, 0);
+  hTip.rotation.x = Math.PI;
+  floatingHeartMesh.add(hTip);
+  weddingSymbolGroup.add(floatingHeartMesh);
+
+  weddingCoupleGroup.add(weddingSymbolGroup);
+  celebrationGroup.add(weddingCoupleGroup);
+
+  // --------------------------------------------------------------------------
+  // B. 6 GOLDEN STAGE SPARKLER FOUNTAINS AROUND THE PROPOSAL STAGE & ARCH
+  // --------------------------------------------------------------------------
+  const sparklerNozzleCoords: ReadonlyArray<readonly [number, number]> = [
+    [gcx - 1.75, gcz + 0.45],
+    [gcx + 0.45, gcz - 1.75],
+    [gcx - 0.85, gcz + 1.95],
+    [gcx + 1.95, gcz - 0.85],
+    [gcx + 0.25, gcz + 2.55],
+    [gcx + 2.55, gcz + 0.25],
+  ];
+  const nozzleGeo = trackGeo(new THREE.CylinderGeometry(0.045, 0.065, 0.16, 10));
+  for (let n = 0; n < sparklerNozzleCoords.length; n++) {
+    const [nx, nz] = sparklerNozzleCoords[n];
+    const nozzle = new THREE.Mesh(nozzleGeo, brassMat);
+    nozzle.position.set(nx, stageY + 0.08, nz);
+    celebrationGroup.add(nozzle);
+  }
+
+  const sparksPerFountain = 36;
+  const totalStageSparks = sparklerNozzleCoords.length * sparksPerFountain;
+  const stageSparksPositions = new Float32Array(totalStageSparks * 3);
+  const stageSparksColors = new Float32Array(totalStageSparks * 3);
+  const stageSparksSeeds = new Float32Array(totalStageSparks * 4);
+  const cSparkGold = new THREE.Color(0xfde047);
+  const cSparkIvory = new THREE.Color(0xfffbeb);
+  const cSparkCoral = new THREE.Color(0xfb923c);
+
+  for (let i = 0; i < totalStageSparks; i++) {
+    const fIdx = Math.floor(i / sparksPerFountain);
+    const [nx, nz] = sparklerNozzleCoords[fIdx];
+    stageSparksPositions[i * 3] = nx;
+    stageSparksPositions[i * 3 + 1] = stageY + 0.15;
+    stageSparksPositions[i * 3 + 2] = nz;
+
+    const ang = gardenRng() * Math.PI * 2;
+    const spread = 0.18 + gardenRng() * 0.48;
+    const upSpeed = 1.25 + gardenRng() * 0.85;
+    const phaseOffset = gardenRng();
+    stageSparksSeeds[i * 4] = Math.cos(ang) * spread;
+    stageSparksSeeds[i * 4 + 1] = upSpeed;
+    stageSparksSeeds[i * 4 + 2] = Math.sin(ang) * spread;
+    stageSparksSeeds[i * 4 + 3] = phaseOffset;
+
+    const sc = i % 3 === 0 ? cSparkIvory : i % 3 === 1 ? cSparkGold : cSparkCoral;
+    stageSparksColors[i * 3] = sc.r;
+    stageSparksColors[i * 3 + 1] = sc.g;
+    stageSparksColors[i * 3 + 2] = sc.b;
+  }
+
+  const stageSparksGeo = trackGeo(new THREE.BufferGeometry());
+  stageSparksGeo.setAttribute(
+    'position',
+    new THREE.BufferAttribute(stageSparksPositions, 3),
+  );
+  stageSparksGeo.setAttribute(
+    'color',
+    new THREE.BufferAttribute(stageSparksColors, 3),
+  );
+  const stageSparksMat = trackMat(
+    new THREE.PointsMaterial({
+      size: 0.13,
+      sizeAttenuation: true,
+      vertexColors: true,
+      transparent: true,
+      opacity: 0.0,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+    }),
+  );
+  const stageSparksPoints = new THREE.Points(stageSparksGeo, stageSparksMat);
+  stageSparksPoints.frustumCulled = false;
+  celebrationGroup.add(stageSparksPoints);
+
+  // --------------------------------------------------------------------------
+  // C. FALLING BRIDAL ROSE & GOLD PETAL SHOWER BENEATH THE FLORAL ARCH
+  // --------------------------------------------------------------------------
+  const bridalPetalCount = 56;
+  const bridalPetalPos = new Float32Array(bridalPetalCount * 3);
+  const bridalPetalCol = new Float32Array(bridalPetalCount * 3);
+  const bridalPetalSeeds = new Float32Array(bridalPetalCount * 4);
+  for (let i = 0; i < bridalPetalCount; i++) {
+    bridalPetalSeeds[i * 4] = (gardenRng() - 0.5) * 2.8;
+    bridalPetalSeeds[i * 4 + 1] = gardenRng();
+    bridalPetalSeeds[i * 4 + 2] = (gardenRng() - 0.5) * 2.2;
+    bridalPetalSeeds[i * 4 + 3] = 0.5 + gardenRng() * 0.6;
+
+    const pc = i % 2 === 0 ? cFireflyRose : cFireflyGold;
+    bridalPetalCol[i * 3] = pc.r;
+    bridalPetalCol[i * 3 + 1] = pc.g;
+    bridalPetalCol[i * 3 + 2] = pc.b;
+  }
+  const bridalPetalGeo = trackGeo(new THREE.BufferGeometry());
+  bridalPetalGeo.setAttribute(
+    'position',
+    new THREE.BufferAttribute(bridalPetalPos, 3),
+  );
+  bridalPetalGeo.setAttribute(
+    'color',
+    new THREE.BufferAttribute(bridalPetalCol, 3),
+  );
+  const bridalPetalMat = trackMat(
+    new THREE.PointsMaterial({
+      size: 0.11,
+      sizeAttenuation: true,
+      vertexColors: true,
+      transparent: true,
+      opacity: 0.0,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+    }),
+  );
+  const bridalPetalPoints = new THREE.Points(bridalPetalGeo, bridalPetalMat);
+  bridalPetalPoints.frustumCulled = false;
+  celebrationGroup.add(bridalPetalPoints);
+
+  // --------------------------------------------------------------------------
+  // D. CONTINUOUS MULTI-COLOR SKY FIREWORKS AROUND THE HORIZON
+  // --------------------------------------------------------------------------
+  interface FireworkShellConfig {
+    cx: number;
+    cy: number;
+    cz: number;
+    period: number;
+    phaseOffset: number;
+    burstRadius: number;
+    primaryHex: number;
+    secondaryHex: number;
+  }
+
+  const fireworkShellConfigs: readonly FireworkShellConfig[] = [
+    {
+      cx: gcx + 26.0,
+      cy: 25.0,
+      cz: gcz + 28.0,
+      period: 2.8,
+      phaseOffset: 0.0,
+      burstRadius: 8.5,
+      primaryHex: 0xfde047, // Gold
+      secondaryHex: 0xfb7185, // Rose
+    },
+    {
+      cx: gcx + 12.0,
+      cy: 29.0,
+      cz: gcz + 36.0,
+      period: 3.1,
+      phaseOffset: 0.35,
+      burstRadius: 9.2,
+      primaryHex: 0xfb7185, // Rose-Pink
+      secondaryHex: 0xfffbeb, // Ivory
+    },
+    {
+      cx: gcx + 36.0,
+      cy: 26.5,
+      cz: gcz + 14.0,
+      period: 2.95,
+      phaseOffset: 0.68,
+      burstRadius: 8.8,
+      primaryHex: 0x38bdf8, // Sky-Cyan
+      secondaryHex: 0xfde047, // Gold
+    },
+    {
+      cx: gcx - 4.0,
+      cy: 24.5,
+      cz: gcz + 34.0,
+      period: 3.25,
+      phaseOffset: 0.18,
+      burstRadius: 8.2,
+      primaryHex: 0xc084fc, // Violet
+      secondaryHex: 0xf472b6, // Pink
+    },
+    {
+      cx: gcx + 38.0,
+      cy: 23.5,
+      cz: gcz - 2.0,
+      period: 3.0,
+      phaseOffset: 0.52,
+      burstRadius: 8.4,
+      primaryHex: 0xfb923c, // Coral-Amber
+      secondaryHex: 0xfef08a, // Lemon-Gold
+    },
+    {
+      cx: gcx + 22.0,
+      cy: 32.5,
+      cz: gcz + 32.0,
+      period: 3.4,
+      phaseOffset: 0.82,
+      burstRadius: 10.2,
+      primaryHex: 0x34d399, // Emerald-Mint
+      secondaryHex: 0x38bdf8, // Cyan
+    },
+    {
+      cx: gcx + 6.0,
+      cy: 22.0,
+      cz: gcz + 26.0,
+      period: 2.65,
+      phaseOffset: 0.42,
+      burstRadius: 7.6,
+      primaryHex: 0xf472b6, // Magenta-Rose
+      secondaryHex: 0xfde047, // Gold
+    },
+    {
+      cx: gcx + 28.0,
+      cy: 21.5,
+      cz: gcz + 12.0,
+      period: 2.85,
+      phaseOffset: 0.91,
+      burstRadius: 7.8,
+      primaryHex: 0xfef08a, // Warm Ivory-Gold
+      secondaryHex: 0xfb7185, // Rose
+    },
+  ];
+
+  const particlesPerShell = 72;
+  const totalFireworkParticles =
+    fireworkShellConfigs.length * particlesPerShell;
+  const fwPositions = new Float32Array(totalFireworkParticles * 3);
+  const fwColors = new Float32Array(totalFireworkParticles * 3);
+  const fwUnitDirs = new Float32Array(totalFireworkParticles * 4); // dx, dy, dz, speedScale
+
+  const cTmp1 = new THREE.Color();
+  const cTmp2 = new THREE.Color();
+
+  for (let s = 0; s < fireworkShellConfigs.length; s++) {
+    const cfg = fireworkShellConfigs[s];
+    cTmp1.setHex(cfg.primaryHex);
+    cTmp2.setHex(cfg.secondaryHex);
+
+    for (let p = 0; p < particlesPerShell; p++) {
+      const idx = s * particlesPerShell + p;
+      // Double-shell chrysanthemum distribution: outer sphere + inner ring
+      const isInnerRing = p >= 52;
+      const u = gardenRng();
+      const v = gardenRng();
+      const theta = u * Math.PI * 2;
+      const phi = Math.acos(2 * v - 1);
+
+      const speedScale = isInnerRing
+        ? 0.52 + gardenRng() * 0.14
+        : 0.82 + gardenRng() * 0.26;
+      fwUnitDirs[idx * 4] = Math.sin(phi) * Math.cos(theta);
+      fwUnitDirs[idx * 4 + 1] = Math.cos(phi);
+      fwUnitDirs[idx * 4 + 2] = Math.sin(phi) * Math.sin(theta);
+      fwUnitDirs[idx * 4 + 3] = speedScale;
+
+      const col = isInnerRing || p % 3 === 0 ? cTmp2 : cTmp1;
+      fwColors[idx * 3] = col.r;
+      fwColors[idx * 3 + 1] = col.g;
+      fwColors[idx * 3 + 2] = col.b;
+    }
+  }
+
+  const fireworksGeo = trackGeo(new THREE.BufferGeometry());
+  fireworksGeo.setAttribute(
+    'position',
+    new THREE.BufferAttribute(fwPositions, 3),
+  );
+  fireworksGeo.setAttribute('color', new THREE.BufferAttribute(fwColors, 3));
+  const fireworksMat = trackMat(
+    new THREE.PointsMaterial({
+      size: 0.46,
+      sizeAttenuation: true,
+      vertexColors: true,
+      transparent: true,
+      opacity: 0.0,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+    }),
+  );
+  const skyFireworksPoints = new THREE.Points(fireworksGeo, fireworksMat);
+  skyFireworksPoints.frustumCulled = false;
+  celebrationGroup.add(skyFireworksPoints);
+
+  group.add(celebrationGroup);
 
   // ==========================================================================
   // 3. SPECIAL GATE RETURN PORTAL AT WESTERN STEPS (-10.5, 3.2, 0.0)
@@ -989,6 +2824,7 @@ export function createPrivateWorldScene(
   portalGroup.add(portalVeilMesh);
 
   const portalLight = new THREE.PointLight(0xfbbf24, 1.1, 12.0, 1.8);
+  portalLight.userData.skipAtmosphereCull = true;
   portalLight.position.set(0, 2.4, 0.5);
   portalGroup.add(portalLight);
 
@@ -999,6 +2835,7 @@ export function createPrivateWorldScene(
   //    - Background Starfield (always visible)
   //    - "M A N D U" Star Constellation (always visible, soft natural brightness)
   //    - "I LOVE YOU" Star Constellation (visible ONLY through the telescope, reduced brightness)
+  //    - "HAPPY VALENTINE'S DAY, MY LOVE" Proposal Constellation (progressive L->R reveal)
   // ==========================================================================
   const skyConstellationGroup = new THREE.Group();
   skyConstellationGroup.name = 'SkyConstellationDome';
@@ -1109,7 +2946,6 @@ export function createPrivateWorldScene(
         starCoreMaterials.push(coreMat);
         starBaseScales.push(baseScale);
 
-        // Subtle, low-opacity inner halo (prevents post-processing bloom blow-out)
         const innerHaloMat = trackMat(
           new THREE.MeshBasicMaterial({
             color: st.colorHex,
@@ -1127,7 +2963,6 @@ export function createPrivateWorldScene(
         letterGroup.add(starNodeGroup);
       }
 
-      // Crooked Primary Constellation Line Segments
       const mainSegCoords: number[] = [];
       for (let e = 0; e < bp.mainEdges.length; e++) {
         const [iA, iB] = bp.mainEdges[e];
@@ -1152,7 +2987,6 @@ export function createPrivateWorldScene(
       mainLines.frustumCulled = false;
       letterGroup.add(mainLines);
 
-      // Faint Astronomical Spur Line Segments
       const spurSegCoords: number[] = [];
       for (let e = 0; e < bp.spurEdges.length; e++) {
         const [iA, iB] = bp.spurEdges[e];
@@ -1218,7 +3052,6 @@ export function createPrivateWorldScene(
     0.0,
   );
 
-  // Delicate Inter-Letter Celestial Guide Threads inside Telescope Group (I -> L -> O -> V -> E -> Y -> O -> U)
   const interLetterArcMats: THREE.LineBasicMaterial[] = [];
   for (let i = 0; i < builtILoveYouConstellations.length - 1; i++) {
     const startPos = builtILoveYouConstellations[i].anchorWorldPos;
@@ -1249,23 +3082,203 @@ export function createPrivateWorldScene(
   }
 
   skyConstellationGroup.add(iLoveYouTelescopeGroup);
+
+  // ==========================================================================
+  // 4D. PHASE 4.6B SECTION 5: "HAPPY VALENTINE'S DAY, MY LOVE" SKY CONSTELLATION
+  //     Centered above the Proposal Garden's NE Ocean Horizon (yaw=0.72, pitch=0.35)
+  // ==========================================================================
+  const proposalConstellationGroup = new THREE.Group();
+  proposalConstellationGroup.name = 'ProposalSkyConstellation_HappyValentinesDayMyLove';
+  proposalConstellationGroup.visible = false;
+
+  const builtProposalChars: ProposalConstellationCharacterRuntime[] = [];
+
+  function buildProposalConstellationLine(
+    lineText: string,
+    lineOffsetV: number,
+    charScale: number,
+    normUStart: number,
+    normUEnd: number,
+  ) {
+    const glyphs: { ch: string; tpl: StarGlyphTemplate; centerX: number }[] = [];
+    let cursorX = 0;
+    const spacing = 0.34;
+
+    for (let i = 0; i < lineText.length; i++) {
+      const ch = lineText[i];
+      const tpl = PROPOSAL_SKY_GLYPHS[ch] ?? PROPOSAL_SKY_GLYPHS[' '];
+      const halfW = tpl.width * 0.5;
+      cursorX += halfW;
+      glyphs.push({ ch, tpl, centerX: cursorX });
+      cursorX += halfW + spacing;
+    }
+    const totalWidth = Math.max(0.1, cursorX - spacing);
+
+    for (let i = 0; i < glyphs.length; i++) {
+      const { ch, tpl, centerX } = glyphs[i];
+      if (tpl.points.length === 0) continue;
+
+      const localGroup = new THREE.Group();
+      localGroup.name = `ProposalSkyChar_${ch}_${i}`;
+      const relX = centerX - totalWidth * 0.5;
+      const charNormU = THREE.MathUtils.lerp(
+        normUStart,
+        normUEnd,
+        centerX / totalWidth,
+      );
+
+      const starWorldPts: THREE.Vector3[] = [];
+      const starMeshes: THREE.Mesh[] = [];
+      const starMats: THREE.MeshBasicMaterial[] = [];
+      const haloMats: THREE.MeshBasicMaterial[] = [];
+      const baseScales: number[] = [];
+
+      for (let p = 0; p < tpl.points.length; p++) {
+        const [pu, pv] = tpl.points[p];
+        const u = (relX + pu * tpl.width) * charScale;
+        const v = lineOffsetV + pv * charScale * 1.15;
+
+        const wPos = projectConstellationPointToSky(
+          PROPOSAL_STAGE_POS.playerFacingYaw, // 0.72 rad (NE horizon)
+          0.35, // Comfortable sky elevation above the Proposal Garden horizon
+          164.0,
+          1.0,
+          0.0,
+          u,
+          v,
+          PROPOSAL_STAGE_POS.x,
+          PROPOSAL_STAGE_POS.y,
+          PROPOSAL_STAGE_POS.z,
+        );
+        starWorldPts.push(wPos);
+
+        const starNode = new THREE.Group();
+        starNode.position.copy(wPos);
+        starNode.lookAt(
+          PROPOSAL_STAGE_POS.playerStandX,
+          PROPOSAL_STAGE_POS.y + 1.4,
+          PROPOSAL_STAGE_POS.playerStandZ,
+        );
+
+        const isPrimary = p === 0 || p === tpl.points.length - 1;
+        const colorHex = isPrimary ? 0xfde68a : 0xbae6fd;
+
+        const sMat = trackMat(
+          new THREE.MeshBasicMaterial({
+            color: colorHex,
+            transparent: true,
+            opacity: 0.0,
+            depthWrite: false,
+          }),
+        );
+        const sMesh = new THREE.Mesh(starDiamondGeo, sMat);
+        const bScale = isPrimary ? 0.86 : 0.72;
+        sMesh.scale.setScalar(bScale);
+        sMesh.frustumCulled = false;
+        starNode.add(sMesh);
+        starMeshes.push(sMesh);
+        starMats.push(sMat);
+        baseScales.push(bScale);
+
+        const hMat = trackMat(
+          new THREE.MeshBasicMaterial({
+            color: colorHex,
+            transparent: true,
+            opacity: 0.0,
+            depthWrite: false,
+          }),
+        );
+        const hMesh = new THREE.Mesh(starInnerHaloGeo, hMat);
+        hMesh.scale.setScalar(isPrimary ? 0.82 : 0.66);
+        hMesh.frustumCulled = false;
+        starNode.add(hMesh);
+        haloMats.push(hMat);
+
+        localGroup.add(starNode);
+      }
+
+      const lineCoords: number[] = [];
+      for (let e = 0; e < tpl.edges.length; e++) {
+        const [iA, iB] = tpl.edges[e];
+        const pA = starWorldPts[iA];
+        const pB = starWorldPts[iB];
+        if (pA && pB) {
+          lineCoords.push(pA.x, pA.y, pA.z, pB.x, pB.y, pB.z);
+        }
+      }
+
+      const lineGeo = trackGeo(new THREE.BufferGeometry());
+      lineGeo.setAttribute(
+        'position',
+        new THREE.Float32BufferAttribute(lineCoords, 3),
+      );
+      const lineMat = trackMat(
+        new THREE.LineBasicMaterial({
+          color: 0x93c5fd,
+          transparent: true,
+          opacity: 0.0,
+          depthWrite: false,
+        }),
+      );
+      const lineSegments = new THREE.LineSegments(lineGeo, lineMat);
+      lineSegments.frustumCulled = false;
+      localGroup.add(lineSegments);
+
+      proposalConstellationGroup.add(localGroup);
+      builtProposalChars.push({
+        normU: charNormU,
+        group: localGroup,
+        starMeshes,
+        starMats,
+        haloMats,
+        lineMat,
+        baseScales,
+      });
+    }
+  }
+
+  // Line 1: "HAPPY VALENTINE'S DAY," (upper line, progressive reveal 0.0 -> 0.68)
+  buildProposalConstellationLine("HAPPY VALENTINE'S DAY,", 7.2, 3.85, 0.0, 0.68);
+  // Line 2: "MY LOVE" (lower line, progressive reveal 0.64 -> 0.98)
+  buildProposalConstellationLine('MY LOVE', -4.2, 4.45, 0.64, 0.98);
+
+  skyConstellationGroup.add(proposalConstellationGroup);
   group.add(skyConstellationGroup);
 
   // ==========================================================================
-  // 5. RUNTIME ANIMATION & TELESCOPE VISIBILITY STATE
+  // 5. RUNTIME ANIMATION, TELESCOPE & PROPOSAL SEQUENCE STATE
   // ==========================================================================
   let isTelescopeModeActive = false;
-  let currentTelescopeVisibility = 0; // 0 when outside telescope, 1 when looking through telescope
+  let currentTelescopeVisibility = 0;
   let connectedSkyNodesCount = 1;
   let focusedSkyNodeIndex = 1;
   let discoveredLettersMask = 0b00000001;
 
+  let currentProposalState: ProposalSequenceState = {
+    phase: 'IDLE',
+    messageIndex: 0,
+    totalMessages: 6,
+    currentMessageText: '',
+    figureOpacity: 0,
+    mistIntensity: 0,
+    dissolveProgress: 0,
+    constellationRevealProgress: 0,
+    celebrationProgress: 0,
+    weddingAnimTime: 0,
+    hasCompletedOnce: false,
+  };
+
+  const cWaterMoon = new THREE.Color(0x071528);
+  const cWaterFest = new THREE.Color(0x18385c);
+  const cWaterEmissiveMoon = new THREE.Color(0x051020);
+  const cWaterEmissiveFest = new THREE.Color(0x2d243b);
+
   const emptyPathTelemetry: PrivatePathLightingTelemetry = {
     activeRouteId: 'primary-route',
-    activeRouteName: 'Stargazing Sanctuary',
+    activeRouteName: 'Proposal Garden Path',
     nearestPathDist: 0,
     arcDistanceMeters: 0,
-    routeTotalLengthMeters: 0,
+    routeTotalLengthMeters: 18,
     waveLeadMeters: 0,
     activeGlowingStones: 8,
     totalEmbeddedStones: 8,
@@ -1310,6 +3323,10 @@ export function createPrivateWorldScene(
     setTelescopeSkyState: applySkyHighlightState,
     setTelescopeHighlight: applySkyHighlightState,
 
+    setProposalSequenceState(state: ProposalSequenceState) {
+      currentProposalState = state;
+    },
+
     getPathLightingTelemetry() {
       return emptyPathTelemetry;
     },
@@ -1318,9 +3335,30 @@ export function createPrivateWorldScene(
       return 0;
     },
 
-    update(delta: number, elapsedTime: number) {
-      // Gentle return portal shimmer
+    update(delta: number, elapsedTime: number, playerPos?: THREE.Vector3) {
+      // Gentle return portal, focal crystal & heart inlay shimmer
       portalVeilMat.opacity = 0.18 + Math.sin(elapsedTime * 2.1) * 0.04;
+      stageFocalMarker.rotation.y = elapsedTime * 0.85;
+      stageFocalMarker.position.y =
+        stageY + 0.18 + Math.sin(elapsedTime * 2.2) * 0.03;
+      heartLineMat.opacity = 0.62 + Math.sin(elapsedTime * 2.4) * 0.15;
+
+      // Animate floating warm fireflies & rose-gold light motes across the Proposal Garden
+      const ffAttr = fireflyGeo.attributes.position as THREE.BufferAttribute;
+      for (let f = 0; f < fireflyCount; f++) {
+        const bx = fireflyBasePos[f * 3];
+        const by = fireflyBasePos[f * 3 + 1];
+        const bz = fireflyBasePos[f * 3 + 2];
+        const phase = elapsedTime * 0.85 + f * 1.13;
+        ffAttr.setXYZ(
+          f,
+          bx + Math.sin(phase) * 0.32,
+          by + Math.sin(elapsedTime * 1.35 + f * 0.7) * 0.24,
+          bz + Math.cos(phase * 0.9) * 0.32,
+        );
+      }
+      ffAttr.needsUpdate = true;
+      fireflyMat.opacity = 0.68 + Math.sin(elapsedTime * 2.6) * 0.15;
 
       // 1. Update Always-Visible "M A N D U" Star Constellations (subtle, natural starlight)
       for (let i = 0; i < builtManduConstellations.length; i++) {
@@ -1339,7 +3377,409 @@ export function createPrivateWorldScene(
         }
       }
 
-      // 2. Update Telescope-Only "I LOVE YOU" Star Constellations
+      // 2. Update Kneeling Mist Figure & Rising Particles at the Proposal Stage
+      const figOp = currentProposalState.figureOpacity;
+      const mistDens = currentProposalState.mistIntensity;
+      const riseProg = currentProposalState.dissolveProgress;
+
+      if (figOp <= 0.005 && mistDens <= 0.005) {
+        mistFigureGroup.visible = false;
+      } else {
+        mistFigureGroup.visible = true;
+
+        // Smoothly turn the kneeling figure to face Harsha as she walks around the stage
+        if (playerPos) {
+          const dx = playerPos.x - PROPOSAL_STAGE_POS.figureX;
+          const dz = playerPos.z - PROPOSAL_STAGE_POS.figureZ;
+          if (dx * dx + dz * dz > 0.04) {
+            const desiredYaw = Math.atan2(dx, dz);
+            let diff =
+              ((desiredYaw - currentFigureYaw + Math.PI) % (Math.PI * 2)) -
+              Math.PI;
+            if (diff < -Math.PI) diff += Math.PI * 2;
+            currentFigureYaw += diff * Math.min(1, delta * 5.5);
+            mistFigureGroup.rotation.y = currentFigureYaw;
+          }
+        }
+
+        // Simple fade-in effect settling gently into the kneeling position
+        const breathe = Math.sin(elapsedTime * 1.8) * 0.012;
+        const kneelSettleOffset =
+          currentProposalState.phase === 'MIST_GATHER'
+            ? (1.0 - figOp) * 0.22
+            : 0.0;
+        figureBodyGroup.position.y = kneelSettleOffset + breathe;
+        figureBodyGroup.rotation.x =
+          currentProposalState.phase === 'MIST_GATHER'
+            ? (1.0 - figOp) * -0.12
+            : 0.0;
+        const emergeScale =
+          currentProposalState.phase === 'MIST_GATHER'
+            ? 0.9 + figOp * 0.1
+            : 1.0;
+        figureBodyGroup.scale.set(1.0, emergeScale, 1.0);
+
+        mistBodyCoreMat.opacity = figOp * 0.78;
+        mistBodyAuraMat.opacity =
+          figOp * (0.3 + Math.sin(elapsedTime * 2.4) * 0.05);
+        mistGroundRingMat.opacity =
+          mistDens * (0.36 + Math.sin(elapsedTime * 1.9) * 0.05);
+
+        groundMistOuter.rotation.z = elapsedTime * 0.18;
+        groundMistInner.rotation.z = -elapsedTime * 0.26;
+        const mistSpread = 1.0 + riseProg * 0.65;
+        groundMistOuter.scale.setScalar(mistSpread);
+
+        // Update mist particles (gentle swirl during message, rising & fading during dissolution)
+        const pAttr = mistParticlesGeo.attributes
+          .position as THREE.BufferAttribute;
+        for (let p = 0; p < mistParticleCount; p++) {
+          const bx = mistParticleBasePos[p * 3];
+          const by = mistParticleBasePos[p * 3 + 1];
+          const bz = mistParticleBasePos[p * 3 + 2];
+          const swirlAngle = elapsedTime * 0.55 + p * 0.7;
+          const driftX = Math.cos(swirlAngle) * (0.05 + riseProg * 0.28);
+          const driftZ = Math.sin(swirlAngle) * (0.05 + riseProg * 0.28);
+          const driftY =
+            ((elapsedTime * 0.14 + p * 0.09) % 0.45) +
+            riseProg * (1.45 + (p % 5) * 0.28);
+
+          pAttr.setXYZ(p, bx + driftX, by + driftY, bz + driftZ);
+        }
+        pAttr.needsUpdate = true;
+        mistParticlesMat.opacity =
+          mistDens * (1.0 - riseProg * 0.65) * 0.65;
+      }
+
+      // 3. Update "HAPPY VALENTINE'S DAY, MY LOVE" Proposal Constellation Reveal (Left-to-Right)
+      const revProg = currentProposalState.constellationRevealProgress;
+      if (revProg <= 0.002) {
+        proposalConstellationGroup.visible = false;
+      } else {
+        proposalConstellationGroup.visible = true;
+        for (let i = 0; i < builtProposalChars.length; i++) {
+          const chObj = builtProposalChars[i];
+          const charAlpha = THREE.MathUtils.clamp(
+            (revProg - chObj.normU * 0.88) / 0.12,
+            0.0,
+            1.0,
+          );
+          if (charAlpha <= 0.001) {
+            chObj.group.visible = false;
+            continue;
+          }
+          chObj.group.visible = true;
+          const twinkle =
+            Math.sin(elapsedTime * 2.3 + i * 0.85) * 0.5 + 0.5;
+          chObj.lineMat.opacity = charAlpha * (0.36 + twinkle * 0.06);
+
+          for (let s = 0; s < chObj.starMeshes.length; s++) {
+            const sWave =
+              Math.sin(elapsedTime * 2.8 + i * 1.1 + s * 1.9) * 0.09;
+            chObj.starMeshes[s].scale.setScalar(
+              chObj.baseScales[s] * (0.95 + sWave) * (0.6 + charAlpha * 0.4),
+            );
+            chObj.starMats[s].opacity = charAlpha * (0.84 + twinkle * 0.08);
+            chObj.haloMats[s].opacity = charAlpha * (0.22 + twinkle * 0.05);
+          }
+        }
+      }
+
+      // 3B. Post-Constellation Grand Finale: Bright Golden Festival Illumination,
+      //     Continuous Sky Fireworks, Stage Sparklers & Bride-and-Groom Marriage Animation
+      const celProg = currentProposalState.celebrationProgress ?? 0;
+      const wedTime = currentProposalState.weddingAnimTime ?? 0;
+
+      // Boost lanterns, stage lights, water reflections & blossom warmth with celProg
+      deckWarmLight.intensity = THREE.MathUtils.lerp(1.15, 2.85, celProg);
+      gardenWarmLight.intensity = THREE.MathUtils.lerp(1.25, 3.75, celProg);
+      warmDeckGlowMat.emissiveIntensity = THREE.MathUtils.lerp(
+        0.95,
+        2.3,
+        celProg,
+      );
+      blossomIvoryMat.emissiveIntensity = THREE.MathUtils.lerp(
+        0.35,
+        0.88,
+        celProg,
+      );
+      blossomRoseMat.emissiveIntensity = THREE.MathUtils.lerp(
+        0.32,
+        0.85,
+        celProg,
+      );
+      blossomSkyMat.emissiveIntensity = THREE.MathUtils.lerp(
+        0.35,
+        0.85,
+        celProg,
+      );
+      heartGlowMat.emissiveIntensity = THREE.MathUtils.lerp(
+        0.85,
+        1.85,
+        celProg,
+      );
+      waterMat.color.lerpColors(cWaterMoon, cWaterFest, celProg);
+      waterMat.emissive.lerpColors(
+        cWaterEmissiveMoon,
+        cWaterEmissiveFest,
+        celProg,
+      );
+      waterMat.emissiveIntensity = THREE.MathUtils.lerp(0.42, 0.95, celProg);
+
+      if (celProg <= 0.005) {
+        celebrationGroup.visible = false;
+        stageFestivalLight.intensity = 0;
+        archFestivalLight.intensity = 0;
+        fireworkSkyFlashLight.intensity = 0;
+      } else {
+        celebrationGroup.visible = true;
+        stageFestivalLight.intensity =
+          celProg * (3.6 + Math.sin(elapsedTime * 3.2) * 0.25);
+        archFestivalLight.intensity =
+          celProg * (2.6 + Math.cos(elapsedTime * 2.8) * 0.2);
+
+        for (let m = 0; m < weddingMaterials.length; m++) {
+          const item = weddingMaterials[m];
+          item.mat.opacity = item.baseOpacity * celProg;
+        }
+
+        // Choreographed 3-Beat Bride & Groom Marriage Ceremony on the Proposal Stage
+        // Beat 1 (0.0s .. 3.0s): Ceremonial Approach & Reverent Bow beneath the Floral Arch
+        // Beat 2 (3.0s .. 6.5s): Exchange of Floral Garlands (Jaimala) & Golden Wedding Rings
+        // Beat 3 (6.5s+): Joining Hands in Marriage & Joyous Celebration under Petals & Fireworks
+        const approachT = THREE.MathUtils.clamp(wedTime / 3.0, 0, 1);
+        const smoothApproach =
+          approachT * approachT * (3.0 - 2.0 * approachT);
+        const exchangeT = THREE.MathUtils.clamp((wedTime - 3.0) / 3.5, 0, 1);
+        const smoothExchange =
+          exchangeT * exchangeT * (3.0 - 2.0 * exchangeT);
+        const joinedT = THREE.MathUtils.clamp((wedTime - 6.5) / 2.2, 0, 1);
+        const smoothJoined = joinedT * joinedT * (3.0 - 2.0 * joinedT);
+
+        // Subtle periodic celebratory vow nod every 12 seconds after joining hands
+        const eternalWave =
+          wedTime > 8.5 ? Math.sin((wedTime - 8.5) * 1.45) : 0;
+
+        const separationX = THREE.MathUtils.lerp(0.48, 0.25, smoothApproach);
+        const walkBob =
+          approachT < 1.0
+            ? Math.abs(Math.sin(wedTime * 6.5)) * 0.025 * (1.0 - approachT)
+            : Math.sin(elapsedTime * 2.1) * 0.008;
+
+        groomRoot.position.set(
+          -separationX + eternalWave * 0.012,
+          walkBob,
+          smoothJoined * 0.05,
+        );
+        brideRoot.position.set(
+          separationX - eternalWave * 0.012,
+          walkBob,
+          smoothJoined * 0.05,
+        );
+
+        // Orientation: During Beat 1 & 2, face each other (+PI/2 and -PI/2);
+        // During Beat 3, pivot toward the stage center & Harsha (+0.38 and -0.38 rad) while holding hands!
+        const groomTargetYaw = THREE.MathUtils.lerp(
+          Math.PI * 0.46,
+          0.36,
+          smoothJoined,
+        );
+        const brideTargetYaw = THREE.MathUtils.lerp(
+          -Math.PI * 0.46,
+          -0.36,
+          smoothJoined,
+        );
+        groomRoot.rotation.y = groomTargetYaw + eternalWave * 0.06;
+        brideRoot.rotation.y = brideTargetYaw - eternalWave * 0.06;
+
+        // Reverent Bow at the end of Beat 1 (1.8s .. 3.2s) & gentle nod in Beat 3
+        const bowFactor =
+          Math.sin(
+            THREE.MathUtils.clamp((wedTime - 1.6) / 1.6, 0, 1) * Math.PI,
+          ) *
+            0.22 +
+          (wedTime > 9.0 ? Math.max(0, Math.sin(wedTime * 0.9)) * 0.08 : 0);
+        groomHeadGroup.rotation.x = bowFactor;
+        brideHeadGroup.rotation.x = bowFactor * 1.1;
+
+        // Arm Choreography:
+        // Beat 2: Raise both arms forward to place floral garlands & exchange rings
+        // Beat 3: Inner arms (groomLeftArm & brideRightArm) reach together to clasp hands;
+        //         Outer arms (groomRightArm & brideLeftArm) wave gently in celebration!
+        const raiseGarlandBell = Math.sin(exchangeT * Math.PI);
+        groomLeftArm.rotation.x =
+          -0.25 - raiseGarlandBell * 0.95 - smoothJoined * 0.55;
+        groomLeftArm.rotation.z = smoothJoined * 0.32;
+
+        brideRightArm.rotation.x =
+          -0.25 - raiseGarlandBell * 0.95 - smoothJoined * 0.55;
+        brideRightArm.rotation.z = -smoothJoined * 0.32;
+
+        const outerWave =
+          smoothJoined * (0.45 + Math.sin(elapsedTime * 3.2) * 0.18);
+        groomRightArm.rotation.x = -0.2 - raiseGarlandBell * 0.75 - outerWave;
+        groomRightArm.rotation.z = -outerWave * 0.45;
+
+        brideLeftArm.rotation.x = -0.2 - raiseGarlandBell * 0.75 - outerWave;
+        brideLeftArm.rotation.z = outerWave * 0.45;
+
+        // Ceremonial Floral Garlands (Jaimala) Trajectory:
+        // Start in each partner's hands during Beat 1/2, arc up over the head in Beat 2,
+        // and rest around each other's neck/chest in Beat 3!
+        const garlandArcHeight = Math.sin(smoothExchange * Math.PI) * 0.34;
+        groomGarland.position.set(
+          THREE.MathUtils.lerp(
+            -separationX + 0.16,
+            brideRoot.position.x,
+            smoothExchange,
+          ),
+          THREE.MathUtils.lerp(0.76, 0.88, smoothExchange) +
+            garlandArcHeight +
+            walkBob,
+          THREE.MathUtils.lerp(0.12, brideRoot.position.z + 0.02, smoothExchange),
+        );
+        brideGarland.position.set(
+          THREE.MathUtils.lerp(
+            separationX - 0.16,
+            groomRoot.position.x,
+            smoothExchange,
+          ),
+          THREE.MathUtils.lerp(0.74, 0.91, smoothExchange) +
+            garlandArcHeight +
+            walkBob,
+          THREE.MathUtils.lerp(0.12, groomRoot.position.z + 0.02, smoothExchange),
+        );
+
+        // Twin Interlocking Golden Wedding Rings & Floating Heart Emblem above joined hands
+        const symbolVis = THREE.MathUtils.clamp((wedTime - 2.6) / 2.2, 0, 1);
+        weddingSymbolGroup.visible = symbolVis > 0.01;
+        weddingSymbolGroup.scale.setScalar(
+          symbolVis * (0.92 + Math.sin(elapsedTime * 2.8) * 0.08),
+        );
+        weddingSymbolGroup.position.set(
+          0,
+          1.34 + Math.sin(elapsedTime * 2.2) * 0.04,
+          0.16,
+        );
+        weddingSymbolGroup.rotation.y = elapsedTime * 0.95;
+
+        // Animate 6 Golden Stage Sparkler Fountains
+        const spAttr = stageSparksGeo.attributes
+          .position as THREE.BufferAttribute;
+        for (let i = 0; i < totalStageSparks; i++) {
+          const fIdx = Math.floor(i / sparksPerFountain);
+          const [nx, nz] = sparklerNozzleCoords[fIdx];
+          const vx = stageSparksSeeds[i * 4];
+          const vy = stageSparksSeeds[i * 4 + 1];
+          const vz = stageSparksSeeds[i * 4 + 2];
+          const phase = stageSparksSeeds[i * 4 + 3];
+
+          const life = (elapsedTime * 1.45 + phase) % 1.0;
+          const sx = nx + vx * life;
+          const sy =
+            stageY + 0.14 + vy * life - 0.55 * life * life;
+          const sz = nz + vz * life;
+          spAttr.setXYZ(i, sx, Math.max(stageY + 0.05, sy), sz);
+        }
+        spAttr.needsUpdate = true;
+        stageSparksMat.opacity =
+          celProg * (0.82 + Math.sin(elapsedTime * 8.0) * 0.12);
+
+        // Animate 56 Falling Bridal Rose & Gold Petals beneath the Floral Arch
+        const bpAttr = bridalPetalGeo.attributes
+          .position as THREE.BufferAttribute;
+        for (let i = 0; i < bridalPetalCount; i++) {
+          const ox = bridalPetalSeeds[i * 4];
+          const phase = bridalPetalSeeds[i * 4 + 1];
+          const oz = bridalPetalSeeds[i * 4 + 2];
+          const speed = bridalPetalSeeds[i * 4 + 3];
+
+          const fallT = (elapsedTime * 0.28 * speed + phase) % 1.0;
+          const px =
+            gcx +
+            1.15 +
+            ox +
+            Math.sin(elapsedTime * 1.8 + i) * 0.18;
+          const py = stageY + 2.95 * (1.0 - fallT) + 0.06;
+          const pz =
+            gcz +
+            1.25 +
+            oz +
+            Math.cos(elapsedTime * 1.5 + i) * 0.18;
+          bpAttr.setXYZ(i, px, py, pz);
+        }
+        bpAttr.needsUpdate = true;
+        bridalPetalMat.opacity = celProg * 0.85;
+
+        // Animate 8 Continuous Multi-Color Sky Firework Shells & Ascending Rocket Trails
+        const fwAttr = fireworksGeo.attributes
+          .position as THREE.BufferAttribute;
+        let brightestBurstStrength = 0;
+        let brightestBurstHex = 0xfde047;
+
+        for (let s = 0; s < fireworkShellConfigs.length; s++) {
+          const cfg = fireworkShellConfigs[s];
+          const cycleT =
+            ((elapsedTime + cfg.phaseOffset * cfg.period) % cfg.period) /
+            cfg.period;
+
+          if (cycleT < 0.22) {
+            // Ascending Rocket Streak Phase (0.0 .. 0.22)
+            const rocketT = cycleT / 0.22;
+            const easeUp = 1.0 - Math.pow(1.0 - rocketT, 2.0);
+            const curY = THREE.MathUtils.lerp(4.0, cfg.cy, easeUp);
+
+            for (let p = 0; p < particlesPerShell; p++) {
+              const idx = s * particlesPerShell + p;
+              const trailLag = (p / particlesPerShell) * 2.4;
+              const jitter = (p % 5) * 0.04;
+              fwAttr.setXYZ(
+                idx,
+                cfg.cx + jitter,
+                Math.max(3.5, curY - trailLag),
+                cfg.cz - jitter,
+              );
+            }
+          } else {
+            // Multi-Color Chrysanthemum & Ring Burst Phase (0.22 .. 1.0)
+            const burstT = (cycleT - 0.22) / 0.78;
+            const expand =
+              (1.0 - Math.pow(1.0 - burstT, 2.3)) * cfg.burstRadius;
+            const gravityDrop = burstT * burstT * 3.8;
+            const flashStrength = Math.sin(
+              THREE.MathUtils.clamp(burstT * 1.35, 0, 1) * Math.PI,
+            );
+            if (flashStrength > brightestBurstStrength) {
+              brightestBurstStrength = flashStrength;
+              brightestBurstHex = cfg.primaryHex;
+            }
+
+            for (let p = 0; p < particlesPerShell; p++) {
+              const idx = s * particlesPerShell + p;
+              const dx = fwUnitDirs[idx * 4];
+              const dy = fwUnitDirs[idx * 4 + 1];
+              const dz = fwUnitDirs[idx * 4 + 2];
+              const spd = fwUnitDirs[idx * 4 + 3];
+              const r = expand * spd;
+
+              fwAttr.setXYZ(
+                idx,
+                cfg.cx + dx * r,
+                cfg.cy + dy * r - gravityDrop,
+                cfg.cz + dz * r,
+              );
+            }
+          }
+        }
+        fwAttr.needsUpdate = true;
+        fireworksMat.opacity =
+          celProg * (0.86 + Math.sin(elapsedTime * 6.5) * 0.1);
+        fireworkSkyFlashLight.color.setHex(brightestBurstHex);
+        fireworkSkyFlashLight.intensity =
+          celProg * brightestBurstStrength * 4.2;
+      }
+
+      // 4. Update Telescope-Only "I LOVE YOU" Star Constellations
       const targetTeleVis = isTelescopeModeActive ? 1.0 : 0.0;
       currentTelescopeVisibility +=
         (targetTeleVis - currentTelescopeVisibility) *
@@ -1364,7 +3804,6 @@ export function createPrivateWorldScene(
         const twinkle =
           Math.sin(elapsedTime * 2.2 + i * 1.15) * 0.5 + 0.5;
 
-        // Soft, realistic astronomical line brightness (reduced so it never blows out)
         const baseMainOp = isDiscovered
           ? (isFocused ? 0.44 : 0.34) +
             twinkle * 0.04 +

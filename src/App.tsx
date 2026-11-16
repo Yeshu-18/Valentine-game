@@ -654,6 +654,12 @@ export default function App() {
         onSeatedStateChange: (sitting) => {
           privateInteractionAudio.playSeatToggleCue(sitting);
         },
+        onProposalStateChange: (propState) => {
+          privateWorldScene.setProposalSequenceState(propState);
+          atmosphere.setPrivateWorldCelebrationFactor(
+            propState.celebrationProgress ?? 0,
+          );
+        },
         getRouteDistanceTo: (px, pz, destId) =>
           privateWorldScene.getRouteDistanceTo(px, pz, destId),
       },
@@ -2559,6 +2565,18 @@ export default function App() {
             const ctrl = privateWorldControllerRef.current;
             if (!ctrl) return;
             ctrl.triggerPrimaryInteraction();
+            setPrivateWorldTelemetry(ctrl.getTelemetry());
+          }}
+          onAdvanceProposalSequence={() => {
+            const ctrl = privateWorldControllerRef.current;
+            if (!ctrl) return;
+            ctrl.advanceProposalSequence();
+            setPrivateWorldTelemetry(ctrl.getTelemetry());
+          }}
+          onTriggerWeddingCelebration={() => {
+            const ctrl = privateWorldControllerRef.current;
+            if (!ctrl) return;
+            ctrl.triggerWeddingCelebration();
             setPrivateWorldTelemetry(ctrl.getTelemetry());
           }}
           onExitInteractionMode={() => {
