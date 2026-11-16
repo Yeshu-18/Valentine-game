@@ -185,6 +185,7 @@ export interface PrivateWorldInteractionSystemBundle {
   updateProposalSequence: (delta: number) => ProposalSequenceState;
   advanceProposalMessage: () => boolean;
   triggerWeddingCelebration: () => void;
+  stopWeddingCelebration: () => void;
   getProposalState: () => ProposalSequenceState;
 }
 
@@ -279,6 +280,7 @@ export function createPrivateWorldInteractionSystem(
   const MIST_GATHER_DURATION = 2.3;
   const FIGURE_DISSOLVE_DURATION = 3.2;
   const CONSTELLATION_REVEAL_DURATION = 4.8;
+  const CONSTELLATION_POST_REVEAL_WAIT_DURATION = 5.0;
   const CELEBRATION_RAMP_DURATION = 2.4;
 
   function setProposalPhase(nextPhase: ProposalSequencePhase) {
@@ -310,6 +312,16 @@ export function createPrivateWorldInteractionSystem(
     weddingAnimTime = 0;
     hasCompletedProposalOnce = true;
     setProposalPhase('FINAL_HOLD');
+    setMode('NONE');
+  }
+
+  function stopWeddingCelebration() {
+    figureOpacity = 0;
+    mistIntensity = 0;
+    dissolveProgress = 0;
+    celebrationProgress = 0;
+    weddingAnimTime = 0;
+    setProposalPhase('IDLE');
     setMode('NONE');
   }
 
@@ -648,20 +660,16 @@ export function createPrivateWorldInteractionSystem(
         );
         constellationRevealProgress = smoothstep(0.0, 1.0, revT);
 
-        // Once the constellation finishes revealing, begin ramping up the fireworks, festival illumination, and wedding ceremony!
-        if (proposalPhaseTimer >= CONSTELLATION_REVEAL_DURATION) {
-          const postT = proposalPhaseTimer - CONSTELLATION_REVEAL_DURATION;
-          celebrationProgress = smoothstep(
-            0.0,
-            1.0,
-            THREE.MathUtils.clamp(postT / CELEBRATION_RAMP_DURATION, 0, 1),
-          );
-          weddingAnimTime += delta;
-        } else {
-          celebrationProgress = 0;
-        }
+        // Wait a full 5 seconds after the constellation wording finishes revealing
+        // before starting the fireworks, festival illumination, and marriage animation!
+        celebrationProgress = 0;
+        weddingAnimTime = 0;
 
-        if (proposalPhaseTimer >= CONSTELLATION_REVEAL_DURATION + 1.2) {
+        if (
+          proposalPhaseTimer >=
+          CONSTELLATION_REVEAL_DURATION +
+            CONSTELLATION_POST_REVEAL_WAIT_DURATION
+        ) {
           constellationRevealProgress = 1.0;
           hasCompletedProposalOnce = true;
           setProposalPhase('FINAL_HOLD');
@@ -708,6 +716,7 @@ export function createPrivateWorldInteractionSystem(
     },
 
     triggerWeddingCelebration,
+    stopWeddingCelebration,
 
     getProposalState(): ProposalSequenceState {
       return {
@@ -732,6 +741,8 @@ export function createPrivateWorldInteractionSystem(
 
 /**
  * Helper returning the seated camera pose for the Stargazing Loveseat at (-1.8, 3.48, -3.1).
+ * Frames both Harsha (right cushion) and her silver-blue mist companion (left cushion)
+ * gazing up together toward the MANDU star constellation in the eastern night sky.
  */
 export function getSeatedCameraPose(mode: PrivateInteractionMode): {
   camPos: THREE.Vector3;
@@ -742,10 +753,10 @@ export function getSeatedCameraPose(mode: PrivateInteractionMode): {
   if (mode === 'SEATED_LOVESEAT') {
     const deckY = 3.48;
     return {
-      camPos: new THREE.Vector3(-1.55, deckY + 1.18, -2.95),
-      lookAt: new THREE.Vector3(26.0, deckY + 11.5, -2.95),
-      avatarPos: new THREE.Vector3(-1.75, deckY + 0.04, -3.05),
-      avatarYaw: STARGAZING_LOVESEAT_POS.seatFacingYaw,
+      camPos: new THREE.Vector3(-4.15, deckY + 1.46, -3.28),
+      lookAt: new THREE.Vector3(26.0, deckY + 12.2, -2.5),
+      avatarPos: new THREE.Vector3(-1.72, deckY + 0.02, -3.46),
+      avatarYaw: STARGAZING_LOVESEAT_POS.seatFacingYaw + 0.16,
     };
   }
   return null;

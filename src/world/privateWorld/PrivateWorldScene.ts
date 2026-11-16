@@ -18,6 +18,29 @@ import {
 import { PrivatePathLightingTelemetry } from './PrivatePathLighting';
 import { TrailDestinationId } from './PrivateTrailSignSystem';
 
+/**
+ * 11 unique personal photographs arranged across the 3 concentric 360° Memory Sky orbits:
+ * - Indices 0..3 (4 photos): Layer 1 — Inner Orbit (closest to floral arch, slow clockwise)
+ * - Indices 4..7 (4 photos): Layer 2 — Middle Orbit (wider circle, staggered heights, very slow counterclockwise)
+ * - Indices 8..10 (3 photos): Layer 3 — Outer Celestial Orbit (higher in the sky, smaller frames, gentle float)
+ */
+export const MEMORY_SKY_PHOTO_URLS: readonly string[] = [
+  // Layer 1: Inner Orbit (4 photographs)
+  '/assets/harsha/photo-romantic.jpg',
+  '/assets/harsha/photo-treasured.jpg',
+  '/assets/harsha/photo-playful.jpg',
+  '/assets/aistudio/WhatsApp_Image_2026-11-03_at_11.55.38_0d91e902.jpeg',
+  // Layer 2: Middle Orbit (4 photographs)
+  '/assets/aistudio/WhatsApp_Image_2026-11-03_at_12.07.27_38c04f45.jpeg',
+  '/assets/aistudio/WhatsApp_Image_2026-11-03_at_12.07.43_45c8be2a.jpeg',
+  '/assets/aistudio/WhatsApp_Image_2026-11-03_at_12.07.54_deb94ac6.jpeg',
+  '/assets/aistudio/WhatsApp_Image_2026-11-03_at_12.08.06_4a77344d.jpeg',
+  // Layer 3: Outer Celestial Orbit (3 photographs)
+  '/assets/aistudio/WhatsApp_Image_2026-11-03_at_12.08.16_c459e503.jpeg',
+  '/assets/aistudio/WhatsApp_Image_2026-11-03_at_12.08.34_fb260cf3.jpeg',
+  '/assets/aistudio/WhatsApp_Image_2026-11-03_at_12.08.47_c4696d67.jpeg',
+];
+
 export interface PrivateWorldSceneBundle {
   group: THREE.Group;
   colliders: CircleCollider[];
@@ -49,6 +72,7 @@ export interface PrivateWorldSceneBundle {
     discoveredLettersMask?: number,
   ) => void;
   setProposalSequenceState: (state: ProposalSequenceState) => void;
+  setLoveseatCompanionActive: (active: boolean) => void;
   getPathLightingTelemetry: () => PrivatePathLightingTelemetry;
   getRouteDistanceTo: (
     playerX: number,
@@ -745,6 +769,37 @@ const PROPOSAL_SKY_GLYPHS: Record<string, StarGlyphTemplate> = {
     points: [],
     edges: [],
   },
+  // Heart-Hands ('🫶🏻' normalized to '♥') star-constellation glyph:
+  // Heart outline formed by fingers + curved left/right hand-cuff arcs at the base
+  '♥': {
+    width: 1.35,
+    points: [
+      [0.0, 0.38], // 0: top heart dip
+      [-0.28, 0.76], // 1: upper-left finger arch
+      [-0.56, 0.36], // 2: mid-left outer knuckle
+      [-0.38, -0.22], // 3: lower-left thumb curve
+      [0.0, -0.74], // 4: bottom heart point (joined thumbs)
+      [0.38, -0.22], // 5: lower-right thumb curve
+      [0.56, 0.36], // 6: mid-right outer knuckle
+      [0.28, 0.76], // 7: upper-right finger arch
+      [-0.64, -0.52], // 8: left wrist/palm cuff
+      [0.64, -0.52], // 9: right wrist/palm cuff
+    ],
+    edges: [
+      [0, 1],
+      [1, 2],
+      [2, 3],
+      [3, 4],
+      [4, 5],
+      [5, 6],
+      [6, 7],
+      [7, 0],
+      [2, 8],
+      [8, 4],
+      [6, 9],
+      [9, 4],
+    ],
+  },
 };
 
 interface BuiltLetterConstellationRuntime {
@@ -828,6 +883,7 @@ export function createPrivateWorldScene(
   const colliders: CircleCollider[] = [];
   const geometriesToDispose: THREE.BufferGeometry[] = [];
   const materialsToDispose: THREE.Material[] = [];
+  const texturesToDispose: THREE.Texture[] = [];
 
   const trackGeo = <T extends THREE.BufferGeometry>(g: T): T => {
     geometriesToDispose.push(g);
@@ -836,6 +892,10 @@ export function createPrivateWorldScene(
   const trackMat = <T extends THREE.Material>(m: T): T => {
     materialsToDispose.push(m);
     return m;
+  };
+  const trackTex = <T extends THREE.Texture>(t: T): T => {
+    texturesToDispose.push(t);
+    return t;
   };
 
   // ==========================================================================
@@ -1153,6 +1213,221 @@ export function createPrivateWorldScene(
     pillow.rotation.z = 0.22;
     loveseatGroup.add(pillow);
   }
+
+  // ==========================================================================
+  // 2A-II. SEATED MIST COMPANION ON THE TWO-PERSON STARGAZING LOVESEAT
+  // Materializes gently beside Harsha (on the left/north cushion at z = +0.38)
+  // gazing up at the MANDU constellation while their inner hands rest close together.
+  // ==========================================================================
+  let isLoveseatCompanionTargetActive = false;
+  let loveseatCompanionVisibility = 0.0;
+
+  const loveseatCompanionCoreMat = trackMat(
+    new THREE.MeshPhysicalMaterial({
+      color: 0xf4f9ff,
+      emissive: 0x93c5fd,
+      emissiveIntensity: 0.72,
+      roughness: 0.22,
+      metalness: 0.05,
+      transparent: true,
+      opacity: 0.0,
+      depthWrite: false,
+    }),
+  );
+
+  const loveseatCompanionAuraMat = trackMat(
+    new THREE.MeshBasicMaterial({
+      color: 0xbae6fd,
+      transparent: true,
+      opacity: 0.0,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+    }),
+  );
+
+  const loveseatHeartMoteMat = trackMat(
+    new THREE.MeshBasicMaterial({
+      color: 0xfda4af,
+      transparent: true,
+      opacity: 0.0,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+    }),
+  );
+
+  const loveseatCompanionGroup = new THREE.Group();
+  loveseatCompanionGroup.name = 'SeatedLoveseatMistCompanion';
+  // Seated on the north (+Z) half of the loveseat cushion, facing East (+X) with a slight turn toward Harsha (-Z)
+  loveseatCompanionGroup.position.set(0.06, 0.46, 0.38);
+  loveseatCompanionGroup.rotation.y = -0.14;
+  loveseatCompanionGroup.visible = false;
+
+  const addSeatedMistPart = (
+    parent: THREE.Object3D,
+    geo: THREE.BufferGeometry,
+    px: number,
+    py: number,
+    pz: number,
+    rx = 0,
+    ry = 0,
+    rz = 0,
+    auraScale = 1.15,
+  ) => {
+    const holder = new THREE.Group();
+    holder.position.set(px, py, pz);
+    holder.rotation.set(rx, ry, rz);
+    const core = new THREE.Mesh(geo, loveseatCompanionCoreMat);
+    const aura = new THREE.Mesh(geo, loveseatCompanionAuraMat);
+    aura.scale.setScalar(auraScale);
+    holder.add(core, aura);
+    parent.add(holder);
+    return holder;
+  };
+
+  // Seated Torso & Shoulders (leaning slightly back against the cushion & gazing up at the stars)
+  const seatedTorsoGeo = trackGeo(
+    new THREE.CylinderGeometry(0.145, 0.125, 0.5, 16),
+  );
+  addSeatedMistPart(
+    loveseatCompanionGroup,
+    seatedTorsoGeo,
+    -0.08,
+    0.34,
+    0,
+    0,
+    0,
+    0.16,
+    1.16,
+  );
+
+  const seatedShoulderGeo = trackGeo(new THREE.SphereGeometry(0.155, 14, 12));
+  const seatedShoulder = addSeatedMistPart(
+    loveseatCompanionGroup,
+    seatedShoulderGeo,
+    -0.11,
+    0.55,
+    0,
+    0,
+    0,
+    0,
+    1.15,
+  );
+  seatedShoulder.scale.set(0.75, 0.55, 1.28);
+
+  // Head tilted upward gazing at the MANDU constellation in the eastern night sky
+  const seatedHeadGeo = trackGeo(new THREE.SphereGeometry(0.125, 16, 14));
+  const seatedHeadGroup = addSeatedMistPart(
+    loveseatCompanionGroup,
+    seatedHeadGeo,
+    -0.12,
+    0.74,
+    0,
+    0,
+    -0.08,
+    0.26,
+    1.2,
+  );
+  seatedHeadGroup.scale.set(0.95, 1.1, 0.95);
+
+  // Seated Hips & Thighs extending forward (+X) on the cushion
+  const seatedThighGeo = trackGeo(
+    new THREE.CylinderGeometry(0.068, 0.056, 0.38, 12),
+  );
+  addSeatedMistPart(
+    loveseatCompanionGroup,
+    seatedThighGeo,
+    0.14,
+    0.08,
+    0.09,
+    0,
+    0,
+    Math.PI / 2 - 0.06,
+  );
+  addSeatedMistPart(
+    loveseatCompanionGroup,
+    seatedThighGeo,
+    0.14,
+    0.08,
+    -0.09,
+    0,
+    0,
+    Math.PI / 2 - 0.06,
+  );
+
+  // Seated Calves & Feet resting down in front of the loveseat
+  const seatedCalfGeo = trackGeo(
+    new THREE.CylinderGeometry(0.054, 0.044, 0.38, 12),
+  );
+  addSeatedMistPart(
+    loveseatCompanionGroup,
+    seatedCalfGeo,
+    0.34,
+    -0.14,
+    0.09,
+    0,
+    0,
+    -0.12,
+  );
+  addSeatedMistPart(
+    loveseatCompanionGroup,
+    seatedCalfGeo,
+    0.34,
+    -0.14,
+    -0.09,
+    0,
+    0,
+    -0.12,
+  );
+
+  // Outer (Left / +Z) Arm resting gently on the loveseat side
+  const seatedArmGeo = trackGeo(
+    new THREE.CylinderGeometry(0.046, 0.038, 0.32, 12),
+  );
+  addSeatedMistPart(
+    loveseatCompanionGroup,
+    seatedArmGeo,
+    -0.04,
+    0.38,
+    0.2,
+    0.25,
+    0,
+    -0.35,
+  );
+
+  // Inner (Right / -Z) Arm & Hand reaching warmly toward Harsha's hand in the center of the loveseat
+  addSeatedMistPart(
+    loveseatCompanionGroup,
+    seatedArmGeo,
+    0.02,
+    0.34,
+    -0.2,
+    -0.38,
+    0.22,
+    -0.48,
+  );
+  const seatedHandGeo = trackGeo(new THREE.SphereGeometry(0.048, 12, 10));
+  const innerHandNode = addSeatedMistPart(
+    loveseatCompanionGroup,
+    seatedHandGeo,
+    0.12,
+    0.16,
+    -0.34,
+    0,
+    0,
+    0,
+    1.3,
+  );
+
+  // Glowing Rose-Gold Heart Mote hovering softly above their hands in the middle of the loveseat
+  const loveseatHeartMote = new THREE.Mesh(
+    trackGeo(new THREE.OctahedronGeometry(0.055, 0)),
+    loveseatHeartMoteMat,
+  );
+  loveseatHeartMote.position.set(0.14, 0.28, -0.36);
+  loveseatCompanionGroup.add(loveseatHeartMote);
+
+  loveseatGroup.add(loveseatCompanionGroup);
+
   deckGroup.add(loveseatGroup);
   colliders.push({
     x: STARGAZING_LOVESEAT_POS.x,
@@ -1245,6 +1520,18 @@ export function createPrivateWorldScene(
   const lanternPostGeo = trackGeo(new THREE.CylinderGeometry(0.055, 0.075, 0.58, 8));
   const lanternGlobeGeo = trackGeo(new THREE.SphereGeometry(0.11, 10, 8));
 
+  interface InteractivePathLanternNode {
+    x: number;
+    y: number;
+    z: number;
+    globeMat: THREE.MeshStandardMaterial;
+    haloMat: THREE.MeshBasicMaterial;
+    haloMesh: THREE.Mesh;
+    bloomLevel: number; // 0 = quiet moonlit ember, 1 = awakened golden-rose bloom
+    proximityBoost: number; // 0..1 active swirl boost while Harsha is walking past
+  }
+  const pathLanternNodes: InteractivePathLanternNode[] = [];
+
   // Stone and timber pavers along the curved path from Stargazing Deck NE exit (5.8, 5.6) to Proposal Garden (22.0, 18.0)
   for (let i = 2; i < PROPOSAL_PATH_SAMPLES.length - 5; i++) {
     const s = PROPOSAL_PATH_SAMPLES[i];
@@ -1272,9 +1559,9 @@ export function createPrivateWorldScene(
       proposalGardenGroup.add(sleeper);
     }
 
-    // Place low warm path lanterns along the path edges
-    if (i % 4 === 3) {
-      const side = i % 8 === 3 ? 1 : -1;
+    // Place interactive pair/alternating path lanterns along the path edges that bloom brighter as Harsha walks by
+    if (i % 3 === 2) {
+      const side = i % 6 === 2 ? 1 : -1;
       const nx = -tz * side;
       const nz = tx * side;
       const lx = s.x + nx * 1.48;
@@ -1285,11 +1572,92 @@ export function createPrivateWorldScene(
       post.position.set(lx, ly + 0.26, lz);
       proposalGardenGroup.add(post);
 
-      const globe = new THREE.Mesh(lanternGlobeGeo, warmDeckGlowMat);
+      const lanternGlobeMat = trackMat(
+        new THREE.MeshStandardMaterial({
+          color: 0xffe4b5,
+          emissive: 0xffb347,
+          emissiveIntensity: 0.55,
+          roughness: 0.22,
+        }),
+      );
+      const globe = new THREE.Mesh(lanternGlobeGeo, lanternGlobeMat);
       globe.position.set(lx, ly + 0.58, lz);
       proposalGardenGroup.add(globe);
+
+      const lanternHaloMat = trackMat(
+        new THREE.MeshBasicMaterial({
+          color: 0xfda4af,
+          transparent: true,
+          opacity: 0.08,
+          blending: THREE.AdditiveBlending,
+          depthWrite: false,
+        }),
+      );
+      const halo = new THREE.Mesh(lanternGlobeGeo, lanternHaloMat);
+      halo.position.set(lx, ly + 0.58, lz);
+      halo.scale.setScalar(1.65);
+      proposalGardenGroup.add(halo);
+
+      pathLanternNodes.push({
+        x: lx,
+        y: ly + 0.58,
+        z: lz,
+        globeMat: lanternGlobeMat,
+        haloMat: lanternHaloMat,
+        haloMesh: halo,
+        bloomLevel: 0.0,
+        proximityBoost: 0.0,
+      });
     }
   }
+
+  // Swirling Rose-Gold Firefly Clusters around each Interactive Path Lantern (8 fireflies per lantern)
+  const firefliesPerLantern = 8;
+  const totalLanternFireflies = pathLanternNodes.length * firefliesPerLantern;
+  const lanternFireflyPositions = new Float32Array(totalLanternFireflies * 3);
+  const lanternFireflyColors = new Float32Array(totalLanternFireflies * 3);
+  const cLanternRose = new THREE.Color(0xfda4af);
+  const cLanternGold = new THREE.Color(0xfde047);
+
+  for (let l = 0; l < pathLanternNodes.length; l++) {
+    const node = pathLanternNodes[l];
+    for (let f = 0; f < firefliesPerLantern; f++) {
+      const idx = l * firefliesPerLantern + f;
+      lanternFireflyPositions[idx * 3] = node.x;
+      lanternFireflyPositions[idx * 3 + 1] = node.y;
+      lanternFireflyPositions[idx * 3 + 2] = node.z;
+      const col = f % 2 === 0 ? cLanternGold : cLanternRose;
+      lanternFireflyColors[idx * 3] = col.r;
+      lanternFireflyColors[idx * 3 + 1] = col.g;
+      lanternFireflyColors[idx * 3 + 2] = col.b;
+    }
+  }
+
+  const lanternFireflyGeo = trackGeo(new THREE.BufferGeometry());
+  lanternFireflyGeo.setAttribute(
+    'position',
+    new THREE.BufferAttribute(lanternFireflyPositions, 3),
+  );
+  lanternFireflyGeo.setAttribute(
+    'color',
+    new THREE.BufferAttribute(lanternFireflyColors, 3),
+  );
+  const lanternFireflyMat = trackMat(
+    new THREE.PointsMaterial({
+      size: 0.14,
+      vertexColors: true,
+      transparent: true,
+      opacity: 0.85,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+    }),
+  );
+  const lanternFireflyPoints = new THREE.Points(
+    lanternFireflyGeo,
+    lanternFireflyMat,
+  );
+  lanternFireflyPoints.frustumCulled = false;
+  proposalGardenGroup.add(lanternFireflyPoints);
 
   // Proposal Garden Central Stage & Flower Meadow at (22.0, 18.0)
   const gcx = PROPOSAL_GARDEN_CENTER.x;
@@ -2760,6 +3128,603 @@ export function createPrivateWorldScene(
   skyFireworksPoints.frustumCulled = false;
   celebrationGroup.add(skyFireworksPoints);
 
+  // --- E. 360° Celestial Memory Orbit & Glowing Star-Heart Installation ---
+  const celestialMemoryOrbitGroup = new THREE.Group();
+  celestialMemoryOrbitGroup.name = 'CelestialMemoryOrbit360';
+  celebrationGroup.add(celestialMemoryOrbitGroup);
+
+  // Helper to create a warm high-resolution CanvasTexture for each memory photograph
+  const createMemoryPhotoTexture = (
+    photoUrl: string,
+    photoIndex: number,
+  ): THREE.CanvasTexture => {
+    const canvas = document.createElement('canvas');
+    canvas.width = 512;
+    canvas.height = 384;
+    const ctx = canvas.getContext('2d');
+
+    const drawRomanticFallback = () => {
+      if (!ctx) return;
+      const grad = ctx.createLinearGradient(0, 0, 512, 384);
+      grad.addColorStop(0, '#2a1836');
+      grad.addColorStop(0.5, '#4a2545');
+      grad.addColorStop(1, '#1e162b');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, 512, 384);
+
+      const radial = ctx.createRadialGradient(256, 192, 18, 256, 192, 230);
+      radial.addColorStop(0, 'rgba(255, 224, 150, 0.34)');
+      radial.addColorStop(0.6, 'rgba(255, 160, 195, 0.12)');
+      radial.addColorStop(1, 'rgba(20, 12, 28, 0.0)');
+      ctx.fillStyle = radial;
+      ctx.fillRect(0, 0, 512, 384);
+
+      ctx.strokeStyle = 'rgba(255, 226, 158, 0.42)';
+      ctx.lineWidth = 3;
+      ctx.strokeRect(14, 14, 484, 356);
+    };
+
+    drawRomanticFallback();
+
+    const texture = trackTex(new THREE.CanvasTexture(canvas));
+    texture.colorSpace = THREE.SRGBColorSpace;
+    texture.minFilter = THREE.LinearFilter;
+    texture.magFilter = THREE.LinearFilter;
+    texture.needsUpdate = true;
+
+    if (typeof Image !== 'undefined') {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => {
+        if (!ctx) return;
+        ctx.clearRect(0, 0, 512, 384);
+        ctx.fillStyle = '#181022';
+        ctx.fillRect(0, 0, 512, 384);
+
+        // Cover-fit image nicely into 4:3 frame
+        const targetRatio = 512 / 384;
+        const imgRatio =
+          img.naturalWidth && img.naturalHeight
+            ? img.naturalWidth / img.naturalHeight
+            : targetRatio;
+        let sx = 0;
+        let sy = 0;
+        let sw = img.naturalWidth || 512;
+        let sh = img.naturalHeight || 384;
+        if (imgRatio > targetRatio) {
+          sw = sh * targetRatio;
+          sx = ((img.naturalWidth || 512) - sw) * 0.5;
+        } else {
+          sh = sw / targetRatio;
+          sy = ((img.naturalHeight || 384) - sh) * 0.35;
+        }
+        ctx.drawImage(img, sx, sy, sw, sh, 0, 0, 512, 384);
+
+        // Soft golden inner vignette for celestial warmth
+        const vig = ctx.createRadialGradient(256, 192, 135, 256, 192, 310);
+        vig.addColorStop(0, 'rgba(255, 235, 190, 0.0)');
+        vig.addColorStop(0.82, 'rgba(255, 215, 145, 0.06)');
+        vig.addColorStop(1, 'rgba(28, 14, 24, 0.32)');
+        ctx.fillStyle = vig;
+        ctx.fillRect(0, 0, 512, 384);
+
+        ctx.strokeStyle = 'rgba(255, 232, 170, 0.55)';
+        ctx.lineWidth = 4;
+        ctx.strokeRect(4, 4, 504, 376);
+
+        texture.needsUpdate = true;
+      };
+      img.src = photoUrl || MEMORY_SKY_PHOTO_URLS[photoIndex % MEMORY_SKY_PHOTO_URLS.length];
+    }
+
+    return texture;
+  };
+
+  // Shared geometries across all 11 memory photo frames (zero redundant geometry allocations)
+  const frameWidth = 2.08;
+  const frameHeight = 1.56;
+  const borderThickness = 0.048;
+  const borderDepth = 0.036;
+
+  const sharedGlassBackGeo = trackGeo(
+    new THREE.PlaneGeometry(frameWidth + 0.16, frameHeight + 0.16),
+  );
+  const sharedPhotoPlaneGeo = trackGeo(
+    new THREE.PlaneGeometry(frameWidth, frameHeight),
+  );
+  const sharedBorderHGeo = trackGeo(
+    new THREE.BoxGeometry(
+      frameWidth + borderThickness * 2,
+      borderThickness,
+      borderDepth,
+    ),
+  );
+  const sharedBorderVGeo = trackGeo(
+    new THREE.BoxGeometry(borderThickness, frameHeight, borderDepth),
+  );
+  const sharedFrameGlowGeo = trackGeo(
+    new THREE.PlaneGeometry(frameWidth + 0.42, frameHeight + 0.42),
+  );
+  const sharedStarCoreGeo = trackGeo(new THREE.OctahedronGeometry(0.16, 0));
+
+  // 3 Concentric Golden Starlight Orbit Threads around the Garden Centre (gcx, gcz)
+  interface OrbitRingVisual {
+    line: THREE.LineLoop;
+    lineMat: THREE.LineBasicMaterial;
+    beadsPoints: THREE.Points;
+    beadsMat: THREE.PointsMaterial;
+    baseY: number;
+    layerIndex: number;
+  }
+  const orbitRingVisuals: OrbitRingVisual[] = [];
+  const orbitLayerRadii = [6.6, 10.2, 13.6];
+  const orbitLayerBaseHeights = [
+    stageY + 4.05,
+    stageY + 5.45,
+    stageY + 6.85,
+  ];
+  const orbitLayerTilts = [0.045, -0.055, 0.035];
+
+  for (let layerIdx = 0; layerIdx < 3; layerIdx++) {
+    const r = orbitLayerRadii[layerIdx];
+    const baseY = orbitLayerBaseHeights[layerIdx];
+    const tilt = orbitLayerTilts[layerIdx];
+    const segs = 96;
+    const ringPts: THREE.Vector3[] = [];
+    const beadCount = 36 + layerIdx * 10;
+    const beadPositions = new Float32Array(beadCount * 3);
+
+    for (let i = 0; i < segs; i++) {
+      const a = (i / segs) * Math.PI * 2;
+      const rx = gcx + Math.cos(a) * r;
+      const rz = gcz + Math.sin(a) * r;
+      const ry = baseY + Math.sin(a * 2 + layerIdx) * 0.18 + Math.cos(a) * tilt * r;
+      ringPts.push(new THREE.Vector3(rx, ry, rz));
+    }
+
+    for (let b = 0; b < beadCount; b++) {
+      const a = (b / beadCount) * Math.PI * 2;
+      beadPositions[b * 3] = gcx + Math.cos(a) * r;
+      beadPositions[b * 3 + 1] =
+        baseY + Math.sin(a * 2 + layerIdx) * 0.18 + Math.cos(a) * tilt * r;
+      beadPositions[b * 3 + 2] = gcz + Math.sin(a) * r;
+    }
+
+    const lineGeo = trackGeo(new THREE.BufferGeometry().setFromPoints(ringPts));
+    const lineMat = trackMat(
+      new THREE.LineBasicMaterial({
+        color: layerIdx === 2 ? 0xffe8a8 : 0xffd27d,
+        transparent: true,
+        opacity: 0.0,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+      }),
+    );
+    const line = new THREE.LineLoop(lineGeo, lineMat);
+    line.frustumCulled = false;
+    celestialMemoryOrbitGroup.add(line);
+
+    const beadsGeo = trackGeo(new THREE.BufferGeometry());
+    beadsGeo.setAttribute(
+      'position',
+      new THREE.BufferAttribute(beadPositions, 3),
+    );
+    const beadsMat = trackMat(
+      new THREE.PointsMaterial({
+        color: 0xfff0be,
+        size: layerIdx === 0 ? 0.18 : layerIdx === 1 ? 0.15 : 0.13,
+        sizeAttenuation: true,
+        transparent: true,
+        opacity: 0.0,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+      }),
+    );
+    const beadsPoints = new THREE.Points(beadsGeo, beadsMat);
+    beadsPoints.frustumCulled = false;
+    celestialMemoryOrbitGroup.add(beadsPoints);
+
+    orbitRingVisuals.push({
+      line,
+      lineMat,
+      beadsPoints,
+      beadsMat,
+      baseY,
+      layerIndex: layerIdx,
+    });
+  }
+
+  // 11 Memory Photo Exhibits across the 3 Concentric Orbital Layers
+  interface MemoryOrbitPhotoNode {
+    root: THREE.Group;
+    photoMat: THREE.MeshBasicMaterial;
+    glassMat: THREE.MeshBasicMaterial;
+    goldBorderMat: THREE.MeshStandardMaterial;
+    haloGlowMat: THREE.MeshBasicMaterial;
+    starCoreMesh: THREE.Mesh;
+    starCoreMat: THREE.MeshBasicMaterial;
+    layerIndex: 0 | 1 | 2;
+    orbitRadius: number;
+    baseAngle: number;
+    baseHeight: number;
+    heightOffset: number;
+    angularSpeed: number; // rad/s: inner clockwise (-), middle counterclockwise (+), outer nearly stationary
+    baseScale: number;
+    appearStartTime: number;
+    appearDuration: number;
+    floatPhase: number;
+  }
+
+  const memoryOrbitPhotoNodes: MemoryOrbitPhotoNode[] = [];
+
+  const photoOrbitSpecs: Array<{
+    layerIndex: 0 | 1 | 2;
+    orbitRadius: number;
+    baseAngle: number;
+    baseHeight: number;
+    heightOffset: number;
+    angularSpeed: number;
+    baseScale: number;
+    appearStartTime: number;
+  }> = [
+    // Layer 1: Inner Orbit — 4 photographs closest to the ceremony above & around the floral arch (slow clockwise)
+    {
+      layerIndex: 0,
+      orbitRadius: 6.6,
+      baseAngle: 0.35,
+      baseHeight: stageY + 3.95,
+      heightOffset: 0.0,
+      angularSpeed: -0.052,
+      baseScale: 1.0,
+      appearStartTime: 1.2,
+    },
+    {
+      layerIndex: 0,
+      orbitRadius: 6.6,
+      baseAngle: 0.35 + Math.PI * 0.5,
+      baseHeight: stageY + 4.18,
+      heightOffset: 0.14,
+      angularSpeed: -0.052,
+      baseScale: 1.0,
+      appearStartTime: 1.65,
+    },
+    {
+      layerIndex: 0,
+      orbitRadius: 6.6,
+      baseAngle: 0.35 + Math.PI,
+      baseHeight: stageY + 3.92,
+      heightOffset: -0.08,
+      angularSpeed: -0.052,
+      baseScale: 1.0,
+      appearStartTime: 2.1,
+    },
+    {
+      layerIndex: 0,
+      orbitRadius: 6.6,
+      baseAngle: 0.35 + Math.PI * 1.5,
+      baseHeight: stageY + 4.22,
+      heightOffset: 0.12,
+      angularSpeed: -0.052,
+      baseScale: 1.0,
+      appearStartTime: 2.55,
+    },
+
+    // Layer 2: Middle Orbit — 4 photographs in wider circular arrangement, staggered vertical heights (very slow counterclockwise)
+    {
+      layerIndex: 1,
+      orbitRadius: 10.2,
+      baseAngle: 0.78,
+      baseHeight: stageY + 5.2,
+      heightOffset: -0.18,
+      angularSpeed: 0.031,
+      baseScale: 0.88,
+      appearStartTime: 3.4,
+    },
+    {
+      layerIndex: 1,
+      orbitRadius: 10.2,
+      baseAngle: 0.78 + Math.PI * 0.5,
+      baseHeight: stageY + 5.68,
+      heightOffset: 0.22,
+      angularSpeed: 0.031,
+      baseScale: 0.88,
+      appearStartTime: 3.9,
+    },
+    {
+      layerIndex: 1,
+      orbitRadius: 10.2,
+      baseAngle: 0.78 + Math.PI,
+      baseHeight: stageY + 5.32,
+      heightOffset: -0.12,
+      angularSpeed: 0.031,
+      baseScale: 0.88,
+      appearStartTime: 4.4,
+    },
+    {
+      layerIndex: 1,
+      orbitRadius: 10.2,
+      baseAngle: 0.78 + Math.PI * 1.5,
+      baseHeight: stageY + 5.82,
+      heightOffset: 0.25,
+      angularSpeed: 0.031,
+      baseScale: 0.88,
+      appearStartTime: 4.9,
+    },
+
+    // Layer 3: Outer Celestial Orbit — 3 photographs higher in the sky, smaller frames with subtle golden illumination (almost stationary with gentle floating)
+    {
+      layerIndex: 2,
+      orbitRadius: 13.6,
+      baseAngle: 0.18,
+      baseHeight: stageY + 6.65,
+      heightOffset: 0.0,
+      angularSpeed: -0.007,
+      baseScale: 0.74,
+      appearStartTime: 5.4,
+    },
+    {
+      layerIndex: 2,
+      orbitRadius: 13.6,
+      baseAngle: 0.18 + (Math.PI * 2) / 3,
+      baseHeight: stageY + 7.05,
+      heightOffset: 0.24,
+      angularSpeed: -0.007,
+      baseScale: 0.74,
+      appearStartTime: 5.95,
+    },
+    {
+      layerIndex: 2,
+      orbitRadius: 13.6,
+      baseAngle: 0.18 + (Math.PI * 4) / 3,
+      baseHeight: stageY + 6.82,
+      heightOffset: -0.14,
+      angularSpeed: -0.007,
+      baseScale: 0.74,
+      appearStartTime: 6.5,
+    },
+  ];
+
+  for (let i = 0; i < photoOrbitSpecs.length; i++) {
+    const spec = photoOrbitSpecs[i];
+    const photoUrl = MEMORY_SKY_PHOTO_URLS[i % MEMORY_SKY_PHOTO_URLS.length];
+    const tex = createMemoryPhotoTexture(photoUrl, i);
+
+    const frameRoot = new THREE.Group();
+    frameRoot.name = `CelestialMemoryFrame_${i + 1}`;
+    frameRoot.visible = false;
+
+    // 1. Soft Golden Additive Halo Behind Frame (pulses with major fireworks)
+    const haloGlowMat = trackMat(
+      new THREE.MeshBasicMaterial({
+        color: spec.layerIndex === 2 ? 0xffe6a3 : 0xffcf75,
+        transparent: true,
+        opacity: 0.0,
+        side: THREE.DoubleSide,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+      }),
+    );
+    const haloMesh = new THREE.Mesh(sharedFrameGlowGeo, haloGlowMat);
+    haloMesh.position.z = -0.025;
+    frameRoot.add(haloMesh);
+
+    // 2. Translucent Glass-Like Backing Plate
+    const glassMat = trackMat(
+      new THREE.MeshBasicMaterial({
+        color: 0xfff5dc,
+        transparent: true,
+        opacity: 0.0,
+        side: THREE.DoubleSide,
+        depthWrite: false,
+      }),
+    );
+    const glassMesh = new THREE.Mesh(sharedGlassBackGeo, glassMat);
+    glassMesh.position.z = -0.01;
+    frameRoot.add(glassMesh);
+
+    // 3. Double-Sided Luminous Memory Photograph Plane
+    const photoMat = trackMat(
+      new THREE.MeshBasicMaterial({
+        map: tex,
+        color: 0xffffff,
+        transparent: true,
+        opacity: 0.0,
+        side: THREE.DoubleSide,
+      }),
+    );
+    const photoMesh = new THREE.Mesh(sharedPhotoPlaneGeo, photoMat);
+    frameRoot.add(photoMesh);
+
+    // 4. Restrained Brushed-Gold 4-Edge Frame Borders
+    const goldBorderMat = trackMat(
+      new THREE.MeshStandardMaterial({
+        color: 0xf6d379,
+        emissive: 0xffb845,
+        emissiveIntensity: 0.45,
+        roughness: 0.24,
+        metalness: 0.85,
+        transparent: true,
+        opacity: 0.0,
+      }),
+    );
+
+    const topBar = new THREE.Mesh(sharedBorderHGeo, goldBorderMat);
+    topBar.position.set(0, (frameHeight + borderThickness) * 0.5, 0);
+    const bottomBar = new THREE.Mesh(sharedBorderHGeo, goldBorderMat);
+    bottomBar.position.set(0, -(frameHeight + borderThickness) * 0.5, 0);
+    const leftBar = new THREE.Mesh(sharedBorderVGeo, goldBorderMat);
+    leftBar.position.set(-(frameWidth + borderThickness) * 0.5, 0, 0);
+    const rightBar = new THREE.Mesh(sharedBorderVGeo, goldBorderMat);
+    rightBar.position.set((frameWidth + borderThickness) * 0.5, 0, 0);
+    frameRoot.add(topBar, bottomBar, leftBar, rightBar);
+
+    // 5. Celestial Star-Core Gem (brightens during Stage 6 when photos rise and transform into stars)
+    const starCoreMat = trackMat(
+      new THREE.MeshBasicMaterial({
+        color: 0xfff4c8,
+        transparent: true,
+        opacity: 0.0,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+      }),
+    );
+    const starCoreMesh = new THREE.Mesh(sharedStarCoreGeo, starCoreMat);
+    starCoreMesh.position.set(0, frameHeight * 0.5 + 0.22, 0.02);
+    frameRoot.add(starCoreMesh);
+
+    celestialMemoryOrbitGroup.add(frameRoot);
+
+    memoryOrbitPhotoNodes.push({
+      root: frameRoot,
+      photoMat,
+      glassMat,
+      goldBorderMat,
+      haloGlowMat,
+      starCoreMesh,
+      starCoreMat,
+      layerIndex: spec.layerIndex,
+      orbitRadius: spec.orbitRadius,
+      baseAngle: spec.baseAngle,
+      baseHeight: spec.baseHeight,
+      heightOffset: spec.heightOffset,
+      angularSpeed: spec.angularSpeed,
+      baseScale: spec.baseScale,
+      appearStartTime: spec.appearStartTime,
+      appearDuration: 1.5,
+      floatPhase: i * 1.37,
+    });
+  }
+
+  // Stage 6: Ascending Star-Streams (110 golden particles rising from the 11 photographs to the heart apex)
+  const ascensionParticlesPerPhoto = 10;
+  const totalAscensionParticles =
+    memoryOrbitPhotoNodes.length * ascensionParticlesPerPhoto;
+  const ascensionPositions = new Float32Array(totalAscensionParticles * 3);
+  const ascensionPhases = new Float32Array(totalAscensionParticles);
+  for (let i = 0; i < totalAscensionParticles; i++) {
+    ascensionPhases[i] = (i % ascensionParticlesPerPhoto) / ascensionParticlesPerPhoto;
+    ascensionPositions[i * 3] = gcx;
+    ascensionPositions[i * 3 + 1] = stageY + 5.0;
+    ascensionPositions[i * 3 + 2] = gcz;
+  }
+  const ascensionGeo = trackGeo(new THREE.BufferGeometry());
+  ascensionGeo.setAttribute(
+    'position',
+    new THREE.BufferAttribute(ascensionPositions, 3),
+  );
+  const ascensionMat = trackMat(
+    new THREE.PointsMaterial({
+      color: 0xffe9a6,
+      size: 0.24,
+      sizeAttenuation: true,
+      transparent: true,
+      opacity: 0.0,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+    }),
+  );
+  const ascensionStreamPoints = new THREE.Points(ascensionGeo, ascensionMat);
+  ascensionStreamPoints.frustumCulled = false;
+  celestialMemoryOrbitGroup.add(ascensionStreamPoints);
+
+  // Stage 7 (Final Shot): Glowing Star-Heart Directly Above the Floral Arch & Wedding Couple
+  const celestialHeartGroup = new THREE.Group();
+  celestialHeartGroup.name = 'CelestialStarHeartAboveCouple';
+  const heartCenterX = gcx + 1.15;
+  const heartCenterY = stageY + 6.95;
+  const heartCenterZ = gcz + 1.25;
+  celestialHeartGroup.position.set(heartCenterX, heartCenterY, heartCenterZ);
+  // Face along the garden viewing axis so it frames the couple beneath the arch
+  celestialHeartGroup.rotation.y = -Math.PI * 0.25;
+
+  const heartStarCount = 164;
+  const heartStarPositions = new Float32Array(heartStarCount * 3);
+  const heartStarColors = new Float32Array(heartStarCount * 3);
+  const heartOutlinePts: THREE.Vector3[] = [];
+  const cHeartGold = new THREE.Color(0xffe699);
+  const cHeartRose = new THREE.Color(0xffb8d2);
+
+  for (let i = 0; i < 96; i++) {
+    const t = (i / 96) * Math.PI * 2;
+    const hx = 16 * Math.pow(Math.sin(t), 3) * 0.115;
+    const hy =
+      (13 * Math.cos(t) -
+        5 * Math.cos(2 * t) -
+        2 * Math.cos(3 * t) -
+        Math.cos(4 * t)) *
+      0.115;
+    heartOutlinePts.push(new THREE.Vector3(hx, hy, 0));
+  }
+
+  for (let i = 0; i < heartStarCount; i++) {
+    const t = (i / heartStarCount) * Math.PI * 2;
+    const radialSpread = i < 108 ? 1.0 : 0.72 + gardenRng() * 0.42;
+    const hx = 16 * Math.pow(Math.sin(t), 3) * 0.115 * radialSpread;
+    const hy =
+      (13 * Math.cos(t) -
+        5 * Math.cos(2 * t) -
+        2 * Math.cos(3 * t) -
+        Math.cos(4 * t)) *
+      0.115 *
+      radialSpread;
+    const hz = (gardenRng() - 0.5) * 0.28;
+    heartStarPositions[i * 3] = hx + (gardenRng() - 0.5) * 0.08;
+    heartStarPositions[i * 3 + 1] = hy + (gardenRng() - 0.5) * 0.08;
+    heartStarPositions[i * 3 + 2] = hz;
+
+    const col = i % 4 === 0 ? cHeartRose : cHeartGold;
+    heartStarColors[i * 3] = col.r;
+    heartStarColors[i * 3 + 1] = col.g;
+    heartStarColors[i * 3 + 2] = col.b;
+  }
+
+  const celestialHeartOutlineGeo = trackGeo(
+    new THREE.BufferGeometry().setFromPoints(heartOutlinePts),
+  );
+  const celestialHeartOutlineMat = trackMat(
+    new THREE.LineBasicMaterial({
+      color: 0xffe49e,
+      transparent: true,
+      opacity: 0.0,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+    }),
+  );
+  const celestialHeartOutline = new THREE.LineLoop(
+    celestialHeartOutlineGeo,
+    celestialHeartOutlineMat,
+  );
+  celestialHeartGroup.add(celestialHeartOutline);
+
+  const celestialHeartStarsGeo = trackGeo(new THREE.BufferGeometry());
+  celestialHeartStarsGeo.setAttribute(
+    'position',
+    new THREE.BufferAttribute(heartStarPositions, 3),
+  );
+  celestialHeartStarsGeo.setAttribute(
+    'color',
+    new THREE.BufferAttribute(heartStarColors, 3),
+  );
+  const celestialHeartStarsMat = trackMat(
+    new THREE.PointsMaterial({
+      size: 0.26,
+      sizeAttenuation: true,
+      vertexColors: true,
+      transparent: true,
+      opacity: 0.0,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+    }),
+  );
+  const celestialHeartStars = new THREE.Points(
+    celestialHeartStarsGeo,
+    celestialHeartStarsMat,
+  );
+  celestialHeartGroup.add(celestialHeartStars);
+  celestialMemoryOrbitGroup.add(celestialHeartGroup);
+
+  const tmpLookAtTarget = new THREE.Vector3();
+
   group.add(celebrationGroup);
 
   // ==========================================================================
@@ -3093,6 +4058,37 @@ export function createPrivateWorldScene(
 
   const builtProposalChars: ProposalConstellationCharacterRuntime[] = [];
 
+  // Create a warm starlit CanvasTexture for the '🫶🏻' emoji so it glows inside the Heart-Hands star constellation
+  const createHeartHandsSkyTexture = (): THREE.CanvasTexture => {
+    const canvas = document.createElement('canvas');
+    canvas.width = 256;
+    canvas.height = 256;
+    const ctx = canvas.getContext('2d');
+    if (ctx) {
+      ctx.clearRect(0, 0, 256, 256);
+      const glow = ctx.createRadialGradient(128, 128, 12, 128, 128, 112);
+      glow.addColorStop(0, 'rgba(255, 230, 165, 0.48)');
+      glow.addColorStop(0.55, 'rgba(251, 146, 185, 0.18)');
+      glow.addColorStop(1, 'rgba(15, 23, 42, 0.0)');
+      ctx.fillStyle = glow;
+      ctx.fillRect(0, 0, 256, 256);
+
+      ctx.font =
+        '132px "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.shadowColor = 'rgba(253, 224, 71, 0.85)';
+      ctx.shadowBlur = 18;
+      ctx.fillText('🫶🏻', 128, 134);
+    }
+    const tex = trackTex(new THREE.CanvasTexture(canvas));
+    tex.colorSpace = THREE.SRGBColorSpace;
+    tex.needsUpdate = true;
+    return tex;
+  };
+  const heartHandsSkyTex = createHeartHandsSkyTexture();
+  const heartHandsPlaneGeo = trackGeo(new THREE.PlaneGeometry(7.2, 7.2));
+
   function buildProposalConstellationLine(
     lineText: string,
     lineOffsetV: number,
@@ -3100,12 +4096,14 @@ export function createPrivateWorldScene(
     normUStart: number,
     normUEnd: number,
   ) {
+    // Normalize multi-codepoint '🫶🏻' / '🫶' into single-character glyph key '♥'
+    const normalizedText = lineText.replace(/🫶🏻|🫶/g, '♥');
     const glyphs: { ch: string; tpl: StarGlyphTemplate; centerX: number }[] = [];
     let cursorX = 0;
     const spacing = 0.34;
 
-    for (let i = 0; i < lineText.length; i++) {
-      const ch = lineText[i];
+    for (let i = 0; i < normalizedText.length; i++) {
+      const ch = normalizedText[i];
       const tpl = PROPOSAL_SKY_GLYPHS[ch] ?? PROPOSAL_SKY_GLYPHS[' '];
       const halfW = tpl.width * 0.5;
       cursorX += halfW;
@@ -3224,6 +4222,44 @@ export function createPrivateWorldScene(
       lineSegments.frustumCulled = false;
       localGroup.add(lineSegments);
 
+      // If this character is the '🫶🏻' ('♥') glyph, also add a luminous '🫶🏻' sprite plane at its sky center
+      if (ch === '♥') {
+        const centerSkyPos = projectConstellationPointToSky(
+          PROPOSAL_STAGE_POS.playerFacingYaw,
+          0.35,
+          163.5,
+          1.0,
+          0.0,
+          relX * charScale,
+          lineOffsetV,
+          PROPOSAL_STAGE_POS.x,
+          PROPOSAL_STAGE_POS.y,
+          PROPOSAL_STAGE_POS.z,
+        );
+        const emojiMat = trackMat(
+          new THREE.MeshBasicMaterial({
+            map: heartHandsSkyTex,
+            transparent: true,
+            opacity: 0.0,
+            depthWrite: false,
+            side: THREE.DoubleSide,
+          }),
+        );
+        const emojiMesh = new THREE.Mesh(heartHandsPlaneGeo, emojiMat);
+        emojiMesh.position.copy(centerSkyPos);
+        emojiMesh.lookAt(
+          PROPOSAL_STAGE_POS.playerStandX,
+          PROPOSAL_STAGE_POS.y + 1.4,
+          PROPOSAL_STAGE_POS.playerStandZ,
+        );
+        emojiMesh.frustumCulled = false;
+        localGroup.add(emojiMesh);
+        starMeshes.push(emojiMesh);
+        starMats.push(emojiMat);
+        haloMats.push(emojiMat);
+        baseScales.push(1.0);
+      }
+
       proposalConstellationGroup.add(localGroup);
       builtProposalChars.push({
         normU: charNormU,
@@ -3239,8 +4275,8 @@ export function createPrivateWorldScene(
 
   // Line 1: "HAPPY VALENTINE'S DAY," (upper line, progressive reveal 0.0 -> 0.68)
   buildProposalConstellationLine("HAPPY VALENTINE'S DAY,", 7.2, 3.85, 0.0, 0.68);
-  // Line 2: "MY LOVE" (lower line, progressive reveal 0.64 -> 0.98)
-  buildProposalConstellationLine('MY LOVE', -4.2, 4.45, 0.64, 0.98);
+  // Line 2: "LOML 🫶🏻" (lower line, progressive reveal 0.64 -> 0.98)
+  buildProposalConstellationLine('LOML 🫶🏻', -4.2, 4.45, 0.64, 0.98);
 
   skyConstellationGroup.add(proposalConstellationGroup);
   group.add(skyConstellationGroup);
@@ -3315,7 +4351,12 @@ export function createPrivateWorldScene(
     isVegetationVisible() {
       return false;
     },
-    resetPathLighting() {},
+    resetPathLighting() {
+      for (let i = 0; i < pathLanternNodes.length; i++) {
+        pathLanternNodes[i].bloomLevel = 0;
+        pathLanternNodes[i].proximityBoost = 0;
+      }
+    },
     setOnSteppingStoneStep() {},
     triggerPondRipple() {},
     triggerPondTouchRipple() {},
@@ -3327,6 +4368,10 @@ export function createPrivateWorldScene(
       currentProposalState = state;
     },
 
+    setLoveseatCompanionActive(active: boolean) {
+      isLoveseatCompanionTargetActive = active;
+    },
+
     getPathLightingTelemetry() {
       return emptyPathTelemetry;
     },
@@ -3335,13 +4380,122 @@ export function createPrivateWorldScene(
       return 0;
     },
 
-    update(delta: number, elapsedTime: number, playerPos?: THREE.Vector3) {
+    update(
+      delta: number,
+      elapsedTime: number,
+      playerPos?: THREE.Vector3,
+      _playerVelocity?: THREE.Vector3,
+      camera?: THREE.Camera,
+    ) {
       // Gentle return portal, focal crystal & heart inlay shimmer
       portalVeilMat.opacity = 0.18 + Math.sin(elapsedTime * 2.1) * 0.04;
       stageFocalMarker.rotation.y = elapsedTime * 0.85;
       stageFocalMarker.position.y =
         stageY + 0.18 + Math.sin(elapsedTime * 2.2) * 0.03;
       heartLineMat.opacity = 0.62 + Math.sin(elapsedTime * 2.4) * 0.15;
+
+      // 0A. Update Two-Person Stargazing Loveseat Companion Presence
+      const targetCompVis = isLoveseatCompanionTargetActive ? 1.0 : 0.0;
+      loveseatCompanionVisibility +=
+        (targetCompVis - loveseatCompanionVisibility) *
+        Math.min(1, delta * 3.2);
+      if (loveseatCompanionVisibility <= 0.005) {
+        loveseatCompanionGroup.visible = false;
+      } else {
+        loveseatCompanionGroup.visible = true;
+        const breathe = Math.sin(elapsedTime * 1.75) * 0.01;
+        loveseatCompanionGroup.position.y = 0.46 + breathe;
+        seatedHeadGroup.rotation.z =
+          0.26 + Math.sin(elapsedTime * 1.1) * 0.03;
+        innerHandNode.position.y =
+          0.16 + Math.sin(elapsedTime * 2.1) * 0.008;
+
+        loveseatCompanionCoreMat.opacity =
+          loveseatCompanionVisibility * 0.76;
+        loveseatCompanionAuraMat.opacity =
+          loveseatCompanionVisibility *
+          (0.28 + Math.sin(elapsedTime * 2.3) * 0.05);
+
+        loveseatHeartMote.position.y =
+          0.27 + Math.sin(elapsedTime * 2.4) * 0.035;
+        loveseatHeartMote.rotation.y = elapsedTime * 1.4;
+        loveseatHeartMoteMat.opacity =
+          loveseatCompanionVisibility *
+          (0.68 + Math.sin(elapsedTime * 3.0) * 0.18);
+      }
+
+      // 0B. Interactive "Lantern Lighting Walk" Along the Curved Garden Path
+      const celProgForPath = currentProposalState.celebrationProgress ?? 0;
+      const lfAttr = lanternFireflyGeo.attributes
+        .position as THREE.BufferAttribute;
+      let litLanternCount = 0;
+
+      for (let l = 0; l < pathLanternNodes.length; l++) {
+        const node = pathLanternNodes[l];
+        let distToPlayer = 999;
+        if (playerPos) {
+          distToPlayer = Math.hypot(
+            playerPos.x - node.x,
+            playerPos.z - node.z,
+          );
+        }
+
+        // Awaken lantern permanently when Harsha walks within 4.3m (or during wedding celebration)
+        const nearFactor =
+          1.0 - THREE.MathUtils.smoothstep(distToPlayer, 1.4, 4.4);
+        if (nearFactor > 0.05 || celProgForPath > 0.05) {
+          const targetBloom = Math.max(
+            node.bloomLevel,
+            nearFactor > 0.05 ? Math.max(0.88, nearFactor) : 0,
+            celProgForPath,
+          );
+          node.bloomLevel +=
+            (targetBloom - node.bloomLevel) * Math.min(1, delta * 3.8);
+        }
+        node.proximityBoost +=
+          (nearFactor - node.proximityBoost) * Math.min(1, delta * 5.0);
+
+        if (node.bloomLevel > 0.25) litLanternCount++;
+
+        const pulse = Math.sin(elapsedTime * 2.8 + l * 0.9) * 0.1;
+        node.globeMat.emissiveIntensity =
+          0.55 +
+          node.bloomLevel * 1.55 +
+          node.proximityBoost * 0.65 +
+          pulse * node.bloomLevel;
+        node.haloMat.opacity =
+          0.06 +
+          node.bloomLevel * 0.34 +
+          node.proximityBoost * 0.18 +
+          pulse * 0.05;
+        node.haloMesh.scale.setScalar(
+          1.55 + node.bloomLevel * 0.55 + node.proximityBoost * 0.35,
+        );
+
+        // Swirl rose-gold fireflies around each awakened path lantern
+        const activeSwirl = Math.max(0.08, node.bloomLevel);
+        for (let f = 0; f < firefliesPerLantern; f++) {
+          const idx = l * firefliesPerLantern + f;
+          const angle =
+            elapsedTime * (1.35 + (f % 3) * 0.35) + f * 0.78 + l * 1.1;
+          const radius =
+            (0.16 + (f % 4) * 0.11) *
+            (0.35 + activeSwirl * 0.85 + node.proximityBoost * 0.35);
+          const heightOffset =
+            ((elapsedTime * 0.28 + f * 0.17 + l * 0.13) % 0.95) *
+              activeSwirl -
+            0.12;
+          lfAttr.setXYZ(
+            idx,
+            node.x + Math.cos(angle) * radius,
+            node.y + heightOffset,
+            node.z + Math.sin(angle) * radius,
+          );
+        }
+      }
+      lfAttr.needsUpdate = true;
+      emptyPathTelemetry.activeGlowingStones = litLanternCount;
+      emptyPathTelemetry.totalEmbeddedStones = pathLanternNodes.length;
 
       // Animate floating warm fireflies & rose-gold light motes across the Proposal Garden
       const ffAttr = fireflyGeo.attributes.position as THREE.BufferAttribute;
@@ -3777,6 +4931,185 @@ export function createPrivateWorldScene(
         fireworkSkyFlashLight.color.setHex(brightestBurstHex);
         fireworkSkyFlashLight.intensity =
           celProg * brightestBurstStrength * 4.2;
+
+        // 5. Update 360° Celestial Memory Orbit & 7-Stage Wedding Finale Choreography
+        // Stage 4: 360° orbital motion smoothly activates around wedTime >= 4.5s
+        const orbitMotionRamp = THREE.MathUtils.smoothstep(wedTime, 4.2, 7.2);
+        const orbitElapsed = Math.max(0, wedTime - 4.2) * orbitMotionRamp;
+
+        // Stage 6: Final celebration ascension (10.0s .. 16.0s) — photos gently rise & release star streams
+        const starAscensionProg = THREE.MathUtils.smoothstep(
+          wedTime,
+          10.0,
+          15.8,
+        );
+        // Stage 7: Final shot (12.0s .. 17.2s) — stars form a glowing heart above the wedding couple
+        const starHeartProg = THREE.MathUtils.smoothstep(wedTime, 12.0, 17.0);
+
+        // Update 3 Concentric Golden Starlight Orbit Threads
+        for (let rIdx = 0; rIdx < orbitRingVisuals.length; rIdx++) {
+          const ringVis = orbitRingVisuals[rIdx];
+          const ringAppearStart = rIdx === 0 ? 1.2 : rIdx === 1 ? 3.4 : 5.2;
+          const ringAppear = THREE.MathUtils.smoothstep(
+            wedTime,
+            ringAppearStart,
+            ringAppearStart + 2.2,
+          );
+          const ringFireworkBoost = brightestBurstStrength * 0.22;
+          ringVis.lineMat.opacity =
+            celProg * ringAppear * (0.28 + ringFireworkBoost);
+          ringVis.beadsMat.opacity =
+            celProg *
+            ringAppear *
+            (0.64 +
+              Math.sin(elapsedTime * 2.8 + rIdx) * 0.14 +
+              ringFireworkBoost);
+          ringVis.beadsPoints.rotation.y =
+            (rIdx === 0 ? -0.025 : rIdx === 1 ? 0.018 : -0.006) * orbitElapsed;
+        }
+
+        // Update 11 Camera-Facing Photographs Across the 3 Concentric 360° Orbits
+        const ascAttr = ascensionGeo.getAttribute(
+          'position',
+        ) as THREE.BufferAttribute;
+
+        for (let i = 0; i < memoryOrbitPhotoNodes.length; i++) {
+          const node = memoryOrbitPhotoNodes[i];
+          const appearProg = THREE.MathUtils.smoothstep(
+            wedTime,
+            node.appearStartTime,
+            node.appearStartTime + node.appearDuration,
+          );
+
+          if (appearProg <= 0.005) {
+            node.root.visible = false;
+            continue;
+          }
+          node.root.visible = true;
+
+          // Distinct orbital rotation per layer:
+          // Layer 0 (inner): slow clockwise (-0.052 rad/s)
+          // Layer 1 (middle): very slow counterclockwise (+0.031 rad/s)
+          // Layer 2 (outer): almost stationary (-0.007 rad/s) with gentle floating
+          const curAngle = node.baseAngle + orbitElapsed * node.angularSpeed;
+          const floatWave =
+            Math.sin(
+              elapsedTime * (node.layerIndex === 2 ? 1.15 : 1.45) +
+                node.floatPhase,
+            ) * (node.layerIndex === 2 ? 0.22 : 0.14);
+
+          // Stage 6: Photographs gently rise higher into the starry sky as they release starlight
+          const ascensionLift = starAscensionProg * 0.65;
+          const worldX = gcx + Math.cos(curAngle) * node.orbitRadius;
+          const worldZ = gcz + Math.sin(curAngle) * node.orbitRadius;
+          const worldY =
+            node.baseHeight +
+            node.heightOffset +
+            floatWave +
+            ascensionLift -
+            (1.0 - appearProg) * 0.85;
+
+          node.root.position.set(worldX, worldY, worldZ);
+
+          // Camera-facing perspective with subtle banking so 360° rotation feels natural from any angle
+          if (camera) {
+            tmpLookAtTarget.set(
+              camera.position.x,
+               THREE.MathUtils.lerp(worldY, camera.position.y, 0.65),
+              camera.position.z,
+            );
+          } else if (playerPos) {
+            tmpLookAtTarget.set(playerPos.x, worldY - 0.8, playerPos.z);
+          } else {
+            tmpLookAtTarget.set(gcx, stageY + 1.65, gcz);
+          }
+          node.root.lookAt(tmpLookAtTarget);
+
+          // Scale gently settles on entry and subtly condenses during star transformation
+          const entryScale =
+            node.baseScale *
+            (0.65 + 0.35 * appearProg) *
+            (1.0 - starAscensionProg * 0.12);
+          node.root.scale.setScalar(entryScale);
+
+          // Stage 5: Synchronize golden frame highlights with major fireworks bursts
+          const fireworkHighlight = brightestBurstStrength;
+          const frameAlpha = celProg * appearProg;
+
+          node.photoMat.opacity = frameAlpha * (0.94 - starAscensionProg * 0.1);
+          node.glassMat.opacity = frameAlpha * 0.26;
+          node.goldBorderMat.opacity = frameAlpha * 0.96;
+          node.goldBorderMat.emissiveIntensity =
+            0.42 + fireworkHighlight * 0.95 + starAscensionProg * 0.45;
+          node.haloGlowMat.opacity =
+            frameAlpha *
+            (0.18 +
+              fireworkHighlight * 0.44 +
+              starAscensionProg * 0.28 +
+              Math.sin(elapsedTime * 2.6 + node.floatPhase) * 0.05);
+
+          // Stage 6: Star-core gem above each photograph blooms as stars ascend toward the heart
+          node.starCoreMat.opacity =
+            frameAlpha *
+            (0.25 + starAscensionProg * 0.75 + fireworkHighlight * 0.25);
+          node.starCoreMesh.rotation.y = elapsedTime * 1.8 + i;
+          const starGemScale =
+            0.7 + starAscensionProg * 0.85 + fireworkHighlight * 0.3;
+          node.starCoreMesh.scale.setScalar(starGemScale);
+
+          // Update ascending star particles streaming from this photograph to the Celestial Star-Heart
+          for (let p = 0; p < ascensionParticlesPerPhoto; p++) {
+            const pIdx = i * ascensionParticlesPerPhoto + p;
+            const streamT =
+              (ascensionPhases[pIdx] + elapsedTime * 0.28 + i * 0.09) % 1.0;
+            const easeT = streamT * streamT * (3.0 - 2.0 * streamT);
+            const spiral =
+              Math.sin(streamT * Math.PI * 2 + i + elapsedTime * 2.0) *
+              (1.0 - streamT) *
+              0.35;
+            const sx =
+              THREE.MathUtils.lerp(worldX, heartCenterX, easeT) + spiral;
+            const sy =
+              THREE.MathUtils.lerp(worldY + 0.4, heartCenterY, easeT) +
+              Math.sin(streamT * Math.PI) * 0.85;
+            const sz =
+              THREE.MathUtils.lerp(worldZ, heartCenterZ, easeT) - spiral;
+            ascAttr.setXYZ(pIdx, sx, sy, sz);
+          }
+        }
+
+        ascAttr.needsUpdate = true;
+        ascensionMat.opacity =
+          celProg *
+          starAscensionProg *
+          (0.68 + Math.sin(elapsedTime * 4.2) * 0.16);
+
+        // Stage 7: Final Shot — Glowing Star-Heart above the wedding couple & floral arch
+        if (starHeartProg <= 0.005) {
+          celestialHeartGroup.visible = false;
+        } else {
+          celestialHeartGroup.visible = true;
+          const heartPulse =
+            1.0 +
+            Math.sin(elapsedTime * 2.4) * 0.045 +
+            brightestBurstStrength * 0.06;
+          celestialHeartGroup.scale.setScalar(
+            (0.72 + 0.28 * starHeartProg) * heartPulse,
+          );
+          if (camera) {
+            const dx = camera.position.x - heartCenterX;
+            const dz = camera.position.z - heartCenterZ;
+            celestialHeartGroup.rotation.y = Math.atan2(dx, dz);
+          }
+          celestialHeartOutlineMat.opacity =
+            celProg *
+            starHeartProg *
+            (0.65 + brightestBurstStrength * 0.3 + Math.sin(elapsedTime * 3.1) * 0.1);
+          celestialHeartStarsMat.opacity =
+            celProg *
+            starHeartProg *
+            (0.88 + Math.sin(elapsedTime * 3.8) * 0.12);
+        }
       }
 
       // 4. Update Telescope-Only "I LOVE YOU" Star Constellations
@@ -3869,6 +5202,7 @@ export function createPrivateWorldScene(
     dispose() {
       geometriesToDispose.forEach((g) => g.dispose());
       materialsToDispose.forEach((m) => m.dispose());
+      texturesToDispose.forEach((t) => t.dispose());
     },
   };
 }

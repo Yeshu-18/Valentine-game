@@ -4,6 +4,7 @@ import { CircleCollider } from '../VegetationSystem';
 import { dampAlpha, dampValue } from '../terrainMath';
 import {
   PRIVATE_WORLD_ANCHORS,
+  PROPOSAL_GARDEN_CENTER,
   getPrivatePlayerGroundHeight,
   getPrivateRegionAtPosition,
   getPrivateTerrainHeight,
@@ -21,6 +22,11 @@ import {
 } from './PrivateWorldInteractionSystem';
 import { TrailDestinationId } from './PrivateTrailSignSystem';
 
+export type PrivateCameraViewPreset =
+  | 'STANDARD'
+  | 'PHOTO_CLOSEUP'
+  | 'BIRDS_EYE';
+
 export interface PrivateWorldTelemetry {
   x: number;
   y: number;
@@ -32,6 +38,8 @@ export interface PrivateWorldTelemetry {
   regionSubtitle: string;
   nearReturnGate: boolean;
   isTopDownView: boolean;
+  cameraViewPreset: PrivateCameraViewPreset;
+  cameraZoomDistance: number;
   debugOverlayEnabled: boolean;
   activeInteractionPrompt: PrivateInteractionPrompt | null;
   interactionMode: PrivateInteractionMode;
@@ -74,9 +82,13 @@ export interface PrivateWorldControllerBundle {
   ) => void;
   setTopDownView: (topDown: boolean) => void;
   isTopDownView: () => boolean;
+  zoomCameraBy: (deltaDistance: number) => void;
+  setCameraViewPreset: (preset: PrivateCameraViewPreset) => void;
+  getCameraViewPreset: () => PrivateCameraViewPreset;
   triggerPrimaryInteraction: () => void;
   advanceProposalSequence: () => void;
   triggerWeddingCelebration: () => void;
+  stopWeddingCelebration: () => void;
   exitInteractionMode: () => void;
   update: (delta: number, elapsedTime: number) => void;
   getPosition: () => THREE.Vector3;
@@ -114,6 +126,7 @@ export function createPrivateWorldController(
 
   let active = false;
   let topDownView = false;
+  let cameraViewPreset: PrivateCameraViewPreset = 'STANDARD';
 
   const arrivalAnchor = PRIVATE_WORLD_ANCHORS.ARRIVAL_SHORE;
   const playerPos = new THREE.Vector3(
@@ -129,6 +142,8 @@ export function createPrivateWorldController(
   let cameraPitch = -0.14; // Tilted slightly upward so the starry sky & constellations are immediately visible!
   let facingYaw = arrivalAnchor.defaultFacingYaw;
   let cameraDistance = 5.6;
+  const MIN_CAMERA_DISTANCE = 1.0;
+  const MAX_CAMERA_DISTANCE = 38.0;
 
   // Seated camera gentle look-around offsets
   let seatedLookYawOffset = 0;
@@ -270,6 +285,18 @@ export function createPrivateWorldController(
       }
     }
 
+    // Keyboard Zoom In (+ / =) and Zoom Out (- / _)
+    if (e.code === 'Equal' || e.code === 'NumpadAdd') {
+      e.preventDefault();
+      applyCameraZoom(-1.6);
+      return;
+    }
+    if (e.code === 'Minus' || e.code === 'NumpadSubtract') {
+      e.preventDefault();
+      applyCameraZoom(1.6);
+      return;
+    }
+
     if (!interactionSystem.isMovementLocked()) {
       keys[e.code] = true;
     }
@@ -333,13 +360,31 @@ export function createPrivateWorldController(
     cameraYaw = wrapAnglePi(cameraYaw - dx * sens);
     cameraPitch = THREE.MathUtils.clamp(
       cameraPitch + dy * sens,
-      -0.68,
-      1.05,
+      -0.82,
+      1.22,
     );
   };
 
+  function applyCameraZoom(deltaDist: number) {
+    if (topDownView) {
+      topDownView = false;
+    }
+    cameraDistance = THREE.MathUtils.clamp(
+      cameraDistance + deltaDist,
+      MIN_CAMERA_DISTANCE,
+      MAX_CAMERA_DISTANCE,
+    );
+    if (cameraDistance <= 2.9) {
+      cameraViewPreset = 'PHOTO_CLOSEUP';
+    } else if (cameraDistance >= 14.5) {
+      cameraViewPreset = 'BIRDS_EYE';
+    } else {
+      cameraViewPreset = 'STANDARD';
+    }
+  }
+
   const onWheel = (e: WheelEvent) => {
-    if (!active || topDownView) return;
+    if (!active) return;
     const mode = interactionSystem.getMode();
     if (mode === 'TELESCOPE') {
       interactionSystem.adjustTelescopeLook(
@@ -355,11 +400,8 @@ export function createPrivateWorldController(
       cameraYaw = wrapAnglePi(cameraYaw - panDx * 0.0042);
       return;
     }
-    cameraDistance = THREE.MathUtils.clamp(
-      cameraDistance + e.deltaY * 0.004,
-      2.4,
-      11.5,
-    );
+    const zoomStep = e.deltaY * (cameraDistance > 12.0 ? 0.012 : 0.006);
+    applyCameraZoom(zoomStep);
   };
 
   window.addEventListener('keydown', onKeyDown);
@@ -497,6 +539,9 @@ export function createPrivateWorldController(
     setTopDownView(topDown: boolean) {
       if (topDown) {
         interactionSystem.cancelActiveMode();
+        cameraViewPreset = 'BIRDS_EYE';
+      } else {
+        cameraViewPreset = 'STANDARD';
       }
       topDownView = topDown;
       snapCameraBehindPlayer();
@@ -504,6 +549,49 @@ export function createPrivateWorldController(
 
     isTopDownView() {
       return topDownView;
+    },
+
+    zoomCameraBy(deltaDistance: number) {
+      if (!active) return;
+      applyCameraZoom(deltaDistance);
+    },
+
+    setCameraViewPreset(preset: PrivateCameraViewPreset) {
+      if (!active) return;
+      topDownView = false;
+      cameraViewPreset = preset;
+      if (preset === 'PHOTO_CLOSEUP') {
+        // Move to Proposal Garden if far away so the 360° Memory Sky photos are right around you
+        const distToGarden = Math.hypot(
+          playerPos.x - PROPOSAL_GARDEN_CENTER.x,
+          playerPos.z - PROPOSAL_GARDEN_CENTER.z,
+        );
+        if (distToGarden > 14.0) {
+          teleportTo(19.6, 15.8, 0.72);
+          cameraViewPreset = 'PHOTO_CLOSEUP';
+        }
+        cameraDistance = 1.65;
+        cameraPitch = -0.26;
+      } else if (preset === 'BIRDS_EYE') {
+        // Grand zoomed-out bird's-eye / panoramic view of the entire 360° Memory Sky, floral arch & Star-Heart
+        const distToGarden = Math.hypot(
+          playerPos.x - PROPOSAL_GARDEN_CENTER.x,
+          playerPos.z - PROPOSAL_GARDEN_CENTER.z,
+        );
+        if (distToGarden > 16.0) {
+          teleportTo(19.6, 15.8, 0.72);
+          cameraViewPreset = 'BIRDS_EYE';
+        }
+        cameraDistance = 26.5;
+        cameraPitch = 0.42;
+      } else {
+        cameraDistance = 5.6;
+        cameraPitch = -0.14;
+      }
+    },
+
+    getCameraViewPreset() {
+      return cameraViewPreset;
     },
 
     triggerPrimaryInteraction() {
@@ -522,6 +610,12 @@ export function createPrivateWorldController(
       callbacks.onProposalStateChange?.(interactionSystem.getProposalState());
     },
 
+    stopWeddingCelebration() {
+      if (!active) return;
+      interactionSystem.stopWeddingCelebration();
+      callbacks.onProposalStateChange?.(interactionSystem.getProposalState());
+    },
+
     exitInteractionMode() {
       interactionSystem.cancelActiveMode();
     },
@@ -534,9 +628,28 @@ export function createPrivateWorldController(
 
       const mode = interactionSystem.getMode();
 
-      const targetFov = mode === 'TELESCOPE' ? 34.0 : 60.0;
-      if (Math.abs(camera.fov - targetFov) > 0.02) {
-        camera.fov = dampValue(camera.fov, targetFov, 9.5, delta);
+      // Dynamic telephoto FOV when zoomed in close (< 3.0m) to inspect the 360° Memory Sky photos,
+      // and slightly wider panoramic FOV (64°) when zoomed out to bird's-eye overview
+      let desiredFov = 60.0;
+      if (mode === 'TELESCOPE') {
+        desiredFov = 34.0;
+      } else if (cameraDistance < 3.2) {
+        const closeT = THREE.MathUtils.clamp(
+          (3.2 - cameraDistance) / (3.2 - MIN_CAMERA_DISTANCE),
+          0,
+          1,
+        );
+        desiredFov = THREE.MathUtils.lerp(60.0, 28.0, closeT);
+      } else if (cameraDistance > 14.0) {
+        const wideT = THREE.MathUtils.clamp(
+          (cameraDistance - 14.0) / 18.0,
+          0,
+          1,
+        );
+        desiredFov = THREE.MathUtils.lerp(60.0, 65.0, wideT);
+      }
+      if (Math.abs(camera.fov - desiredFov) > 0.02) {
+        camera.fov = dampValue(camera.fov, desiredFov, 9.5, delta);
         camera.updateProjectionMatrix();
       }
 
@@ -726,14 +839,50 @@ export function createPrivateWorldController(
         _currentLookAt.set(11, 3.8, 9);
         camera.lookAt(_currentLookAt);
       } else {
+        // When near the Proposal Garden and either zoomed in close for photos OR zoomed far out for Bird's-Eye,
+        // smoothly blend the camera pivot toward the Proposal Garden & 360° Memory Sky center so all 3 orbits stay framed!
+        const distToGarden = Math.hypot(
+          playerPos.x - PROPOSAL_GARDEN_CENTER.x,
+          playerPos.z - PROPOSAL_GARDEN_CENTER.z,
+        );
+        const nearGardenFactor =
+          1.0 - THREE.MathUtils.smoothstep(distToGarden, 8.0, 18.0);
+        const closeUpBlend =
+          nearGardenFactor *
+          (1.0 - THREE.MathUtils.smoothstep(cameraDistance, 1.4, 3.2));
+        const birdsEyeBlend =
+          nearGardenFactor *
+          THREE.MathUtils.smoothstep(cameraDistance, 11.0, 20.0);
+        const skyCenterBlend = Math.max(closeUpBlend * 0.65, birdsEyeBlend * 0.88);
+
+        const pivotX = THREE.MathUtils.lerp(
+          playerPos.x,
+          PROPOSAL_GARDEN_CENTER.x,
+          skyCenterBlend,
+        );
+        const pivotZ = THREE.MathUtils.lerp(
+          playerPos.z,
+          PROPOSAL_GARDEN_CENTER.z,
+          skyCenterBlend,
+        );
+        const baseLookY = playerPos.y + 1.38;
+        const skyLookY =
+          PROPOSAL_GARDEN_CENTER.stageY +
+          (closeUpBlend > 0.2 ? 4.45 : 3.35);
+        const pivotY = THREE.MathUtils.lerp(
+          baseLookY,
+          skyLookY,
+          Math.max(closeUpBlend * 0.85, birdsEyeBlend * 0.75),
+        );
+
         const horizDist = Math.cos(cameraPitch) * cameraDistance;
         const vertOffset = Math.sin(cameraPitch) * cameraDistance + 1.55;
-        const camX = playerPos.x - Math.sin(cameraYaw) * horizDist;
-        const camZ = playerPos.z - Math.cos(cameraYaw) * horizDist;
-        const camY = computeCameraHeight(camX, camZ, vertOffset);
+        const camX = pivotX - Math.sin(cameraYaw) * horizDist;
+        const camZ = pivotZ - Math.cos(cameraYaw) * horizDist;
+        const camY = computeCameraHeight(camX, camZ, pivotY - playerPos.y + vertOffset - 1.38);
 
         _desiredCamPos.set(camX, camY, camZ);
-        _desiredLookAt.set(playerPos.x, playerPos.y + 1.38, playerPos.z);
+        _desiredLookAt.set(pivotX, pivotY, pivotZ);
 
         const camAlpha = dampAlpha(14.0, delta);
         camera.position.lerp(_desiredCamPos, camAlpha);
@@ -766,6 +915,8 @@ export function createPrivateWorldController(
         regionSubtitle: reg.subtitle,
         nearReturnGate: isNearPrivateReturnGate(playerPos.x, playerPos.z),
         isTopDownView: topDownView,
+        cameraViewPreset,
+        cameraZoomDistance: cameraDistance,
         debugOverlayEnabled: false,
         activeInteractionPrompt: interactionSystem.getNearestPrompt(),
         interactionMode: mode,

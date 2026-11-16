@@ -290,6 +290,8 @@ export default function App() {
       regionSubtitle: PRIVATE_WORLD_ANCHORS.ARRIVAL_SHORE.subtitle,
       nearReturnGate: true,
       isTopDownView: false,
+      cameraViewPreset: 'STANDARD',
+      cameraZoomDistance: 5.6,
       debugOverlayEnabled: false,
       activeInteractionPrompt: null,
       interactionMode: 'NONE',
@@ -652,6 +654,7 @@ export default function App() {
           }
         },
         onSeatedStateChange: (sitting) => {
+          privateWorldScene.setLoveseatCompanionActive(sitting);
           privateInteractionAudio.playSeatToggleCue(sitting);
         },
         onProposalStateChange: (propState) => {
@@ -2577,6 +2580,28 @@ export default function App() {
             const ctrl = privateWorldControllerRef.current;
             if (!ctrl) return;
             ctrl.triggerWeddingCelebration();
+            setPrivateWorldTelemetry(ctrl.getTelemetry());
+          }}
+          onStopWeddingCelebration={() => {
+            const ctrl = privateWorldControllerRef.current;
+            if (!ctrl) return;
+            ctrl.stopWeddingCelebration();
+            ctrl.setCameraViewPreset('STANDARD');
+            atmosphereRef.current?.setPrivateWorldMoonlightMode(true, false);
+            setPrivateWorldTelemetry(ctrl.getTelemetry());
+          }}
+          onZoomCamera={(deltaDist) => {
+            const ctrl = privateWorldControllerRef.current;
+            if (!ctrl) return;
+            ctrl.zoomCameraBy(deltaDist);
+            atmosphereRef.current?.setPrivateWorldMoonlightMode(true, false);
+            setPrivateWorldTelemetry(ctrl.getTelemetry());
+          }}
+          onSetCameraViewPreset={(preset) => {
+            const ctrl = privateWorldControllerRef.current;
+            if (!ctrl) return;
+            ctrl.setCameraViewPreset(preset);
+            atmosphereRef.current?.setPrivateWorldMoonlightMode(true, false);
             setPrivateWorldTelemetry(ctrl.getTelemetry());
           }}
           onExitInteractionMode={() => {
